@@ -1,0 +1,127 @@
+/* ==========================================================================
+   Life Dashboard — design tokens
+   Dark is the default look. Light mode only swaps the surface/text tokens,
+   so every component reads from these variables and works in both themes.
+   ========================================================================== */
+
+:root {
+  /* Typography — the Apple system font on iPhone, iPad and Mac */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  /* Sizes are in rem so they follow Dynamic Type on iPhone/iPad */
+  --fs-2xs: .6875rem;
+  --fs-xs: .75rem;
+  --fs-sm: .8125rem;
+  --fs-md: .9375rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.1875rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2rem;
+
+  /* Shape */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* Layout */
+  --page-x: 16px;
+  --tabbar-h: 64px;
+  --tabbar-gap: max(12px, calc(env(safe-area-inset-bottom) - 8px));
+  --rail-w: 84px;
+
+  /* Motion */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-spring: cubic-bezier(.34, 1.36, .5, 1);
+  --t-fast: 160ms;
+  --t: 260ms;
+  --t-slow: 420ms;
+
+  /* Module accents — every life category gets its own colour */
+  --brand: #5563ff;   --brand-2: #8b4dff;   /* Main dashboard */
+  --workout: #ff8a3d; --workout-2: #ffc04d; /* energetic */
+  --todo: #2fc4ff;    --todo-2: #5de0e6;    /* productivity */
+  --neuro: #ff6fb5;   --neuro-2: #ff9ad0;   /* reserved for Neurology */
+
+  /* Status colours — always paired with a text label or icon */
+  --pri-high: #ff5a5f;
+  --pri-med: #ffc53d;
+  --pri-low: #3ddc84;
+  --danger: #ff5a5f;
+  --success: #34d399;
+
+  /* ---- Dark theme (default) ---- */
+  color-scheme: dark;
+  --bg: #06070a;
+  --bg-raised: #0d0f15;
+  --surface: rgba(255, 255, 255, .045);
+  --surface-2: rgba(255, 255, 255, .075);
+  --surface-3: rgba(255, 255, 255, .12);
+  --surface-solid: #14161d;
+  --card-bg: linear-gradient(180deg, rgba(255, 255, 255, .062), rgba(255, 255, 255, .028));
+  --border: rgba(255, 255, 255, .08);
+  --border-2: rgba(255, 255, 255, .14);
+  --text: #f3f5fa;
+  --text-2: rgba(232, 236, 248, .68);
+  --text-3: rgba(232, 236, 248, .5);
+  --on-accent: #0b0d12;
+  --glass: rgba(18, 20, 28, .68);
+  --glass-border: rgba(255, 255, 255, .1);
+  --shadow-1: inset 0 1px 0 rgba(255, 255, 255, .05), 0 10px 30px rgba(0, 0, 0, .35);
+  --shadow-2: 0 24px 64px rgba(0, 0, 0, .6);
+  --ring-track: rgba(255, 255, 255, .09);
+  --brand-ink: #a3adff;
+  --workout-ink: #ffa066;
+  --todo-ink: #66d4ff;
+  --neuro-ink: #ff8fc6;
+  --danger-ink: #ff7b7f;
+  --ambient-a: rgba(85, 99, 255, .17);
+  --ambient-b: rgba(47, 196, 255, .075);
+  --ambient-c: rgba(255, 111, 181, .065);
+  --scrim: rgba(3, 4, 8, .62);
+  --statusbar: rgba(6, 7, 10, .78);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f4f9;
+  --bg-raised: #ffffff;
+  --surface: rgba(16, 24, 48, .04);
+  --surface-2: rgba(16, 24, 48, .06);
+  --surface-3: rgba(16, 24, 48, .1);
+  --surface-solid: #ffffff;
+  --card-bg: linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(255, 255, 255, .84));
+  --border: rgba(16, 24, 48, .08);
+  --border-2: rgba(16, 24, 48, .14);
+  --text: #0b1020;
+  --text-2: rgba(11, 16, 32, .72);
+  --text-3: rgba(11, 16, 32, .6);
+  --glass: rgba(255, 255, 255, .76);
+  --glass-border: rgba(16, 24, 48, .08);
+  --shadow-1: 0 1px 2px rgba(16, 24, 48, .05), 0 8px 24px rgba(16, 24, 48, .06);
+  --shadow-2: 0 24px 64px rgba(16, 24, 48, .2);
+  --ring-track: rgba(16, 24, 48, .08);
+  --brand-ink: #4338ca;
+  --workout-ink: #b24a08;
+  --todo-ink: #03699c;
+  --neuro-ink: #be185d;
+  --danger-ink: #c81e24;
+  --ambient-a: rgba(85, 99, 255, .12);
+  --ambient-b: rgba(47, 196, 255, .1);
+  --ambient-c: rgba(255, 111, 181, .08);
+  --scrim: rgba(10, 14, 28, .35);
+  /* The iPhone status bar text stays white in the installed app, so keep a dark band behind it */
+  --statusbar: rgba(11, 16, 32, .9);
+}
+
+/* Per-module accent helpers: add .accent-<module> to any element */
+.accent-brand   { --accent: var(--brand);   --accent-2: var(--brand-2);   --accent-ink: var(--brand-ink); }
+.accent-workout { --accent: var(--workout); --accent-2: var(--workout-2); --accent-ink: var(--workout-ink); }
+.accent-todo    { --accent: var(--todo);    --accent-2: var(--todo-2);    --accent-ink: var(--todo-ink); }
+.accent-neuro   { --accent: var(--neuro);   --accent-2: var(--neuro-2);   --accent-ink: var(--neuro-ink); }
+.accent-neutral { --accent: #8e95a8;        --accent-2: #b8bfd0;          --accent-ink: var(--text); }
+.accent-danger  { --accent: var(--danger);  --accent-2: #ff8a8d;          --accent-ink: var(--danger-ink); }

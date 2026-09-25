@@ -1,0 +1,7 @@
+# The GitHub repository is public (required for free GitHub Pages),
+# so private planning notes stay on this Mac only.
+SPEC.md
+
+# Local development settings and macOS clutter
+.claude/
+.DS_Store

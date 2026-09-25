@@ -1,0 +1,205 @@
+/* ==========================================================================
+   App shell: background, views, tab bar / side rail, boot screen
+   ========================================================================== */
+
+/* Soft ambient glow behind everything */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60vmax 50vmax at 0% -12%, var(--ambient-a), transparent 62%),
+    radial-gradient(50vmax 45vmax at 112% 22%, var(--ambient-b), transparent 60%),
+    radial-gradient(55vmax 50vmax at 70% 118%, var(--ambient-c), transparent 60%);
+}
+
+/* Behind the iPhone status bar in the installed app (zero height elsewhere) */
+.statusbar-scrim {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: var(--statusbar);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  pointer-events: none;
+}
+
+.app { position: relative; z-index: 1; }
+
+.views {
+  padding:
+    calc(env(safe-area-inset-top) + 10px)
+    max(var(--page-x), env(safe-area-inset-right))
+    calc(var(--tabbar-h) + var(--tabbar-gap) + 40px)
+    max(var(--page-x), env(safe-area-inset-left));
+}
+.views { overflow-x: clip; } /* never let anything make the page scroll sideways */
+.view { max-width: 720px; margin: 0 auto; }
+.view h1:focus { outline: none; }
+
+/* Screen change animation (direction follows the tab order) */
+.view--enter-right { animation: view-in-right var(--t) var(--ease) both; }
+.view--enter-left { animation: view-in-left var(--t) var(--ease) both; }
+.view--enter-fade { animation: view-fade var(--t) var(--ease) both; }
+@keyframes view-in-right { from { opacity: 0; transform: translateX(24px); } }
+@keyframes view-in-left { from { opacity: 0; transform: translateX(-24px); } }
+@keyframes view-fade { from { opacity: 0; } }
+
+/* ---- Tab bar (phone & iPad portrait): floating glass bar ---- */
+.tabbar {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  bottom: var(--tabbar-gap);
+  width: min(calc(100% - 24px), 460px);
+  height: var(--tabbar-h);
+  transform: translateX(-50%);
+}
+.tabbar__inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: 100%;
+  padding: 0 4px;
+  border-radius: 30px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+[data-theme="light"] .tabbar__inner { box-shadow: 0 12px 32px rgba(16, 24, 48, .14), inset 0 1px 0 rgba(255, 255, 255, .8); }
+
+.tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  border-radius: 24px;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  transition: color var(--t-fast) var(--ease);
+}
+.tab__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 30px;
+  border-radius: 15px;
+  transition: background-color var(--t) var(--ease), transform var(--t) var(--ease-spring);
+}
+.tab__icon .icon { width: 24px; height: 24px; }
+.tab__label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab[aria-current="page"] { color: var(--accent-ink); }
+.tab[aria-current="page"] .tab__icon { background: color-mix(in srgb, var(--accent) 17%, transparent); }
+.tab:active .tab__icon { transform: scale(.88); }
+.tab:focus-visible { outline-offset: -3px; }
+@media (hover: hover) { .tab:not([aria-current="page"]):hover { color: var(--text-2); } }
+
+/* The Main button: centred, larger, raised above the bar */
+.tab--primary { justify-content: flex-end; padding-bottom: 7px; color: var(--text-2); }
+.tab__orb {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  margin-top: -34px;
+  border-radius: 50%;
+  color: #fff;
+  background:
+    radial-gradient(110% 110% at 28% 18%, rgba(255, 255, 255, .34), transparent 46%),
+    linear-gradient(140deg, var(--brand), var(--brand-2));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .16),
+    0 12px 30px color-mix(in srgb, var(--brand) 50%, transparent),
+    inset 0 1px 1px rgba(255, 255, 255, .45);
+  transition: transform var(--t) var(--ease-spring), box-shadow var(--t-slow) var(--ease);
+}
+.tab__orb .icon { width: 27px; height: 27px; }
+.tab--primary .tab__label { margin-top: 3px; }
+.tab--primary[aria-current="page"] { color: var(--brand-ink); }
+.tab--primary[aria-current="page"] .tab__orb {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .22),
+    0 0 0 6px color-mix(in srgb, var(--brand) 22%, transparent),
+    0 14px 36px color-mix(in srgb, var(--brand-2) 55%, transparent),
+    inset 0 1px 1px rgba(255, 255, 255, .5);
+}
+.tab--primary:active .tab__orb { transform: scale(.92); }
+
+/* ---- iPad landscape & Mac: floating side rail ---- */
+@media (min-width: 1024px) {
+  .tabbar {
+    left: max(20px, env(safe-area-inset-left));
+    top: 50%;
+    bottom: auto;
+    width: var(--rail-w);
+    height: auto;
+    transform: translateY(-50%);
+  }
+  .tabbar__inner {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    padding: 12px 0;
+    border-radius: 34px;
+  }
+  .tab { padding: 10px 0; font-size: 11px; }
+  .tab--primary { padding: 14px 0; justify-content: center; }
+  .tab__orb { width: 58px; height: 58px; margin-top: 0; }
+
+  .views {
+    padding:
+      calc(env(safe-area-inset-top) + 32px)
+      max(40px, env(safe-area-inset-right))
+      56px
+      calc(var(--rail-w) + 60px + env(safe-area-inset-left));
+  }
+  .view { max-width: 1180px; }
+  .toasts { bottom: 28px; padding-left: calc(var(--rail-w) + 40px); }
+}
+
+/* ---- Boot / splash ---- */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: var(--bg);
+  transition: opacity .35s var(--ease), visibility .35s;
+}
+.boot.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+.boot__logo {
+  width: 76px;
+  height: 76px;
+  border-radius: 21px;
+  box-shadow: 0 14px 44px rgba(85, 99, 255, .38);
+  animation: boot-breathe 1.8s ease-in-out infinite;
+}
+.boot__name { font-family: var(--font-display); font-size: 1.0625rem; font-weight: 600; letter-spacing: .02em; color: var(--text-2); }
+.boot__msg { max-width: 340px; text-align: center; font-size: var(--fs-sm); color: var(--text-3); line-height: 1.5; }
+.boot__msg:empty { display: none; }
+.boot__msg small { display: block; margin-top: 6px; opacity: .8; word-break: break-word; }
+.boot__msg button {
+  margin-top: 16px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+}
+.boot--error .boot__logo { animation: none; opacity: .5; }
+@keyframes boot-breathe { 50% { transform: scale(.95); opacity: .82; } }

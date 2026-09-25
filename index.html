@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Life Dashboard</title>
+  <meta name="description" content="Your personal command center for workouts, tasks and more.">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#06070a">
+
+  <!-- Installable on iPhone/iPad ("Add to Home Screen") and Mac ("Add to Dock") -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Life">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <script>
+    /* Paint the saved theme before anything else loads (the real setting lives in IndexedDB). */
+    (function () {
+      var pref = 'dark';
+      try { pref = localStorage.getItem('ld.theme') || 'dark'; } catch (e) {}
+      if (pref === 'system') pref = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', pref === 'light' ? 'light' : 'dark');
+    })();
+  </script>
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/screens.css">
+
+  <!-- Fetch all scripts in parallel (keep in sync with the list in sw.js) -->
+  <link rel="modulepreload" href="js/main.js">
+  <link rel="modulepreload" href="js/core/actions.js">
+  <link rel="modulepreload" href="js/core/components.js">
+  <link rel="modulepreload" href="js/core/config.js">
+  <link rel="modulepreload" href="js/core/dates.js">
+  <link rel="modulepreload" href="js/core/db.js">
+  <link rel="modulepreload" href="js/core/html.js">
+  <link rel="modulepreload" href="js/core/icons.js">
+  <link rel="modulepreload" href="js/core/ids.js">
+  <link rel="modulepreload" href="js/core/platform.js">
+  <link rel="modulepreload" href="js/core/reorder.js">
+  <link rel="modulepreload" href="js/core/router.js">
+  <link rel="modulepreload" href="js/core/schema.js">
+  <link rel="modulepreload" href="js/core/state.js">
+  <link rel="modulepreload" href="js/core/theme.js">
+  <link rel="modulepreload" href="js/core/ui.js">
+  <link rel="modulepreload" href="js/services/backup.js">
+  <link rel="modulepreload" href="js/services/calendar.js">
+  <link rel="modulepreload" href="js/services/images.js">
+  <link rel="modulepreload" href="js/services/pwa.js">
+  <link rel="modulepreload" href="js/services/quotes.js">
+  <link rel="modulepreload" href="js/services/sample-data.js">
+  <link rel="modulepreload" href="js/services/storage.js">
+  <link rel="modulepreload" href="js/modules/index.js">
+  <link rel="modulepreload" href="js/modules/registry.js">
+  <link rel="modulepreload" href="js/modules/workout.js">
+  <link rel="modulepreload" href="js/modules/todo.js">
+  <link rel="modulepreload" href="js/modules/neurology.js">
+  <link rel="modulepreload" href="js/screens/dashboard.js">
+  <link rel="modulepreload" href="js/screens/settings.js">
+  <link rel="modulepreload" href="js/screens/welcome.js">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+  <div class="statusbar-scrim" aria-hidden="true"></div>
+
+  <div class="boot" id="boot" role="status">
+    <img class="boot__logo" src="icons/icon.svg" alt="" width="76" height="76">
+    <p class="boot__name">Life Dashboard</p>
+    <p class="boot__msg" id="boot-msg"></p>
+  </div>
+
+  <div class="app" id="app">
+    <main class="views" id="views"></main>
+    <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="sr-only" id="announcer" aria-live="polite"></div>
+  <noscript><p class="noscript">Life Dashboard needs JavaScript turned on.</p></noscript>
+</body>
+</html>
