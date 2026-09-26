@@ -10,6 +10,54 @@ import { addDays, atTime, nowISO, startOfDay, toDateKey } from '../core/dates.js
 
 const DEFAULT_CATEGORIES = ['Hospital', 'Residency', 'MBA', 'NU', 'Research', 'Business', 'Personal'];
 
+/** Bump when the shape of sample records changes, so today's samples are rebuilt. */
+const SAMPLE_VERSION = 2;
+
+/* Sample workouts: [exercise id, name, { warmup kg, sets, kg, reps, weekly step kg, durationSec }] */
+const SAMPLE_EXERCISES = {
+  Push: [
+    ['bench-press-barbell', 'Bench Press (Barbell)', { warmup: 40, sets: 3, kg: 70, reps: 8, step: 2.5 }],
+    ['incline-bench-press-dumbbell', 'Incline Bench Press (Dumbbell)', { sets: 3, kg: 26, reps: 10, step: 2 }],
+    ['seated-shoulder-press-machine', 'Seated Shoulder Press (Machine)', { sets: 3, kg: 45, reps: 10, step: 2.5 }],
+    ['lateral-raise-dumbbell', 'Lateral Raise (Dumbbell)', { sets: 3, kg: 10, reps: 14, step: 0 }],
+    ['triceps-rope-pushdown', 'Triceps Rope Pushdown', { sets: 3, kg: 25, reps: 12, step: 2.5 }],
+  ],
+  Pull: [
+    ['lat-pulldown-cable', 'Lat Pulldown (Cable)', { sets: 3, kg: 60, reps: 10, step: 2.5 }],
+    ['seated-cable-row-v-grip-cable', 'Seated Cable Row - V Grip (Cable)', { sets: 3, kg: 55, reps: 10, step: 2.5 }],
+    ['face-pull', 'Face Pull', { sets: 3, kg: 20, reps: 15, step: 0 }],
+    ['bicep-curl-dumbbell', 'Bicep Curl (Dumbbell)', { sets: 3, kg: 14, reps: 10, step: 1 }],
+    ['hammer-curl-dumbbell', 'Hammer Curl (Dumbbell)', { sets: 2, kg: 14, reps: 10, step: 1 }],
+  ],
+  Legs: [
+    ['squat-barbell', 'Squat (Barbell)', { warmup: 60, sets: 3, kg: 90, reps: 6, step: 2.5 }],
+    ['romanian-deadlift-barbell', 'Romanian Deadlift (Barbell)', { sets: 3, kg: 80, reps: 8, step: 2.5 }],
+    ['leg-press-machine', 'Leg Press (Machine)', { sets: 3, kg: 160, reps: 10, step: 5 }],
+    ['seated-leg-curl-machine', 'Seated Leg Curl (Machine)', { sets: 3, kg: 45, reps: 12, step: 2.5 }],
+    ['standing-calf-raise-machine', 'Standing Calf Raise (Machine)', { sets: 3, kg: 60, reps: 12, step: 5 }],
+    ['plank', 'Plank', { sets: 2, durationSec: 60 }],
+  ],
+};
+
+/** A sample workout's exercises; weights creep up week by week so progress shows. */
+function sampleExercises(type, weeksAgo) {
+  let n = 0;
+  const id = () => `s${(n++).toString(36)}`;
+  return SAMPLE_EXERCISES[type].map(([exerciseId, name, p]) => {
+    const sets = [];
+    if (p.durationSec) {
+      for (let i = 0; i < p.sets; i++) sets.push({ id: id(), type: 'normal', durationSec: p.durationSec - weeksAgo * 10, done: true });
+    } else {
+      const kg = Math.max(0, p.kg - p.step * weeksAgo);
+      if (p.warmup) sets.push({ id: id(), type: 'warmup', weightKg: p.warmup, reps: 10, done: true });
+      for (let i = 0; i < p.sets; i++) {
+        sets.push({ id: id(), type: 'normal', weightKg: kg, reps: p.reps - (i === p.sets - 1 ? 1 : 0), rir: i === p.sets - 1 ? 1 : 2, done: true });
+      }
+    }
+    return { id: id(), exerciseId, name, sets };
+  });
+}
+
 /** First run only: create the starting task categories (the user can edit them later). */
 export async function ensureDefaults() {
   const seeded = await db.get('meta', 'categoriesSeeded');
@@ -59,7 +107,6 @@ export function buildSampleRecords(now = new Date()) {
   ];
 
   // Push / Pull / Legs history over the last three weeks
-  const MUSCLES = { Push: ['Chest', 'Shoulders', 'Triceps'], Pull: ['Back', 'Biceps'], Legs: ['Legs', 'Abs/Core'] };
   const plan = [
     [-1, 'Pull', '18:10', 55], [-2, 'Push', '07:05', 62], [-3, 'Legs', '18:30', 71],
     [-5, 'Pull', '06:50', 52], [-7, 'Push', '18:00', 64], [-8, 'Legs', '07:10', 68],
@@ -72,13 +119,17 @@ export function buildSampleRecords(now = new Date()) {
     const end = new Date(start.getTime() + minutes * 60e3);
     return {
       ...base(`sample-workout-${pad2(i + 1)}`, end.toISOString()),
+      title: `${type} day`,
       type,
-      muscleGroups: MUSCLES[type],
+      muscleGroups: [type],
       startedAt: start.toISOString(),
       endedAt: end.toISOString(),
       pausedMs: 0,
+      pausedAt: null,
       templateId: null,
       notes: '',
+      source: 'app',
+      exercises: sampleExercises(type, Math.floor(-offset / 7)),
     };
   });
 
@@ -112,8 +163,8 @@ export async function ensureSampleData({ force = false } = {}) {
     await removeSampleData();
     return true;
   }
-  const today = toDateKey(new Date());
-  if (!force && seededOn === today) return false;
+  const seedKey = `${toDateKey(new Date())}#${SAMPLE_VERSION}`;
+  if (!force && seededOn === seedKey) return false;
 
   const records = buildSampleRecords(new Date());
   await tx([...SAMPLE_STORES, 'meta'], 'readwrite', (s) => {
@@ -122,7 +173,7 @@ export async function ensureSampleData({ force = false } = {}) {
       records[name].forEach((r) => s[name].put(r));
       deleteWhere(s[name], (r) => r.sample === true && !keep.has(r.id));
     }
-    s.meta.put({ key: 'sampleSeededOn', value: today });
+    s.meta.put({ key: 'sampleSeededOn', value: seedKey });
   });
   return true;
 }

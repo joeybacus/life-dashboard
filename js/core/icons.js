@@ -13,6 +13,7 @@ const PATHS = {
   // General
   chevronDown: '<path d="M6 9.5l6 6 6-6"/>',
   chevronRight: '<path d="M9.5 6l6 6-6 6"/>',
+  chevronLeft: '<path d="M14.5 6l-6 6 6 6"/>',
   chevronUpDown: '<path d="M8 9.5l4-4 4 4M8 14.5l4 4 4-4"/>',
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   arrowUp: '<path d="M12 19V5M6 11l6-6 6 6"/>',
@@ -73,6 +74,27 @@ const PATHS = {
   wifi: '<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.6 16a5 5 0 0 1 6.8 0"/><circle cx="12" cy="19.2" r=".6"/>',
   external: '<path d="M14 4.5h5.5V10M19.5 4.5l-8.5 8.5M17.5 14v4a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4"/>',
   refresh: '<path d="M20 11.5A8 8 0 0 0 5.6 7M4 4.5V8h3.5M4 12.5A8 8 0 0 0 18.4 17M20 19.5V16h-3.5"/>',
+
+  // Workouts
+  pause: '<rect x="6.5" y="5" width="3.6" height="14" rx="1.2"/><rect x="13.9" y="5" width="3.6" height="14" rx="1.2"/>',
+  play: '<path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l10.6-6.8a.8.8 0 0 0 0-1.4L9.2 4.5A.8.8 0 0 0 8 5.2z"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="2.5"/>',
+  star: '<path d="M12 3.8l2.5 5.1 5.6.8-4.05 3.95.96 5.6L12 16.6l-5.01 2.64.96-5.6L3.9 9.7l5.6-.8z"/>',
+  starFill: '<path fill="currentColor" d="M12 3.8l2.5 5.1 5.6.8-4.05 3.95.96 5.6L12 16.6l-5.01 2.64.96-5.6L3.9 9.7l5.6-.8z"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',
+  more: '<circle fill="currentColor" cx="5.5" cy="12" r="1.2"/><circle fill="currentColor" cx="12" cy="12" r="1.2"/><circle fill="currentColor" cx="18.5" cy="12" r="1.2"/>',
+  edit: '<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14 8l3 3"/>',
+  copy: '<rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 8.5V6.2a1.7 1.7 0 0 0-1.7-1.7H6.2a1.7 1.7 0 0 0-1.7 1.7v7.6a1.7 1.7 0 0 0 1.7 1.7h2.3"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3.1-3.1a4 4 0 0 0-5.7-5.7L11.6 6.7"/><path d="M14 10a4 4 0 0 0-5.7 0l-3.1 3.1a4 4 0 0 0 5.7 5.7l1.5-1.5"/>',
+  repeat: '<path d="M17 3.5l3 3-3 3"/><path d="M4 11.5V10a3.5 3.5 0 0 1 3.5-3.5H20"/><path d="M7 20.5l-3-3 3-3"/><path d="M20 12.5V14a3.5 3.5 0 0 1-3.5 3.5H4"/>',
+  history: '<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4.5V8h3.5"/><path d="M12 8v4.2l2.8 1.8"/>',
+  sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  volume: '<path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
+  video: '<rect x="3.5" y="5.5" width="17" height="13" rx="3"/><path d="M10.5 9.3v5.4l4.5-2.7z"/>',
+  list: '<path d="M9 6.5h11M9 12h11M9 17.5h11M4.8 6.5h.01M4.8 12h.01M4.8 17.5h.01"/>',
+  plusCircle: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8.5v7M8.5 12h7"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  vibrate: '<rect x="7.5" y="4" width="9" height="16" rx="2"/><path d="M4 9v6M20 9v6"/>',
 
   // Neurology tools
   layers: '<path d="M12 3.5l8.5 4.5L12 12.5 3.5 8z"/><path d="M3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5"/>',

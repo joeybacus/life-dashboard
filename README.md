@@ -4,8 +4,9 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 1 — Foundation, plus Google Sheets sync and backups (v0.2).**
-Data is stored on each device and, once sync is set up, in your own Google Sheet.
+**Current status: Phase 2 — Workout core (v0.3).** Log workouts with sets, reps and weights, a rest
+timer, templates, full history and a Hevy import — on top of Phase 1 (dashboard, settings, Google
+Sheets sync and backups). Data is stored on each device and, once sync is set up, in your own Google Sheet.
 
 ## Install the app (from GitHub Pages)
 
@@ -45,6 +46,18 @@ joins, the profile and settings already in the sheet are used. Sample data never
 
 If you change `Code.gs` later: **Deploy → Manage deployments → Edit → Version: New version → Deploy**.
 
+### Updating the sync script (needed once for v0.3)
+
+Version 0.3 adds two kinds of data — your exercises and workout templates — that need the latest
+script in your Google Sheet. Until it's updated they stay safely on your devices, and the app shows
+**Update sync** on the dashboard and **Update the sync script** in Settings → Sync (tap it for these steps):
+
+1. Settings → Sync → **Update the sync script** → **Copy code**.
+2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
+3. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
+   (Don't make a *new deployment* — that would change the Web app URL.)
+4. Back in the app, tap **Check now**. The new **Exercises** and **Workout templates** tabs appear in the sheet.
+
 ## Backups
 
 - **Settings → Backup → Export backup** saves a complete JSON copy (on iPhone: Share → Save to Files).
@@ -77,6 +90,27 @@ Good to know about the Wi-Fi preview:
   yet — this is for trying the design.
 - Some networks (guest, hospital or office Wi-Fi) block devices from reaching each other.
 
+## Workouts (Phase 2)
+
+- **Start Workout** (Main dashboard or the Workout tab) asks for confirmation, then what you're training
+  (Push, Pull, Legs, Chest… — several allowed; your split suggests one), then offers exercises that fit.
+  Or start from a **template** (Push / Pull / Leg Day starters, or your own).
+- **Logging:** each exercise shows *Previous: 70 kg × 8*; the grey hints in each box are last time's numbers,
+  and ticking ✓ on an empty set uses them. Tap the set number for warm-up / drop / failure sets, notes or
+  delete; ⋯ on an exercise for notes, rest time, supersets, reorder, replace or remove. The effort column is
+  RIR or RPE (Settings → Workout). Everything saves the moment you change it.
+- **Timers:** the workout timer (with Pause, which asks first, and End Workout) is calculated from the start
+  time, so it's right even after the phone locks. The rest timer starts when you tick a set, with −15 / +15 /
+  +30 / Skip, and chimes (and vibrates, or taps on iPhone) when rest is over while the app is open.
+  A small bar above the tabs shows a workout in progress while you look at other screens.
+- **History:** every workout with filters (dates, muscle group, exercise, template); open one to edit it,
+  do it again, save it as a template, or delete it (with Undo).
+- **Exercise library:** ~200 exercises named like Hevy's, plus your own; favourites, notes, rest time per
+  exercise, a video link, and each exercise's history and best set.
+- **Hevy:** in Hevy go to Settings → Export & Import Data → Export Workouts, save the CSV to Files, then in
+  this app choose **Import Hevy** (Workout tab) or Settings → Hevy. You'll see a preview first; workouts you
+  already have are skipped, so importing again later is safe. **Export workouts (CSV)** writes the same format.
+
 ## What Phase 1 includes
 
 - Five-tab navigation (Workout · To Do · **Main** · Neurology · Settings) with the Main button
@@ -99,13 +133,16 @@ css/                  Design tokens, base, components, layout, screens
 js/main.js            Start-up
 js/core/              Database, state, navigation, UI helpers, icons, dates
 js/modules/           Life categories (workout, todo, neurology) + registry
+js/modules/workout/   Workout pieces: model, exercise library, logger, rest timer, templates,
+                      history, Hevy import/export
 js/screens/           Dashboard, settings, welcome
 js/services/          Sync, backup, calendar provider, sample data, storage, images
 apps-script/Code.gs   Google Sheets sync script (runs in your Google account)
 icons/                App icons (edit the SVGs, then run tools/make-icons.py)
 tools/                Local preview server and icon generator
 tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (checks) and
-                      mock_server.py (pretend web app at http://127.0.0.1:8124/macros/s/TEST/exec)
+                      mock_server.py (pretend web app at http://127.0.0.1:8124/macros/s/TEST/exec;
+                      --code OLD.gs runs an older script, to test the update notice)
 ```
 
 ### Notes for future phases
@@ -118,6 +155,14 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
   queued for sync; delete by setting `deletedAt`, never by removing the record. New synced
   stores must be added to `SYNC_STORES` (schema.js) and `STORES` (Code.gs). Sample records are
   marked `sample: true` and never sync.
+- **Pages inside a tab:** a tab can have sub-pages (`#/workout/history`). The router passes the part after
+  the tab id to the screen (`onShow(view, sub)` / `onRoute(view, sub)`); open one with
+  `openPage('workout', 'history')` and go back with `goBack()`. See `js/modules/workout.js` for a table of pages.
+- **Workouts** are one record each with their exercises and sets inside (see `js/modules/workout/model.js`);
+  the built-in exercise list lives in code (`library.js`) and the `exercises` store only keeps your own
+  exercises and your changes to built-in ones. Never rename a built-in exercise: its id comes from its name.
+- **Sync script versions:** `SCRIPT_VERSION` in `Code.gs` and `LATEST_SCRIPT_VERSION` / `STORE_SCRIPT_VERSION`
+  in `sync.js`. A new synced store that an older script can't save waits in the outbox until the script is updated.
 - **Calendar:** `js/services/calendar.js` uses a provider; a Google Calendar provider (via Apps
   Script) will replace the sample one without dashboard changes.
 - **Releasing:** bump the version in `js/core/config.js` and `CACHE_VERSION` in `sw.js`, and list

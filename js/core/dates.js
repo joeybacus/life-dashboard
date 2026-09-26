@@ -64,6 +64,7 @@ const F = {
   shortDate: fmt({ weekday: 'short', month: 'short', day: 'numeric' }),
   stamp: fmt({ month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
   dateTime: fmt({ year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+  date: fmt({ year: 'numeric', month: 'short', day: 'numeric' }),
 };
 
 export const formatLongDate = (d) => F.long.format(d);
@@ -73,6 +74,8 @@ export const formatWeekdayShort = (d) => F.weekdayShort.format(d);
 export const formatWeekdayNarrow = (d) => F.weekdayNarrow.format(d);
 export const formatStamp = (d) => F.stamp.format(d);
 export const formatDateTime = (d) => F.dateTime.format(d);
+/** "Sep 12, 2025" */
+export const formatDate = (d) => F.date.format(d);
 
 /** "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", "on Sep 12" */
 export function formatAgo(iso, now = Date.now()) {

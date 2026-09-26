@@ -20,8 +20,11 @@ export const DEFAULT_SETTINGS = {
   workout: {
     split: 'ppl',           // 'ppl' (Push/Pull/Legs) | 'body' (body-part split)
     weeklyGoal: 4,          // workouts per week (drives the Workout card ring)
-    restSeconds: 90,        // default rest timer (used from Phase 2)
+    restSeconds: 90,        // default rest timer; each exercise can override it
     units: 'kg',            // kilograms only
+    effort: 'rir',          // effort column when logging sets: 'rir' | 'rpe' | 'off'
+    restAlert: true,        // sound + vibration when the rest timer ends
+    keepAwake: true,        // keep the screen on during a workout
   },
   tasks: {
     sort: 'smart',          // 'smart' | 'priority' | 'time' | 'recent' | 'category'

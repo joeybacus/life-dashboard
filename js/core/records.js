@@ -31,12 +31,29 @@ export function noteChange(stores, store, record) {
   stores.outbox.put({ key: outboxKey(store, record.id), store, id: record.id, updatedAt: record.updatedAt });
 }
 
-/** Save one record and queue it for sync. */
-export async function saveRecord(store, record, { source = 'local' } = {}) {
+/**
+ * Save one record and queue it for sync.
+ * quiet: a small, frequent change (e.g. a set logged mid-workout) — sync waits a
+ * little longer so a workout isn't sent after every tap.
+ */
+export async function saveRecord(store, record, { source = 'local', quiet = false } = {}) {
   await tx([store, 'outbox'], 'readwrite', (s) => {
     s[store].put(record);
     noteChange(s, store, record);
   });
-  if (source !== 'sync') emit('local-change', { store, id: record.id });
+  if (source !== 'sync') emit('local-change', { store, id: record.id, quiet });
   return record;
+}
+
+/** Save many records (possibly in different stores) all together, or none if anything fails. */
+export async function saveRecords(items) {
+  if (!items.length) return;
+  const stores = [...new Set(items.map((item) => item.store))];
+  await tx([...stores, 'outbox'], 'readwrite', (s) => {
+    items.forEach(({ store, record }) => {
+      s[store].put(record);
+      noteChange(s, store, record);
+    });
+  });
+  emit('local-change', { store: stores.join(','), count: items.length });
 }

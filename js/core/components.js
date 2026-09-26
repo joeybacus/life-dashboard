@@ -56,11 +56,27 @@ export function pageHead({ title, iconName, accent, eyebrow = '', aside = '' }) 
   </header>`;
 }
 
+/** Header for a page inside a tab: a Back button, then the page title. */
+export function subHead({ title, back = 'Back', fallback = '', accent = 'neutral', actions = '', eyebrow = '' }) {
+  return html`<header class="sub-head accent-${accent}">
+    <div class="sub-head__bar">
+      <button type="button" class="back-btn" data-action="nav:back" data-fallback="${fallback}">${icon('chevronLeft')}<span>${back}</span></button>
+      ${actions ? html`<div class="sub-head__actions">${actions}</div>` : ''}
+    </div>
+    ${eyebrow ? html`<p class="sub-head__eyebrow">${eyebrow}</p>` : ''}
+    <h1 class="page-title" tabindex="-1">${title}</h1>
+  </header>`;
+}
+
 /* Live stopwatches: any element with data-elapsed-since="<ISO>" (and optional
    data-paused-ms) shows the time elapsed, computed from the stored start time.
    Because it's computed rather than counted, it stays correct after the phone
-   locks or the app closes. */
-export function liveElapsed(startedAtISO, pausedMs = 0) {
+   locks or the app closes. While paused (pausedAt set) the time stands still. */
+export function liveElapsed(startedAtISO, pausedMs = 0, pausedAt = null) {
+  if (pausedAt) {
+    const ms = new Date(pausedAt).getTime() - new Date(startedAtISO).getTime() - pausedMs;
+    return html`<span class="num is-paused">${formatClock(ms)}</span>`;
+  }
   const ms = Date.now() - new Date(startedAtISO).getTime() - pausedMs;
   return html`<span class="num" data-elapsed-since="${startedAtISO}" data-paused-ms="${pausedMs}">${formatClock(ms)}</span>`;
 }

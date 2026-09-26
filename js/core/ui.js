@@ -125,3 +125,63 @@ export async function confirmDialog({ title, message, confirmLabel = 'OK', cance
   });
   return value === 'confirm';
 }
+
+/**
+ * iOS-style list of choices in a sheet. Resolves with the chosen item's value, or null.
+ * items: [{ label, value, icon, detail, destructive, disabled, checked }] (falsy items are skipped)
+ */
+export async function actionSheet({ title = '', message = '', items = [], cancelLabel = 'Cancel' } = {}) {
+  const choice = await openDialog({
+    variant: 'sheet',
+    className: 'action-sheet',
+    title,
+    body: html`${message ? html`<p class="dlg__msg">${message}</p>` : ''}
+      <div class="action-list">${items.filter(Boolean).map((item) => html`<button type="button"
+          class="action-item${item.destructive ? ' action-item--danger' : ''}${item.checked ? ' is-checked' : ''}"
+          data-dialog-value="${item.value}"${item.disabled ? raw(' disabled') : ''}${item.checked ? raw(' aria-current="true"') : ''}>
+        ${item.icon ? icon(item.icon) : ''}<span class="action-item__label">${item.label}</span>
+        ${item.detail ? html`<span class="action-item__detail">${item.detail}</span>` : ''}
+        ${item.checked ? icon('check', 'action-item__check') : ''}
+      </button>`)}</div>`,
+    actions: [{ label: cancelLabel, value: '__cancel', variant: 'ghost' }],
+  });
+  return choice === '__cancel' ? null : choice;
+}
+
+/** Ask for a line (or a few lines) of text. Resolves with the trimmed text, or null when cancelled. */
+export async function promptDialog({ title, label = '', value = '', placeholder = '', confirmLabel = 'Save', maxLength = 200, multiline = false, required = false } = {}) {
+  const result = await openDialog({
+    variant: 'alert',
+    className: 'prompt-dialog',
+    title,
+    body: html`<form class="prompt" data-prompt novalidate>
+      <label class="field">${label ? html`<span class="field__label">${label}</span>` : ''}
+        ${multiline
+          ? html`<textarea class="input textarea" name="text" rows="3" maxlength="${maxLength}" placeholder="${placeholder}">${value}</textarea>`
+          : html`<input class="input" name="text" value="${value}" maxlength="${maxLength}" placeholder="${placeholder}" autocomplete="off" enterkeyhint="done">`}
+      </label>
+      <div class="dlg__actions">
+        <button type="button" class="btn btn--ghost" data-dialog-value="__cancel">Cancel</button>
+        <button type="submit" class="btn btn--primary">${confirmLabel}</button>
+      </div>
+    </form>`,
+    onOpen(dlg, close) {
+      const form = dlg.querySelector('[data-prompt]');
+      const field = form.elements.text;
+      setTimeout(() => {
+        field.focus();
+        if (!multiline) field.select();
+      }, 60);
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const text = field.value.trim();
+        if (required && !text) {
+          field.focus();
+          return;
+        }
+        close({ text });
+      });
+    },
+  });
+  return result && typeof result === 'object' ? result.text : null;
+}

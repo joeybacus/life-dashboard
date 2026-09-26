@@ -24,6 +24,7 @@ const META_KEY = 'sync';
 const GROUP_STORES = ['profile', 'settings']; // one shared copy for all devices
 const BATCH = 200;
 const AFTER_CHANGE_MS = 4000;
+const AFTER_QUIET_CHANGE_MS = 30_000; // sets logged during a workout
 const EVERY_MS = 5 * 60 * 1000;
 const RETRY_MS = [30, 120, 300, 600].map((s) => s * 1000);
 const REQUEST_TIMEOUT_MS = 45_000;
@@ -42,6 +43,14 @@ const MESSAGES = {
   server: 'Your Google Sheet reported a problem. It will try again shortly.',
 };
 const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response']);
+
+/* The sync script (apps-script/Code.gs) reports its version. Older scripts
+   don't have tabs for newer kinds of data: those wait on this device (nothing
+   is lost) until the script is updated. */
+export const LATEST_SCRIPT_VERSION = 2;
+const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2 };
+const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
+const scriptSupports = (store, config) => (STORE_SCRIPT_VERSION[store] ?? 1) <= scriptVersion(config);
 
 export class SyncError extends Error {
   constructor(code, detail) {
@@ -66,6 +75,7 @@ export function syncSnapshot() {
     error: sync.error,
     pending: sync.pending,
     lastSyncAt: sync.config?.lastSyncAt ?? null,
+    scriptOutdated: Boolean(sync.config) && scriptVersion() < LATEST_SCRIPT_VERSION,
   };
 }
 
@@ -129,6 +139,7 @@ async function call(action, payload = {}, config = sync.config) {
     let data;
     try { data = await response.json(); } catch { throw new SyncError('bad-response'); }
     if (!data || data.ok !== true) throw new SyncError(data?.error ?? 'server', data?.message);
+    config.scriptVersion = Number(data.version) || 1;
     return data;
   } finally {
     clearTimeout(timer);
@@ -174,8 +185,9 @@ function settleOutbox(batch, results) {
   })));
 }
 
-async function push(items, logs = []) {
+async function push(allItems, logs = []) {
   const results = {};
+  const items = allItems.filter(({ store }) => scriptSupports(store));
   for (let i = 0; i < items.length || (i === 0 && logs.length); i += BATCH) {
     const batch = items.slice(i, i + BATCH);
     const res = await call('push', {
@@ -273,9 +285,11 @@ async function runSync() {
   try {
     const config = sync.config;
     const firstSync = !config.firstSyncDone;
+    const versionBefore = scriptVersion(config);
     await fitProfilePhoto();
 
-    const results = await push(await collectOutgoing(firstSync));
+    const outgoing = await collectOutgoing(firstSync);
+    const results = await push(outgoing);
     const pulled = await call('pull', { sinceSeq: config.pullSeq ?? 0 });
     const { touched, logs } = await applyRemote(pulled.changes ?? [], firstSync);
 
@@ -292,6 +306,10 @@ async function runSync() {
     await refreshAfterSync(touched);
     await countPending();
     retryStep = 0;
+    // The script was just updated: send what was waiting for it straight away
+    if (scriptVersion(config) > versionBefore && outgoing.some(({ store }) => !scriptSupports(store, { scriptVersion: versionBefore }))) {
+      again = true;
+    }
     const tooLarge = Object.values(results).includes('too-large');
     setPhase('idle', tooLarge ? { code: 'too-large', message: 'One item was too large to sync.' } : null);
     return true;
@@ -309,6 +327,7 @@ async function runSync() {
 /* ---------- Scheduling ---------- */
 
 let timer = null;
+let dueAt = 0;
 let retryTimer = null;
 let retryStep = 0;
 let running = null;
@@ -325,6 +344,7 @@ function scheduleRetry() {
 export function syncNow() {
   if (!sync.config) return Promise.resolve(false);
   clearTimeout(timer);
+  timer = null;
   if (running) {
     again = true;
     return running;
@@ -339,11 +359,20 @@ export function syncNow() {
   return running;
 }
 
-/** Sync soon, if automatic sync is on (or when forced). */
+/**
+ * Sync soon, if automatic sync is on (or when forced). A sync that's already
+ * scheduled sooner is kept, so a stream of changes can't keep postponing it.
+ */
 export function requestSync(delay = AFTER_CHANGE_MS, { force = false } = {}) {
   if (!sync.config || (!sync.config.auto && !force)) return;
+  const at = Date.now() + delay;
+  if (timer && dueAt <= at) return;
   clearTimeout(timer);
-  timer = setTimeout(() => syncNow(), delay);
+  dueAt = at;
+  timer = setTimeout(() => {
+    timer = null;
+    syncNow();
+  }, delay);
 }
 
 const isStale = (ms) => !sync.config?.lastSyncAt || Date.now() - Date.parse(sync.config.lastSyncAt) > ms;
@@ -355,9 +384,9 @@ export async function initSync() {
   await countPending();
   sync.phase = !sync.config ? 'off' : navigator.onLine ? 'idle' : 'offline';
 
-  on('local-change', () => {
+  on('local-change', ({ quiet } = {}) => {
     countPending().then(publish);
-    requestSync();
+    requestSync(quiet ? AFTER_QUIET_CHANGE_MS : AFTER_CHANGE_MS);
   });
   window.addEventListener('online', () => {
     if (sync.config) setPhase('idle');
@@ -403,6 +432,7 @@ export async function connectSync({ url, token }) {
 
 export async function disconnectSync() {
   clearTimeout(timer);
+  timer = null;
   clearTimeout(retryTimer);
   sync.config = null;
   await db.delete('meta', META_KEY);
@@ -426,5 +456,7 @@ export function syncStatusText(s = syncSnapshot()) {
   if (s.phase === 'error') return s.error?.message ?? 'Sync problem';
   if (waiting && !s.auto) return `${waiting} not synced yet`;
   if (!s.lastSyncAt) return 'Waiting to sync';
-  return `Synced ${formatAgo(s.lastSyncAt)}${s.error?.code === 'too-large' ? ' · one item was too large' : ''}`;
+  const note = s.scriptOutdated ? ' · the sync script needs an update'
+    : s.error?.code === 'too-large' ? ' · one item was too large' : '';
+  return `Synced ${formatAgo(s.lastSyncAt)}${note}`;
 }

@@ -14,9 +14,11 @@
  * Keep the Web app URL and the token private: together they give access to
  * your data. After changing this code, publish it with
  * Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy.
+ * (The Web app URL stays the same, so nothing changes in the app.)
  */
 
-const PROTOCOL = 1;
+const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
+const SCRIPT_VERSION = 2;  // 2: adds the Exercises and Workout templates tabs
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -25,6 +27,8 @@ const STORES = {
   tasks: 'Tasks',
   taskCategories: 'Task categories',
   workouts: 'Workouts',
+  exercises: 'Exercises',
+  templates: 'Workout templates',
   bodyMeasurements: 'Body measurements',
 };
 
@@ -85,7 +89,7 @@ function showToken() {
 
 /** Opening the Web app URL in a browser shows this, which confirms the deployment works. */
 function doGet() {
-  return json_({ ok: true, app: 'life-dashboard-sync', protocol: PROTOCOL, message: 'Life Dashboard sync is running.' });
+  return json_({ ok: true, app: 'life-dashboard-sync', protocol: PROTOCOL, version: SCRIPT_VERSION, message: 'Life Dashboard sync is running.' });
 }
 
 function doPost(e) {
@@ -110,7 +114,7 @@ function doPost(e) {
   }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (req.action === 'ping') return json_({ ok: true, protocol: PROTOCOL, seq: currentSeq_(props) });
+    if (req.action === 'ping') return json_({ ok: true, protocol: PROTOCOL, version: SCRIPT_VERSION, seq: currentSeq_(props) });
     if (req.action === 'push') return json_(push_(ss, props, req));
     if (req.action === 'pull') return json_(pull_(ss, props, req));
     return json_({ ok: false, error: 'bad-action' });
@@ -201,7 +205,7 @@ function push_(ss, props, req) {
   });
 
   if (conflicts.length) appendConflicts_(ss, conflicts);
-  return { ok: true, seq: seq, results: results };
+  return { ok: true, version: SCRIPT_VERSION, seq: seq, results: results };
 }
 
 /** Everything saved after the device's last sync (by sequence number). */
@@ -221,7 +225,7 @@ function pull_(ss, props, req) {
       }
     });
   });
-  return { ok: true, seq: seq, changes: changes };
+  return { ok: true, version: SCRIPT_VERSION, seq: seq, changes: changes };
 }
 
 /* ---------- Sheet helpers ---------- */
@@ -279,12 +283,17 @@ function readable_(record) {
     else if (typeof v === 'string') text = v.indexOf('data:') === 0 ? '(image)' : v;
     else if (typeof v !== 'object') text = String(v);
     else if (Array.isArray(v) && v.every(function (x) { return x === null || typeof x !== 'object'; })) text = v.join(', ');
+    else if (Array.isArray(v) && v.every(isNamed_)) text = v.map(function (x) { return x.name; }).join(', '); // e.g. a workout's exercises
     else text = JSON.stringify(v);
     if (text.length > TEXT_LIMIT) text = text.slice(0, TEXT_LIMIT - 1) + '…';
     if (text.charAt(0) === '=') text = "'" + text; // show as text, never run as a formula
     out[k] = text;
   });
   return out;
+}
+
+function isNamed_(x) {
+  return Boolean(x) && typeof x.name === 'string';
 }
 
 function writeRows_(sheet, header, rows, changed) {

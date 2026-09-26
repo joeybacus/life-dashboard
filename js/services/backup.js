@@ -12,7 +12,7 @@ import { state } from '../core/state.js';
 import { syncSnapshot } from './sync.js';
 
 /** Settings kept on this device only — never written to backup files (the sync token lives here). */
-const LOCAL_ONLY_META = new Set(['sync', 'backup', 'ui']);
+const LOCAL_ONLY_META = new Set(['sync', 'backup', 'ui', 'restTimer']);
 const DATA_STORES = BACKUP_STORES.filter((name) => name !== 'meta');
 const WEEK = 7 * 864e5;
 
@@ -52,15 +52,14 @@ export async function prepareBackupFile() {
 }
 
 /**
- * Hand the file to the user: the share sheet on iPhone/iPad (Save to Files,
+ * Hand a file to the user: the share sheet on iPhone/iPad (Save to Files,
  * AirDrop, Google Drive…), a normal download elsewhere.
  * Returns 'shared' | 'downloaded' | 'cancelled' | 'needs-tap' (iOS wants a fresh tap to share).
  */
-export async function deliverBackupFile(file) {
+export async function shareOrDownload(file) {
   if (isIOS() && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: file.name });
-      await markBackedUp();
       return 'shared';
     } catch (err) {
       if (err?.name === 'AbortError') return 'cancelled';
@@ -76,8 +75,13 @@ export async function deliverBackupFile(file) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
-  await markBackedUp();
   return 'downloaded';
+}
+
+export async function deliverBackupFile(file) {
+  const result = await shareOrDownload(file);
+  if (result === 'shared' || result === 'downloaded') await markBackedUp();
+  return result;
 }
 
 /* ---------- Reminder bookkeeping ---------- */
@@ -103,7 +107,7 @@ export async function snoozeBackupReminder(days = 3) {
 
 /** Anything worth backing up yet? (Sample data doesn't count.) */
 async function hasRealData() {
-  const stores = ['tasks', 'workouts', 'bodyMeasurements'];
+  const stores = ['tasks', 'workouts', 'templates', 'bodyMeasurements'];
   const all = await readAll(stores);
   return stores.some((name) => all[name].some((r) => !r.sample && !r.deletedAt));
 }
@@ -150,6 +154,7 @@ export function validateBackup(backup) {
     deviceName: backup.deviceName ?? deviceName(String(backup.device ?? ''), 0),
     summary: {
       workouts: live('workouts'),
+      templates: live('templates'),
       tasks: live('tasks'),
       measurements: live('bodyMeasurements'),
       photos: 0, // progress photos arrive in a later phase

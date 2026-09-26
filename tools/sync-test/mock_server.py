@@ -11,6 +11,7 @@ a POST gets a 302 redirect to an "echo" URL that returns the JSON result.
     GET  /__state   → the pretend spreadsheet (JSON)
     GET  /__reset   → starts over with an empty spreadsheet
     GET  /__offline?on=1|0 → simulate Google being unreachable
+    --code OLD.gs  runs another copy of the script (e.g. an older version, to test updating)
 """
 import argparse
 import http.server
@@ -29,7 +30,7 @@ RUNNER = os.path.join(HERE, 'run-gas.js')
 
 LOCK = threading.Lock()          # one script run at a time, like LockService
 RESPONSES = {}
-STATE = {'path': None, 'offline': False}
+STATE = {'path': None, 'offline': False, 'code': CODE}
 
 
 def run_gas(mode, request_text=''):
@@ -38,7 +39,7 @@ def run_gas(mode, request_text=''):
             req.write(request_text)
         try:
             done = subprocess.run(
-                ['osascript', '-l', 'JavaScript', RUNNER, MOCK, CODE, STATE['path'], mode, req.name],
+                ['osascript', '-l', 'JavaScript', RUNNER, MOCK, STATE['code'], STATE['path'], mode, req.name],
                 capture_output=True, text=True, timeout=60)
         finally:
             os.unlink(req.name)
@@ -107,12 +108,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--port', type=int, default=8124)
     parser.add_argument('--state', default=os.path.join(tempfile.gettempdir(), 'life-dashboard-mock-sheet.json'))
+    parser.add_argument('--code', default=CODE, help='the Code.gs to run (default: apps-script/Code.gs)')
     args = parser.parse_args()
     STATE['path'] = args.state
+    STATE['code'] = os.path.abspath(args.code)
     if not os.path.exists(args.state):
         open(args.state, 'w').close()
     server = http.server.ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
-    print(f'Pretend Apps Script at http://127.0.0.1:{args.port}/macros/s/TEST/exec (state: {args.state})', flush=True)
+    print(f'Pretend Apps Script at http://127.0.0.1:{args.port}/macros/s/TEST/exec (state: {args.state}, code: {STATE["code"]})', flush=True)
     server.serve_forever()
 
 

@@ -43,19 +43,28 @@ const MIGRATIONS = [
   (db) => {
     db.createObjectStore('outbox', { keyPath: 'key' });
   },
-  // v3 — Phase 2 will add workoutExercises, workoutSets, exercises, templates…
+  // v3 — Phase 2 (workouts): your exercises (custom ones, plus favourites, notes and
+  // rest times for built-in ones) and workout templates. A workout keeps its
+  // exercises and their sets inside the workout record (Workout → exercises → sets),
+  // so each workout is saved, synced and restored as one piece.
+  (db) => {
+    const exercises = db.createObjectStore('exercises', { keyPath: 'id' });
+    exercises.createIndex('updatedAt', 'updatedAt');
+    const templates = db.createObjectStore('templates', { keyPath: 'id' });
+    templates.createIndex('updatedAt', 'updatedAt');
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
 
 /** Stores included in JSON backups, in export order. */
-export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'bodyMeasurements'];
+export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
 
 /** Every store (used when deleting all data). */
 export const STORE_NAMES = [...BACKUP_STORES, 'outbox'];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
-export const SYNC_STORES = ['profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'bodyMeasurements'];
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
 
 /** Stores that may contain generated sample records. */
 export const SAMPLE_STORES = ['tasks', 'workouts', 'bodyMeasurements'];

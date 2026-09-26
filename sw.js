@@ -2,7 +2,7 @@
    Strategy: always try the network first (so you get updates right away),
    and fall back to the saved copy when offline or the network is too slow.
    When adding files in a later phase, add them to SHELL and bump CACHE_VERSION. */
-const CACHE_VERSION = 'v0.2.0';
+const CACHE_VERSION = 'v0.3.0';
 const CACHE = `life-dashboard-${CACHE_VERSION}`;
 const NETWORK_TIMEOUT_MS = 3500;
 
@@ -15,6 +15,7 @@ const SHELL = [
   'css/components.css',
   'css/layout.css',
   'css/screens.css',
+  'css/workout.css',
   'js/main.js',
   'js/core/actions.js',
   'js/core/components.js',
@@ -22,6 +23,7 @@ const SHELL = [
   'js/core/dates.js',
   'js/core/db.js',
   'js/core/events.js',
+  'js/core/feedback.js',
   'js/core/html.js',
   'js/core/icons.js',
   'js/core/ids.js',
@@ -41,9 +43,24 @@ const SHELL = [
   'js/services/sample-data.js',
   'js/services/storage.js',
   'js/services/sync.js',
+  'js/services/wake-lock.js',
   'js/modules/index.js',
   'js/modules/registry.js',
   'js/modules/workout.js',
+  'js/modules/workout/bar.js',
+  'js/modules/workout/exercises.js',
+  'js/modules/workout/hevy.js',
+  'js/modules/workout/history.js',
+  'js/modules/workout/library.js',
+  'js/modules/workout/logger.js',
+  'js/modules/workout/model.js',
+  'js/modules/workout/muscles.js',
+  'js/modules/workout/picker.js',
+  'js/modules/workout/rest-timer.js',
+  'js/modules/workout/start.js',
+  'js/modules/workout/store.js',
+  'js/modules/workout/templates.js',
+  'js/modules/workout/transfer.js',
   'js/modules/todo.js',
   'js/modules/neurology.js',
   'js/screens/dashboard.js',

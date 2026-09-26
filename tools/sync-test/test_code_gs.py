@@ -59,12 +59,13 @@ token = gas('setup')['token']
 check('setup creates a readable token', re.fullmatch(r'[2-9A-HJ-NP-Z]{4}(-[2-9A-HJ-NP-Z]{4}){3}', token or ''), token)
 state = gas('dump')
 names = [s['name'] for s in state['sheets']]
-check('setup creates the tabs (Connection first)', names[0] == 'Connection' and {'Tasks', 'Workouts', 'Profile', 'Settings', 'Conflicts'} <= set(names), names)
+check('setup creates the tabs (Connection first)', names[0] == 'Connection' and {'Tasks', 'Workouts', 'Exercises', 'Workout templates', 'Profile', 'Settings', 'Conflicts'} <= set(names), names)
 check('connection tab shows the token', sheet(state, 'Connection')['rows'][2][1] == token)
 
 base = {'protocol': 1, 'token': token}
 check('wrong token is refused', gas('post', {**base, 'action': 'ping', 'token': 'AAAA-BBBB-CCCC-DDDD'}).get('error') == 'bad-token')
 check('token works lowercase and without dashes', gas('post', {**base, 'action': 'ping', 'token': token.replace('-', '').lower()}).get('ok') is True)
+check('ping reports the script version', gas('post', {**base, 'action': 'ping'}).get('version') == 2)
 check('old app versions are told to update', gas('post', {**base, 'action': 'ping', 'protocol': 99}).get('error') == 'protocol')
 check('GET confirms the deployment', json.loads(subprocess.run(['osascript', '-l', 'JavaScript', RUNNER, MOCK, CODE, STATE, 'get'], capture_output=True, text=True).stdout).get('app') == 'life-dashboard-sync')
 
@@ -74,7 +75,7 @@ tasks[0]['title'] = '=1+1'
 res = gas('post', {**base, 'action': 'push', 'deviceId': 'Mac-aaaa', 'sinceSeq': 0,
                    'records': [{'store': 'profile', 'record': rec('me', '2026-09-26T09:00:00.000Z', nickname='Joey')}]
                    + [{'store': 'tasks', 'record': t} for t in tasks]})
-check('push is accepted', res.get('ok') and res['seq'] == 1 and set(res['results'].values()) == {'applied'}, res)
+check('push is accepted', res.get('ok') and res['seq'] == 1 and set(res['results'].values()) == {'applied'} and res.get('version') == 2, res)
 state = gas('dump')
 task_rows = rows_of(state, 'Tasks')
 check('rows beyond the sheet size are added', len(task_rows) == 8, len(task_rows))
@@ -109,6 +110,26 @@ check('device A receives only the new change', [c['record']['title'] for c in re
 gas('post', {**base, 'action': 'push', 'deviceId': 'Mac-aaaa', 'sinceSeq': 2, 'records': [{'store': 'taskCategories', 'record': rec('cat-mba', '2026-09-26T07:00:00.000Z', name='MBA', order=2)}]})
 res = gas('post', {**base, 'action': 'push', 'deviceId': 'iPhone-bbbb', 'sinceSeq': 0, 'records': [{'store': 'taskCategories', 'record': {**rec('cat-mba', '2026-09-26T12:00:00.000Z', order=2, name='MBA')}}]})
 check('same content is not reported as a conflict', res['results']['taskCategories:cat-mba'] == 'same' and len(rows_of(gas('dump'), 'Conflicts')) == 2, res)
+
+# Phase 2 data: workouts carry their exercises; templates and exercises get their own tabs
+workout = rec('w1', '2026-09-27T09:00:00.000Z', title='Push day', muscleGroups=['Push'],
+              exercises=[{'id': 'e1', 'exerciseId': 'bench-press-barbell', 'name': 'Bench Press (Barbell)',
+                          'sets': [{'id': 's1', 'type': 'normal', 'weightKg': 70, 'reps': 8, 'done': True}]},
+                         {'id': 'e2', 'exerciseId': 'lateral-raise-dumbbell', 'name': 'Lateral Raise (Dumbbell)', 'sets': []}])
+res = gas('post', {**base, 'action': 'push', 'deviceId': 'Mac-aaaa', 'sinceSeq': 5, 'records': [
+    {'store': 'workouts', 'record': workout},
+    {'store': 'templates', 'record': rec('t-push', '2026-09-27T09:00:00.000Z', name='Push Day', exercises=[])},
+    {'store': 'exercises', 'record': rec('bench-press-barbell', '2026-09-27T09:00:00.000Z', favorite=True)},
+]})
+check('workouts, templates and exercises are accepted', set(res['results'].values()) == {'applied'} and len(res['results']) == 3, res)
+state = gas('dump')
+w_header = sheet(state, 'Workouts')['rows'][0]
+w_row = rows_of(state, 'Workouts')[0]
+check('a workout\'s exercises are listed by name', w_row[w_header.index('exercises')] == 'Bench Press (Barbell), Lateral Raise (Dumbbell)', w_row)
+check('the full workout is kept exactly', json.loads(w_row[5]) == workout)
+check('templates get their own tab', len(rows_of(state, 'Workout templates')) == 1 and len(rows_of(state, 'Exercises')) == 1)
+res = gas('post', {**base, 'action': 'pull', 'sinceSeq': 4})
+check('pull returns the new kinds of data', sorted(c['store'] for c in res['changes']) == ['exercises', 'templates', 'workouts'] and res.get('version') == 2, res)
 
 # Limits, logs and re-running setup
 big = rec('me', '2026-09-26T13:00:00.000Z', photo='data:image/jpeg;base64,' + 'A' * 60000)

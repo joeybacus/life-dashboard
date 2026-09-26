@@ -61,6 +61,7 @@
 }
 .btn .icon { width: 1.125rem; height: 1.125rem; }
 .btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .42; box-shadow: none; transform: none; cursor: default; }
 @media (hover: hover) {
   .btn:where(:not(.btn--primary, .btn--accent, .btn--danger)):hover { background: var(--surface-3); }
   .btn:where(.btn--primary, .btn--accent):hover { filter: brightness(1.08); }

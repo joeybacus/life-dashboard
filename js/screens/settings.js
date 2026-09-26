@@ -12,13 +12,15 @@ import { APP } from '../core/config.js';
 import { formatAgo, formatDateTime } from '../core/dates.js';
 import { isIOS, isStandalone, prefersReducedMotion } from '../core/platform.js';
 import { SPLITS } from '../modules/workout.js';
+import { importHevyFile } from '../modules/workout/transfer.js';
+import { wakeLockSupported } from '../services/wake-lock.js';
 import { COMPLETED_OPTIONS, SORT_OPTIONS } from '../modules/todo.js';
 import { ensureSampleData } from '../services/sample-data.js';
 import {
   applyRestore, buildBackup, deliverBackupFile, lastBackupAt, markBackedUp, prepareBackupFile,
   readBackupFile, validateBackup,
 } from '../services/backup.js';
-import { connectSync, disconnectSync, setAutoSync, syncNow, syncSnapshot, syncStatusText } from '../services/sync.js';
+import { LATEST_SCRIPT_VERSION, connectSync, disconnectSync, setAutoSync, syncNow, syncSnapshot, syncStatusText } from '../services/sync.js';
 import { imageFileToAvatar } from '../services/images.js';
 import { formatBytes, storageInfo } from '../services/storage.js';
 import { offlineLabel } from '../services/pwa.js';
@@ -26,15 +28,16 @@ import { offlineLabel } from '../services/pwa.js';
 let root = null;
 let nicknameTimer = null;
 let renderedConnected = null;
+let renderedOutdated = null;
 
 const THEMES = [['system', 'System', 'monitor'], ['dark', 'Dark', 'moon'], ['light', 'Light', 'sun']];
 const SPLIT_LABELS = { ppl: 'Push · Pull · Legs', body: 'Body-part split' };
 const REST_PRESETS = [30, 60, 90, 120, 180];
 const REMINDERS = [[0, 'None'], [5, '5 min before'], [10, '10 min before'], [30, '30 min before'], [60, '1 hour before']];
+const EFFORTS = [['rir', 'RIR'], ['rpe', 'RPE'], ['off', 'Off']];
 const INTEGRATIONS = [
   { name: 'Google Calendar', desc: 'Today’s events on your dashboard', icon: 'calendar', accent: 'accent-brand' },
   { name: 'Apple Health weight', desc: 'Send your latest weight with an Apple Shortcut', icon: 'heart', accent: 'accent-neuro' },
-  { name: 'Hevy', desc: 'Import and export workouts as CSV', icon: 'dumbbell', accent: 'accent-workout' },
 ];
 
 /** A settings row that opens the native picker. options: [[value, label], …] */
@@ -66,6 +69,7 @@ export function initSettings() {
   registerAction('settings:goal', (el) => changeGoal(Number(el.dataset.dir)));
   registerAction('backup:export', runExport);
   registerAction('sync:setup', openSyncSetup);
+  registerAction('sync:update', openScriptUpdate);
   registerAction('sync:now', runSyncNow);
   registerAction('sync:disconnect', disconnect);
 
@@ -124,6 +128,11 @@ function syncSection() {
         <span class="row__text"><span class="row__label">Google Sheets</span><span class="row__sub${s.phase === 'error' ? ' tone-danger' : ''}" data-slot="syncStatus">${syncStatusText(s)}</span></span>
         <button type="button" class="btn btn--sm row__control" data-action="sync:now"${s.phase === 'syncing' ? raw(' disabled') : ''}>Sync now</button>
       </div>
+      ${s.scriptOutdated ? html`<button type="button" class="row row--icon accent-workout" data-action="sync:update" data-slot="scriptUpdate">
+        <span class="row__icon">${icon('sparkles')}</span>
+        <span class="row__text"><span class="row__label">Update the sync script</span><span class="row__sub">A 2-minute update in your Google Sheet, so workout templates and exercises sync too</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>` : ''}
       <label class="row row--icon accent-todo">
         <span class="row__icon">${icon('refresh')}</span>
         <span class="row__text"><span class="row__label">Automatic sync</span><span class="row__sub">Syncs a few seconds after each change, when you open the app, and every few minutes</span></span>
@@ -168,6 +177,7 @@ function render() {
   const p = state.profile;
   const restCustom = !REST_PRESETS.includes(s.workout.restSeconds);
   renderedConnected = syncSnapshot().connected;
+  renderedOutdated = syncSnapshot().scriptOutdated;
 
   setHTML(root, html`
     ${pageHead({ title: 'Settings', iconName: 'gear', accent: 'neutral' })}
@@ -229,7 +239,7 @@ function render() {
         </div>
         <div class="row row--stack row--icon">
           <span class="row__icon">${icon('hourglass')}</span>
-          <span class="row__text"><span class="row__label" id="lbl-rest">Default rest timer</span><span class="row__sub">Each exercise will be able to override this</span></span>
+          <span class="row__text"><span class="row__label" id="lbl-rest">Default rest timer</span><span class="row__sub">Each exercise can have its own — set it while logging or in the exercise library</span></span>
           <div class="row__full">
             <div class="chips" role="radiogroup" aria-labelledby="lbl-rest">
               ${REST_PRESETS.map((sec) => html`<label class="chip-opt"><input type="radio" name="rest" value="${sec}" data-field="rest"${checked(!restCustom && s.workout.restSeconds === sec)}><span>${restLabel(sec)}</span></label>`)}
@@ -241,12 +251,52 @@ function render() {
             </div>
           </div>
         </div>
+        <label class="row row--icon">
+          <span class="row__icon">${icon('volume')}</span>
+          <span class="row__text"><span class="row__label">Rest timer alert</span><span class="row__sub">A chime and a vibration when rest is over, while the app is open${isIOS() ? ' (iPhone gives a light tap instead of vibrating)' : ''}</span></span>
+          <input type="checkbox" class="switch" switch data-field="restAlert"${checked(s.workout.restAlert)}>
+        </label>
+        <div class="row row--stack row--icon">
+          <span class="row__icon">${icon('pulse')}</span>
+          <span class="row__text"><span class="row__label" id="lbl-effort">Effort column</span><span class="row__sub">RIR = reps in reserve · RPE = rate of perceived exertion (1–10)</span></span>
+          <div class="segmented row__full" role="radiogroup" aria-labelledby="lbl-effort">
+            ${EFFORTS.map(([value, label]) => html`<label class="segmented__opt"><input type="radio" name="effort" value="${value}" data-field="effort"${checked(s.workout.effort === value)}><span>${label}</span></label>`)}
+          </div>
+        </div>
+        <label class="row row--icon">
+          <span class="row__icon">${icon('eye')}</span>
+          <span class="row__text"><span class="row__label">Keep screen on during workouts</span>${wakeLockSupported() ? '' : html`<span class="row__sub">Not supported by this browser</span>`}</span>
+          <input type="checkbox" class="switch" switch data-field="keepAwake"${checked(s.workout.keepAwake)}${wakeLockSupported() ? '' : raw(' disabled')}>
+        </label>
         <div class="row row--icon">
           <span class="row__icon">${icon('scale')}</span>
           <span class="row__text"><span class="row__label">Units</span></span>
           <span class="row__value">Kilograms (kg)</span>
         </div>
+        <button type="button" class="row row--icon" data-action="nav" data-route="workout" data-sub="exercises">
+          <span class="row__icon">${icon('list')}</span>
+          <span class="row__text"><span class="row__label">Exercise library</span><span class="row__sub">Favourites, notes, rest times and your own exercises</span></span>
+          ${icon('chevronRight', 'row__chev')}
+        </button>
       </div>
+    </section>
+
+    <section class="group" aria-labelledby="set-hevy-title">
+      <h2 class="group__title" id="set-hevy-title">Hevy</h2>
+      <div class="card group__card accent-workout">
+        <label class="row row--icon">
+          <span class="row__icon">${icon('download')}</span>
+          <span class="row__text"><span class="row__label">Import from Hevy (CSV)…</span><span class="row__sub">Your Hevy history, merged into your workouts. Workouts you already have are skipped.</span></span>
+          <input class="sr-only" type="file" accept=".csv,text/csv" data-field="hevyImport">
+          ${icon('chevronRight', 'row__chev')}
+        </label>
+        <button type="button" class="row row--icon" data-action="workout:export">
+          <span class="row__icon">${icon(isIOS() ? 'share' : 'upload')}</span>
+          <span class="row__text"><span class="row__label">Export workouts (CSV)</span><span class="row__sub">Same columns as Hevy’s export, in kg — opens in Numbers, Excel or Google Sheets</span></span>
+          ${icon('chevronRight', 'row__chev')}
+        </button>
+      </div>
+      <p class="group__foot">To get the file: in the Hevy app, open Settings → Export &amp; Import Data → Export Workouts, and save it to Files. Hevy has no public sync, so this is a one-way import you can repeat any time.</p>
     </section>
 
     <section class="group" aria-labelledby="set-tasks-title">
@@ -341,7 +391,7 @@ async function updateLastBackup() {
 /** Keep the sync row current without re-rendering the whole screen. */
 function updateSyncStatus(snapshot) {
   if (!isVisible()) return;
-  if (snapshot.connected !== renderedConnected) {
+  if (snapshot.connected !== renderedConnected || snapshot.scriptOutdated !== renderedOutdated) {
     render();
     return;
   }
@@ -386,6 +436,21 @@ async function onChange(event) {
       case 'split':
         await save((s) => { s.workout.split = el.value; });
         break;
+      case 'effort':
+        await save((s) => { s.workout.effort = el.value; });
+        break;
+      case 'restAlert':
+        await save((s) => { s.workout.restAlert = el.checked; });
+        break;
+      case 'keepAwake':
+        await save((s) => { s.workout.keepAwake = el.checked; });
+        break;
+      case 'hevyImport': {
+        const file = el.files?.[0];
+        el.value = '';
+        await importHevyFile(file);
+        break;
+      }
       case 'rest': {
         const box = root.querySelector('[data-slot="restCustom"]');
         if (el.value === 'custom') {
@@ -552,6 +617,7 @@ function restorePreview(backup) {
       ${fact('Backup date', backup.exportedAt ? formatDateTime(new Date(backup.exportedAt)) : 'Unknown')}
       ${fact('Device', backup.deviceName)}
       ${fact('Workouts', summary.workouts)}
+      ${fact('Templates', summary.templates ?? 0)}
       ${fact('Tasks', summary.tasks)}
       ${fact('Measurements', summary.measurements)}
       ${fact('Photos', summary.photos)}
@@ -628,10 +694,7 @@ function githubFileUrl(path) {
 
 async function openSyncSetup() {
   let code = null;
-  fetch('apps-script/Code.gs', { cache: 'no-cache' })
-    .then((r) => (r.ok ? r.text() : null))
-    .then((text) => { code = text; })
-    .catch(() => {});
+  fetchScriptCode().then((text) => { code = text; });
   const codeUrl = githubFileUrl('apps-script/Code.gs');
 
   await openDialog({
@@ -670,18 +733,7 @@ async function openSyncSetup() {
       const error = dlg.querySelector('[data-error]');
       const submit = dlg.querySelector('[data-submit]');
 
-      dlg.querySelector('[data-copy-code]').addEventListener('click', async () => {
-        if (!code) {
-          toast(navigator.onLine ? 'Still loading the code — try again in a moment.' : 'Connect to the internet to copy the code.', { icon: 'info' });
-          return;
-        }
-        try {
-          await navigator.clipboard.writeText(code);
-          toast('Code copied. Paste it into Apps Script.', { icon: 'check' });
-        } catch {
-          toast(codeUrl ? 'Couldn’t copy here — use “View code” instead.' : 'Couldn’t copy the code on this device.', { icon: 'info' });
-        }
-      });
+      dlg.querySelector('[data-copy-code]').addEventListener('click', () => copyScriptCode(code, codeUrl));
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -699,6 +751,76 @@ async function openSyncSetup() {
         } finally {
           submit.disabled = false;
           submit.textContent = 'Connect';
+        }
+      });
+    },
+  });
+}
+
+/** Load the sync script's code (to copy), from this app's own files. */
+function fetchScriptCode() {
+  return fetch('apps-script/Code.gs', { cache: 'no-cache' })
+    .then((r) => (r.ok ? r.text() : null))
+    .catch(() => null);
+}
+
+async function copyScriptCode(code, codeUrl) {
+  if (!code) {
+    toast(navigator.onLine ? 'Still loading the code — try again in a moment.' : 'Connect to the internet to copy the code.', { icon: 'info' });
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(code);
+    toast('Code copied. Paste it into Apps Script.', { icon: 'check' });
+  } catch {
+    toast(codeUrl ? 'Couldn’t copy here — use “View code” instead.' : 'Couldn’t copy the code on this device.', { icon: 'info' });
+  }
+}
+
+/** Steps for replacing the Apps Script code with the latest version (keeps the same Web app URL). */
+async function openScriptUpdate() {
+  let code = null;
+  fetchScriptCode().then((text) => { code = text; });
+  const codeUrl = githubFileUrl('apps-script/Code.gs');
+  await openDialog({
+    variant: 'sheet',
+    className: 'setup',
+    title: 'Update the sync script',
+    body: html`
+      <p class="setup__lead">This version of the app has new kinds of data (workout templates and your exercises). Your Google Sheet needs the latest sync script to store them. Until then they stay safely on this device. It’s easiest on a Mac.</p>
+      <ol class="setup__steps">
+        <li><strong>Copy the new code.</strong>
+          <span class="setup__buttons">
+            <button type="button" class="btn btn--sm" data-copy-code>${icon('clipboard')}Copy code</button>
+            ${codeUrl ? html`<a class="btn btn--sm btn--ghost" href="${codeUrl}" target="_blank" rel="noopener">${icon('external')}View code</a>` : ''}
+          </span>
+        </li>
+        <li><strong>Replace the old code.</strong> Open your Google Sheet → <strong>Extensions → Apps Script</strong>. Click in the code, select everything (<strong>⌘A</strong>), paste (<strong>⌘V</strong>), then click <strong>Save</strong>.</li>
+        <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>.</li>
+        <li><strong>Check.</strong> Come back here and tap <strong>Check now</strong>.</li>
+      </ol>
+      <p class="note">${icon('info')}<span>Your Web app URL and secret token stay the same, so there’s nothing to change on your other devices. Don’t create a “New deployment” — that would give you a new URL.</span></p>
+      <div class="setup__actions">
+        <button type="button" class="btn btn--ghost" data-dialog-value="close">Later</button>
+        <button type="button" class="btn btn--primary" data-check>Check now</button>
+      </div>`,
+    onOpen(dlg, close) {
+      dlg.querySelector('[data-copy-code]').addEventListener('click', () => copyScriptCode(code, codeUrl));
+      const check = dlg.querySelector('[data-check]');
+      check.addEventListener('click', async () => {
+        check.disabled = true;
+        check.textContent = 'Checking…';
+        await syncNow();
+        check.disabled = false;
+        check.textContent = 'Check now';
+        const snap = syncSnapshot();
+        if (!snap.scriptOutdated) {
+          close('done');
+          toast('The sync script is up to date. Templates and exercises now sync too.', { icon: 'cloudCheck', duration: 6000 });
+        } else if (snap.phase === 'error') {
+          toast(snap.error?.message ?? 'Couldn’t reach your Google Sheet.', { icon: 'info', duration: 6000 });
+        } else {
+          toast(`Your Google Sheet still has the old script. Make sure you chose “New version” and clicked Deploy (version ${LATEST_SCRIPT_VERSION} is needed).`, { icon: 'info', duration: 8000 });
         }
       });
     },

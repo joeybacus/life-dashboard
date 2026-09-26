@@ -14,6 +14,7 @@ import { registerServiceWorker } from './services/pwa.js';
 import { initSync } from './services/sync.js';
 import { requestPersistentStorage } from './services/storage.js';
 import './modules/index.js'; // registers Workout, To Do and Neurology
+import { initWorkout } from './modules/workout.js';
 import { initDashboard } from './screens/dashboard.js';
 import { initSettings } from './screens/settings.js';
 import { maybeShowWelcome } from './screens/welcome.js';
@@ -70,6 +71,7 @@ async function boot() {
   await initSync(); // reads the sync connection; the first sync starts shortly after
 
   initActions();
+  await initWorkout(); // the workout in progress, rest timer and workout bar
   initDashboard();
   initSettings();
   initRouter();

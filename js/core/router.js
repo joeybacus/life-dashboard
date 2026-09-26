@@ -1,7 +1,15 @@
 /* Screens, the tab bar and navigation between them.
-   Each screen registers itself with registerScreen(id, { title, icon, accent, mount, onShow, onHide }).
+
+   Each screen registers itself with
+     registerScreen(id, { title, icon, accent, mount, onShow, onHide, onRoute })
    Screens are built the first time they're opened and then kept, so each tab
-   remembers its scroll position like a native app. */
+   remembers its scroll position like a native app.
+
+   A tab can also have pages of its own, like #/workout/history. The part after
+   the tab id is the "sub-route": onShow(view, sub) receives it when the tab
+   opens, and onRoute(view, sub, { prev, back }) when it changes within the tab.
+   Each tab reopens on the page you left it on; tapping the tab again goes
+   back to its first page (like iOS). */
 import { state } from './state.js';
 import { icon } from './icons.js';
 import { html, setHTML } from './html.js';
@@ -15,8 +23,10 @@ const DEFAULT_ROUTE = 'main';
 const screens = new Map();
 const views = new Map();
 const scrollMemory = new Map();
+const subRoutes = new Map();   // tab → the page it was last showing
 const routeListeners = new Set();
 let current = null;
+let currentSub = '';
 let viewsHost;
 let tabbar;
 
@@ -25,7 +35,9 @@ export function registerScreen(id, def) {
 }
 
 export const currentRoute = () => current;
+export const currentSubRoute = () => currentSub;
 
+/** Listen for navigation: fn(tabId, prevTabId, sub). */
 export function onRoute(fn) {
   routeListeners.add(fn);
   return () => routeListeners.delete(fn);
@@ -42,17 +54,32 @@ export function initRouter() {
     event.preventDefault();
     navigate(link.dataset.tab);
   });
-  window.addEventListener('hashchange', () => navigate(routeFromHash(), { fromHash: true }));
-  registerAction('nav', (el) => navigate(el.dataset.route));
+  // Back/forward and typed addresses
+  const fromLocation = () => {
+    const { id, sub } = parseHash();
+    if (id !== current) navigate(id, { fromHash: true, sub });
+    else if (sub !== currentSub) showSub(sub, { fromHash: true, back: true });
+  };
+  window.addEventListener('popstate', fromLocation);
+  window.addEventListener('hashchange', fromLocation);
+  registerAction('nav', (el) => (el.dataset.sub != null ? openPage(el.dataset.route, el.dataset.sub) : navigate(el.dataset.route)));
+  registerAction('nav:back', (el) => goBack(el.dataset.fallback ?? ''));
 
   setupSwipe();
-  navigate(routeFromHash(), { initial: true });
+  const { id, sub } = parseHash();
+  navigate(id, { initial: true, sub });
 }
 
-function routeFromHash() {
-  const id = location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
-  return screens.has(id) ? id : DEFAULT_ROUTE;
+function parseHash() {
+  const parts = location.hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean);
+  if (!screens.has(parts[0])) return { id: DEFAULT_ROUTE, sub: '' };
+  let sub = '';
+  try { sub = parts.slice(1).map(decodeURIComponent).join('/'); } catch { /* malformed address */ }
+  return { id: parts[0], sub };
 }
+
+const hashFor = (id, sub) => `#/${id}${sub ? `/${sub.split('/').map(encodeURIComponent).join('/')}` : ''}`;
+const memoryKey = (id, sub) => `${id}/${sub}`;
 
 function renderTabbar() {
   setHTML(tabbar, html`<div class="tabbar__inner">${TABS.map((id) => {
@@ -88,45 +115,115 @@ function ensureView(id) {
   return view;
 }
 
+function animate(view, dir) {
+  if (prefersReducedMotion()) return;
+  view.classList.remove('view--enter-left', 'view--enter-right', 'view--enter-fade');
+  void view.offsetWidth; // restart the animation
+  view.classList.add(`view--enter-${dir}`);
+}
+
+function setTitle(screen) {
+  document.title = screen.id === DEFAULT_ROUTE ? 'Life Dashboard' : `${screen.title} · Life Dashboard`;
+}
+
+/**
+ * After a screen has drawn a page (render may be async): restore the scroll
+ * position and move focus to the page heading so VoiceOver announces it.
+ */
+function settle(view, id, sub, rendered, { top, focus }) {
+  window.scrollTo(0, top);
+  Promise.resolve(rendered).then(() => {
+    if (current !== id || currentSub !== sub) return;
+    if (Math.abs(window.scrollY - top) > 2) window.scrollTo(0, top);
+    if (focus) view.querySelector('h1')?.focus({ preventScroll: true });
+  }, (err) => console.error(err));
+}
+
+/** Switch tabs. opts.sub opens a particular page of that tab. */
 export function navigate(id, opts = {}) {
   if (!screens.has(id)) id = DEFAULT_ROUTE;
 
-  // Tapping the tab you're already on scrolls back to the top (like iOS)
   if (id === current) {
-    if (!opts.fromHash) window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    if (opts.sub != null && opts.sub !== currentSub) {
+      showSub(opts.sub, opts);
+    } else if (!opts.fromHash) {
+      // Tapping the tab you're on: back to its first page, or scroll to the top (like iOS)
+      if (currentSub) showSub('', { back: true });
+      else window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    }
     return;
   }
 
   const prev = current;
   if (prev) {
-    scrollMemory.set(prev, window.scrollY);
+    scrollMemory.set(memoryKey(prev, currentSub), window.scrollY);
     views.get(prev).hidden = true;
     screens.get(prev).onHide?.();
   }
 
+  const sub = opts.sub ?? subRoutes.get(id) ?? '';
   const view = ensureView(id);
   view.hidden = false;
-  if (!opts.initial && !prefersReducedMotion()) {
+  if (!opts.initial) {
     const from = TABS.indexOf(prev);
     const to = TABS.indexOf(id);
-    const dir = from < 0 || to < 0 ? 'fade' : to > from ? 'right' : 'left';
-    view.classList.remove('view--enter-left', 'view--enter-right', 'view--enter-fade');
-    void view.offsetWidth; // restart the animation
-    view.classList.add(`view--enter-${dir}`);
+    animate(view, from < 0 || to < 0 ? 'fade' : to > from ? 'right' : 'left');
   }
-  window.scrollTo(0, scrollMemory.get(id) ?? 0);
 
   current = id;
+  currentSub = sub;
+  subRoutes.set(id, sub);
   updateTabbar();
   const screen = screens.get(id);
-  document.title = id === DEFAULT_ROUTE ? 'Life Dashboard' : `${screen.title} · Life Dashboard`;
-  const hash = `#/${id}`;
+  setTitle(screen);
+  const hash = hashFor(id, sub);
   if (location.hash !== hash) history.replaceState(null, '', hash);
 
-  screen.onShow?.(view);
-  // Move focus to the new screen's heading so VoiceOver announces it
-  if (!opts.initial) view.querySelector('h1')?.focus({ preventScroll: true });
-  routeListeners.forEach((fn) => fn(id, prev));
+  const rendered = screen.onShow?.(view, sub);
+  settle(view, id, sub, rendered, { top: scrollMemory.get(memoryKey(id, sub)) ?? 0, focus: !opts.initial });
+  routeListeners.forEach((fn) => fn(id, prev, sub));
+}
+
+/** Show another page of the current tab. */
+function showSub(sub, { push = false, back = false, fromHash = false } = {}) {
+  const prevSub = currentSub;
+  scrollMemory.set(memoryKey(current, prevSub), window.scrollY);
+  currentSub = sub;
+  subRoutes.set(current, sub);
+  const hash = hashFor(current, sub);
+  if (!fromHash && location.hash !== hash) {
+    if (push) history.pushState({ ld: true }, '', hash);
+    else history.replaceState(null, '', hash);
+  }
+  const view = views.get(current);
+  animate(view, back ? 'left' : 'right');
+  const screen = screens.get(current);
+  const rendered = screen.onRoute?.(view, sub, { prev: prevSub, back });
+  // Going forward starts at the top; coming back returns to where you were
+  const top = back ? scrollMemory.get(memoryKey(current, sub)) ?? 0 : 0;
+  if (!back) scrollMemory.delete(memoryKey(current, sub));
+  settle(view, current, sub, rendered, { top, focus: true });
+  routeListeners.forEach((fn) => fn(current, current, sub));
+}
+
+/** Open a page, e.g. openPage('workout', 'history'). Back returns to where you were. */
+export function openPage(id, sub = '') {
+  if (id !== current) {
+    navigate(id, { sub });
+    return;
+  }
+  if (sub !== currentSub) showSub(sub, { push: true });
+}
+
+/** Replace the current page without adding a Back step (e.g. after deleting what it showed). */
+export function replacePage(sub = '') {
+  if (sub !== currentSub) showSub(sub, { back: true });
+}
+
+/** Go back one page: through the browser history when we came from there, otherwise to `fallback`. */
+export function goBack(fallback = '') {
+  if (history.state?.ld) history.back();
+  else showSub(fallback, { back: true });
 }
 
 /* Swipe left/right to move between neighbouring tabs (touch screens only). */
@@ -137,6 +234,7 @@ function setupSwipe() {
   document.addEventListener('touchstart', (event) => {
     start = null;
     if (!state.settings?.appearance.swipeNavigation || event.touches.length !== 1) return;
+    if (currentSub) return; // pages inside a tab (like a workout in progress) keep their own gestures
     if (document.querySelector('dialog[open]') || document.querySelector('.is-arranging')) return;
     if (event.target.closest('input, textarea, select, [contenteditable], [data-no-swipe]')) return;
     const t = event.touches[0];

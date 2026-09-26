@@ -185,6 +185,7 @@ function syncChip() {
   if (s.phase === 'syncing') [tone, label, iconName] = ['busy', 'Syncing', 'refresh'];
   else if (s.phase === 'offline') [tone, label, iconName] = ['muted', 'Offline', 'wifi'];
   else if (s.phase === 'error') [tone, label, iconName] = ['warn', 'Sync issue', 'info'];
+  else if (s.scriptOutdated) [tone, label, iconName] = ['warn', 'Update sync', 'sparkles'];
   else if (s.pending && !s.auto) [tone, label, iconName] = ['muted', 'Not synced', 'cloud'];
   return html`<button type="button" class="chip chip--sync chip--${tone}" data-action="settings:sync" aria-label="${syncStatusText(s)}. Open sync settings.">${icon(iconName)}${label}</button>`;
 }
