@@ -11,6 +11,7 @@ import { toast } from './core/ui.js';
 import { toDateKey } from './core/dates.js';
 import { ensureDefaults, ensureSampleData } from './services/sample-data.js';
 import { registerServiceWorker } from './services/pwa.js';
+import { initSync } from './services/sync.js';
 import { requestPersistentStorage } from './services/storage.js';
 import './modules/index.js'; // registers Workout, To Do and Neurology
 import { initDashboard } from './screens/dashboard.js';
@@ -66,6 +67,7 @@ async function boot() {
 
   await ensureDefaults();
   await ensureSampleData();
+  await initSync(); // reads the sync connection; the first sync starts shortly after
 
   initActions();
   initDashboard();

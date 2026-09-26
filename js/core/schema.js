@@ -39,13 +39,23 @@ const MIGRATIONS = [
     body.createIndex('measuredAt', 'measuredAt');
     body.createIndex('updatedAt', 'updatedAt');
   },
-  // v2 — Phase 2 will add workoutExercises, workoutSets, exercises, templates…
+  // v2 — Google Sheets sync: changes waiting to be sent ({ key: "store:id", store, id, updatedAt })
+  (db) => {
+    db.createObjectStore('outbox', { keyPath: 'key' });
+  },
+  // v3 — Phase 2 will add workoutExercises, workoutSets, exercises, templates…
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
 
-/** Every store, in export order. */
-export const STORE_NAMES = ['meta', 'profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'bodyMeasurements'];
+/** Stores included in JSON backups, in export order. */
+export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'bodyMeasurements'];
+
+/** Every store (used when deleting all data). */
+export const STORE_NAMES = [...BACKUP_STORES, 'outbox'];
+
+/** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'bodyMeasurements'];
 
 /** Stores that may contain generated sample records. */
 export const SAMPLE_STORES = ['tasks', 'workouts', 'bodyMeasurements'];

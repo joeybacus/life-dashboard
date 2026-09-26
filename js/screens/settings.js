@@ -1,32 +1,37 @@
 /* Settings. Every change saves immediately. */
 import { currentRoute, navigate, registerScreen } from '../core/router.js';
 import { registerAction } from '../core/actions.js';
-import { emit, on, state, updateProfile, updateSettings } from '../core/state.js';
+import { emit, on, reloadFromDatabase, state, updateProfile, updateSettings } from '../core/state.js';
 import { html, raw, setHTML } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { avatar, pageHead } from '../core/components.js';
-import { confirmDialog, toast } from '../core/ui.js';
+import { confirmDialog, openDialog, toast } from '../core/ui.js';
 import { tx } from '../core/db.js';
 import { STORE_NAMES } from '../core/schema.js';
 import { APP } from '../core/config.js';
+import { formatAgo, formatDateTime } from '../core/dates.js';
 import { isIOS, isStandalone, prefersReducedMotion } from '../core/platform.js';
 import { SPLITS } from '../modules/workout.js';
 import { COMPLETED_OPTIONS, SORT_OPTIONS } from '../modules/todo.js';
 import { ensureSampleData } from '../services/sample-data.js';
-import { exportBackup } from '../services/backup.js';
+import {
+  applyRestore, buildBackup, deliverBackupFile, lastBackupAt, markBackedUp, prepareBackupFile,
+  readBackupFile, validateBackup,
+} from '../services/backup.js';
+import { connectSync, disconnectSync, setAutoSync, syncNow, syncSnapshot, syncStatusText } from '../services/sync.js';
 import { imageFileToAvatar } from '../services/images.js';
 import { formatBytes, storageInfo } from '../services/storage.js';
 import { offlineLabel } from '../services/pwa.js';
 
 let root = null;
 let nicknameTimer = null;
+let renderedConnected = null;
 
 const THEMES = [['system', 'System', 'monitor'], ['dark', 'Dark', 'moon'], ['light', 'Light', 'sun']];
 const SPLIT_LABELS = { ppl: 'Push · Pull · Legs', body: 'Body-part split' };
 const REST_PRESETS = [30, 60, 90, 120, 180];
 const REMINDERS = [[0, 'None'], [5, '5 min before'], [10, '10 min before'], [30, '30 min before'], [60, '1 hour before']];
 const INTEGRATIONS = [
-  { name: 'Google Sheets sync', desc: 'Keep your data in your own Google Sheet', icon: 'sheet', accent: 'accent-todo' },
   { name: 'Google Calendar', desc: 'Today’s events on your dashboard', icon: 'calendar', accent: 'accent-brand' },
   { name: 'Apple Health weight', desc: 'Send your latest weight with an Apple Shortcut', icon: 'heart', accent: 'accent-neuro' },
   { name: 'Hevy', desc: 'Import and export workouts as CSV', icon: 'dumbbell', accent: 'accent-workout' },
@@ -48,18 +53,27 @@ function pickerRow({ field, iconName, label, value, options }) {
 const restLabel = (sec) => (sec < 120 ? `${sec} sec` : sec % 60 ? `${Math.floor(sec / 60)} min ${sec % 60} sec` : `${sec / 60} min`);
 const checked = (on) => (on ? raw(' checked') : '');
 const selected = (on) => (on ? raw(' selected') : '');
+const isVisible = () => Boolean(root && !root.hidden);
 
 export function initSettings() {
   registerScreen('settings', { title: 'Settings', icon: 'gear', accent: 'neutral', mount, onShow: render });
 
   registerAction('settings:profile', () => openSection('settings-profile'));
   registerAction('settings:data', () => openSection('settings-data'));
+  registerAction('settings:sync', () => openSection('settings-sync'));
   registerAction('settings:remove-photo', removePhoto);
-  registerAction('settings:export', runExport);
   registerAction('settings:delete', deleteAllData);
   registerAction('settings:goal', (el) => changeGoal(Number(el.dataset.dir)));
+  registerAction('backup:export', runExport);
+  registerAction('sync:setup', openSyncSetup);
+  registerAction('sync:now', runSyncNow);
+  registerAction('sync:disconnect', disconnect);
 
-  on('profile', ({ source }) => { if (source !== 'settings' && root && !root.hidden) render(); });
+  on('profile', ({ source }) => { if (source !== 'settings' && isVisible()) render(); });
+  on('settings', ({ source }) => { if ((source === 'sync' || source === 'restore') && isVisible()) render(); });
+  on('sync', updateSyncStatus);
+  on('backup', updateLastBackup);
+  setInterval(() => { if (isVisible()) updateSyncStatus(syncSnapshot()); }, 30_000);
 }
 
 function openSection(id) {
@@ -85,11 +99,75 @@ function installHint() {
   return 'To install: use the install button in the address bar.';
 }
 
+/* ---------- Sections ---------- */
+
+function syncSection() {
+  const s = syncSnapshot();
+  if (!s.connected) {
+    return html`<section class="group" id="settings-sync" aria-labelledby="set-sync-title">
+      <h2 class="group__title" id="set-sync-title">Sync</h2>
+      <div class="card group__card">
+        <button type="button" class="row row--icon accent-todo" data-action="sync:setup">
+          <span class="row__icon">${icon('cloud')}</span>
+          <span class="row__text"><span class="row__label">Sync with Google Sheets</span><span class="row__sub">Automatic backup to your own Google Sheet, shared by your iPhone, iPad and Mac</span></span>
+          ${icon('chevronRight', 'row__chev')}
+        </button>
+      </div>
+      <p class="group__foot">Free. Your data goes only to a Google Sheet that you own.</p>
+    </section>`;
+  }
+  return html`<section class="group" id="settings-sync" aria-labelledby="set-sync-title">
+    <h2 class="group__title" id="set-sync-title">Sync</h2>
+    <div class="card group__card">
+      <div class="row row--icon accent-todo">
+        <span class="row__icon">${icon('cloudCheck')}</span>
+        <span class="row__text"><span class="row__label">Google Sheets</span><span class="row__sub${s.phase === 'error' ? ' tone-danger' : ''}" data-slot="syncStatus">${syncStatusText(s)}</span></span>
+        <button type="button" class="btn btn--sm row__control" data-action="sync:now"${s.phase === 'syncing' ? raw(' disabled') : ''}>Sync now</button>
+      </div>
+      <label class="row row--icon accent-todo">
+        <span class="row__icon">${icon('refresh')}</span>
+        <span class="row__text"><span class="row__label">Automatic sync</span><span class="row__sub">Syncs a few seconds after each change, when you open the app, and every few minutes</span></span>
+        <input type="checkbox" class="switch" switch data-field="autoSync"${checked(s.auto)}>
+      </label>
+      <button type="button" class="row row--icon row--danger accent-danger" data-action="sync:disconnect">
+        <span class="row__icon">${icon('x')}</span>
+        <span class="row__text"><span class="row__label">Disconnect this device</span><span class="row__sub">Stops syncing here. Your Google Sheet and this device’s data are both kept.</span></span>
+      </button>
+    </div>
+    <p class="group__foot">If the same item is changed on two devices, the newest change is kept and the other is saved in the Sheet’s Conflicts tab.</p>
+  </section>`;
+}
+
+function backupSection() {
+  return html`<section class="group" id="settings-backup" aria-labelledby="set-backup-title">
+    <h2 class="group__title" id="set-backup-title">Backup</h2>
+    <div class="card group__card">
+      <button type="button" class="row row--icon accent-brand" data-action="backup:export">
+        <span class="row__icon">${icon(isIOS() ? 'share' : 'download')}</span>
+        <span class="row__text"><span class="row__label">Export backup (JSON)</span><span class="row__sub" data-slot="lastBackup">A complete copy of everything on this device</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>
+      <label class="row row--icon accent-brand">
+        <span class="row__icon">${icon('upload')}</span>
+        <span class="row__text"><span class="row__label">Restore from backup…</span><span class="row__sub">Choose a backup file to bring its data back</span></span>
+        <input class="sr-only" type="file" accept=".json,application/json" data-field="restore">
+        ${icon('chevronRight', 'row__chev')}
+      </label>
+      <label class="row row--icon accent-brand">
+        <span class="row__icon">${icon('bell')}</span>
+        <span class="row__text"><span class="row__label">Backup reminders</span><span class="row__sub">A weekly nudge on the dashboard — skipped while sync is working</span></span>
+        <input type="checkbox" class="switch" switch data-field="backupReminders"${checked(state.settings.backup?.reminders)}>
+      </label>
+    </div>
+  </section>`;
+}
+
 function render() {
   if (!root) return;
   const s = state.settings;
   const p = state.profile;
   const restCustom = !REST_PRESETS.includes(s.workout.restSeconds);
+  renderedConnected = syncSnapshot().connected;
 
   setHTML(root, html`
     ${pageHead({ title: 'Settings', iconName: 'gear', accent: 'neutral' })}
@@ -109,7 +187,7 @@ function render() {
           <input class="input" type="text" data-field="nickname" value="${p.nickname}" maxlength="30" autocomplete="nickname" autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="What should we call you?">
         </label>
       </div>
-      <p class="group__foot">Shown at the top of your dashboard. Your photo is shrunk and stays on this device.</p>
+      <p class="group__foot">Shown at the top of your dashboard. Photos are saved small, to keep things fast.</p>
     </section>
 
     <section class="group" aria-labelledby="set-appearance-title">
@@ -184,17 +262,15 @@ function render() {
       <p class="group__foot">Smart sorting puts overdue tasks first, then high, medium and low priority, earliest time first. Reminders start working in Phase 6.</p>
     </section>
 
+    ${syncSection()}
+    ${backupSection()}
+
     <section class="group" id="settings-data" aria-labelledby="set-data-title">
       <h2 class="group__title" id="set-data-title">Data</h2>
       <div class="card group__card">
-        <button type="button" class="row row--icon accent-brand" data-action="settings:export">
-          <span class="row__icon">${icon(isIOS() ? 'share' : 'download')}</span>
-          <span class="row__text"><span class="row__label">Export backup (JSON)</span><span class="row__sub">A complete copy of everything on this device</span></span>
-          ${icon('chevronRight', 'row__chev')}
-        </button>
         <label class="row row--icon accent-neutral">
           <span class="row__icon">${icon('sampleData')}</span>
-          <span class="row__text"><span class="row__label">Sample data</span><span class="row__sub">Example workouts, tasks and weigh-ins to explore with. Refreshed daily.</span></span>
+          <span class="row__text"><span class="row__label">Sample data</span><span class="row__sub">Example workouts, tasks and weigh-ins to explore with. Refreshed daily and never synced.</span></span>
           <input type="checkbox" class="switch" switch data-field="sample"${checked(s.sampleData.enabled)}>
         </label>
         <label class="row row--icon accent-neutral">
@@ -211,11 +287,13 @@ function render() {
           <span class="row__text"><span class="row__label">Delete all data on this device</span></span>
         </button>
       </div>
-      <p class="group__foot">Everything is saved on this device only. Syncing with your own Google Sheet comes in a later phase.</p>
+      <p class="group__foot">${renderedConnected
+        ? 'Your data is on this device and in your Google Sheet.'
+        : 'Your data is saved on this device only. Turn on sync above to keep a copy in your own Google Sheet.'}</p>
     </section>
 
     <section class="group" aria-labelledby="set-integrations-title">
-      <h2 class="group__title" id="set-integrations-title">Integrations</h2>
+      <h2 class="group__title" id="set-integrations-title">Coming later</h2>
       <div class="card group__card">
         ${INTEGRATIONS.map((i) => html`<div class="row row--icon ${i.accent}">
           <span class="row__icon">${icon(i.icon)}</span>
@@ -238,6 +316,7 @@ function render() {
     </section>`);
 
   refreshStorage();
+  updateLastBackup();
 }
 
 async function refreshStorage() {
@@ -252,7 +331,32 @@ async function refreshStorage() {
   el.textContent = `${formatBytes(usage)} used · ${protection}`;
 }
 
-/* ---- Change handlers ---- */
+async function updateLastBackup() {
+  const el = root?.querySelector('[data-slot="lastBackup"]');
+  if (!el) return;
+  const last = await lastBackupAt();
+  el.textContent = last ? `Last backup ${formatAgo(last)}` : 'Last backup: never';
+}
+
+/** Keep the sync row current without re-rendering the whole screen. */
+function updateSyncStatus(snapshot) {
+  if (!isVisible()) return;
+  if (snapshot.connected !== renderedConnected) {
+    render();
+    return;
+  }
+  const status = root.querySelector('[data-slot="syncStatus"]');
+  if (status) {
+    status.textContent = syncStatusText(snapshot);
+    status.classList.toggle('tone-danger', snapshot.phase === 'error');
+  }
+  const button = root.querySelector('[data-action="sync:now"]');
+  if (button) button.disabled = snapshot.phase === 'syncing';
+  const auto = root.querySelector('[data-field="autoSync"]');
+  if (auto) auto.checked = snapshot.auto;
+}
+
+/* ---------- Change handlers ---------- */
 
 const save = (mutate) => updateSettings(mutate, { source: 'settings' });
 
@@ -312,6 +416,17 @@ async function onChange(event) {
         break;
       case 'reminder':
         await save((s) => { s.tasks.defaultReminder = Number(el.value); });
+        break;
+      case 'autoSync':
+        await setAutoSync(el.checked);
+        toast(el.checked ? 'Automatic sync is on.' : 'Automatic sync is off. Use “Sync now” when you want to sync.', { icon: 'refresh' });
+        break;
+      case 'backupReminders':
+        await save((s) => { s.backup = { ...s.backup, reminders: el.checked }; });
+        emit('backup');
+        break;
+      case 'restore':
+        await startRestore(el);
         break;
       case 'sample':
         await setSampleData(el.checked);
@@ -396,21 +511,228 @@ async function setSampleData(enabled) {
   refreshStorage();
 }
 
+/* ---------- Backup & restore ---------- */
+
 async function runExport() {
   try {
-    const result = await exportBackup();
+    const file = await prepareBackupFile();
+    const result = await deliverBackupFile(file);
     if (result === 'downloaded') toast('Backup saved to your Downloads.', { icon: 'download' });
-    else if (result === 'shared') toast('Backup exported.', { icon: 'share' });
+    else if (result === 'shared') toast('Backup saved.', { icon: 'share' });
+    else if (result === 'needs-tap') await offerShare(file);
   } catch (err) {
     console.error(err);
     toast('Export failed. Please try again.', { icon: 'info' });
   }
 }
 
+/** iPhone sometimes needs a fresh tap before it opens the share sheet. */
+async function offerShare(file) {
+  await openDialog({
+    variant: 'alert',
+    title: 'Your backup is ready',
+    body: html`<p class="dlg__msg">Tap Save, then choose where to keep it — for example “Save to Files”.</p>`,
+    actions: [{ label: 'Cancel', value: 'cancel', variant: 'ghost' }, { label: 'Save', value: 'save', variant: 'primary' }],
+    onOpen(dlg) {
+      dlg.querySelector('[data-dialog-value="save"]').addEventListener('click', () => {
+        navigator.share({ files: [file], title: file.name })
+          .then(() => markBackedUp())
+          .then(() => toast('Backup saved.', { icon: 'share' }))
+          .catch(() => {});
+      });
+    },
+  });
+}
+
+function restorePreview(backup) {
+  const { summary } = backup;
+  const fact = (label, value) => html`<div><dt>${label}</dt><dd>${value}</dd></div>`;
+  return html`<div class="restore">
+    <dl class="restore__facts">
+      ${fact('Backup date', backup.exportedAt ? formatDateTime(new Date(backup.exportedAt)) : 'Unknown')}
+      ${fact('Device', backup.deviceName)}
+      ${fact('Workouts', summary.workouts)}
+      ${fact('Tasks', summary.tasks)}
+      ${fact('Measurements', summary.measurements)}
+      ${fact('Photos', summary.photos)}
+    </dl>
+    ${summary.hasSample ? html`<p class="note">${icon('info')}<span>This backup also includes sample data.</span></p>` : ''}
+    <p class="restore__choice"><strong>Merge</strong> combines it with what’s on this device, keeping the newest version of anything that’s in both.</p>
+    <p class="restore__choice"><strong>Replace</strong> erases this device’s data and uses only the backup.</p>
+    ${syncSnapshot().connected ? html`<p class="note">${icon('cloud')}<span>Sync is on, so the restored data is sent to your Google Sheet. Items in the Sheet that aren’t in this backup will come back after the next sync.</span></p>` : ''}
+  </div>`;
+}
+
+async function startRestore(input) {
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  let backup;
+  try {
+    backup = await readBackupFile(file);
+  } catch (err) {
+    toast(err.message, { icon: 'info', duration: 6000 });
+    return;
+  }
+  const choice = await openDialog({
+    variant: 'modal',
+    className: 'restore-dialog',
+    title: 'Restore this backup?',
+    body: restorePreview(backup),
+    actions: [
+      { label: 'Cancel', value: 'cancel', variant: 'ghost', autofocus: true },
+      { label: 'Merge', value: 'merge' },
+      { label: 'Replace', value: 'replace', variant: 'danger-solid' },
+    ],
+  });
+  if (choice !== 'merge' && choice !== 'replace') return;
+
+  const before = validateBackup(await buildBackup()); // for Undo
+  try {
+    await applyRestore(backup, choice);
+  } catch (err) {
+    console.error(err);
+    toast('Restore failed, so nothing was changed.', { icon: 'info' });
+    return;
+  }
+  await afterRestore();
+  toast(choice === 'merge' ? 'Backup merged.' : 'Backup restored.', {
+    icon: 'upload',
+    action: {
+      label: 'Undo',
+      onClick: async () => {
+        await applyRestore(before, 'replace');
+        await afterRestore();
+        toast('Restore undone.', { icon: 'upload' });
+      },
+    },
+  });
+}
+
+async function afterRestore() {
+  await reloadFromDatabase('restore');
+  await ensureSampleData();
+  emit('data', { reason: 'restore' });
+  emit('local-change', { store: 'restore' });
+  render();
+}
+
+/* ---------- Sync ---------- */
+
+/** Link to a file in the GitHub repository this app is published from (if any). */
+function githubFileUrl(path) {
+  const user = location.hostname.match(/^([^.]+)\.github\.io$/)?.[1];
+  const repo = location.pathname.split('/').filter(Boolean)[0];
+  return user && repo ? `https://github.com/${user}/${repo}/blob/main/${path}` : null;
+}
+
+async function openSyncSetup() {
+  let code = null;
+  fetch('apps-script/Code.gs', { cache: 'no-cache' })
+    .then((r) => (r.ok ? r.text() : null))
+    .then((text) => { code = text; })
+    .catch(() => {});
+  const codeUrl = githubFileUrl('apps-script/Code.gs');
+
+  await openDialog({
+    variant: 'sheet',
+    className: 'setup',
+    title: 'Sync with Google Sheets',
+    body: html`
+      <p class="setup__lead">Your data will sync to a Google Sheet that only you own. Setting it up takes about 10 minutes, once — it’s easiest on a Mac.</p>
+      <p class="note">${icon('info')}<span>Already set up on another device? Skip to the bottom and paste the same Web app URL and secret token.</span></p>
+      <ol class="setup__steps">
+        <li><strong>Create a sheet.</strong> At sheets.google.com, create a blank spreadsheet, then choose <strong>Extensions → Apps Script</strong>.</li>
+        <li><strong>Paste the sync code.</strong> Delete what’s in the editor, paste this code, then click Save.
+          <span class="setup__buttons">
+            <button type="button" class="btn btn--sm" data-copy-code>${icon('clipboard')}Copy code</button>
+            ${codeUrl ? html`<a class="btn btn--sm btn--ghost" href="${codeUrl}" target="_blank" rel="noopener">${icon('external')}View code</a>` : ''}
+          </span>
+        </li>
+        <li><strong>Run setup.</strong> Choose <code>setup</code> in the toolbar and click <strong>Run</strong>, then allow access. Your secret token appears in the sheet’s <strong>Connection</strong> tab.</li>
+        <li><strong>Deploy.</strong> Click <strong>Deploy → New deployment</strong>, pick <strong>Web app</strong>, set “Execute as” to <strong>Me</strong> and “Who has access” to <strong>Anyone</strong>, then copy the Web app URL.</li>
+      </ol>
+      <form class="setup__form" data-connect novalidate>
+        <label class="field"><span class="field__label">Web app URL</span>
+          <input class="input" name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" required>
+        </label>
+        <label class="field"><span class="field__label">Secret token</span>
+          <input class="input" name="token" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required>
+        </label>
+        <p class="form-error" data-error role="alert" hidden></p>
+        <div class="setup__actions">
+          <button type="button" class="btn btn--ghost" data-dialog-value="cancel">Cancel</button>
+          <button type="submit" class="btn btn--primary" data-submit>Connect</button>
+        </div>
+      </form>`,
+    onOpen(dlg, close) {
+      const form = dlg.querySelector('[data-connect]');
+      const error = dlg.querySelector('[data-error]');
+      const submit = dlg.querySelector('[data-submit]');
+
+      dlg.querySelector('[data-copy-code]').addEventListener('click', async () => {
+        if (!code) {
+          toast(navigator.onLine ? 'Still loading the code — try again in a moment.' : 'Connect to the internet to copy the code.', { icon: 'info' });
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(code);
+          toast('Code copied. Paste it into Apps Script.', { icon: 'check' });
+        } catch {
+          toast(codeUrl ? 'Couldn’t copy here — use “View code” instead.' : 'Couldn’t copy the code on this device.', { icon: 'info' });
+        }
+      });
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        error.hidden = true;
+        submit.disabled = true;
+        submit.textContent = 'Connecting…';
+        try {
+          const ok = await connectSync({ url: form.url.value, token: form.token.value });
+          close('connected');
+          toast(ok ? 'Connected. Your data is syncing with your Google Sheet.' : `Connected, but the first sync didn’t finish: ${syncSnapshot().error?.message ?? 'it will try again.'}`, { icon: 'cloud', duration: 6000 });
+          render();
+        } catch (err) {
+          error.textContent = err.message;
+          error.hidden = false;
+        } finally {
+          submit.disabled = false;
+          submit.textContent = 'Connect';
+        }
+      });
+    },
+  });
+}
+
+async function runSyncNow() {
+  const ok = await syncNow();
+  if (ok) toast('Synced with your Google Sheet.', { icon: 'cloudCheck' });
+  else if (syncSnapshot().phase === 'offline') toast('You’re offline. Changes will sync when you’re back online.', { icon: 'info' });
+  else toast(syncSnapshot().error?.message ?? 'Sync didn’t finish.', { icon: 'info', duration: 6000 });
+}
+
+async function disconnect() {
+  const ok = await confirmDialog({
+    title: 'Disconnect this device?',
+    message: 'This device will stop syncing. Your Google Sheet and the data on this device are both kept, and you can reconnect any time.',
+    confirmLabel: 'Disconnect',
+    destructive: true,
+  });
+  if (!ok) return;
+  await disconnectSync();
+  render();
+  toast('This device is no longer syncing.', { icon: 'cloud' });
+}
+
+/* ---------- Delete everything ---------- */
+
 async function deleteAllData() {
   const ok = await confirmDialog({
     title: 'Delete all data?',
-    message: 'This permanently erases everything stored on this device: profile, settings, tasks and workouts. Export a backup first if you might need it.',
+    message: syncSnapshot().connected
+      ? 'This erases everything stored on this device and disconnects sync. Your Google Sheet is not touched, so you can reconnect to bring your data back.'
+      : 'This permanently erases everything stored on this device: profile, settings, tasks and workouts. Export a backup first if you might need it.',
     confirmLabel: 'Delete',
     destructive: true,
   });

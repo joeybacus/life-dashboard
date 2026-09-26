@@ -2,7 +2,7 @@
    profile + date → today's calendar (or a quote) → At a Glance → module cards. */
 import { registerScreen } from '../core/router.js';
 import { registerAction } from '../core/actions.js';
-import { state, on, updateSettings } from '../core/state.js';
+import { state, on, updateSettings, updateUI } from '../core/state.js';
 import { html, raw, setHTML, dataAttrs } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { avatar, ring } from '../core/components.js';
@@ -10,9 +10,11 @@ import { animateReorder, makeReorderable } from '../core/reorder.js';
 import { announce, openDialog, toast } from '../core/ui.js';
 import { getModule, getModules } from '../modules/registry.js';
 import { getAgenda } from '../services/calendar.js';
+import { backupReminderDue, snoozeBackupReminder } from '../services/backup.js';
+import { syncSnapshot, syncStatusText } from '../services/sync.js';
 import { quoteOfTheDay } from '../services/quotes.js';
 import {
-  formatCountdown, formatLongDate, formatRelativeDay, formatTime, formatTimeRange, greeting, toDateKey,
+  formatAgo, formatCountdown, formatLongDate, formatRelativeDay, formatTime, formatTimeRange, greeting, toDateKey,
 } from '../core/dates.js';
 
 let root = null;
@@ -44,10 +46,16 @@ export function initDashboard() {
   registerAction('dash:arrange', () => setArranging(!arranging));
   registerAction('dash:move', (el) => moveCard(el.closest('.mcard'), Number(el.dataset.dir)));
   registerAction('dash:event', (el) => openEvent(el.dataset.eventId));
+  registerAction('backup:later', async () => {
+    await snoozeBackupReminder(3);
+    toast('OK — I’ll remind you again in a few days.', { icon: 'bell' });
+  });
 
   on('settings', ({ source }) => { if (source !== 'dashboard') refreshIfVisible(); });
   on('profile', () => refreshIfVisible());
   on('data', () => refreshIfVisible());
+  on('backup', () => refreshIfVisible());
+  on('sync', () => { if (visible && snapshot) renderHero(); });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refreshIfVisible();
   });
@@ -59,6 +67,7 @@ function mount(view) {
   setHTML(view, html`
     <h1 class="sr-only" tabindex="-1">Main dashboard</h1>
     <header class="hero" data-slot="hero" data-enter style="--i: 0"></header>
+    <div data-slot="banner"></div>
 
     <div class="dash__grid">
       <div class="dash__col">
@@ -130,16 +139,18 @@ async function refresh({ cards = true } = {}) {
   const modules = getModules();
   let agenda;
   let models;
+  let reminder;
   try {
-    [agenda, ...models] = await Promise.all([getAgenda(now), ...modules.map((m) => m.load(now))]);
+    [agenda, reminder, ...models] = await Promise.all([getAgenda(now), backupReminderDue(now.getTime()), ...modules.map((m) => m.load(now))]);
   } catch (err) {
     console.error('Dashboard refresh failed', err);
     toast('Couldn’t load some dashboard data. Try reopening the app.', { icon: 'info' });
     return;
   }
   if (seq !== refreshSeq) return; // a newer refresh has started
-  snapshot = { now, agenda, models: Object.fromEntries(modules.map((m, i) => [m.id, models[i]])) };
+  snapshot = { now, agenda, reminder, models: Object.fromEntries(modules.map((m, i) => [m.id, models[i]])) };
   renderHero();
+  renderBanner();
   renderToday();
   renderGlance();
   if (cards && !reorder.isDragging()) renderModules();
@@ -158,10 +169,45 @@ function renderHero() {
         ? html`<p class="hero__name">${p.nickname}</p>`
         : html`<button type="button" class="hero__name hero__name--empty" data-action="settings:profile">Add your name</button>`}
       <p class="hero__date"><time datetime="${toDateKey(now)}">${formatLongDate(now)}</time></p>
-      ${state.settings.sampleData.enabled
-        ? html`<button type="button" class="chip chip--sample" data-action="settings:data" aria-label="Sample data is on. Open data settings.">Sample data</button>`
-        : ''}
+      <div class="hero__chips">
+        ${state.settings.sampleData.enabled
+          ? html`<button type="button" class="chip chip--sample" data-action="settings:data" aria-label="Sample data is on. Open data settings.">Sample data</button>`
+          : ''}
+        ${syncChip()}
+      </div>
     </div>`);
+}
+
+function syncChip() {
+  const s = syncSnapshot();
+  if (!s.connected) return '';
+  let [tone, label, iconName] = ['ok', 'Synced', 'cloudCheck'];
+  if (s.phase === 'syncing') [tone, label, iconName] = ['busy', 'Syncing', 'refresh'];
+  else if (s.phase === 'offline') [tone, label, iconName] = ['muted', 'Offline', 'wifi'];
+  else if (s.phase === 'error') [tone, label, iconName] = ['warn', 'Sync issue', 'info'];
+  else if (s.pending && !s.auto) [tone, label, iconName] = ['muted', 'Not synced', 'cloud'];
+  return html`<button type="button" class="chip chip--sync chip--${tone}" data-action="settings:sync" aria-label="${syncStatusText(s)}. Open sync settings.">${icon(iconName)}${label}</button>`;
+}
+
+/* ---- Backup reminder ---- */
+
+function renderBanner() {
+  const due = snapshot.reminder;
+  if (!due) {
+    setHTML(slots.banner, '');
+    return;
+  }
+  setHTML(slots.banner, html`<div class="banner accent-brand" role="status">
+    <span class="banner__icon">${icon('shield')}</span>
+    <div class="banner__text">
+      <p class="banner__title">Back up your data</p>
+      <p class="banner__sub">${due.lastBackupAt ? `Last backup ${formatAgo(due.lastBackupAt)}.` : 'You haven’t made a backup yet.'} Or turn on automatic sync in Settings.</p>
+    </div>
+    <div class="banner__actions">
+      <button type="button" class="btn btn--sm btn--ghost" data-action="backup:later">Later</button>
+      <button type="button" class="btn btn--sm btn--primary" data-action="backup:export">Back up</button>
+    </div>
+  </div>`);
 }
 
 /* ---- Calendar ---- */
@@ -329,7 +375,7 @@ function moduleCard(m, model, collapsed) {
 }
 
 function renderModules() {
-  const collapsed = state.settings.dashboard.collapsed ?? {};
+  const collapsed = state.ui.collapsed ?? {};
   setHTML(slots.modules, cardOrder().map((id) => moduleCard(getModule(id), snapshot.models[id], Boolean(collapsed[id]))));
   applyArranging();
 }
@@ -341,7 +387,7 @@ function toggleCard(card) {
   card.classList.toggle('is-collapsed', collapse);
   card.querySelector('.mcard__toggle').setAttribute('aria-expanded', String(!collapse));
   card.querySelector('.mcard__body').inert = collapse;
-  updateSettings((s) => { s.dashboard.collapsed = { ...s.dashboard.collapsed, [id]: collapse }; }, { source: 'dashboard' });
+  updateUI((ui) => { ui.collapsed = { ...ui.collapsed, [id]: collapse }; });
 }
 
 function applyArranging() {
@@ -349,7 +395,7 @@ function applyArranging() {
   slots.arrangeBtn.textContent = arranging ? 'Done' : 'Arrange';
   slots.arrangeBtn.setAttribute('aria-pressed', String(arranging));
   slots.arrangeHint.hidden = !arranging;
-  const collapsed = state.settings.dashboard.collapsed ?? {};
+  const collapsed = state.ui.collapsed ?? {};
   slots.modules.querySelectorAll('.mcard').forEach((card) => {
     const toggle = card.querySelector('.mcard__toggle');
     const body = card.querySelector('.mcard__body');

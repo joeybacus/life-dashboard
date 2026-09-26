@@ -63,6 +63,7 @@ const F = {
   monthDay: fmt({ month: 'short', day: 'numeric' }),
   shortDate: fmt({ weekday: 'short', month: 'short', day: 'numeric' }),
   stamp: fmt({ month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+  dateTime: fmt({ year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
 };
 
 export const formatLongDate = (d) => F.long.format(d);
@@ -71,6 +72,22 @@ export const formatTime = (d) => F.time.format(d);
 export const formatWeekdayShort = (d) => F.weekdayShort.format(d);
 export const formatWeekdayNarrow = (d) => F.weekdayNarrow.format(d);
 export const formatStamp = (d) => F.stamp.format(d);
+export const formatDateTime = (d) => F.dateTime.format(d);
+
+/** "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", "on Sep 12" */
+export function formatAgo(iso, now = Date.now()) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return 'never';
+  const mins = Math.round((now - t) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  return `on ${F.monthDay.format(new Date(t))}`;
+}
 
 export function formatTimeRange(a, b) {
   try { return F.time.formatRange(a, b); } catch { return `${F.time.format(a)} – ${F.time.format(b)}`; }

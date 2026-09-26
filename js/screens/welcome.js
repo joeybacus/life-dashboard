@@ -21,7 +21,8 @@ export async function maybeShowWelcome() {
         <label class="welcome__label" for="welcome-nickname">What should we call you?</label>
         <input class="input" id="welcome-nickname" type="text" maxlength="30" autocomplete="nickname" autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="Your nickname">
       </div>
-      <p class="note">${icon('info')}<span>You’re seeing <strong>sample data</strong> so you can explore. Turn it off anytime in Settings → Data.</span></p>`,
+      <p class="note">${icon('info')}<span>You’re seeing <strong>sample data</strong> so you can explore. Turn it off anytime in Settings → Data.</span></p>
+      <p class="note">${icon('cloud')}<span>Already use Life Dashboard on another device? Tap Get started, then open <strong>Settings → Sync</strong> to bring your data here.</span></p>`,
     actions: [{ label: 'Get started', value: 'start', variant: 'primary' }],
     onOpen(dlg, close) {
       dlg.setAttribute('aria-labelledby', 'welcome-title');
