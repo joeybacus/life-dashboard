@@ -5,7 +5,8 @@
      that task; anywhere else, swiping still changes tabs. Manual order uses drag
      handles instead, so swipes are off there.
    - Keys (Mac): N new task · / search · ↑ ↓ move between tasks · Space complete ·
-     Enter quick menu · ? help. ⌘Enter saves and Esc closes in the sheets. */
+     Enter quick menu · ? help. ⌘Enter saves in the sheets; Esc closes the quick menu,
+     but never a pop-up you type in (only its buttons do). */
 import { currentRoute, currentSubRoute } from '../../core/router.js';
 import { haptic } from '../../core/feedback.js';
 import { prefersReducedMotion } from '../../core/platform.js';

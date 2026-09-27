@@ -112,7 +112,7 @@ function sheetBody(task, { isNew, categories, today }) {
     </label>
 
     <label class="tform__field"><span class="field__label">Notes</span>
-      <textarea class="input textarea" name="notes" rows="3" maxlength="${MAX_NOTES}" placeholder="Optional">${task.notes}</textarea>
+      <textarea class="input textarea tform__notes" name="notes" rows="8" maxlength="${MAX_NOTES}" placeholder="Optional">${task.notes}</textarea>
     </label>
 
     <section class="tform__section" aria-labelledby="tf-subs-title">
@@ -175,6 +175,7 @@ async function askForLink(existing = null) {
   const result = await openDialog({
     variant: 'alert',
     className: 'prompt-dialog',
+    dismissible: false, // only Cancel or Add closes it
     title: existing ? 'Edit link' : 'Add a link',
     body: html`<form class="prompt" data-link-form novalidate>
       <label class="field"><span class="field__label">Web address</span>
@@ -556,8 +557,9 @@ async function taskSheet({ task: start, data, isNew }) {
     }
   };
 
+  // Cancel on a new task: asks first if anything you typed would be lost
   const tryClose = async () => {
-    if (isNew && (draft.title.trim() || subs.length || draft.links.length)) {
+    if (isNew && (draft.title.trim() || draft.notes.trim() || draft.tags.length || subs.length || draft.links.length)) {
       const discard = await confirmDialog({ title: 'Discard this task?', message: 'It hasn’t been added yet.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true });
       if (!discard) return;
     }
@@ -604,14 +606,8 @@ async function taskSheet({ task: start, data, isNew }) {
           t.blur();
         }
       });
-      // Escape (or tapping outside): close — asks first if a new task would be lost
-      dlg.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          tryClose();
-        }
-      });
-      dlg.addEventListener('click', (event) => { if (event.target === dlg) tryClose(); });
+      // A tap outside or Esc never closes it (dismissible: false) — only Cancel, Add task or Done,
+      // so nothing you've typed is lost by accident
       // Mac (or iPad with a trackpad): type straight away, once the sheet has finished appearing.
       // Not on iPhone: its keyboard only opens when you tap the field anyway.
       if (isNew && matchMedia('(hover: hover) and (pointer: fine)').matches) {

@@ -96,7 +96,7 @@ export async function chooseCategory(id) {
 export async function addSubtaskTo(id) {
   const [task, { subtasks }] = await Promise.all([getTask(id), loadTodo()]);
   if (!task || task.deletedAt) return;
-  const title = await promptDialog({ title: 'Add a subtask', label: task.title, placeholder: 'For example: Collect the results', confirmLabel: 'Add', maxLength: 300, required: true });
+  const title = await promptDialog({ title: 'Add a subtask', label: task.title, placeholder: 'For example: Collect the results', confirmLabel: 'Add', maxLength: 300, required: true, dismissible: false });
   if (!title) return;
   const mine = subtasks.filter((s) => s.taskId === id);
   await addSubtask(id, title, mine.length ? Math.max(...mine.map((s) => s.order ?? 0)) + 1 : 0);

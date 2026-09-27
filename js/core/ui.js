@@ -60,6 +60,8 @@ let dialogSeq = 0;
 /**
  * Open a dialog. variant: 'sheet' (slides up on phones), 'alert' (small centred) or 'modal'.
  * actions: [{ label, value, variant: 'primary'|'ghost'|'danger-solid', autofocus, href }]
+ * dismissible: false for anything you type into — then a tap outside or Esc never
+ *   closes it (it gives a small nudge instead); only its own buttons do.
  * Resolves with the chosen action's value, or null when dismissed.
  */
 export function openDialog({ title = '', body = '', actions = [], variant = 'sheet', dismissible = true, className = '', onOpen } = {}) {
@@ -102,10 +104,26 @@ export function openDialog({ title = '', body = '', actions = [], variant = 'she
       setTimeout(finish, 240);
     };
 
+    // "Use the buttons": a little bounce when a tap outside (or Esc) can't close it
+    const nudge = () => {
+      const panel = dlg.querySelector('.dlg__panel');
+      panel.classList.remove('is-nudged');
+      void panel.offsetWidth;
+      panel.classList.add('is-nudged');
+    };
     dlg.addEventListener('cancel', (event) => {
       event.preventDefault(); // Escape key
       if (dismissible) close(null);
+      else nudge();
     });
+    if (!dismissible) {
+      // Stop Esc here, so the browser never closes it by itself (Chrome does on a second Esc)
+      dlg.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        event.preventDefault();
+        nudge();
+      });
+    }
     // The browser can still close it by itself (Chrome does on a second Escape): tidy up the same way
     dlg.addEventListener('close', () => {
       if (settled) return;
@@ -121,7 +139,10 @@ export function openDialog({ title = '', body = '', actions = [], variant = 'she
         close(chosen.dataset.dialogValue);
         return;
       }
-      if (event.target === dlg && dismissible) close(null); // tap on the dimmed backdrop
+      if (event.target === dlg) { // tap on the dimmed backdrop
+        if (dismissible) close(null);
+        else nudge();
+      }
     });
 
     dlg.showModal();
@@ -167,10 +188,11 @@ export async function actionSheet({ title = '', message = '', items = [], cancel
 }
 
 /** Ask for a line (or a few lines) of text. Resolves with the trimmed text, or null when cancelled. */
-export async function promptDialog({ title, label = '', value = '', placeholder = '', confirmLabel = 'Save', maxLength = 200, multiline = false, required = false } = {}) {
+export async function promptDialog({ title, label = '', value = '', placeholder = '', confirmLabel = 'Save', maxLength = 200, multiline = false, required = false, dismissible = true } = {}) {
   const result = await openDialog({
     variant: 'alert',
     className: 'prompt-dialog',
+    dismissible,
     title,
     body: html`<form class="prompt" data-prompt novalidate>
       <label class="field">${label ? html`<span class="field__label">${label}</span>` : ''}

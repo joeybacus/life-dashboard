@@ -105,7 +105,7 @@ async function allCategories() {
 
 async function askName(title, value = '', except = null) {
   const cats = await allCategories();
-  const name = await promptDialog({ title, label: 'Name', value, placeholder: 'For example: Hospital', maxLength: 40, required: true, confirmLabel: 'Save' });
+  const name = await promptDialog({ title, label: 'Name', value, placeholder: 'For example: Hospital', maxLength: 40, required: true, confirmLabel: 'Save', dismissible: false });
   if (!name) return null;
   if (cats.some((c) => c.id !== except && c.name.toLowerCase() === name.toLowerCase())) {
     toast(`You already have a category called “${name}”.`, { icon: 'info' });

@@ -558,6 +558,12 @@ button.row { width: 100%; text-align: left; }
 }
 .dlg--cross .dlg__body { height: 100%; }
 
+/* A tap outside a pop-up that only closes with its buttons: a small bounce, nothing more */
+.dlg__panel.is-nudged { animation: dlg-nudge 380ms var(--ease-spring) both; }
+@media (max-width: 699px) { .dlg--sheet .dlg__panel.is-nudged { animation-name: dlg-hop; } }
+@keyframes dlg-nudge { 35% { transform: scale(1.025); } }
+@keyframes dlg-hop { 35% { transform: translateY(-10px); } }
+
 .dlg.is-closing { animation: dlg-fade-out var(--t) var(--ease) both; }
 .dlg.is-closing .dlg__panel { animation: sheet-out var(--t) var(--ease) both; }
 .dlg--alert.is-closing .dlg__panel,

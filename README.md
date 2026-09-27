@@ -4,7 +4,7 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 3 — Tasks and productivity (v0.4.1, the second of seven small releases).** A real
+**Current status: Phase 3 — Tasks and productivity (v0.4.1.1, the second of seven small releases).** A real
 to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting,
 and fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes —
 on top of Phase 2 (workouts, and ward rounds from your logsheet in **Ward Patients**, Neurology tab) and
@@ -123,7 +123,10 @@ repeating tasks, the focus timer and habits arrive in the next small updates (0.
   four in Settings → Tasks → Quick menu. Everything has Undo.
 - **Swipes (iPhone, iPad):** swipe a task right to complete it, left to move it to tomorrow.
 - **Mac keys:** N new task · / search · ↑ ↓ move between tasks · Space complete · Enter quick menu · ? help ·
-  ⌘Enter save · Esc close.
+  ⌘Enter save · Esc closes the quick menu.
+- **Nothing you type is lost by accident:** the task sheet, Quick Add and the small boxes for a link, a subtask or a
+  category name close only with their own buttons (Cancel, Done, Add task, Close) — a tap outside or Esc just gives
+  a little bounce. Cancelling a new task you've typed something into asks first.
 - **Views:** Today (overdue, due today and pinned), Upcoming (the next 7 days, by day), Overdue, By category, All and
   Completed (with when you did each one). Settings → Tasks → Views hides views or changes their order, and
   List spacing makes the list compact. The search box looks in names, notes, tags and categories.

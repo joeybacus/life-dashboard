@@ -235,6 +235,8 @@
   field-sizing: content;
 }
 .tform__field { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+/* Notes: room for about 8 lines, growing with what you write (where the browser can) up to most of the screen */
+.tform__notes { min-height: 11rem; max-height: 60vh; line-height: 1.45; field-sizing: content; }
 .tform__field > legend { padding: 0; margin-bottom: 8px; }
 .tform__pri .segmented__opt span { gap: 7px; padding: 4px 6px; }
 .tform__pri .pri__dot { width: 9px; height: 9px; }

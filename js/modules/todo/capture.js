@@ -196,12 +196,8 @@ export function bindCapture(form, { defaults = () => ({}), onAdded = () => {}, k
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault(); // ⌘Enter adds too, as in the task sheet
       add();
-    } else if (event.key === 'Escape' && input.value) {
-      event.preventDefault();
-      event.stopPropagation();
-      reset();
-    } else if (event.key === 'Escape') {
-      input.blur();
+    } else if (event.key === 'Escape' && !form.closest('dialog')) {
+      input.blur(); // leaves the box; what you typed stays (in Quick Add, Esc does nothing)
     }
   });
   form.addEventListener('click', (event) => {
@@ -253,7 +249,7 @@ const KEYS = [
   ['Space', 'Complete the task you’re on'],
   ['Enter', 'Quick menu for the task you’re on'],
   ['⌘ Enter', 'Add or save'],
-  ['Esc', 'Close, or clear the box'],
+  ['Esc', 'Close the quick menu or a list. Pop-ups you type in close only with their buttons'],
   ['?', 'This help'],
 ];
 

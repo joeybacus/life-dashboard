@@ -7,7 +7,9 @@
        Start workout today; Start focus and Log habit later
    The sheet opens at the top of the screen and puts the cursor in the box straight
    away, inside the tap itself — the only way an iPhone opens its keyboard for a web
-   app. The button hides inside pop-up sheets and on the workout logging screen. */
+   app. Only its Close and Add buttons close it — never a tap outside or Esc — so a
+   half-typed task can't be lost. The button hides inside pop-up sheets and on the
+   workout logging screen. */
 import { html, setHTML } from './html.js';
 import { icon } from './icons.js';
 import { registerAction } from './actions.js';
@@ -88,11 +90,8 @@ export function openQuickAdd() {
       closeSheet = close;
       dlg.setAttribute('aria-label', 'Quick Add');
       if (primary) box = primary.mount(dlg.querySelector('[data-quick-primary]'), { close });
+      // A tap outside or Esc never closes it (dismissible: false): only Close, Add or a button below
       dlg.addEventListener('click', (event) => {
-        if (event.target === dlg) {
-          tryClose();
-          return;
-        }
         if (event.target.closest('[data-quick-close]')) {
           tryClose();
           return;
@@ -101,12 +100,6 @@ export function openQuickAdd() {
         if (!item) return;
         close('item');
         item.run();
-      });
-      dlg.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !event.defaultPrevented) {
-          event.preventDefault();
-          tryClose();
-        }
       });
     },
   });
