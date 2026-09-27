@@ -167,6 +167,46 @@
   .toasts { bottom: 28px; padding-left: calc(var(--rail-w) + 40px); }
 }
 
+/* ---- Quick Add (+): on every tab, just above the tab bar on the right ---- */
+.fab {
+  position: fixed;
+  z-index: 49;
+  right: max(14px, calc(env(safe-area-inset-right) + 8px));
+  bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + 14px);
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  color: var(--on-accent);
+  background:
+    radial-gradient(110% 110% at 28% 18%, rgba(255, 255, 255, .38), transparent 46%),
+    linear-gradient(140deg, var(--accent), var(--accent-2));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .16),
+    0 12px 28px color-mix(in srgb, var(--accent) 42%, transparent),
+    inset 0 1px 1px rgba(255, 255, 255, .45);
+  transition: transform var(--t) var(--ease-spring), opacity var(--t-fast) var(--ease), visibility var(--t-fast), bottom var(--t) var(--ease);
+}
+.fab .icon { width: 27px; height: 27px; stroke-width: 2.4; }
+.fab:active { transform: scale(.9); }
+@media (hover: hover) { .fab:hover { filter: brightness(1.07); } }
+/* Out of the way while a sheet is open (the sheet dims everything behind it anyway) */
+html.has-dialog .fab { opacity: 0; visibility: hidden; }
+/* Above the workout bar while a workout is on */
+html.has-wbar .fab { bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + 76px); }
+/* Room for it under the last thing on each screen */
+html.has-fab .views { padding-bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + 96px); }
+/* iPhone: messages ("Added: …  Undo") sit above it instead of under it */
+@media (max-width: 699px) {
+  html.has-fab .toasts { bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + 82px); }
+  html.has-fab.has-wbar .toasts { bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + 144px); }
+}
+@media (min-width: 1024px) {
+  .fab, html.has-wbar .fab { right: max(32px, calc(env(safe-area-inset-right) + 24px)); bottom: 28px; }
+  html.has-fab .views { padding-bottom: 96px; }
+}
+
 /* ---- Boot / splash ---- */
 .boot {
   position: fixed;

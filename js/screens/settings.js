@@ -2,7 +2,7 @@
 import { currentRoute, navigate, registerScreen } from '../core/router.js';
 import { registerAction } from '../core/actions.js';
 import { emit, on, reloadFromDatabase, state, updateProfile, updateSettings } from '../core/state.js';
-import { html, raw, setHTML } from '../core/html.js';
+import { dataAttrs, html, raw, setHTML } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { avatar, pageHead } from '../core/components.js';
 import { confirmDialog, openDialog, toast } from '../core/ui.js';
@@ -14,7 +14,9 @@ import { isIOS, isStandalone, prefersReducedMotion } from '../core/platform.js';
 import { SPLITS } from '../modules/workout.js';
 import { importHevyFile } from '../modules/workout/transfer.js';
 import { wakeLockSupported } from '../services/wake-lock.js';
-import { COMPLETED_MODES, PRIORITIES, PRIORITY_KEYS, SORTS, VIEWS } from '../modules/todo/model.js';
+import {
+  ARM_NAMES, COMPLETED_MODES, PRIORITIES, PRIORITY_KEYS, QUICK_ACTIONS, QUICK_ARMS, SORTS, VIEWS, quickActionReady, quickArms,
+} from '../modules/todo/model.js';
 import { loadTodo } from '../modules/todo/store.js';
 import { ensureSampleData } from '../services/sample-data.js';
 import {
@@ -45,14 +47,14 @@ const INTEGRATIONS = [
   { name: 'Apple Health weight', desc: 'Send your latest weight with an Apple Shortcut', icon: 'heart', accent: 'accent-neuro' },
 ];
 
-/** A settings row that opens the native picker. options: [[value, label], …] */
-function pickerRow({ field, iconName, label, value, options }) {
+/** A settings row that opens the native picker. options: [[value, label], …]; data: extra data-* attributes. */
+function pickerRow({ field, iconName, label, value, options, data = {} }) {
   const current = options.find(([v]) => String(v) === String(value)) ?? options[0];
   return html`<label class="row row--icon row--picker">
     <span class="row__icon">${icon(iconName)}</span>
     <span class="row__text"><span class="row__label">${label}</span></span>
     <span class="row__value"><span data-picker-value>${current[1]}</span>${icon('chevronUpDown')}</span>
-    <select class="row__picker" data-field="${field}" aria-label="${label}">
+    <select class="row__picker" data-field="${field}"${dataAttrs(data)} aria-label="${label}">
       ${options.map(([v, l]) => html`<option value="${v}"${selected(String(v) === String(value))}>${l}</option>`)}
     </select>
   </label>`;
@@ -70,6 +72,11 @@ export function initSettings() {
   registerAction('settings:data', () => openSection('settings-data'));
   registerAction('settings:sync', () => openSection('settings-sync'));
   registerAction('settings:tasks', () => openSection('settings-tasks'));
+  registerAction('settings:quick-reset', async () => {
+    await save((s) => { s.tasks.quickMenu = { up: null, right: null, down: null, left: null }; });
+    updateQuickMenu();
+    toast('Quick menu reset.', { icon: 'refresh' });
+  });
   registerAction('settings:remove-photo', removePhoto);
   registerAction('settings:delete', deleteAllData);
   registerAction('settings:goal', (el) => changeGoal(Number(el.dataset.dir)));
@@ -362,6 +369,12 @@ function render() {
           <input type="checkbox" class="switch" switch data-field="autoSort"${checked(s.tasks.autoSort)}>
         </label>
         ${pickerRow({ field: 'completed', iconName: 'checkCircle', label: 'Completed tasks', value: s.tasks.completed, options: Object.entries(COMPLETED_MODES) })}
+        <button type="button" class="row row--icon" data-action="todo:views">
+          <span class="row__icon">${icon('list')}</span>
+          <span class="row__text"><span class="row__label">Views</span><span class="row__sub">Which views show at the top of To Do, and their order</span></span>
+          ${icon('chevronRight', 'row__chev')}
+        </button>
+        ${pickerRow({ field: 'taskDensity', iconName: 'sliders', label: 'List spacing', value: s.tasks.density, options: [['comfortable', 'Comfortable'], ['compact', 'Compact']] })}
         ${pickerRow({ field: 'taskPriority', iconName: 'flag', label: 'New tasks: priority', value: s.tasks.defaultPriority,
           options: PRIORITY_KEYS.map((p) => [p, PRIORITIES[p].label]) })}
         <div data-slot="taskCategory">${pickerRow({ field: 'taskCategory', iconName: 'layers', label: 'New tasks: category', value: '', options: [['', 'No category']] })}</div>
@@ -370,9 +383,16 @@ function render() {
           <span class="row__text"><span class="row__label">Categories</span><span class="row__sub">Add, rename, recolour, reorder or delete</span></span>
           ${icon('chevronRight', 'row__chev')}
         </button>
+        <button type="button" class="row row--icon" data-action="todo:help">
+          <span class="row__icon">${icon('help')}</span>
+          <span class="row__text"><span class="row__label">How to type tasks</span><span class="row__sub">Dates, times, !!! priority, #category and @tag in plain words; keys and swipes</span></span>
+          ${icon('chevronRight', 'row__chev')}
+        </button>
       </div>
       <p class="group__foot">Smart sorting puts overdue tasks first, then High, Medium, Low and no priority, earliest time first. Tasks follow Manila time. Reminders, the Google Calendar link, the focus timer and habits arrive in the next updates.</p>
     </section>
+
+    <section class="group" id="settings-quickmenu" aria-labelledby="set-quick-title" data-slot="quickMenu">${quickMenuSection()}</section>
 
     <section class="group" id="settings-neurology" aria-labelledby="set-neuro-title" data-slot="neurology">${neurologySection()}</section>
 
@@ -432,6 +452,28 @@ function render() {
   refreshStorage();
   updateLastBackup();
   fillTaskCategories();
+}
+
+/** Tap a task: Complete in the middle, and these four arms. */
+function quickMenuSection() {
+  const arms = quickArms(state.settings.tasks.quickMenu);
+  // Complete is always the middle button, so it isn't offered for the arms
+  const options = Object.entries(QUICK_ACTIONS).filter(([id]) => id !== 'complete' && quickActionReady(id)).map(([id, a]) => [id, a.long ?? a.label]);
+  return html`<h2 class="group__title" id="set-quick-title">Quick menu (tap a task)</h2>
+    <div class="card group__card accent-todo">
+      ${QUICK_ARMS.map((arm) => pickerRow({ field: 'quickArm', data: { arm }, label: `${ARM_NAMES[arm]} arm`, value: arms[arm], options,
+        iconName: { up: 'arrowUp', right: 'arrowRight', down: 'arrowDown', left: 'arrowLeft' }[arm] }))}
+      <button type="button" class="row row--icon" data-action="settings:quick-reset">
+        <span class="row__icon">${icon('refresh')}</span>
+        <span class="row__text"><span class="row__label">Reset to default</span><span class="row__sub">Reminder, Details, Delete and Focus — with Move to tomorrow and Pin until reminders and the focus timer arrive</span></span>
+      </button>
+    </div>
+    <p class="group__foot">Complete always sits in the middle. Choosing an action that's already on another arm swaps the two.</p>`;
+}
+
+function updateQuickMenu() {
+  const slot = root?.querySelector('[data-slot="quickMenu"]');
+  if (slot && isVisible()) setHTML(slot, quickMenuSection());
 }
 
 /** "New tasks: category" lists your categories (they're in the database, not in settings). */
@@ -573,6 +615,21 @@ async function onChange(event) {
       case 'taskPriority':
         await save((s) => { s.tasks.defaultPriority = el.value; });
         break;
+      case 'taskDensity':
+        await save((s) => { s.tasks.density = el.value; });
+        break;
+      case 'quickArm': {
+        // An action already on another arm swaps places with this arm's old one. Arms
+        // you haven't touched stay on "default", so Reminder and Focus appear by themselves.
+        const arm = el.dataset.arm;
+        await save((s) => {
+          const shown = quickArms(s.tasks.quickMenu);
+          const other = QUICK_ARMS.find((a) => a !== arm && shown[a] === el.value);
+          s.tasks.quickMenu = { ...s.tasks.quickMenu, [arm]: el.value, ...(other ? { [other]: shown[arm] } : {}) };
+        });
+        updateQuickMenu();
+        break;
+      }
       case 'taskCategory':
         await save((s) => { s.tasks.defaultCategoryId = el.value || null; });
         break;

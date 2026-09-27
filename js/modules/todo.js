@@ -1,21 +1,23 @@
 /* To Do module: the dashboard card, Today at a Glance, and the To Do tab.
 
    Pages of the To Do tab (#/todo/…):
-     (none)        the list: views, search, sorting
+     (none)        the list: the plain-words box, views, search, sorting, quick menu
      deleted       Recently deleted (restore for 30 days)
      categories    add, rename, recolour, reorder and delete categories
    The pieces live in js/modules/todo/. Tasks use Manila time (js/core/manila.js). */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
 import { changed, on } from '../core/state.js';
-import { html } from '../core/html.js';
+import { html, setHTML } from '../core/html.js';
+import { registerQuickAdd } from '../core/quick-add.js';
 import { icon } from '../core/icons.js';
 import { formatClock, todayKey } from '../core/manila.js';
 import { PRIORITIES, isDone, isOverdue, sortTasks, subtaskProgress, viewCounts, viewGroups } from './todo/model.js';
 import { loadTodo } from './todo/store.js';
 import { checkButton, priorityChip } from './todo/rows.js';
-import { mountList, refreshList, showList } from './todo/list.js';
+import { mountList, newTaskDefaults, refreshList, showList } from './todo/list.js';
 import { categoriesPage, deletedPage } from './todo/pages.js';
+import { bindCapture, captureMarkup } from './todo/capture.js';
 
 /** What the dashboard card and Today at a Glance show. */
 export async function loadTodoModel(now = new Date()) {
@@ -84,7 +86,7 @@ registerModule({
     return html`<ul class="mini-tasks">${shown.map((t) => html`
       <li class="mini-task${isOverdue(t, m.now) ? ' is-overdue' : ''}">
         ${checkButton(t)}
-        <button type="button" class="mini-task__open" data-action="todo:open" data-id="${t.id}">
+        <button type="button" class="mini-task__open" data-action="todo:quick" data-id="${t.id}" aria-label="${t.title}. Opens the quick menu.">
           <span class="mini-task__title">${t.title}</span>
           <span class="mini-task__meta">${priorityChip(t.priority)}<span class="mini-task__time">${dueWords(t, m)}</span></span>
         </button>
@@ -116,6 +118,20 @@ registerModule({
         action: m.next ? 'todo:open' : 'nav', data: m.next ? { id: m.next.id } : { route: 'todo', sub: '' },
       },
     ];
+  },
+});
+
+/* ---- Quick Add (+): the plain-words box comes first ---- */
+
+registerQuickAdd({
+  id: 'task',
+  primary: true,
+  order: 0,
+  mount(slot, { close }) {
+    setHTML(slot, captureMarkup({ placeholder: 'Type a new task…', label: 'New task, in plain words' }));
+    const box = bindCapture(slot.querySelector('[data-capture]'), { defaults: newTaskDefaults, keepFocus: false, onAdded: () => close('added') });
+    box.focus(); // still inside the tap, so the iPhone keyboard opens
+    return box;
   },
 });
 

@@ -1,29 +1,57 @@
-/* The To Do screen: smart views (Today, Upcoming, Overdue, By category, All,
-   Completed), search, the Sort button, and the tasks themselves — cards on
-   iPhone, a table (Priority | Task | Time | ✓) on iPad landscape and Mac.
-   Tapping a task opens it; the circle on the right ticks it. */
+/* The To Do screen: the plain-words box, smart views (Today, Upcoming, Overdue,
+   By category, All, Completed — which ones show, and their order, in Settings),
+   search, the Sort button, and the tasks — cards on iPhone, a table
+   (Priority | Task | Time | ✓) on iPad landscape and Mac. Tapping a task opens
+   its quick menu; the circle on the right ticks it; swipes and Mac keys work
+   too (gestures.js). The top of the screen is drawn once, so switching views
+   never loses what you're typing. */
 import { html, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { registerAction, runAction } from '../../core/actions.js';
-import { state, updateSettings } from '../../core/state.js';
+import { on, state, updateSettings } from '../../core/state.js';
 import { pageHead } from '../../core/components.js';
 import { actionSheet, announce, toast } from '../../core/ui.js';
-import { openPage } from '../../core/router.js';
+import { currentRoute, openPage } from '../../core/router.js';
 import { makeReorderable } from '../../core/reorder.js';
+import { openQuickAdd } from '../../core/quick-add.js';
 import { addDays, formatDay, formatMonthDay, todayKey } from '../../core/manila.js';
-import { SORTS, VIEWS, VIEW_KEYS, isDone, searchTasks, subtaskProgress, viewCounts, viewGroups } from './model.js';
-import { getTask, loadTodo, placeBetween, putBack, setDone } from './store.js';
+import {
+  PRIORITIES, SORTS, VIEWS, isDone, searchTasks, subtaskProgress, viewCounts, viewGroups, visibleViews,
+} from './model.js';
+import { loadTodo, placeBetween } from './store.js';
 import { categoryChip, taskRow } from './rows.js';
-import { openNewTask, openTask } from './detail.js';
+import { bindCapture, captureMarkup } from './capture.js';
+import { bindKeys, bindSwipes } from './gestures.js';
+import { toggleDone } from './task-actions.js';
 import { exportTasksCsv } from './pages.js';
+import './quickmenu.js';
 
 let el = null;
 let data = null;
-let view = null;       // the view on screen (starts at Settings → Tasks → Default view)
+let view = null;       // the view on screen (starts at Settings → Tasks → Opens on)
 let query = '';
+let capture = null;    // the plain-words box at the top
+let pendingFocus = null;
 const frozen = new Map(); // auto-sort off: the order each list had, kept until "Sort now"
 
 const settings = () => state.settings.tasks;
+const opensOn = () => (VIEWS[settings().view] ? settings().view : 'today');
+
+/**
+ * Starting values for a new task: the day of the view you're in (Today → today,
+ * Upcoming → tomorrow, other views → no date; anywhere else in the app → today),
+ * plus your default priority and category.
+ */
+export function newTaskDefaults() {
+  const today = todayKey();
+  const where = currentRoute() === 'todo' ? (view ?? opensOn()) : 'today';
+  const s = settings();
+  return {
+    date: where === 'today' ? today : where === 'upcoming' ? addDays(today, 1) : null,
+    priority: PRIORITIES[s.defaultPriority] ? s.defaultPriority : 'none',
+    categoryId: s.defaultCategoryId ?? null,
+  };
+}
 
 /* ---------- The model the screen draws from ---------- */
 
@@ -52,11 +80,11 @@ function keepOrder(key, list) {
 }
 
 const EMPTY = {
-  today: ['sun', 'Nothing due today.', 'Add a task, or look at Upcoming.'],
+  today: ['sun', 'Nothing due today.', 'Type a task in the box above, or look at Upcoming.'],
   upcoming: ['calendar', 'Nothing planned for the next 7 days.', ''],
   overdue: ['checkCircle', 'Nothing overdue. Nice work!', ''],
-  category: ['layers', 'No tasks yet.', 'Tap New task to add one.'],
-  all: ['checklist', 'No tasks yet.', 'Tap New task to add one.'],
+  category: ['layers', 'No tasks yet.', 'Type one in the box above.'],
+  all: ['checklist', 'No tasks yet.', 'Type one in the box above.'],
   completed: ['checkCircle', 'Tasks you complete will show here, with when you did them.', ''],
 };
 
@@ -71,9 +99,9 @@ function listMarkup() {
   const shown = groups.filter((g) => g.tasks.length);
 
   if (!shown.length) {
-    const [ic, title, sub] = query ? ['search', `No tasks match “${query}”.`, 'Search looks in titles, notes, tags and categories.'] : EMPTY[view];
+    const [ic, title, sub] = query ? ['search', `No tasks match “${query}”.`, 'Search looks in names, notes, tags and categories.'] : EMPTY[view];
     return html`<div class="card empty todo-empty">${icon(ic)}<span><strong>${title}</strong>${sub ? html`<br>${sub}` : ''}</span>
-      ${!query && view !== 'completed' && view !== 'overdue' ? html`<button type="button" class="btn btn--sm btn--accent" data-action="todo:new">${icon('plus')}New task</button>` : ''}</div>
+      ${!query && view !== 'completed' && view !== 'overdue' ? html`<button type="button" class="btn btn--sm btn--accent" data-action="todo:capture">${icon('plus')}New task</button>` : ''}</div>
       ${hidden ? hiddenNote(hidden) : ''}`;
   }
 
@@ -84,7 +112,7 @@ function listMarkup() {
     return html`<section class="tgroup${g.done ? ' tgroup--done' : ''}" aria-label="${g.title || VIEWS[view].label}">
       ${title}
       <div class="tlist-head" aria-hidden="true"><span>Priority</span><span>Task</span><span>Time</span><span>Done</span></div>
-      <ul class="tlist${manual && !g.done ? ' tlist--manual' : ''}" data-group="${g.key}">
+      <ul class="tlist${manual && !g.done ? ' tlist--manual' : ''}" data-group="${g.key}" data-no-swipe>
         ${list.map((t, i) => taskRow(t, m, { manual: manual && !g.done && !isDone(t), index: i, count: list.length }))}
       </ul>
     </section>`;
@@ -114,7 +142,7 @@ function viewTabs() {
   const c = data.counts;
   const badge = { today: c.today, overdue: c.overdue };
   return html`<nav class="todo-views" aria-label="Task views" data-no-swipe>
-    ${VIEW_KEYS.map((key) => html`<button type="button" class="todo-view${key === 'overdue' && c.overdue ? ' has-alert' : ''}" data-action="todo:view" data-view="${key}" aria-pressed="${key === view ? 'true' : 'false'}">
+    ${visibleViews(settings().views, opensOn()).map((key) => html`<button type="button" class="todo-view${key === 'overdue' && c.overdue ? ' has-alert' : ''}" data-action="todo:view" data-view="${key}" aria-pressed="${key === view ? 'true' : 'false'}">
       ${icon(VIEWS[key].icon)}<span>${VIEWS[key].short ?? VIEWS[key].label}</span>${badge[key] ? html`<span class="todo-view__count" aria-label="${badge[key]} tasks">${badge[key]}</span>` : ''}
     </button>`)}
   </nav>`;
@@ -133,9 +161,39 @@ function revealView() {
   }
 }
 
+/** Right after a quick-menu action or a key: back to the task (it's redrawn a moment later). */
+function focusPending() {
+  if (!pendingFocus || !el || document.querySelector('dialog[open]')) return;
+  el.querySelector(`.trow[data-id="${CSS.escape(pendingFocus)}"] > .trow__main`)?.focus({ preventScroll: true });
+}
+
+/**
+ * Where the keyboard (or VoiceOver) was in the list before a redraw, so it can go
+ * back to the same task — or, if the task has left this view, to the one now in its place.
+ */
+function listFocus(slot) {
+  const active = document.activeElement;
+  const row = active?.closest?.('.trow[data-id]');
+  const id = pendingFocus ?? (row && slot.contains(row) ? row.dataset.id : null);
+  if (!id) return null;
+  const rows = [...slot.querySelectorAll('.trow[data-id]')];
+  return { id, index: rows.findIndex((r) => r.dataset.id === id), part: active?.matches?.('.tcheck') ? '.tcheck' : '.trow__main' };
+}
+
+function restoreFocus(slot, spot) {
+  pendingFocus = null;
+  if (!spot || document.querySelector('dialog[open]')) return;
+  const rows = [...slot.querySelectorAll('.trow[data-id]')];
+  const same = rows.find((r) => r.dataset.id === spot.id);
+  const next = same ?? rows[Math.min(Math.max(spot.index, 0), rows.length - 1)];
+  const target = same ? same.querySelector(`:scope > ${spot.part}`) : next?.querySelector(':scope > .trow__main');
+  (target ?? el.querySelector('.todo-view[aria-pressed="true"]'))?.focus({ preventScroll: true });
+}
+
 function drawList() {
   const slot = el?.querySelector('[data-slot="list"]');
   if (!slot || !data) return;
+  const spot = listFocus(slot);
   setHTML(slot, listMarkup());
   el.querySelector('[data-slot="summary"]').textContent = summaryText();
   slot.querySelectorAll('.tlist--manual').forEach((list) => {
@@ -146,40 +204,58 @@ function drawList() {
       },
     });
   });
+  restoreFocus(slot, spot);
 }
 
-export async function showList(target) {
-  el = target;
-  if (!view) view = VIEWS[settings().view] ? settings().view : 'today';
-  await load();
+/** The parts above the list that follow the view and settings. */
+function drawChrome() {
+  const page = el.querySelector('[data-todo-page]');
+  page.classList.toggle('todo-page--compact', settings().density === 'compact');
+  const tabs = el.querySelector('.todo-views');
+  const scrolled = tabs?.scrollLeft ?? 0;
+  tabs.outerHTML = String(viewTabs());
+  el.querySelector('.todo-views').scrollLeft = scrolled;
+  const search = el.querySelector('[data-todo-search]');
+  search.placeholder = `Search ${VIEWS[view].label.toLowerCase()}`;
   const sort = settings().sort in SORTS ? settings().sort : 'smart';
-  setHTML(el, html`<div class="todo-page accent-todo">
+  const sortBtn = el.querySelector('[data-action="todo:sort"]');
+  sortBtn.setAttribute('aria-label', `Sort: ${SORTS[sort]}${settings().autoSort ? '' : ', automatic sorting off'}. Change`);
+  setHTML(sortBtn, html`${icon('sort')}<span>${SORTS[sort]}</span>`);
+}
+
+function drawPage() {
+  setHTML(el, html`<div class="todo-page accent-todo" data-todo-page>
     ${pageHead({ title: 'To Do', iconName: 'checklist', accent: 'todo', eyebrow: 'Module',
       aside: html`<button type="button" class="icon-btn" data-action="todo:menu" aria-label="More: categories, recently deleted, export">${icon('more')}</button>` })}
-    <button type="button" class="btn btn--accent btn--block todo-new" data-action="todo:new">${icon('plus')}New task</button>
-    ${viewTabs()}
+    <div class="todo-capture" data-slot="capture">${captureMarkup({ placeholder: 'Add a task…' })}</div>
+    <nav class="todo-views"></nav>
     <div class="todo-tools">
       <label class="todo-search">${icon('search')}<span class="sr-only">Search tasks</span>
-        <input type="search" class="input" data-todo-search value="${query}" placeholder="Search ${VIEWS[view].label.toLowerCase()}" autocomplete="off" enterkeyhint="search"></label>
-      <button type="button" class="btn btn--sm todo-sort" data-action="todo:sort" aria-label="Sort: ${SORTS[sort]}${settings().autoSort ? '' : ', automatic sorting off'}. Change">
-        ${icon('sort')}<span>${SORTS[sort]}</span></button>
+        <input type="search" class="input" data-todo-search value="${query}" autocomplete="off" enterkeyhint="search"></label>
+      <button type="button" class="btn btn--sm todo-sort" data-action="todo:sort"></button>
     </div>
     <p class="todo-summary" data-slot="summary" aria-live="polite"></p>
     <div class="todo-list" data-slot="list"></div>
   </div>`);
+  capture = bindCapture(el.querySelector('[data-capture]'), { defaults: newTaskDefaults, keepFocus: true });
+}
+
+export async function showList(target) {
+  el = target;
+  if (!view) view = opensOn();
+  await load();
+  if (!visibleViews(settings().views, opensOn()).includes(view)) view = opensOn();
+  if (!el.querySelector('[data-todo-page]')) drawPage();
+  drawChrome();
   drawList();
   revealView();
 }
 
-/** Redraw after a change: only the list (and counts), so typing in search isn't interrupted. */
+/** Redraw after a change: the counts and the list only, so typing isn't interrupted. */
 export async function refreshList() {
-  if (!el || !el.isConnected || !el.querySelector('[data-slot="list"]')) return;
+  if (!el || !el.isConnected || !el.querySelector('[data-todo-page]')) return;
   await load();
-  const tabs = el.querySelector('.todo-views');
-  const scrolled = tabs?.scrollLeft ?? 0;
-  if (tabs) tabs.outerHTML = String(viewTabs());
-  const fresh = el.querySelector('.todo-views');
-  if (fresh) fresh.scrollLeft = scrolled;
+  drawChrome();
   drawList();
 }
 
@@ -190,7 +266,20 @@ export function mountList(target) {
     clearTimeout(mountList.timer);
     mountList.timer = setTimeout(drawList, 120);
   });
+  bindSwipes(target);
+  bindKeys(target, {
+    focusCapture: () => {
+      window.scrollTo({ top: 0 });
+      capture?.focus();
+    },
+    focusSearch: () => target.querySelector('[data-todo-search]')?.focus(),
+  });
 }
+
+on('todo-focus', ({ id }) => {
+  pendingFocus = id;
+  requestAnimationFrame(focusPending);
+});
 
 /* ---------- Actions ---------- */
 
@@ -205,29 +294,15 @@ async function moveTo(id, ids) {
   await placeBetween(list[i], list[i - 1], list[i + 1]);
 }
 
-/** Tick or untick (from the list, the dashboard, or anywhere with data-action="todo:toggle"). */
-export async function toggleTask(id) {
-  const task = await getTask(id);
-  if (!task || task.deletedAt) return;
-  const before = { ...task };
-  const done = !isDone(task);
-  await setDone(task, done);
-  if (done) {
-    toast(`Done: ${task.title}`, { icon: 'checkCircle', action: { label: 'Undo', onClick: () => putBack(before) } });
-    announce(`${task.title} done.`);
-  } else {
-    announce(`${task.title} is not done.`);
-  }
-}
+registerAction('todo:toggle', (btn) => toggleDone(btn.dataset.id));
 
-registerAction('todo:toggle', (btn) => toggleTask(btn.dataset.id));
-registerAction('todo:open', (btn) => openTask(btn.dataset.id));
+// "New task" (Main dashboard, empty lists elsewhere): the Quick Add sheet, ready to type
+registerAction('todo:new', () => openQuickAdd());
 
-registerAction('todo:new', (btn) => {
-  const today = todayKey();
-  // Added while looking at Today (or from the dashboard): for today. Upcoming: tomorrow. Elsewhere: no date.
-  const from = btn?.closest?.('.todo-page') ? view : 'today';
-  openNewTask(from === 'today' ? { date: today } : from === 'upcoming' ? { date: addDays(today, 1) } : {});
+// The empty list's "New task": the box at the top of this screen
+registerAction('todo:capture', () => {
+  window.scrollTo({ top: 0 });
+  capture?.focus();
 });
 
 registerAction('todo:view', (btn) => {
@@ -291,10 +366,12 @@ registerAction('todo:menu', async () => {
       { label: 'Categories', value: 'categories', icon: 'layers' },
       { label: 'Recently deleted', value: 'deleted', icon: 'trash', detail: deleted ? String(deleted) : '' },
       { label: 'Export tasks (CSV)', value: 'export', icon: 'download' },
+      { label: 'How to type tasks', value: 'help', icon: 'help' },
       { label: 'Task settings', value: 'settings', icon: 'gear' },
     ],
   });
   if (choice === 'categories' || choice === 'deleted') openPage('todo', choice);
   else if (choice === 'export') exportTasksCsv();
+  else if (choice === 'help') runAction('todo:help');
   else if (choice === 'settings') runAction('settings:tasks');
 });

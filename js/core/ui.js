@@ -27,6 +27,7 @@ export function toast(message, { action, duration, icon: iconName } = {}) {
   void el.offsetWidth; // start the entrance transition
   el.classList.add('is-in');
 
+  let timer = null;
   const handle = {
     dismiss(immediate = false) {
       clearTimeout(timer);
@@ -36,7 +37,14 @@ export function toast(message, { action, duration, icon: iconName } = {}) {
       setTimeout(() => el.remove(), 280);
     },
   };
-  const timer = setTimeout(() => handle.dismiss(), duration ?? (action ? 5500 : 3200));
+  const wait = duration ?? (action ? 5500 : 3200);
+  const start = () => { clearTimeout(timer); timer = setTimeout(() => handle.dismiss(), wait); };
+  start();
+  // It waits while the pointer or the keyboard is on it (time to reach Undo)
+  el.addEventListener('pointerenter', () => clearTimeout(timer));
+  el.addEventListener('pointerleave', start);
+  el.addEventListener('focusin', () => clearTimeout(timer));
+  el.addEventListener('focusout', start);
   if (action) {
     el.querySelector('.toast__action').addEventListener('click', () => {
       handle.dismiss();
@@ -97,6 +105,14 @@ export function openDialog({ title = '', body = '', actions = [], variant = 'she
     dlg.addEventListener('cancel', (event) => {
       event.preventDefault(); // Escape key
       if (dismissible) close(null);
+    });
+    // The browser can still close it by itself (Chrome does on a second Escape): tidy up the same way
+    dlg.addEventListener('close', () => {
+      if (settled) return;
+      settled = true;
+      dlg.remove();
+      if (!document.querySelector('dialog[open]')) document.documentElement.classList.remove('has-dialog');
+      resolve(null);
     });
     dlg.addEventListener('click', (event) => {
       const chosen = event.target.closest('[data-dialog-value]');

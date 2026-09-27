@@ -12,11 +12,12 @@ import { makeReorderable } from '../../core/reorder.js';
 import { prefersReducedMotion } from '../../core/platform.js';
 import { addDays, daysFrom, formatDayLong, formatStamp, todayKey } from '../../core/manila.js';
 import {
-  MAX_NOTES, MAX_TITLE, PRIORITIES, PRIORITY_KEYS, categoryStyle, cleanUrl, isDone, linkTitle, newTask, normalizeTask, parseTags,
+  MAX_NOTES, MAX_TITLE, PRIORITIES, PRIORITY_KEYS, cleanUrl, isDone, linkTitle, newTask, normalizeTask, parseTags,
 } from './model.js';
 import {
   addSubtask, createTask, deleteSub, loadTodo, moveToTomorrow, putBack, reorderSubs, saveSub, saveTask, setDone, softDelete, subtaskToTask,
 } from './store.js';
+import { checkDuplicate } from './task-actions.js';
 
 const checkedAttr = (on) => (on ? raw(' checked') : '');
 const disabledAttr = (on) => (on ? raw(' disabled') : '');
@@ -34,7 +35,7 @@ export async function openTask(id) {
   await taskSheet({ task: normalizeTask(record), data, isNew: false });
 }
 
-/** Add a task. fields: starting values (e.g. { date } from the view you're in). */
+/** Add a task. fields: starting values (e.g. { date } from the view you're in). Resolves with the new task, or null. */
 export async function openNewTask(fields = {}) {
   const data = await loadTodo();
   const s = state.settings.tasks;
@@ -43,7 +44,7 @@ export async function openNewTask(fields = {}) {
     categoryId: data.categories.has(s.defaultCategoryId) ? s.defaultCategoryId : null,
     ...fields,
   });
-  await taskSheet({ task, data, isNew: true });
+  return taskSheet({ task, data, isNew: true });
 }
 
 /* ---------- The sheet ---------- */
@@ -214,6 +215,7 @@ async function taskSheet({ task: start, data, isNew }) {
   let finished = false; // deleted, or put back by Undo: nothing more to save from this sheet
   let form = null;
   let closeSheet = null;
+  let created = null; // the new task, once added
   const pendingTitles = new Map(); // subtask id → title being typed
   let titlesTimer = null;
   const today = todayKey();
@@ -541,10 +543,11 @@ async function taskSheet({ task: start, data, isNew }) {
     adding = true;
     form.querySelector('[data-add]').disabled = true;
     try {
-      const created = await createTask({ ...draft, title }, { subtasks: subs });
+      created = await createTask({ ...draft, title }, { subtasks: subs });
       closeSheet('added');
-      toast(`Added: ${created.title}`, { icon: 'checklist', action: { label: 'Undo', onClick: () => softDelete(created) } });
-      announce(`Task added: ${created.title}`);
+      const task = created;
+      toast(`Added: ${task.title}`, { icon: 'checklist', action: { label: 'Undo', onClick: () => softDelete(task) } });
+      announce(`Task added: ${task.title}`);
     } catch (err) {
       console.error(err);
       adding = false;
@@ -623,4 +626,6 @@ async function taskSheet({ task: start, data, isNew }) {
     if (!draft.title.trim()) draft.title = start.title;
     await persist();
   }
+  if (created) checkDuplicate(created);
+  return created;
 }

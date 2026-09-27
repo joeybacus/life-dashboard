@@ -6,6 +6,7 @@ import {
   cleanUrl, dueAt, isOverdue, matchesTask, newTask, normalizeTask, overdueText, parseTags, possibleDuplicate, sortTasks,
   spokenRow, tasksToCsv, timeCell, viewCounts, viewGroups,
 } from '../js/modules/todo/model.js';
+import { parseTask } from '../js/modules/todo/parse.js';
 
 const results = [];
 const check = (name, ok, detail = '') => results.push({ name, ok: Boolean(ok), detail: ok ? '' : JSON.stringify(detail) });
@@ -99,6 +100,89 @@ const csv = tasksToCsv([T({ title: 'Buy "good" coffee, beans', notes: '=SUM(A1)'
 check('CSV starts with Excel\'s UTF-8 mark and a header', csv.startsWith('﻿Title,Status,Priority'));
 check('CSV quotes commas and quotes', csv.includes('"Buy ""good"" coffee, beans"'), csv);
 check('CSV never starts a cell with a formula', csv.includes("'=SUM(A1)") && !csv.includes(',=SUM'), csv);
+
+/* ---------- Plain words (parse.js) ---------- */
+
+// Sunday 27 September 2026, 10:00 AM in Manila; weeks start on Sunday; "3/10" is month/day
+const P_NOW = Date.parse('2026-09-27T02:00:00Z');
+const P_CATS = [
+  { id: 'cat-mba', name: 'MBA' }, { id: 'cat-business', name: 'Business' }, { id: 'cat-board', name: 'Board exam' },
+  { id: 'cat-research', name: 'Research' }, { id: 'cat-residency', name: 'Residency' },
+];
+const read = (text, opts = {}) => parseTask(text, { now: P_NOW, categories: P_CATS, dateOrder: 'md', weekStart: 0, ...opts });
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function phrase(text, expect, opts = {}) {
+  const r = read(text, opts);
+  const got = { title: r.title, ...r.fields };
+  if (got.endTime == null) delete got.endTime;
+  const keys = new Set([...Object.keys(expect), ...Object.keys(got)]);
+  check(`words: “${text}”${opts.note ? ` (${opts.note})` : ''}`, [...keys].every((k) => same(got[k], expect[k])), got);
+}
+
+phrase('Finish STRAMA paper tomorrow 8pm #MBA !!!', { title: 'Finish STRAMA paper', date: '2026-09-28', startTime: '20:00', priority: 'high', categoryId: 'cat-mba' });
+phrase('Call the lab', { title: 'Call the lab' });
+phrase('Submit report today', { title: 'Submit report', date: '2026-09-27' });
+phrase('Pay rent tmrw', { title: 'Pay rent', date: '2026-09-28' });
+phrase('Dinner with family tonight 7pm', { title: 'Dinner with family', date: '2026-09-27', startTime: '19:00' });
+phrase('Journal club on Friday', { title: 'Journal club', date: '2026-10-02' });
+phrase('Grand rounds monday 7:30am', { title: 'Grand rounds', date: '2026-09-28', startTime: '07:30' });
+phrase('Team meeting next Monday', { title: 'Team meeting', date: '2026-10-05' }, { note: 'weeks start Sunday' });
+phrase('Team meeting next Monday', { title: 'Team meeting', date: '2026-09-28' }, { weekStart: 1, note: 'weeks start Monday' });
+phrase('Buy gift for Sunday', { title: 'Buy gift', date: '2026-09-27' });
+phrase('Renew license in 3 days', { title: 'Renew license', date: '2026-09-30' });
+phrase('Review papers in 2 weeks', { title: 'Review papers', date: '2026-10-11' });
+phrase('Conference Oct 3', { title: 'Conference', date: '2026-10-03' });
+phrase('Deadline 3 October', { title: 'Deadline', date: '2026-10-03' });
+phrase('Birthday on Sept 5', { title: 'Birthday', date: '2027-09-05' }, { note: 'already past: next year' });
+phrase('Cake on Feb 29', { title: 'Cake', date: '2028-02-29' });
+phrase('Pay bill 10/15', { title: 'Pay bill', date: '2026-10-15' });
+phrase('Pay bill 10/15/2026', { title: 'Pay bill', date: '2026-10-15' });
+phrase('Pay bill 2/30', { title: 'Pay bill 2/30' }, { note: 'not a real date' });
+phrase('Meet 3/10', { title: 'Meet', date: '2026-10-03' }, { choices: { 'date:3/10': '2026-10-03' }, note: 'after choosing Oct 3' });
+phrase('Rounds 8-9 PM', { title: 'Rounds', date: '2026-09-27', startTime: '20:00', endTime: '21:00' });
+phrase('Meeting 3-4pm tomorrow', { title: 'Meeting', date: '2026-09-28', startTime: '15:00', endTime: '16:00' });
+phrase('Rounds 11-1pm', { title: 'Rounds', date: '2026-09-27', startTime: '11:00', endTime: '13:00' });
+phrase('Night shift 11pm-7am tomorrow', { title: 'Night shift', date: '2026-09-28', startTime: '23:00', endTime: '07:00' });
+phrase('Clinic 8:30 PM', { title: 'Clinic', date: '2026-09-27', startTime: '20:30' });
+phrase('Surgery 20:00', { title: 'Surgery', date: '2026-09-27', startTime: '20:00' });
+phrase('Lunch at noon', { title: 'Lunch', date: '2026-09-27', startTime: '12:00' });
+phrase('Standup 9am', { title: 'Standup', date: '2026-09-28', startTime: '09:00' }, { note: 'already past today: tomorrow' });
+phrase('Ward 5A rounds 7am', { title: 'Ward 5A rounds', date: '2026-09-28', startTime: '07:00' }, { note: '"5A" stays words' });
+phrase('Call mom at 8', { title: 'Call mom', date: '2026-09-27', startTime: '20:00' }, { choices: { 'time:at 8': { start: '20:00', end: null } }, note: 'after choosing PM' });
+phrase('Call mom tonight at 8', { title: 'Call mom', date: '2026-09-27', startTime: '20:00' }, { note: 'tonight means PM' });
+phrase('Read chapter !', { title: 'Read chapter', priority: 'low' });
+phrase('Read chapter !!', { title: 'Read chapter', priority: 'medium' });
+phrase('Fix bug high priority', { title: 'Fix bug', priority: 'high' });
+phrase('Buy groceries @home @errands', { title: 'Buy groceries', tags: ['home', 'errands'] });
+phrase('Email john@example.com', { title: 'Email john@example.com' });
+phrase('Draft proposal #business', { title: 'Draft proposal', categoryId: 'cat-business' });
+phrase('Prep #boardexam', { title: 'Prep', categoryId: 'cat-board' }, { note: 'spaces don’t matter' });
+phrase('Study #bo', { title: 'Study', categoryId: 'cat-board' }, { note: 'the start of a name' });
+phrase('Study #b', { title: 'Study #b' }, { note: 'too short to choose' });
+phrase('Unknown #nothing', { title: 'Unknown #nothing' });
+phrase('Sat for exam', { title: 'Sat for exam' }, { note: 'short day names need "on"' });
+phrase('Buy sun cream', { title: 'Buy sun cream' });
+phrase('Workout on mon', { title: 'Workout', date: '2026-09-28' });
+phrase('Pay 3.10 dollars', { title: 'Pay 3.10 dollars' });
+phrase('Take 8 a day', { title: 'Take 8 a day' });
+phrase('Grant report due friday 5pm !!! #research @grant', { title: 'Grant report', date: '2026-10-02', startTime: '17:00', priority: 'high', categoryId: 'cat-research', tags: ['grant'] });
+phrase('Send report tomorrow', { title: 'Send report tomorrow' }, { ignore: ['date:tomorrow'], note: 'chip removed' });
+phrase('Rounds 8-9 PM', { title: 'Rounds 8-9 PM' }, { ignore: ['time:8-9 pm'], note: 'chip removed: no leftover "9 PM"' });
+
+const ask = read('Meet 3/10');
+check('asks: “3/10” could be Mar 10 or Oct 3 (month first here)', ask.unanswered.length === 1 && same(ask.unanswered[0].options.map((o) => o.value), ['2027-03-10', '2026-10-03']) && !ask.fields.date, ask);
+check('asks: both readings name the month (“Oct 3”, not “Saturday”)', same(ask.unanswered[0]?.options.map((o) => o.label), ['Mar 10, 2027', 'Oct 3']), ask.unanswered[0]?.options);
+const askDm = read('Meet 3/10', { dateOrder: 'dm' });
+check('asks: day first where that is usual', same(askDm.unanswered[0]?.options.map((o) => o.value), ['2026-10-03', '2027-03-10']), askDm.unanswered);
+const askTime = read('Call mom at 8');
+check('asks: “at 8” — 8 AM or 8 PM (morning first for 7–11)', askTime.unanswered.length === 1 && same(askTime.unanswered[0].options.map((o) => o.value.start), ['08:00', '20:00']) && !askTime.fields.startTime, askTime.unanswered);
+const askCat = read('Paper #re');
+check('asks: “#re” fits two categories', askCat.unanswered.length === 1 && same(askCat.unanswered[0].options.map((o) => o.label), ['Research', 'Residency']), askCat.unanswered);
+const chips = read('Finish STRAMA paper tomorrow 8pm #MBA !!!').parts.map((p) => p.label);
+check('chips: Tomorrow · 8:00 PM · MBA · High', chips[0] === 'Tomorrow' && /8:00/.test(chips[1]) && chips[2] === 'MBA' && chips[3] === 'High', chips);
+const fridayChip = read('Journal club on Friday').parts[0]?.label;
+check('chips: a weekday shows its date (“Fri, Oct 2”)', /Fri/.test(fridayChip) && /Oct/.test(fridayChip) && /2/.test(fridayChip), fridayChip);
+check('empty text reads as nothing', same(read('').fields, {}) && read('').title === '');
 
 /* ---------- Show the results ---------- */
 

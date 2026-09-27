@@ -108,6 +108,44 @@ export function placeBetween(task, before, after) {
   return saveTask({ ...task, manualOrder: order });
 }
 
+/**
+ * "Possible duplicate — merge": the newer task's details join the older one
+ * (notes, tags, links, subtasks; the higher priority; a pin), then the newer one
+ * is deleted. Returns an Undo that puts both back exactly as they were.
+ */
+export async function mergeTasks(keep, drop) {
+  const now = nowISO();
+  const allSubs = (await db.all('subtasks')).filter((s) => !s.deletedAt);
+  const moving = allSubs.filter((s) => s.taskId === drop.id);
+  const kept = allSubs.filter((s) => s.taskId === keep.id);
+  const rank = (t) => PRIORITIES[t.priority]?.rank ?? 3;
+  const merged = clean({
+    ...keep,
+    notes: [...new Set([keep.notes, drop.notes].map((n) => (n ?? '').trim()).filter(Boolean))].join('\n\n'),
+    tags: [...new Set([...(keep.tags ?? []), ...(drop.tags ?? [])])],
+    links: [...(keep.links ?? []), ...(drop.links ?? []).filter((l) => !(keep.links ?? []).some((k) => k.url === l.url))],
+    priority: rank(drop) < rank(keep) ? drop.priority : keep.priority,
+    categoryId: keep.categoryId ?? drop.categoryId ?? null,
+    pinned: Boolean(keep.pinned || drop.pinned),
+    updatedAt: now,
+  });
+  await saveRecords([
+    { store: 'tasks', record: merged },
+    { store: 'tasks', record: { ...drop, deletedAt: now, updatedAt: now } },
+    ...moving.map((s, i) => ({ store: 'subtasks', record: { ...s, taskId: keep.id, order: kept.length + i, updatedAt: now } })),
+  ]);
+  todoChanged();
+  return async () => {
+    const t = nowISO();
+    await saveRecords([
+      { store: 'tasks', record: { ...keep, updatedAt: t } },
+      { store: 'tasks', record: { ...drop, deletedAt: null, updatedAt: t } },
+      ...moving.map((s) => ({ store: 'subtasks', record: { ...s, updatedAt: t } })),
+    ]);
+    todoChanged();
+  };
+}
+
 /* ---------- Subtasks ---------- */
 
 export async function addSubtask(taskId, title, order) {

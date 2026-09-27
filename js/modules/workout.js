@@ -11,6 +11,7 @@
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
 import { registerAction } from '../core/actions.js';
+import { registerQuickAdd } from '../core/quick-add.js';
 import { db } from '../core/db.js';
 import { changed, on, state } from '../core/state.js';
 import { html, setHTML } from '../core/html.js';
@@ -168,6 +169,7 @@ registerModule({
 });
 
 registerAction('workout:start', () => startWorkout());
+registerQuickAdd({ id: 'workout', label: 'Start workout', icon: 'bolt', accent: 'workout', order: 30, run: () => startWorkout() });
 registerAction('workout:export', () => exportWorkoutsCsv());
 
 /* ---- Workout home ---- */

@@ -4,6 +4,7 @@ import { emit, loadState, on, state } from './core/state.js';
 import { applyTheme, watchSystemTheme } from './core/theme.js';
 import { initActions } from './core/actions.js';
 import { initRouter } from './core/router.js';
+import { initQuickAdd } from './core/quick-add.js';
 import { startLiveClocks } from './core/components.js';
 import { esc } from './core/html.js';
 import { supportsNativeSwitch } from './core/platform.js';
@@ -79,6 +80,7 @@ async function boot() {
   initDashboard();
   initSettings();
   initRouter();
+  initQuickAdd(); // the + button on every tab
   startLiveClocks();
   watchDayChange();
   hideBoot();

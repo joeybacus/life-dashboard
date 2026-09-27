@@ -31,6 +31,17 @@ export const VIEWS = {
 };
 export const VIEW_KEYS = Object.keys(VIEWS);
 
+/**
+ * The view tabs to show, in your order (Settings → Tasks → Views). The view the
+ * To Do screen opens on always shows, and views added by later versions appear
+ * at the end.
+ */
+export function visibleViews(views = {}, opensOn = 'today') {
+  const order = [...(views.order ?? []).filter((k) => VIEWS[k]), ...VIEW_KEYS.filter((k) => !(views.order ?? []).includes(k))];
+  const hidden = new Set(views.hidden ?? []);
+  return order.filter((k) => !hidden.has(k) || k === opensOn);
+}
+
 export const SORTS = {
   smart: 'Smart',
   priority: 'Priority',
@@ -45,6 +56,38 @@ export const COMPLETED_MODES = {
   move: 'Move to Completed',
   hide: 'Hide',
 };
+
+/* The cross-shaped quick menu: Complete sits in the middle; each of the four arms
+   can hold any of these (Settings → Tasks → Quick menu). Actions marked "soon"
+   arrive with a later release; until then their arm shows a stand-in. */
+export const QUICK_ACTIONS = {
+  complete: { label: 'Complete', icon: 'check' },
+  reminder: { label: 'Reminder', icon: 'bell', soon: true },
+  details: { label: 'Details', icon: 'edit' },
+  delete: { label: 'Delete', icon: 'trash' },
+  focus: { label: 'Focus', icon: 'timer', soon: true },
+  tomorrow: { label: 'Tomorrow', long: 'Move to tomorrow', icon: 'arrowRight' },
+  priority: { label: 'Priority', long: 'Change priority', icon: 'flag' },
+  category: { label: 'Category', long: 'Move category', icon: 'layers' },
+  subtask: { label: 'Subtask', long: 'Add subtask', icon: 'plusCircle' },
+  pin: { label: 'Pin', icon: 'pushpin' },
+  calendar: { label: 'Calendar', long: 'Add to Google Calendar', icon: 'calendar', soon: true },
+};
+export const QUICK_ARMS = ['up', 'right', 'down', 'left'];
+export const ARM_NAMES = { up: 'Top', right: 'Right', down: 'Bottom', left: 'Left' };
+const ARM_DEFAULTS = { up: 'reminder', right: 'details', down: 'delete', left: 'focus' };
+const STAND_INS = { reminder: 'tomorrow', focus: 'pin', calendar: 'category' };
+export const quickActionReady = (id) => Boolean(QUICK_ACTIONS[id]) && !QUICK_ACTIONS[id].soon;
+
+/** What each arm holds: your choice, or the default (Reminder, Details, Delete, Focus — with stand-ins until those exist). */
+export function quickArms(saved = {}) {
+  const arms = {};
+  QUICK_ARMS.forEach((arm) => {
+    const want = QUICK_ACTIONS[saved?.[arm]] && saved[arm] !== 'complete' ? saved[arm] : ARM_DEFAULTS[arm];
+    arms[arm] = quickActionReady(want) ? want : STAND_INS[want] ?? 'details';
+  });
+  return arms;
+}
 
 /** How long deleted tasks stay in Recently deleted. They're never erased: the Sheet keeps them. */
 export const DELETED_DAYS = 30;
@@ -251,8 +294,8 @@ export const foldText = (text) => String(text ?? '').normalize('NFD').replace(/[
 export function matchesTask(t, query, categoryName = '') {
   const words = foldText(query).split(/\s+/).filter(Boolean);
   if (!words.length) return true;
-  // Tags are searched as "#tag", so both "paper" and "#paper" find them
-  const haystack = foldText([t.title, t.notes, ...(t.tags ?? []).map((tag) => `#${tag}`), categoryName].join(' \n '));
+  // Tags are searched as "@tag" and "#tag", so "paper", "@paper" and "#paper" all find them
+  const haystack = foldText([t.title, t.notes, ...(t.tags ?? []).map((tag) => `@${tag} #${tag}`), categoryName].join(' \n '));
   return words.every((w) => haystack.includes(w));
 }
 

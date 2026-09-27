@@ -4,8 +4,9 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 3 — Tasks and productivity (v0.4.0, the first of seven small releases).** A real
-to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting —
+**Current status: Phase 3 — Tasks and productivity (v0.4.1, the second of seven small releases).** A real
+to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting,
+and fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes —
 on top of Phase 2 (workouts, and ward rounds from your logsheet in **Ward Patients**, Neurology tab) and
 Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on each device and, once sync is
 set up, in your own Google Sheet.
@@ -102,14 +103,30 @@ Good to know about the Wi-Fi preview:
 
 ## To Do (Phase 3)
 
-The To Do tab is a full task list (v0.4.0). Reminders, the Google Calendar link, repeating tasks, the focus timer
-and habits arrive in the next small updates (0.4.1 – 0.4.6).
+The To Do tab is a full task list (v0.4.0) with fast capture (v0.4.1). Reminders, the Google Calendar link,
+repeating tasks, the focus timer and habits arrive in the next small updates (0.4.2 – 0.4.6).
 
-- **Add a task:** **New task** (To Do tab or the To Do card on Main). A task has a name, a priority (High, Medium,
-  Low or None — always shown as a coloured dot *and* a word), a date, an optional time or time range, a category,
-  tags, notes, subtasks and links. Pin a task to keep it at the top and always in Today. One tap adds one task.
+- **Type a task the way you'd say it** in the box at the top of To Do, or after tapping **+** (bottom right, on every
+  tab): *Finish STRAMA paper tomorrow 8pm #MBA !!!* becomes "Finish STRAMA paper", tomorrow at 8:00 PM, MBA, High.
+  What the box understands shows as chips under it — tap a chip to keep those words in the name instead. It knows
+  dates (today, tonight, tomorrow, Friday, next Monday, in 3 days, Oct 3, 10/15), times (8pm, 8:30 PM, 20:00, noon,
+  8–9 PM), priority (! low, !! medium, !!! high), #category (the start of a name is enough) and @tags. When something
+  could mean two things — "3/10", "at 8" — it asks before adding. The **?** in the box lists everything.
+  Enter or **Add** adds the task; **Details** opens the full task sheet with everything filled in.
+- **The + button** opens Quick Add at the top of the screen (the keyboard never covers it): a new task, or
+  **Start workout**. Start focus and Log habit join it later.
+- **A task** has a name, a priority (High, Medium, Low or None — always shown as a coloured dot *and* a word), a date,
+  an optional time or time range, a category, tags, notes, subtasks and links. Pin a task to keep it at the top and
+  always in Today. One tap adds one task; adding the same task twice within a minute asks **Keep both** or **Merge**.
+- **Tap a task** for the quick menu: **Complete** in the middle and four actions around it (to start with: Move to
+  tomorrow, Details, Delete and Pin — Reminder and Focus take the top and left places when they arrive). Choose the
+  four in Settings → Tasks → Quick menu. Everything has Undo.
+- **Swipes (iPhone, iPad):** swipe a task right to complete it, left to move it to tomorrow.
+- **Mac keys:** N new task · / search · ↑ ↓ move between tasks · Space complete · Enter quick menu · ? help ·
+  ⌘Enter save · Esc close.
 - **Views:** Today (overdue, due today and pinned), Upcoming (the next 7 days, by day), Overdue, By category, All and
-  Completed (with when you did each one). The search box looks in names, notes, tags and categories.
+  Completed (with when you did each one). Settings → Tasks → Views hides views or changes their order, and
+  List spacing makes the list compact. The search box looks in names, notes, tags and categories.
 - **Sort** (top right): Smart — overdue first, then pinned, then High → Medium → Low → None, earliest time first —
   or Priority, Time, Recently added, Category or Manual (drag ≡). Automatic sorting can be switched off so tasks stay
   put until you choose Sort now.
@@ -219,15 +236,19 @@ js/modules/           Life categories (workout, todo, neurology) + registry
 js/modules/workout/   Workout pieces: model, exercise library, logger, rest timer, templates,
                       history, Hevy import/export
 js/modules/todo/      To Do: model (views, sorting, search, CSV), store (saving), rows, list (the screen),
-                      detail (the task sheet), pages (Recently deleted, Categories, export)
+                      detail (the task sheet), pages (Recently deleted, Categories, Views, export),
+                      parse (plain words → a task), capture (the typing box), quickmenu (tap a task),
+                      gestures (swipes, Mac keys), task-actions (complete, tomorrow, delete… with Undo)
+js/core/quick-add.js  The + button on every tab and the Quick Add sheet
 js/modules/ward/      Ward Patients (Neurology): model (Manila time, sorting), engine (list, rounds,
                       changes waiting to be saved), page (screen, patient sheet, history), store
 js/screens/           Dashboard, settings, welcome
 js/services/          Sync, backup, calendar provider, sample data, storage, images
 apps-script/Code.gs   Google Sheets sync script (runs in your Google account)
 icons/                App icons (edit the SVGs, then run tools/make-icons.py)
-tools/                Local preview server, icon generator, and todo-checks.html (checks the task logic in
-                      the browser: open http://localhost:8000/tools/todo-checks.html while previewing)
+tools/                Local preview server, icon generator, and todo-checks.html (checks the task logic and
+                      the plain-words reader in the browser: open
+                      http://localhost:8000/tools/todo-checks.html while previewing)
 tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (checks) and
                       mock_server.py (pretend web app at http://127.0.0.1:8124/macros/s/TEST/exec;
                       --code OLD.gs runs an older script, to test the update notice; /__ward/… edits

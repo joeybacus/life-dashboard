@@ -16,6 +16,7 @@ const PATHS = {
   chevronLeft: '<path d="M14.5 6l-6 6 6 6"/>',
   chevronUpDown: '<path d="M8 9.5l4-4 4 4M8 14.5l4 4 4-4"/>',
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  arrowLeft: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
   arrowUp: '<path d="M12 19V5M6 11l6-6 6 6"/>',
   arrowDown: '<path d="M12 5v14M6 13l6 6 6-6"/>',
   grip: '<path d="M5 8.5h14M5 12h14M5 15.5h14"/>',

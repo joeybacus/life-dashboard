@@ -35,6 +35,12 @@ export const DEFAULT_SETTINGS = {
     completed: 'keep',      // done tasks: 'keep' (in place) | 'move' (a Completed group) | 'hide'
     defaultPriority: 'none',
     defaultCategoryId: null,
+    views: {                // which view tabs show, in order (the "Opens on" view always shows)
+      order: ['today', 'upcoming', 'overdue', 'category', 'all', 'completed'],
+      hidden: [],
+    },
+    density: 'comfortable', // 'comfortable' | 'compact'
+    quickMenu: { up: null, right: null, down: null, left: null }, // tap-a-task menu arms; null = the default
     // (v0.3 had a "defaultReminder: 30" here that never did anything; reminders arrive in 0.4.2)
   },
   backup: {

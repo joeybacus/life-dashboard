@@ -1,8 +1,10 @@
 /* Pages inside the To Do tab — Recently deleted (#/todo/deleted) and
-   Categories (#/todo/categories) — and the task CSV export. */
+   Categories (#/todo/categories) — the Views sheet (Settings → Tasks → Views)
+   and the task CSV export. */
 import { html, raw, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { registerAction } from '../../core/actions.js';
+import { state, updateSettings } from '../../core/state.js';
 import { subHead } from '../../core/components.js';
 import { actionSheet, announce, openDialog, promptDialog, toast } from '../../core/ui.js';
 import { makeReorderable } from '../../core/reorder.js';
@@ -11,7 +13,9 @@ import { saveRecords } from '../../core/records.js';
 import { nowISO } from '../../core/dates.js';
 import { daysFrom, formatStamp, todayKey } from '../../core/manila.js';
 import { shareOrDownload } from '../../services/backup.js';
-import { CATEGORY_COLORS, CATEGORY_ICONS, COLOR_NAMES, DELETED_DAYS, categoryStyle, isDone, subtaskProgress, tasksToCsv } from './model.js';
+import {
+  CATEGORY_COLORS, CATEGORY_ICONS, COLOR_NAMES, DELETED_DAYS, VIEWS, VIEW_KEYS, categoryStyle, isDone, subtaskProgress, tasksToCsv, visibleViews,
+} from './model.js';
 import {
   deleteCategory, getTask, loadTodo, reorderCategories, restoreTask, saveCategory, softDelete, todoChanged,
 } from './store.js';
@@ -227,6 +231,88 @@ registerAction('cat:menu', async (btn) => {
     await removeCategory(category);
   }
 });
+
+/* ---------- Which views show (Settings → Tasks → Views) ---------- */
+
+function viewsOrder() {
+  const saved = state.settings.tasks.views ?? {};
+  return [...(saved.order ?? []).filter((k) => VIEWS[k]), ...VIEW_KEYS.filter((k) => !(saved.order ?? []).includes(k))];
+}
+
+function viewsList() {
+  const opensOn = VIEWS[state.settings.tasks.view] ? state.settings.tasks.view : 'today';
+  const shown = new Set(visibleViews(state.settings.tasks.views, opensOn));
+  const order = viewsOrder();
+  return html`<ol class="card views-list" data-views-list>${order.map((key, i) => html`<li class="views-item" data-id="${key}">
+    <span class="views-item__handle" data-drag-handle title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>
+    <span class="views-item__icon">${icon(VIEWS[key].icon)}</span>
+    <span class="views-item__text"><span class="views-item__label">${VIEWS[key].label}</span>
+      ${key === opensOn ? html`<span class="views-item__sub">To Do opens on this view, so it always shows</span>` : ''}</span>
+    <input type="checkbox" class="switch" switch data-view-show="${key}" aria-label="Show ${VIEWS[key].label}"${raw(shown.has(key) ? ' checked' : '')}${raw(key === opensOn ? ' disabled' : '')}>
+    <button type="button" class="sr-only sr-only-focusable" data-view-move="-1"${raw(i === 0 ? ' disabled' : '')}>Move ${VIEWS[key].label} up</button>
+    <button type="button" class="sr-only sr-only-focusable" data-view-move="1"${raw(i === order.length - 1 ? ' disabled' : '')}>Move ${VIEWS[key].label} down</button>
+  </li>`)}</ol>`;
+}
+
+export async function openViewsSettings() {
+  const saveViews = (mutate) => updateSettings((s) => {
+    const next = { order: viewsOrder(), hidden: [...(s.tasks.views?.hidden ?? [])] };
+    mutate(next);
+    s.tasks.views = next;
+  });
+  await openDialog({
+    variant: 'sheet',
+    className: 'views-sheet accent-todo',
+    title: 'Views',
+    body: html`<p class="dlg__msg">Choose which views show at the top of To Do, and drag ≡ to change their order.</p>
+      <div data-views-slot>${viewsList()}</div>
+      <button type="button" class="btn btn--sm btn--ghost views-reset" data-views-reset>${icon('refresh')}Reset to default</button>`,
+    actions: [{ label: 'Done', value: 'done', variant: 'primary' }],
+    onOpen(dlg) {
+      const slot = dlg.querySelector('[data-views-slot]');
+      const draw = (focusKey, dir) => {
+        setHTML(slot, viewsList());
+        makeReorderable(slot.querySelector('[data-views-list]'), {
+          onReorder: async (ids, item) => {
+            await saveViews((v) => { v.order = ids; });
+            draw();
+            announce(`Moved to position ${ids.indexOf(item.dataset.id) + 1} of ${ids.length}.`);
+          },
+        });
+        if (focusKey) slot.querySelector(`[data-id="${focusKey}"] [data-view-move="${dir}"]`)?.focus();
+      };
+      draw();
+      dlg.addEventListener('change', async (event) => {
+        const key = event.target.dataset.viewShow;
+        if (!key) return;
+        await saveViews((v) => {
+          v.hidden = v.hidden.filter((k) => k !== key);
+          if (!event.target.checked) v.hidden.push(key);
+        });
+      });
+      dlg.addEventListener('click', async (event) => {
+        const move = event.target.closest('[data-view-move]');
+        if (move) {
+          const key = move.closest('[data-id]').dataset.id;
+          const order = viewsOrder();
+          const from = order.indexOf(key);
+          const to = from + Number(move.dataset.viewMove);
+          if (to < 0 || to >= order.length) return;
+          order.splice(to, 0, order.splice(from, 1)[0]);
+          await saveViews((v) => { v.order = order; });
+          draw(key, move.dataset.viewMove);
+          announce(`Moved to position ${to + 1} of ${order.length}.`);
+        } else if (event.target.closest('[data-views-reset]')) {
+          await saveViews((v) => { v.order = [...VIEW_KEYS]; v.hidden = []; });
+          draw();
+          announce('Views reset.');
+        }
+      });
+    },
+  });
+}
+
+registerAction('todo:views', () => openViewsSettings());
 
 /* ---------- Export ---------- */
 

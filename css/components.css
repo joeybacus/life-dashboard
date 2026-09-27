@@ -528,11 +528,43 @@ button.row { width: 100%; text-align: left; }
   .dlg--sheet .dlg__grabber { display: none; }
 }
 
+/* Top sheet (Quick Add): near the top, so the iPhone keyboard never covers what you type */
+.dlg--top[open] { align-items: flex-start; padding: calc(env(safe-area-inset-top) + 10px) 12px 12px; }
+.dlg--top .dlg__panel {
+  width: min(100%, 560px);
+  max-height: calc(100% - env(safe-area-inset-top) - 22px);
+  padding: 14px 14px 12px;
+  border-radius: 24px;
+  border-bottom: 1px solid var(--border);
+  animation: drop-in var(--t) var(--ease) both;
+}
+@media (min-width: 700px) { .dlg--top[open] { padding-top: max(10vh, calc(env(safe-area-inset-top) + 24px)); } }
+@keyframes drop-in { from { opacity: 0; transform: translateY(-10px) scale(.98); } }
+
+/* Cross-shaped menu: no panel, just the buttons (placed by the menu itself) over the dimmed screen */
+.dlg--cross .dlg__panel {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+  animation: none;
+  pointer-events: none; /* taps between the buttons reach the backdrop, which closes the menu */
+}
+.dlg--cross .dlg__body { height: 100%; }
+
 .dlg.is-closing { animation: dlg-fade-out var(--t) var(--ease) both; }
 .dlg.is-closing .dlg__panel { animation: sheet-out var(--t) var(--ease) both; }
 .dlg--alert.is-closing .dlg__panel,
 .dlg--modal.is-closing .dlg__panel { animation: pop-out var(--t-fast) var(--ease) both; }
 @media (min-width: 700px) { .dlg--sheet.is-closing .dlg__panel { animation: pop-out var(--t-fast) var(--ease) both; } }
+.dlg--top.is-closing .dlg__panel { animation: pop-out var(--t-fast) var(--ease) both; }
+.dlg--cross.is-closing .dlg__panel { animation: none; }
 
 html.has-dialog { overflow: hidden; }
 

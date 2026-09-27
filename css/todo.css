@@ -358,3 +358,328 @@
 .icon-pick { color: var(--cat); background: color-mix(in srgb, var(--cat) 12%, transparent); border: 1px solid var(--border); }
 .icon-pick .icon { width: 1.35rem; height: 1.35rem; }
 .icon-pick[aria-pressed="true"] { border-color: var(--cat); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cat) 55%, transparent); }
+
+/* ==========================================================================
+   Fast capture (0.4.1): the plain-words box, the Quick Add sheet, the
+   cross-shaped quick menu, swipes, compact spacing, and the Views sheet.
+   ========================================================================== */
+
+/* ---- The plain-words box (top of To Do, and the Quick Add sheet) ---- */
+.todo-capture { margin-top: 16px; }
+.capture { display: flex; flex-direction: column; gap: 8px; }
+.capture__row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 0 4px 0 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.capture__row:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.capture__icon { display: grid; place-items: center; flex: none; color: var(--accent-ink); }
+.capture__icon .icon { width: 1.2rem; height: 1.2rem; }
+.capture__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 50px;
+  padding: 0 6px 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: max(16px, var(--fs-base)); /* 16px or more: iPhone doesn't zoom in */
+  font-weight: 550;
+}
+.capture__input:focus { outline: none; }
+.capture__input::placeholder { color: var(--text-3); font-weight: 500; }
+.capture__help { color: var(--text-3); }
+.capture__hint { display: none; margin: 0 6px; font-size: var(--fs-xs); color: var(--text-3); }
+.capture.was-focused:not(.has-text) .capture__hint,
+.quick-add .capture:not(.has-text) .capture__hint { display: block; }
+.capture__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.capture__chips:empty, .capture__ask:empty { display: none; }
+.capture__actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* A chip for each thing the box understood; tap one to keep those words in the name */
+.cchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 0 8px 0 11px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.cchip.is-new { animation: chip-in var(--t-fast) var(--ease) both; }
+.cchip > span:not(.cchip__cat) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cchip > .icon:first-child { width: 1rem; height: 1rem; flex: none; }
+.cchip__x { width: .8rem; height: .8rem; flex: none; opacity: .55; }
+.cchip .pri { gap: 0; }
+.cchip__cat { display: grid; place-items: center; color: var(--cat); }
+.cchip__cat .icon { width: 1rem; height: 1rem; }
+.cchip--category, .cchip--priority { color: var(--text); }
+/* Defaults (the view's day, your default priority or category): quieter, dashed */
+.cchip--default { color: var(--text-2); background: transparent; border: 1px dashed var(--border-2); }
+/* Needs a choice (see the question under it) */
+.cchip--ask { color: var(--text); background: color-mix(in srgb, var(--pri-med) 16%, transparent); border-color: color-mix(in srgb, var(--pri-med) 55%, transparent); }
+@media (hover: hover) { .cchip:hover .cchip__x { opacity: 1; } }
+@keyframes chip-in { from { opacity: 0; transform: scale(.92); } }
+
+/* "3/10" is March 10 or October 3? */
+.capture__ask { display: flex; flex-direction: column; gap: 8px; }
+.cask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--pri-med) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pri-med) 32%, transparent);
+}
+.cask__q { margin-right: 2px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); }
+.cask__opt {
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: var(--r-pill);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-2);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--text);
+}
+@media (hover: hover) { .cask__opt:hover { border-color: color-mix(in srgb, var(--pri-med) 70%, transparent); } }
+.capture.is-asking .cask { animation: ask-nudge 420ms var(--ease) both; }
+@keyframes ask-nudge { 20% { transform: translateX(-5px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-2px); } }
+
+/* ---- Quick Add sheet (the + button) ---- */
+.quick-add .dlg__panel { padding: 12px; }
+.quick-add__more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.quick-add__or { margin: 0 2px 0 4px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.quick-add__item { color: var(--accent-ink); }
+.quick-add__close { margin-left: auto; color: var(--text-2); }
+
+/* ---- Typing help ---- */
+.capture-help__example {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.capture-help__example strong { color: var(--text); font-weight: 650; }
+.capture-help__list, .capture-help__keys { display: flex; flex-direction: column; margin: 12px 0 0; }
+.capture-help__list > div, .capture-help__keys > div {
+  display: grid;
+  grid-template-columns: 5.25rem minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.capture-help dt { font-size: var(--fs-sm); font-weight: 700; }
+.capture-help dd { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); }
+.capture-help__title { margin: 22px 0 4px; font-size: var(--fs-md); font-weight: 700; }
+.capture-help__keys > div { align-items: center; padding: 7px 0; }
+kbd {
+  display: inline-block;
+  min-width: 1.75em;
+  padding: 2px 7px;
+  border-radius: 7px;
+  font: 650 var(--fs-xs) / 1.4 var(--font);
+  text-align: center;
+  white-space: nowrap;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  box-shadow: inset 0 -1px 0 var(--border-2);
+}
+/* Keys only where there's a keyboard and pointer; swipes only on touch screens */
+@media not all and (any-hover: hover) { .capture-help__mac { display: none; } }
+@media not all and (any-pointer: coarse) { .capture-help__touch { display: none; } }
+
+/* ---- The cross-shaped quick menu ---- */
+.xmenu { position: absolute; width: 0; height: 0; }
+.xmenu__title {
+  position: absolute;
+  left: 0;
+  bottom: calc(88px + 34px + 16px);
+  width: max-content;
+  max-width: min(calc(100vw - 32px), 340px);
+  padding: 8px 14px;
+  translate: -50% 0;
+  border-radius: 14px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  animation: x-fade var(--t) var(--ease) both;
+}
+.xmenu__list { position: relative; margin: 0; padding: 0; list-style: none; }
+.xmenu__item {
+  --dx: 0px;
+  --dy: 0px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: calc(-50% + var(--dx)) calc(-50% + var(--dy));
+  animation: x-out-from-centre 300ms var(--ease-spring) both;
+}
+.xmenu__item--up { --dy: -88px; }
+.xmenu__item--right { --dx: 88px; }
+.xmenu__item--down { --dy: 88px; }
+.xmenu__item--left { --dx: -88px; }
+.xmenu__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 68px;
+  height: 68px;
+  padding: 0 4px;
+  border-radius: 50%;
+  pointer-events: auto;
+  color: var(--accent-ink);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
+  transition: transform var(--t-fast) var(--ease-spring);
+}
+.xmenu__btn .icon { width: 22px; height: 22px; flex: none; }
+.xmenu__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--text);
+}
+.xmenu__btn:active { transform: scale(.92); }
+@media (hover: hover) { .xmenu__btn:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); } }
+.xmenu__btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+/* Complete (the middle): the tick's green */
+.xmenu__btn--complete { width: 72px; height: 72px; color: #062015; background: var(--success); border-color: transparent; }
+.xmenu__btn--complete .xmenu__label { color: #062015; }
+.xmenu__btn--delete { color: var(--danger-ink); }
+@keyframes x-out-from-centre { from { opacity: 0; translate: -50% -50%; scale: .5; } }
+@keyframes x-fade { from { opacity: 0; } }
+.dlg--cross.is-closing .xmenu__item,
+.dlg--cross.is-closing .xmenu__title { animation: x-fade-out var(--t-fast) var(--ease) both; }
+@keyframes x-fade-out { to { opacity: 0; } }
+/* Reduce Motion: the buttons fade in where they are */
+@media (prefers-reduced-motion: reduce) {
+  .xmenu__item, .xmenu__title { animation-name: x-fade !important; animation-duration: 160ms !important; }
+}
+
+/* ---- Swipes (iPhone, iPad): right = Complete, left = Tomorrow ---- */
+.tlist:not(.tlist--manual) > .trow { touch-action: pan-y pinch-zoom; }
+.trow[data-swipe] { overflow: hidden; isolation: isolate; }
+/* What the swipe will do, uncovered as the task slides */
+.trow[data-swipe]::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  border-radius: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 750;
+  color: var(--swipe-ink);
+  background: color-mix(in srgb, var(--swipe) 22%, var(--bg));
+  transition: background-color var(--t-fast), color var(--t-fast);
+}
+.trow[data-swipe="right"] { --swipe: var(--success); --swipe-ink: color-mix(in srgb, var(--success) 70%, var(--text)); }
+.trow[data-swipe="right"]::before { content: "✓  Complete"; justify-content: flex-start; }
+.trow.is-done[data-swipe="right"] { --swipe: #8e95a8; --swipe-ink: var(--text); }
+.trow.is-done[data-swipe="right"]::before { content: "↺  Not done"; }
+.trow[data-swipe="left"] { --swipe: var(--todo); --swipe-ink: var(--todo-ink); }
+.trow[data-swipe="left"]::before { content: "Tomorrow  →"; justify-content: flex-end; }
+.trow.is-swipe-ready::before { background: var(--swipe); color: #06131c; }
+/* The task itself: a solid copy of the card that slides with the name and the tick */
+.trow[data-swipe]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: var(--card-bg), var(--bg);
+  translate: var(--swipe-x, 0px) 0;
+}
+.trow.is-overdue[data-swipe]::after {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--danger) 10%, transparent), transparent 70%), var(--card-bg), var(--bg);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.trow.is-done[data-swipe]::after { background: linear-gradient(color-mix(in srgb, var(--success) 4%, var(--surface)), color-mix(in srgb, var(--success) 4%, var(--surface))), var(--bg); }
+.trow[data-swipe] > .trow__main,
+.trow[data-swipe] > .tcheck { position: relative; z-index: 2; translate: var(--swipe-x, 0px) 0; }
+.trow.is-settling::after,
+.trow.is-settling > .trow__main,
+.trow.is-settling > .tcheck { transition: translate 200ms var(--ease); }
+.trow.is-settling.is-leaving::after,
+.trow.is-settling.is-leaving > .trow__main,
+.trow.is-settling.is-leaving > .tcheck { transition: translate 180ms ease-in; }
+@media (min-width: 1024px) {
+  .trow[data-swipe]::after { background: var(--card-bg), var(--bg); box-shadow: none; }
+}
+
+/* ---- Compact spacing (Settings → Tasks → List spacing) ---- */
+.todo-page--compact .tlist { gap: 6px; }
+.todo-page--compact .trow__main { min-height: 46px; padding-top: 6px; padding-bottom: 6px; }
+.todo-page--compact .trow__meta { margin-top: 3px; }
+.todo-page--compact .tcheck { height: 2.75rem; }
+.todo-page--compact .tgroup + .tgroup { margin-top: 14px; }
+@media (min-width: 1024px) {
+  .todo-page--compact .tlist { gap: 0; }
+  .todo-page--compact .trow__main { min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
+}
+
+/* ---- Views sheet (which views show, and their order) ---- */
+.views-list { margin-top: 14px; padding: 0; overflow: hidden; background: var(--surface-solid); }
+.views-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.25rem 2.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 6px;
+  min-height: 58px;
+  padding-right: 14px;
+  background: var(--surface-solid);
+}
+.views-item + .views-item { border-top: 1px solid var(--border); }
+.views-item__handle { display: grid; place-items: center; align-self: stretch; color: var(--text-3); cursor: grab; touch-action: none; }
+.views-item__handle .icon { width: 1.1rem; height: 1.1rem; }
+.views-item__icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.views-item__icon .icon { width: 1.05rem; height: 1.05rem; }
+.views-item__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 8px 4px; }
+.views-item__label { font-size: var(--fs-md); font-weight: 600; }
+.views-item__sub { font-size: var(--fs-xs); line-height: 1.35; color: var(--text-3); }
+.views-item.is-dragging { z-index: 2; box-shadow: var(--shadow-2); border-radius: var(--r-md); }
+.views-reset { margin-top: 12px; }

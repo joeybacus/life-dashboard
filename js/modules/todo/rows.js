@@ -1,5 +1,5 @@
 /* One task as a row — shared by the To Do screen, its pages and the dashboard
-   card. The row opens the task; the round button on the right ticks it. Priority
+   card. Tapping the row opens its quick menu; the round button ticks it. Priority
    is a coloured dot and a word, never colour alone, and VoiceOver reads the whole
    row ("High priority. Finish neurology report. Today, 8:00 PM to 9:00 PM…"). */
 import { html, raw } from '../../core/html.js';
@@ -43,7 +43,7 @@ function metaLine(t, m, cell) {
   if (progress) bits.push(html`<span class="tmeta" title="Subtasks">${icon('list')}${progress.done}/${progress.total}</span>`);
   if (t.pinned) bits.push(html`<span class="tmeta tmeta--icon" title="Pinned">${icon('pushpin')}</span>`);
   if (t.links?.length) bits.push(html`<span class="tmeta tmeta--icon" title="Links">${icon('paperclip')}</span>`);
-  if (t.tags?.length) bits.push(html`<span class="tmeta tmeta--tags">${t.tags.map((tag) => `#${tag}`).join(' ')}</span>`);
+  if (t.tags?.length) bits.push(html`<span class="tmeta tmeta--tags">${t.tags.map((tag) => `@${tag}`).join(' ')}</span>`);
   if (isDone(t) && t.completedAt) bits.push(html`<span class="tmeta">Done ${formatStamp(t.completedAt, m.now)}</span>`);
   return html`<span class="trow__meta">${bits}</span>`;
 }
@@ -54,7 +54,7 @@ export function taskRow(t, m, { manual = false, index = 0, count = 1 } = {}) {
   const spoken = spokenRow(t, { category: m.categories.get(t.categoryId), subtasks: m.progress.get(t.id), now: m.now });
   return html`<li class="${cls}" data-id="${t.id}">
     ${manual ? html`<span class="trow__handle" data-drag-handle title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>` : ''}
-    <button type="button" class="trow__main" data-action="todo:open" data-id="${t.id}" aria-label="${spoken} Open task.">
+    <button type="button" class="trow__main" data-action="todo:quick" data-id="${t.id}" aria-label="${spoken} Opens the quick menu.">
       <span class="trow__pri">${priorityChip(t.priority)}</span>
       <span class="trow__body"><span class="trow__title">${t.title || 'Untitled task'}</span>${metaLine(t, m, cell)}</span>
       <span class="trow__time"><span>${cell.main}</span>${cell.sub ? html`<small>${cell.sub}</small>` : ''}</span>
