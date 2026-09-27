@@ -481,6 +481,9 @@ button.row { width: 100%; text-align: left; }
   background: transparent;
   color: var(--text);
   overflow: hidden;
+  /* Never scrollable itself (only the panel scrolls): on iPhone, focusing a field
+     while a sheet slides up used to scroll this layer and leave the sheet shifted up */
+  overflow: clip;
 }
 .dlg::backdrop { background: transparent; }
 .dlg[open] {

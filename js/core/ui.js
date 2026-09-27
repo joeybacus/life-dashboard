@@ -109,6 +109,8 @@ export function openDialog({ title = '', body = '', actions = [], variant = 'she
     });
 
     dlg.showModal();
+    // The sheet must never stay scrolled inside its backdrop (older browsers without overflow: clip)
+    dlg.addEventListener('animationend', () => { if (dlg.scrollTop || dlg.scrollLeft) dlg.scrollTo(0, 0); });
     onOpen?.(dlg, close);
   });
 }

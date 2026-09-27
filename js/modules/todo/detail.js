@@ -9,6 +9,7 @@ import { db } from '../../core/db.js';
 import { uid } from '../../core/ids.js';
 import { actionSheet, announce, confirmDialog, openDialog, toast } from '../../core/ui.js';
 import { makeReorderable } from '../../core/reorder.js';
+import { prefersReducedMotion } from '../../core/platform.js';
 import { addDays, daysFrom, formatDayLong, formatStamp, todayKey } from '../../core/manila.js';
 import {
   MAX_NOTES, MAX_TITLE, PRIORITIES, PRIORITY_KEYS, categoryStyle, cleanUrl, isDone, linkTitle, newTask, normalizeTask, parseTags,
@@ -608,7 +609,11 @@ async function taskSheet({ task: start, data, isNew }) {
         }
       });
       dlg.addEventListener('click', (event) => { if (event.target === dlg) tryClose(); });
-      if (isNew) setTimeout(() => form.elements.title.focus(), 80);
+      // Mac (or iPad with a trackpad): type straight away, once the sheet has finished appearing.
+      // Not on iPhone: its keyboard only opens when you tap the field anyway.
+      if (isNew && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        setTimeout(() => form.elements.title.focus({ preventScroll: true }), prefersReducedMotion() ? 0 : 320);
+      }
     },
   });
 

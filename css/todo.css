@@ -270,11 +270,24 @@
 .tform__footer {
   position: sticky;
   bottom: 0;
+  z-index: 1;
   display: flex;
   gap: 10px;
   margin: 0 -20px;
   padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, transparent, var(--surface-solid) 26%);
+  background: var(--surface-solid);
+  border-top: 1px solid var(--border);
+}
+/* Content scrolling under the buttons fades out instead of showing through */
+.tform__footer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 1px);
+  height: 20px;
+  background: linear-gradient(180deg, transparent, var(--surface-solid));
+  pointer-events: none;
 }
 .tform__footer .btn { flex: 1 1 0; }
 .btn--danger { color: var(--danger-ink); }
