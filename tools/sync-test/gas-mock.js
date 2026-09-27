@@ -11,13 +11,24 @@
    { __f: '=formula', v: value } for formulas. Text typed into a cell that isn't
    formatted as plain text ('@') is turned into a boolean, number or date, like
    Google Sheets does. __state.noAuth = true makes openById fail as if the
-   script lacked permission. */
+   script lacked permission.
 
-var __state = { sheets: [], props: {}, logs: [], files: {} };
+   Google Calendar: __state.calendars[id] = { id, name, tz, deleted, events: { eventId: event } },
+   where an event is { id, title, description, start, end (ISO), allDay, date ('YYYY-MM-DD'),
+   popups: [minutes], tags: {}, deleted }. Like the real thing, getEventById still returns a
+   deleted event (getEvents doesn't list it), new events get the calendar's default alert
+   (30 minutes before timed events), and a pop-up alert must be 5 minutes to 4 weeks before.
+   __state.calNoAuth = true makes Calendar calls fail as if permission was never given.
+   Timers (ScriptApp triggers) live in __state.triggers; __state.now (ISO) sets the script's
+   clock through its now_() (see run-gas.js). */
+
+var __state = { sheets: [], props: {}, logs: [], files: {}, calendars: {}, triggers: [] };
 
 function __load(json) {
   if (json) __state = JSON.parse(json);
   if (!__state.files) __state.files = {};
+  if (!__state.calendars) __state.calendars = {};
+  if (!__state.triggers) __state.triggers = [];
 }
 function __dump() { return JSON.stringify(__state); }
 
@@ -140,6 +151,15 @@ MockRange.prototype.canEdit = function () {
   if (!this.file) return true;
   try { this.__checkEdit(); return true; } catch (err) { return false; }
 };
+MockRange.prototype.clearContent = function () {
+  this.__checkEdit();
+  for (var i = 0; i < this.nr; i++) {
+    var target = this.s.rows[this.r - 1 + i];
+    if (!target) continue;
+    for (var j = 0; j < this.nc; j++) if (this.c - 1 + j < target.length) target[this.c - 1 + j] = '';
+  }
+  return this;
+};
 MockRange.prototype.setFontWeight = function () { return this; };
 MockRange.prototype.setFontSize = function () { return this; };
 MockRange.prototype.setWrap = function () { return this; };
@@ -252,8 +272,138 @@ var PropertiesService = {
 
 var LockService = {
   getScriptLock: function () {
-    return { waitLock: function () {}, releaseLock: function () {} };
+    return { waitLock: function () {}, tryLock: function () { return true; }, releaseLock: function () {} };
   },
+};
+
+/* ---- Google Calendar ---- */
+
+function __calAuth() {
+  if (__state.calNoAuth) __fail('You do not have permission to call CalendarApp.getAllOwnedCalendars. Required permissions: https://www.googleapis.com/auth/calendar');
+}
+
+function __dateKeyIn(date, tz) { return Utilities.formatDate(date, tz || 'Asia/Manila', 'yyyy-MM-dd'); }
+
+/** Midnight at the start of a "YYYY-MM-DD" day in a time zone. */
+function __midnight(key, tz) {
+  var p = key.split('-').map(Number);
+  var hours = __TZ_HOURS[tz || 'Asia/Manila'];
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2]) - hours * 3600e3);
+}
+
+function MockEvent(cal, data) { this.cal = cal; this.e = data; }
+MockEvent.prototype.getId = function () { return this.e.id; };
+MockEvent.prototype.getTitle = function () { return this.e.title; };
+MockEvent.prototype.setTitle = function (t) { __calAuth(); this.e.title = String(t); return this; };
+MockEvent.prototype.getDescription = function () { return this.e.description || ''; };
+MockEvent.prototype.setDescription = function (d) { __calAuth(); this.e.description = String(d); return this; };
+MockEvent.prototype.isAllDayEvent = function () { return Boolean(this.e.allDay); };
+MockEvent.prototype.getStartTime = function () { return this.e.allDay ? __midnight(this.e.date, Session.getScriptTimeZone()) : new Date(this.e.start); };
+MockEvent.prototype.getEndTime = function () {
+  return this.e.allDay ? new Date(__midnight(this.e.date, Session.getScriptTimeZone()).getTime() + 864e5) : new Date(this.e.end);
+};
+MockEvent.prototype.getAllDayStartDate = function () {
+  if (!this.e.allDay) __fail('Event is not an all-day event.');
+  return __midnight(this.e.date, Session.getScriptTimeZone());
+};
+MockEvent.prototype.setTime = function (start, end) {
+  __calAuth();
+  this.e.allDay = false; this.e.date = null; this.e.start = start.toISOString(); this.e.end = end.toISOString();
+  return this;
+};
+MockEvent.prototype.setAllDayDate = function (date) {
+  __calAuth();
+  this.e.allDay = true; this.e.date = __dateKeyIn(date, Session.getScriptTimeZone()); this.e.start = null; this.e.end = null;
+  return this;
+};
+MockEvent.prototype.getPopupReminders = function () { return this.e.popups.slice(); };
+MockEvent.prototype.removeAllReminders = function () { __calAuth(); this.e.popups = []; return this; };
+MockEvent.prototype.addPopupReminder = function (minutes) {
+  __calAuth();
+  if (!(minutes >= 5 && minutes <= 40320)) __fail('Invalid argument: minutesBefore (' + minutes + ')');
+  if (this.e.popups.length >= 5) __fail('Too many reminders.');
+  this.e.popups.push(minutes);
+  return this;
+};
+MockEvent.prototype.setTag = function (key, value) { this.e.tags[key] = String(value); return this; };
+MockEvent.prototype.getTag = function (key) { return Object.prototype.hasOwnProperty.call(this.e.tags, key) ? this.e.tags[key] : null; };
+MockEvent.prototype.deleteEvent = function () { __calAuth(); this.e.deleted = true; };
+
+function MockCalendar(data) { this.c = data; }
+MockCalendar.prototype.getId = function () { return this.c.id; };
+MockCalendar.prototype.getName = function () { return this.c.name; };
+MockCalendar.prototype.__add = function (fields) {
+  __calAuth();
+  __state.eventSeq = (__state.eventSeq || 0) + 1;
+  var id = 'ev' + __state.eventSeq + '@google.com';
+  var data = { id: id, title: '', description: '', start: null, end: null, allDay: false, date: null, popups: [], tags: {}, deleted: false };
+  Object.keys(fields).forEach(function (k) { data[k] = fields[k]; });
+  this.c.events[id] = data;
+  return new MockEvent(this, data);
+};
+MockCalendar.prototype.createEvent = function (title, start, end, options) {
+  return this.__add({ title: String(title), description: (options && options.description) || '', start: start.toISOString(), end: end.toISOString(), popups: [30] });
+};
+MockCalendar.prototype.createAllDayEvent = function (title, date, options) {
+  return this.__add({ title: String(title), description: (options && options.description) || '', allDay: true, date: __dateKeyIn(date, Session.getScriptTimeZone()), popups: [] });
+};
+MockCalendar.prototype.getEventById = function (id) {
+  __calAuth();
+  var data = this.c.events[id];
+  return data ? new MockEvent(this, data) : null; // deleted events too, like Google
+};
+MockCalendar.prototype.getEvents = function (start, end) {
+  __calAuth();
+  var self = this;
+  return Object.keys(this.c.events).map(function (id) { return self.c.events[id]; }).filter(function (e) {
+    if (e.deleted) return false;
+    var ev = new MockEvent(self, e);
+    return ev.getStartTime() < end && ev.getEndTime() > start;
+  }).map(function (e) { return new MockEvent(self, e); });
+};
+
+var CalendarApp = {
+  getAllOwnedCalendars: function () {
+    __calAuth();
+    return Object.keys(__state.calendars).map(function (id) { return __state.calendars[id]; })
+      .filter(function (c) { return !c.deleted; }).map(function (c) { return new MockCalendar(c); });
+  },
+  getCalendarById: function (id) {
+    __calAuth();
+    var c = __state.calendars[id];
+    return c && !c.deleted ? new MockCalendar(c) : null;
+  },
+  createCalendar: function (name, options) {
+    __calAuth();
+    __state.calendarSeq = (__state.calendarSeq || 0) + 1;
+    var id = 'cal' + __state.calendarSeq + '@group.calendar.google.com';
+    __state.calendars[id] = { id: id, name: String(name), tz: (options && options.timeZone) || 'Asia/Manila', deleted: false, events: {} };
+    return new MockCalendar(__state.calendars[id]);
+  },
+};
+
+/* ---- Timers and the script's time zone ---- */
+
+var ScriptApp = {
+  getProjectTriggers: function () {
+    return __state.triggers.map(function (t) { return { getHandlerFunction: function () { return t.fn; } }; });
+  },
+  newTrigger: function (fn) {
+    return {
+      timeBased: function () {
+        return {
+          everyMinutes: function (n) {
+            if ([1, 5, 10, 15, 30].indexOf(n) < 0) __fail('Invalid minutes: ' + n);
+            return { create: function () { __state.triggers.push({ fn: fn, everyMinutes: n }); return {}; } };
+          },
+        };
+      },
+    };
+  },
+};
+
+var Session = {
+  getScriptTimeZone: function () { return __state.scriptTz || 'Asia/Manila'; },
 };
 
 var ContentService = {

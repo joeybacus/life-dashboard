@@ -14,7 +14,8 @@ import { isIOS, isStandalone, prefersReducedMotion } from '../core/platform.js';
 import { SPLITS } from '../modules/workout.js';
 import { importHevyFile } from '../modules/workout/transfer.js';
 import { wakeLockSupported } from '../services/wake-lock.js';
-import { COMPLETED_OPTIONS, SORT_OPTIONS } from '../modules/todo.js';
+import { COMPLETED_MODES, PRIORITIES, PRIORITY_KEYS, SORTS, VIEWS } from '../modules/todo/model.js';
+import { loadTodo } from '../modules/todo/store.js';
 import { ensureSampleData } from '../services/sample-data.js';
 import {
   applyRestore, buildBackup, deliverBackupFile, lastBackupAt, markBackedUp, prepareBackupFile,
@@ -38,7 +39,6 @@ const SPLIT_LABELS = { ppl: 'Push · Pull · Legs', body: 'Body-part split' };
 const REST_PRESETS = [30, 60, 90, 120, 180];
 const EXERCISE_REST = [['same', 'Same as between sets'], [0, 'Off'], [60, '1 min'], [90, '1 min 30 sec'], [120, '2 min'],
   [150, '2 min 30 sec'], [180, '3 min'], [240, '4 min'], [300, '5 min']];
-const REMINDERS = [[0, 'None'], [5, '5 min before'], [10, '10 min before'], [30, '30 min before'], [60, '1 hour before']];
 const EFFORTS = [['rir', 'RIR'], ['rpe', 'RPE'], ['off', 'Off']];
 const INTEGRATIONS = [
   { name: 'Google Calendar', desc: 'Today’s events on your dashboard', icon: 'calendar', accent: 'accent-brand' },
@@ -69,6 +69,7 @@ export function initSettings() {
   registerAction('settings:profile', () => openSection('settings-profile'));
   registerAction('settings:data', () => openSection('settings-data'));
   registerAction('settings:sync', () => openSection('settings-sync'));
+  registerAction('settings:tasks', () => openSection('settings-tasks'));
   registerAction('settings:remove-photo', removePhoto);
   registerAction('settings:delete', deleteAllData);
   registerAction('settings:goal', (el) => changeGoal(Number(el.dataset.dir)));
@@ -114,9 +115,9 @@ function installHint() {
 /** What updating the sync script brings, for the script this device last talked to. */
 function scriptUpdateFor() {
   const version = syncScriptVersion() ?? 1;
-  if (version < 2) return 'workout templates, exercises and Ward Patients';
-  if (version < 3) return 'Ward Patients';
-  return 'editing lab results in Ward Patients';
+  if (version < 2) return 'your tasks, workout templates, exercises and Ward Patients';
+  if (version < 4) return 'your tasks and Ward Patients';
+  return 'your tasks';
 }
 
 function syncSection() {
@@ -200,6 +201,11 @@ function backupSection() {
         <input class="sr-only" type="file" accept=".json,application/json" data-field="restore">
         ${icon('chevronRight', 'row__chev')}
       </label>
+      <button type="button" class="row row--icon accent-todo" data-action="todo:export">
+        <span class="row__icon">${icon('download')}</span>
+        <span class="row__text"><span class="row__label">Export tasks (CSV)</span><span class="row__sub">Opens in Excel, Numbers or Google Sheets</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>
       <label class="row row--icon accent-brand">
         <span class="row__icon">${icon('bell')}</span>
         <span class="row__text"><span class="row__label">Backup reminders</span><span class="row__sub">A weekly nudge on the dashboard — skipped while sync is working</span></span>
@@ -344,17 +350,28 @@ function render() {
       <p class="group__foot">To get the file: in the Hevy app, open Settings → Export &amp; Import Data → Export Workouts, and save it to Files. Hevy has no public sync, so this is a one-way import you can repeat any time.</p>
     </section>
 
-    <section class="group" aria-labelledby="set-tasks-title">
+    <section class="group" id="settings-tasks" aria-labelledby="set-tasks-title">
       <h2 class="group__title" id="set-tasks-title">Tasks</h2>
       <div class="card group__card accent-todo">
-        ${pickerRow({ field: 'sort', iconName: 'sort', label: 'Sort order', value: s.tasks.sort,
-          options: Object.entries(SORT_OPTIONS).map(([v, l]) => [v, l.split(' (')[0]]) })}
-        ${pickerRow({ field: 'completed', iconName: 'checkCircle', label: 'Completed tasks', value: s.tasks.completed,
-          options: Object.entries(COMPLETED_OPTIONS) })}
-        ${pickerRow({ field: 'reminder', iconName: 'bell', label: 'Default reminder', value: s.tasks.defaultReminder,
-          options: REMINDERS })}
+        ${pickerRow({ field: 'taskView', iconName: 'sun', label: 'Opens on', value: s.tasks.view,
+          options: Object.entries(VIEWS).map(([v, info]) => [v, info.label]) })}
+        ${pickerRow({ field: 'sort', iconName: 'sort', label: 'Sort order', value: s.tasks.sort, options: Object.entries(SORTS) })}
+        <label class="row row--icon">
+          <span class="row__icon">${icon('refresh')}</span>
+          <span class="row__text"><span class="row__label">Sort automatically</span><span class="row__sub">When off, tasks stay where they are until you choose Sort now</span></span>
+          <input type="checkbox" class="switch" switch data-field="autoSort"${checked(s.tasks.autoSort)}>
+        </label>
+        ${pickerRow({ field: 'completed', iconName: 'checkCircle', label: 'Completed tasks', value: s.tasks.completed, options: Object.entries(COMPLETED_MODES) })}
+        ${pickerRow({ field: 'taskPriority', iconName: 'flag', label: 'New tasks: priority', value: s.tasks.defaultPriority,
+          options: PRIORITY_KEYS.map((p) => [p, PRIORITIES[p].label]) })}
+        <div data-slot="taskCategory">${pickerRow({ field: 'taskCategory', iconName: 'layers', label: 'New tasks: category', value: '', options: [['', 'No category']] })}</div>
+        <button type="button" class="row row--icon" data-action="nav" data-route="todo" data-sub="categories">
+          <span class="row__icon">${icon('layers')}</span>
+          <span class="row__text"><span class="row__label">Categories</span><span class="row__sub">Add, rename, recolour, reorder or delete</span></span>
+          ${icon('chevronRight', 'row__chev')}
+        </button>
       </div>
-      <p class="group__foot">Smart sorting puts overdue tasks first, then high, medium and low priority, earliest time first. Reminders start working in Phase 6.</p>
+      <p class="group__foot">Smart sorting puts overdue tasks first, then High, Medium, Low and no priority, earliest time first. Tasks follow Manila time. Reminders, the Google Calendar link, the focus timer and habits arrive in the next updates.</p>
     </section>
 
     <section class="group" id="settings-neurology" aria-labelledby="set-neuro-title" data-slot="neurology">${neurologySection()}</section>
@@ -414,6 +431,18 @@ function render() {
 
   refreshStorage();
   updateLastBackup();
+  fillTaskCategories();
+}
+
+/** "New tasks: category" lists your categories (they're in the database, not in settings). */
+async function fillTaskCategories() {
+  const { categories } = await loadTodo();
+  const slot = root?.querySelector('[data-slot="taskCategory"]');
+  if (!slot) return;
+  const list = [...categories.values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const value = categories.has(state.settings.tasks.defaultCategoryId) ? state.settings.tasks.defaultCategoryId : '';
+  setHTML(slot, pickerRow({ field: 'taskCategory', iconName: 'layers', label: 'New tasks: category', value,
+    options: [['', 'No category'], ...list.map((c) => [c.id, c.name])] }));
 }
 
 async function refreshStorage() {
@@ -529,14 +558,23 @@ async function onChange(event) {
         toast(`Rest between sets: ${restLabel(secs)}.`, { icon: 'hourglass' });
         break;
       }
+      case 'taskView':
+        await save((s) => { s.tasks.view = el.value; });
+        break;
       case 'sort':
         await save((s) => { s.tasks.sort = el.value; });
+        break;
+      case 'autoSort':
+        await save((s) => { s.tasks.autoSort = el.checked; });
         break;
       case 'completed':
         await save((s) => { s.tasks.completed = el.value; });
         break;
-      case 'reminder':
-        await save((s) => { s.tasks.defaultReminder = Number(el.value); });
+      case 'taskPriority':
+        await save((s) => { s.tasks.defaultPriority = el.value; });
+        break;
+      case 'taskCategory':
+        await save((s) => { s.tasks.defaultCategoryId = el.value || null; });
         break;
       case 'autoSync':
         await setAutoSync(el.checked);
@@ -843,10 +881,7 @@ async function openScriptUpdate() {
     className: 'setup',
     title: 'Update the sync script',
     body: html`
-      <p class="setup__lead">${{
-        'workout templates, exercises and Ward Patients': 'The latest sync script stores your workout templates and exercises in your Google Sheet, and lets Ward Patients (Neurology tab) read and update your ward logsheet.',
-        'Ward Patients': 'The latest sync script lets Ward Patients (Neurology tab) read and update your ward logsheet.',
-      }[scriptUpdateFor()] ?? 'The latest sync script lets Ward Patients save the lab results you edit.'} Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
+      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script gives your tasks and subtasks their own readable tabs in your Google Sheet, can put tasks in Google Calendar (for reminders that ring when the app is closed), and includes Ward Patients (Neurology tab). Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
       <ol class="setup__steps">
         <li><strong>Copy the new code.</strong>
           <span class="setup__buttons">
@@ -854,8 +889,9 @@ async function openScriptUpdate() {
             ${codeUrl ? html`<a class="btn btn--sm btn--ghost" href="${codeUrl}" target="_blank" rel="noopener">${icon('external')}View code</a>` : ''}
           </span>
         </li>
-        <li><strong>Replace the old code.</strong> Open your Google Sheet → <strong>Extensions → Apps Script</strong>. Click in the code, select everything (<strong>⌘A</strong>), paste (<strong>⌘V</strong>), then click <strong>Save</strong>.</li>
-        <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>. If Google asks for permission, allow it (it’s your own script).</li>
+        <li><strong>Replace the old code.</strong> Open your Google Sheet → <strong>Extensions → Apps Script</strong>. Click in the code, select everything (<strong>⌘A</strong>), paste (<strong>⌘V</strong>), then click <strong>Save</strong>. Line 24 should now read <code>const SCRIPT_VERSION = ${LATEST_SCRIPT_VERSION};</code></li>
+        <li><strong>Allow Google Calendar (once).</strong> In the toolbar, choose <strong>setup</strong> and click <strong>Run</strong>. Google asks for permission: <strong>Review permissions</strong> → your account → <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> → <strong>Allow</strong>. It’s your own script; this also tidies the task tabs and starts a 30-minute check it needs for Calendar alerts.</li>
+        <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>.</li>
         <li><strong>Check.</strong> Come back here and tap <strong>Check now</strong>.</li>
       </ol>
       <p class="note">${icon('info')}<span>Your Web app URL and secret token stay the same, so there’s nothing to change on your other devices. Don’t create a “New deployment” — that would give you a new URL.</span></p>
@@ -875,7 +911,7 @@ async function openScriptUpdate() {
         const snap = syncSnapshot();
         if (!snap.scriptOutdated) {
           close('done');
-          toast('The sync script is up to date. Ward Patients is ready to use.', { icon: 'cloudCheck', duration: 6000 });
+          toast('The sync script is up to date. Your tasks and Ward Patients now sync.', { icon: 'cloudCheck', duration: 6000 });
         } else if (snap.phase === 'error') {
           toast(snap.error?.message ?? 'Couldn’t reach your Google Sheet.', { icon: 'info', duration: 6000 });
         } else {

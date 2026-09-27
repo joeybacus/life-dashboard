@@ -230,7 +230,7 @@ const homePage = {
       </section>
 
       <div class="accent-workout">${roadmapCard({
-        phase: 3,
+        phase: 4,
         title: 'Workout statistics are next',
         note: 'Charts for every exercise, personal records, volume and frequency trends, and a workout calendar heatmap.',
         items: [

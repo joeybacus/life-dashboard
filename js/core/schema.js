@@ -60,12 +60,18 @@ const MIGRATIONS = [
     db.createObjectStore('wardDays', { keyPath: 'date' });
     db.createObjectStore('wardQueue', { keyPath: 'key' });
   },
+  // v5 — Phase 3 (to-do list): subtasks, one record each ({ id, taskId, title, done, order })
+  (db) => {
+    const subtasks = db.createObjectStore('subtasks', { keyPath: 'id' });
+    subtasks.createIndex('taskId', 'taskId');
+    subtasks.createIndex('updatedAt', 'updatedAt');
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
 
 /** Stores included in JSON backups, in export order. */
-export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
+export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
 
 /** Ward Patients data kept on this device only (see migration v4). */
 export const WARD_STORES = ['wardDays', 'wardQueue'];
@@ -74,10 +80,10 @@ export const WARD_STORES = ['wardDays', 'wardQueue'];
 export const STORE_NAMES = [...BACKUP_STORES, 'outbox', ...WARD_STORES];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
-export const SYNC_STORES = ['profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
 
 /** Stores that may contain generated sample records. */
-export const SAMPLE_STORES = ['tasks', 'workouts', 'bodyMeasurements'];
+export const SAMPLE_STORES = ['tasks', 'subtasks', 'workouts', 'bodyMeasurements'];
 
 export function migrate(db, oldVersion, transaction) {
   for (let v = oldVersion; v < MIGRATIONS.length; v++) MIGRATIONS[v](db, transaction);

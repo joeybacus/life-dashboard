@@ -9,6 +9,7 @@ import { esc } from './core/html.js';
 import { supportsNativeSwitch } from './core/platform.js';
 import { toast } from './core/ui.js';
 import { toDateKey } from './core/dates.js';
+import { todayKey } from './core/manila.js';
 import { ensureDefaults, ensureSampleData } from './services/sample-data.js';
 import { registerServiceWorker } from './services/pwa.js';
 import { initSync } from './services/sync.js';
@@ -35,11 +36,12 @@ function showBootError(err) {
     '<button type="button" onclick="location.reload()">Try again</button>';
 }
 
-/** When the date changes (after midnight, or when reopening the app), refresh. */
+/** When the date changes (after midnight here, or in Manila for tasks, or when reopening the app), refresh. */
 function watchDayChange() {
-  let dayKey = toDateKey(new Date());
+  const dayNow = () => `${toDateKey(new Date())}|${todayKey()}`;
+  let dayKey = dayNow();
   const check = async () => {
-    const key = toDateKey(new Date());
+    const key = dayNow();
     if (key === dayKey) return;
     dayKey = key;
     await ensureSampleData();

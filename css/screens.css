@@ -332,13 +332,7 @@ button.glance__tile:active { transform: scale(.97); }
 .stat__value { margin-top: 6px; font-size: var(--fs-md); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stat__sub { margin-top: 1px; font-size: var(--fs-sm); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* To Do card */
-.mini-tasks { display: flex; flex-direction: column; }
-.mini-task { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; padding: 8px 2px; }
-.mini-task + .mini-task { border-top: 1px solid var(--border); }
-.mini-task__title { font-size: var(--fs-md); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mini-task__time { font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mini-task.is-overdue .mini-task__time { color: var(--danger-ink); font-weight: 700; }
+/* To Do card: see todo.css */
 .more-note { padding: 6px 2px 0; font-size: var(--fs-sm); color: var(--text-3); }
 
 /* Neurology card */
@@ -400,52 +394,6 @@ button.glance__tile:active { transform: scale(.97); }
 .wk-item__title { font-size: var(--fs-md); font-weight: 650; }
 .wk-item__meta { font-size: var(--fs-sm); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wk-item__dur { flex: none; font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-/* ==========================================================================
-   To Do screen — three columns: Priority | Task (widest) | Time
-   ========================================================================== */
-.todo-date { margin: 14px 4px 0; font-size: var(--fs-md); color: var(--text-2); }
-.task-table { margin-top: 12px; padding: 2px 0; }
-.task-row {
-  display: grid;
-  grid-template-columns: 3.9rem minmax(0, 1fr) 4.6rem 1.75rem;
-  align-items: center;
-  gap: 8px;
-  min-height: 60px;
-  padding: 11px 12px;
-}
-.task-row + .task-row { border-top: 1px solid var(--border); }
-.task-row--head {
-  min-height: 0;
-  padding-top: 11px;
-  padding-bottom: 9px;
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.task-row--head > :nth-child(3) { text-align: right; }
-.task-title { font-size: var(--fs-md); font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
-.task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; font-size: var(--fs-xs); color: var(--text-3); }
-.task-meta .tag { min-height: 20px; padding: 0 7px; font-size: var(--fs-2xs); }
-.task-time { font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; line-height: 1.3; }
-.task-time small { display: block; font-size: var(--fs-xs); color: var(--text-3); }
-.task-check {
-  justify-self: end;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid var(--border-2);
-  color: transparent;
-}
-.task-check .icon { width: 14px; height: 14px; stroke-width: 3; }
-.task-row.is-done .task-check { border-color: var(--success); background: var(--success); color: #062015; }
-.task-row.is-done .task-title { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1.5px; }
-.task-row.is-overdue { background: linear-gradient(90deg, color-mix(in srgb, var(--danger) 11%, transparent), transparent 72%); }
-.task-empty { padding: 20px 16px; color: var(--text-2); text-align: center; }
 
 /* ==========================================================================
    Neurology placeholder

@@ -7,11 +7,12 @@ import { db, tx, deleteWhere } from '../core/db.js';
 import { SAMPLE_STORES } from '../core/schema.js';
 import { state } from '../core/state.js';
 import { addDays, atTime, nowISO, startOfDay, toDateKey } from '../core/dates.js';
+import { addDays as addDayKeys, todayKey } from '../core/manila.js';
 
 const DEFAULT_CATEGORIES = ['Hospital', 'Residency', 'MBA', 'NU', 'Research', 'Business', 'Personal'];
 
 /** Bump when the shape of sample records changes, so today's samples are rebuilt. */
-const SAMPLE_VERSION = 2;
+const SAMPLE_VERSION = 3;
 
 /* Sample workouts: [exercise id, name, { warmup kg, sets, kg, reps, weekly step kg, durationSec }] */
 const SAMPLE_EXERCISES = {
@@ -58,16 +59,20 @@ function sampleExercises(type, weeksAgo) {
   });
 }
 
+/* Starting categories carry a fixed, old timestamp. Sync keeps the newest version
+   of each item, so a device that joins later can't overwrite a category you've
+   already renamed or recoloured on another device with its fresh starting copy. */
+const SEEDED_AT = '2020-01-01T00:00:00.000Z';
+
 /** First run only: create the starting task categories (the user can edit them later). */
 export async function ensureDefaults() {
   const seeded = await db.get('meta', 'categoriesSeeded');
   if (seeded) return;
-  const now = nowISO();
   await tx(['taskCategories', 'meta'], 'readwrite', (s) => {
     DEFAULT_CATEGORIES.forEach((name, order) => {
-      s.taskCategories.put({ id: `cat-${name.toLowerCase()}`, name, order, createdAt: now, updatedAt: now, deletedAt: null });
+      s.taskCategories.put({ id: `cat-${name.toLowerCase()}`, name, order, createdAt: SEEDED_AT, updatedAt: SEEDED_AT, deletedAt: null });
     });
-    s.meta.put({ key: 'categoriesSeeded', value: now });
+    s.meta.put({ key: 'categoriesSeeded', value: nowISO() });
   });
 }
 
@@ -79,31 +84,57 @@ export function buildSampleRecords(now = new Date()) {
   const hoursAgo = (h) => new Date(now.getTime() - h * 3600e3).toISOString();
   const base = (id, createdAt) => ({ id, createdAt, updatedAt: createdAt, deletedAt: null, sample: true });
 
+  // Tasks live on Manila days (see js/core/manila.js)
+  const taskToday = todayKey(now.getTime());
+  const taskDay = (offset) => addDayKeys(taskToday, offset);
   const task = (n, fields, createdHoursAgo) => ({
     ...base(`sample-task-${pad2(n)}`, hoursAgo(createdHoursAgo)),
     title: '',
+    notes: '',
     priority: 'medium',
-    date: day(0),
+    categoryId: null,
+    tags: [],
+    date: taskDay(0),
     startTime: null,
     endTime: null,
-    categoryId: null,
-    completed: false,
+    allDay: false,
+    status: 'open',
     completedAt: null,
-    notes: '',
-    tags: [],
+    pinned: false,
+    manualOrder: n,
+    links: [],
     reminders: [],
+    followUp: null,
+    addToCalendar: false,
     recurrence: null,
+    seriesId: null,
     ...fields,
   });
 
   const tasks = [
-    task(1, { title: 'Update research IRB forms', priority: 'high', date: day(-1), startTime: '16:00', endTime: '17:00', categoryId: 'cat-research', reminders: [30] }, 40),
-    task(2, { title: 'Finish Neurology Report', priority: 'high', startTime: '20:00', endTime: '21:00', categoryId: 'cat-residency', reminders: [30, 5] }, 20),
-    task(3, { title: 'Review stroke protocol updates', priority: 'high', startTime: '07:30', endTime: '08:00', categoryId: 'cat-hospital', completed: true, completedAt: hoursAgo(1) }, 30),
-    task(4, { title: 'Submit MBA case write-up', priority: 'medium', startTime: '17:00', categoryId: 'cat-mba', reminders: [60] }, 26),
-    task(5, { title: 'Read two research abstracts', priority: 'medium', categoryId: 'cat-research', completed: true, completedAt: hoursAgo(2) }, 50),
+    task(1, { title: 'Update research IRB forms', priority: 'high', date: taskDay(-1), startTime: '16:00', endTime: '17:00', categoryId: 'cat-research' }, 40),
+    task(2, { title: 'Finish Neurology Report', priority: 'high', startTime: '20:00', endTime: '21:00', categoryId: 'cat-residency', notes: 'Include the EEG findings and the plan for follow-up.' }, 20),
+    task(3, { title: 'Review stroke protocol updates', priority: 'high', startTime: '07:30', endTime: '08:00', categoryId: 'cat-hospital', status: 'done', completedAt: hoursAgo(1) }, 30),
+    task(4, { title: 'Submit MBA case write-up', priority: 'medium', startTime: '17:00', categoryId: 'cat-mba', tags: ['strama'],
+      links: [{ id: 'sample-link-1', title: 'Case brief', url: 'https://www.example.com/strama-case' }] }, 26),
+    task(5, { title: 'Read two research abstracts', priority: 'medium', categoryId: 'cat-research', status: 'done', completedAt: hoursAgo(2) }, 50),
     task(6, { title: 'Call pharmacy about refill', priority: 'low', categoryId: 'cat-personal' }, 6),
-    task(7, { title: 'Book flights for NU conference', priority: 'low', date: day(1), categoryId: 'cat-nu' }, 3),
+    task(7, { title: 'Book flights for NU conference', priority: 'low', date: taskDay(1), categoryId: 'cat-nu', tags: ['travel'] }, 3),
+    task(8, { title: 'Prepare journal club slides', priority: 'medium', date: taskDay(3), startTime: '13:00', endTime: '14:00', categoryId: 'cat-residency' }, 12),
+    task(9, { title: 'Renew medical license', priority: 'none', date: null, pinned: true, categoryId: 'cat-personal', notes: 'Online renewal — have the receipt ready.' }, 70),
+    task(10, { title: 'Outline the business plan', priority: 'low', date: null, categoryId: 'cat-business', tags: ['idea'] }, 90),
+  ];
+
+  const subtask = (n, taskN, title, done, order) => ({
+    ...base(`sample-sub-${pad2(n)}`, hoursAgo(10)), taskId: `sample-task-${pad2(taskN)}`, title, done, order,
+  });
+  const subtasks = [
+    subtask(1, 2, 'Collect the EEG results', true, 0),
+    subtask(2, 2, 'Write the discussion', false, 1),
+    subtask(3, 2, 'Send to the consultant', false, 2),
+    subtask(4, 8, 'Pick the article', true, 0),
+    subtask(5, 8, 'Draft the slides', true, 1),
+    subtask(6, 8, 'Practice run', false, 2),
   ];
 
   // Push / Pull / Legs history over the last three weeks
@@ -149,7 +180,7 @@ export function buildSampleRecords(now = new Date()) {
     });
   }
 
-  return { tasks, workouts, bodyMeasurements };
+  return { tasks, subtasks, workouts, bodyMeasurements };
 }
 
 /**

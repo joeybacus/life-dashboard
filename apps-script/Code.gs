@@ -17,11 +17,13 @@
  * (The Web app URL stays the same, so nothing changes in the app.)
  *
  * The same script also reads and updates your ward logsheet for the app's
- * Ward Patients screen (Neurology tab) — see "Ward Patients" further down.
+ * Ward Patients screen (Neurology tab) — see "Ward Patients" further down —
+ * and puts to-do tasks in Google Calendar when you ask it to — see
+ * "Google Calendar link".
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 4;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results
+const SCRIPT_VERSION = 5;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -29,11 +31,24 @@ const STORES = {
   settings: 'Settings',
   tasks: 'Tasks',
   taskCategories: 'Task categories',
+  subtasks: 'Subtasks',
+  habits: 'Habits',
+  habitLogs: 'Habit log',
+  focusSessions: 'Focus sessions',
   workouts: 'Workouts',
   exercises: 'Exercises',
   templates: 'Workout templates',
   bodyMeasurements: 'Body measurements',
 };
+
+// Tabs this script fills in itself. The app reads them but never sends them.
+const SCRIPT_STORES = {
+  calendarLinks: 'Calendar links',
+};
+
+// Saved in this order, so names used by later tabs (categories, task titles) are up to date
+const SAVE_ORDER = ['profile', 'settings', 'taskCategories', 'tasks', 'subtasks', 'habits', 'habitLogs', 'focusSessions',
+  'workouts', 'exercises', 'templates', 'bodyMeasurements'];
 
 // Fixed columns on every data tab. "json" holds the complete item; the
 // columns after it are a readable copy for you and are ignored by the app.
@@ -62,12 +77,20 @@ function setup() {
   if (!props.getProperty('SEQ')) props.setProperty('SEQ', '0');
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  Object.keys(STORES).forEach(function (store) { storeSheet_(ss, store); });
+  Object.keys(STORES).concat(Object.keys(SCRIPT_STORES)).forEach(function (store) { storeSheet_(ss, store); });
   conflictsSheet_(ss);
   connectionSheet_(ss, token);
+  relayoutAll_(ss); // tabs made by older versions get this version's readable columns
 
   const blank = ss.getSheetByName('Sheet1');
   if (blank && blank.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(blank);
+
+  // The 30-minute Google Calendar check (it does nothing until a task is linked to Calendar)
+  try {
+    calEnsureTimer_();
+  } catch (err) {
+    Logger.log('Couldn’t start the 30-minute Google Calendar check: ' + ((err && err.message) || err));
+  }
 
   Logger.log('Life Dashboard sync is set up. Your secret token is: ' + token);
   return token;
@@ -129,6 +152,7 @@ function doPost(e) {
     if (req.action === 'ping') return json_({ ok: true, protocol: PROTOCOL, version: SCRIPT_VERSION, seq: currentSeq_(props) });
     if (req.action === 'push') return json_(push_(ss, props, req));
     if (req.action === 'pull') return json_(pull_(ss, props, req));
+    if (CAL_ACTIONS[req.action]) return json_(CAL_ACTIONS[req.action](ss, props, req));
     return json_({ ok: false, error: 'bad-action' });
   } catch (err) {
     return json_({ ok: false, error: 'server', message: String((err && err.message) || err) });
@@ -158,13 +182,17 @@ function push_(ss, props, req) {
     (byStore[item.store] = byStore[item.store] || []).push(record);
   });
 
-  Object.keys(byStore).forEach(function (store) {
+  const ctx = readableContext_(ss);
+  const renamed = {}; // store → { id: true } for items whose name/title changed (other tabs show it)
+
+  SAVE_ORDER.filter(function (store) { return byStore[store]; }).forEach(function (store) {
     const sheet = storeSheet_(ss, store);
-    const header = headerOf_(sheet);
-    const rows = dataRows_(sheet, header.length);
+    const prepared = prepareSheet_(sheet, store, ctx);
+    const header = prepared.header;
+    const rows = prepared.rows;
+    const changed = prepared.changed;
     const rowById = {};
     rows.forEach(function (row, i) { if (row[COL.id]) rowById[row[COL.id]] = i; });
-    const changed = {};
 
     byStore[store].forEach(function (record) {
       const key = store + ':' + record.id;
@@ -177,7 +205,8 @@ function push_(ss, props, req) {
       const i = rowById[record.id];
 
       if (i === undefined) {
-        rows.push(rowFor_(record, json, seq, device, header));
+        ctx.remember(store, record);
+        rows.push(rowFor_(store, record, json, seq, device, header, ctx));
         rowById[record.id] = rows.length - 1;
         changed[rows.length - 1] = true;
         results[key] = 'applied';
@@ -196,7 +225,9 @@ function push_(ss, props, req) {
           conflicts.push([now, STORES[store], record.id, 'Replaced by a newer change from ' + device,
             incomingAt, existingAt, existing[COL.device], existing[COL.json]]);
         }
-        rows[i] = rowFor_(record, json, seq, device, header);
+        if (nameChanged_(existing[COL.json], record)) (renamed[store] = renamed[store] || {})[record.id] = true;
+        ctx.remember(store, record);
+        rows[i] = rowFor_(store, record, json, seq, device, header, ctx);
         changed[i] = true;
         results[key] = 'applied';
       } else {
@@ -208,6 +239,9 @@ function push_(ss, props, req) {
 
     writeRows_(sheet, header, rows, changed);
   });
+
+  // A renamed category, task or habit: update the names shown in the other tabs
+  refreshDependents_(ss, renamed, ctx);
 
   // Versions a device replaced when it first joined sync
   (Array.isArray(req.logs) ? req.logs.slice(0, MAX_LOGS) : []).forEach(function (log) {
@@ -225,8 +259,8 @@ function pull_(ss, props, req) {
   const since = Number(req.sinceSeq) || 0;
   const seq = currentSeq_(props);
   const changes = [];
-  Object.keys(STORES).forEach(function (store) {
-    const sheet = ss.getSheetByName(STORES[store]);
+  Object.keys(STORES).concat(Object.keys(SCRIPT_STORES)).forEach(function (store) {
+    const sheet = ss.getSheetByName(tabName_(store));
     if (!sheet) return;
     dataRows_(sheet, HEADER.length).forEach(function (row) {
       if (!row[COL.id] || !(Number(row[COL.seq]) > since)) return;
@@ -631,13 +665,922 @@ function wardWriteError_(err) {
   return 'write-failed';
 }
 
+/* ---------- Readable columns for the to-do tabs ----------
+ * The "json" column is what the app uses. The columns after it are a copy for
+ * you to read: priority as "High", times in Manila time ("2026-09-27 08:15"),
+ * categories by name as well as id. Changing them does nothing — tasks are
+ * changed in the app, and the next change there rewrites the row.
+ */
+
+const SHOWN_TZ = 'Asia/Manila';
+const PRIORITY_NAMES = { high: 'High', medium: 'Medium', low: 'Low', none: 'None' };
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const ORDINALS = { 1: 'first', 2: 'second', 3: 'third', 4: 'fourth', 5: 'fifth', '-1': 'last' };
+
+// Readable columns, in order, for the tabs that have a fixed layout (the other tabs list every field)
+const LAYOUTS = {
+  tasks: {
+    Title: function (t) { return t.title; },
+    Status: function (t) { return t.deletedAt ? 'Deleted' : t.status === 'done' ? 'Done' : 'Open'; },
+    Priority: function (t) { return PRIORITY_NAMES[t.priority] || 'None'; },
+    Date: function (t) { return t.date || ''; },
+    Time: function (t) { return timeText_(t); },
+    Category: function (t, ctx) { return ctx.name('taskCategories', t.categoryId); },
+    'Category id': function (t) { return t.categoryId || ''; },
+    Tags: function (t) { return list_(t.tags).join(', '); },
+    Pinned: function (t) { return t.pinned ? 'Yes' : ''; },
+    Reminders: function (t) { return remindersText_(t.reminders); },
+    Repeats: function (t) { return repeatText_(t.recurrence); },
+    'Google Calendar': function (t) { return t.addToCalendar ? 'On' : ''; },
+    Links: function (t) { return list_(t.links).map(function (l) { return (l && (l.title || l.url)) || ''; }).join(', '); },
+    Notes: function (t) { return t.notes || ''; },
+    Completed: function (t) { return t.status === 'done' ? shownTime_(t.completedAt) : ''; },
+    Created: function (t) { return shownTime_(t.createdAt); },
+    Updated: function (t) { return shownTime_(t.updatedAt); },
+    Deleted: function (t) { return shownTime_(t.deletedAt); },
+  },
+  taskCategories: {
+    Name: function (c) { return c.name; },
+    Colour: function (c) { return c.color || ''; },
+    Icon: function (c) { return c.icon || ''; },
+    Order: function (c) { return c.order == null ? '' : c.order; },
+    Deleted: function (c) { return shownTime_(c.deletedAt); },
+  },
+  subtasks: {
+    Task: function (s, ctx) { return ctx.name('tasks', s.taskId); },
+    'Task id': function (s) { return s.taskId || ''; },
+    Subtask: function (s) { return s.title; },
+    Done: function (s) { return s.done ? 'Yes' : 'No'; },
+    Order: function (s) { return s.order == null ? '' : s.order; },
+    Updated: function (s) { return shownTime_(s.updatedAt); },
+    Deleted: function (s) { return shownTime_(s.deletedAt); },
+  },
+  habits: {
+    Name: function (h) { return h.name; },
+    Group: function (h) { return h.group || ''; },
+    Schedule: function (h) { return scheduleText_(h.schedule); },
+    Active: function (h) { return h.active === false ? 'No' : 'Yes'; },
+    Order: function (h) { return h.order == null ? '' : h.order; },
+    Created: function (h) { return shownTime_(h.createdAt); },
+    Updated: function (h) { return shownTime_(h.updatedAt); },
+    Deleted: function (h) { return shownTime_(h.deletedAt); },
+  },
+  habitLogs: {
+    Habit: function (l, ctx) { return ctx.name('habits', l.habitId); },
+    'Habit id': function (l) { return l.habitId || ''; },
+    Date: function (l) { return l.date || ''; },
+    Done: function (l) { return l.done ? 'Yes' : 'No'; },
+    Updated: function (l) { return shownTime_(l.updatedAt); },
+  },
+  focusSessions: {
+    Task: function (f, ctx) { return ctx.name('tasks', f.taskId); },
+    'Task id': function (f) { return f.taskId || ''; },
+    Type: function (f) { return { focus: 'Focus', shortBreak: 'Short break', longBreak: 'Long break' }[f.type] || f.type || ''; },
+    Start: function (f) { return shownTime_(f.start); },
+    End: function (f) { return shownTime_(f.end); },
+    Minutes: function (f) { return f.start && f.end ? Math.round((Date.parse(f.end) - Date.parse(f.start)) / 60000) : ''; },
+    'Planned minutes': function (f) { return f.plannedMinutes == null ? '' : f.plannedMinutes; },
+    Completed: function (f) { return f.completed ? 'Yes' : 'No'; },
+  },
+  calendarLinks: {
+    Task: function (l, ctx) { return ctx.name('tasks', l.id); },
+    Status: function (l) { return CAL_STATUS_NAMES[l.status] || l.status || ''; },
+    Calendar: function (l) { return l.calendarName || ''; },
+    'Next alert': function (l) { return shownTime_(l.nextAlertAt); },
+    'Follow-ups': function (l) {
+      const sent = list_(l.followUps).filter(function (f) { return f && f.eventId; }).length;
+      return sent ? sent + (sent === 1 ? ' follow-up' : ' follow-ups') : '';
+    },
+    Note: function (l) { return CAL_REASONS[l.reason] || l.reason || ''; },
+    'Event id': function (l) { return l.eventId || ''; },
+    Updated: function (l) { return shownTime_(l.updatedAt); },
+  },
+};
+
+// Tabs that show another tab's names: when a name changes, their readable columns are refreshed
+const DEPENDENTS = {
+  taskCategories: [['tasks', 'categoryId']],
+  tasks: [['subtasks', 'taskId'], ['focusSessions', 'taskId'], ['calendarLinks', 'id']],
+  habits: [['habitLogs', 'habitId']],
+};
+
+/** Names of categories, tasks and habits, for the readable columns of other tabs. */
+function readableContext_(ss) {
+  const cache = {};
+  function items(store) {
+    if (!cache[store]) {
+      cache[store] = {};
+      const sheet = ss.getSheetByName(tabName_(store));
+      if (sheet) {
+        dataRows_(sheet, HEADER.length).forEach(function (row) {
+          if (!row[COL.id]) return;
+          try { cache[store][row[COL.id]] = JSON.parse(row[COL.json]); } catch (err) { /* a damaged row */ }
+        });
+      }
+    }
+    return cache[store];
+  }
+  return {
+    name: function (store, id) {
+      if (!id) return '';
+      const item = items(store)[id];
+      if (!item) return '';
+      const name = String(item.title || item.name || '');
+      return item.deletedAt ? name + ' (deleted)' : name;
+    },
+    /** Keep names current while a push saves new versions. */
+    remember: function (store, record) {
+      if (DEPENDENTS[store] && cache[store]) cache[store][record.id] = record;
+    },
+  };
+}
+
+function readableFor_(store, record, ctx) {
+  const layout = LAYOUTS[store];
+  if (!layout) return readable_(record);
+  const out = {};
+  Object.keys(layout).forEach(function (column) {
+    let value;
+    try { value = layout[column](record, ctx); } catch (err) { value = ''; }
+    out[column] = cellText_(value);
+  });
+  return out;
+}
+
+/**
+ * A tab's header and rows, ready to change. A tab with a fixed layout that an
+ * older version of this script wrote differently gets this version's readable
+ * columns (every row is marked changed, and old extra columns are cleared).
+ */
+function prepareSheet_(sheet, store, ctx) {
+  const current = headerOf_(sheet);
+  const layout = LAYOUTS[store];
+  const header = layout ? HEADER.concat(Object.keys(layout)) : current;
+  const rows = dataRows_(sheet, header.length);
+  const changed = {};
+  const relaid = Boolean(layout) && current.join('\n') !== header.join('\n');
+  if (relaid) {
+    rows.forEach(function (row, i) {
+      rows[i] = relayoutRow_(row, store, header, ctx);
+      changed[i] = true;
+    });
+    if (current.length > header.length) {
+      sheet.getRange(1, header.length + 1, Math.max(1, sheet.getLastRow()), current.length - header.length).clearContent();
+    }
+  }
+  return { header: header, rows: rows, changed: changed, relaid: relaid };
+}
+
+/** Recalculate a row's readable columns from its JSON (the fixed columns stay as they are). */
+function relayoutRow_(row, store, header, ctx) {
+  let item = null;
+  try { item = JSON.parse(row[COL.json]); } catch (err) { /* a damaged row keeps its fixed columns */ }
+  const readable = item ? readableFor_(store, item, ctx) : {};
+  return header.map(function (name, c) {
+    if (c < HEADER.length) return row[c] === undefined ? '' : row[c];
+    return Object.prototype.hasOwnProperty.call(readable, name) ? readable[name] : '';
+  });
+}
+
+/** Give every fixed-layout tab this version's readable columns (setup runs this after an update). */
+function relayoutAll_(ss) {
+  const ctx = readableContext_(ss);
+  Object.keys(LAYOUTS).forEach(function (store) {
+    const sheet = ss.getSheetByName(tabName_(store));
+    if (!sheet) return;
+    const prepared = prepareSheet_(sheet, store, ctx);
+    if (prepared.relaid) writeRows_(sheet, prepared.header, prepared.rows, prepared.changed);
+  });
+}
+
+function nameChanged_(storedJson, record) {
+  try {
+    const old = JSON.parse(storedJson);
+    return String(old.title || old.name || '') !== String(record.title || record.name || '') || Boolean(old.deletedAt) !== Boolean(record.deletedAt);
+  } catch (err) {
+    return true;
+  }
+}
+
+/** After categories, tasks or habits were renamed: rewrite the names other tabs show. */
+function refreshDependents_(ss, renamed, ctx) {
+  Object.keys(renamed).forEach(function (store) {
+    (DEPENDENTS[store] || []).forEach(function (dep) {
+      const sheet = ss.getSheetByName(tabName_(dep[0]));
+      if (!sheet) return;
+      const prepared = prepareSheet_(sheet, dep[0], ctx);
+      prepared.rows.forEach(function (row, i) {
+        if (prepared.changed[i]) return;
+        let item;
+        try { item = JSON.parse(row[COL.json]); } catch (err) { return; }
+        if (!item || !renamed[store][item[dep[1]]]) return;
+        prepared.rows[i] = relayoutRow_(row, dep[0], prepared.header, ctx);
+        prepared.changed[i] = true;
+      });
+      if (Object.keys(prepared.changed).length || prepared.relaid) writeRows_(sheet, prepared.header, prepared.rows, prepared.changed);
+    });
+  });
+}
+
+function shownTime_(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? String(iso) : Utilities.formatDate(d, SHOWN_TZ, 'yyyy-MM-dd HH:mm');
+}
+
+function list_(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function timeText_(task) {
+  if (!task.date) return '';
+  if (!task.startTime) return 'No time';
+  return task.endTime ? task.startTime + '–' + task.endTime : task.startTime;
+}
+
+function minutesText_(m) {
+  if (m >= 1440 && m % 1440 === 0) return (m / 1440) + (m === 1440 ? ' day' : ' days');
+  if (m >= 60 && m % 60 === 0) return (m / 60) + (m === 60 ? ' hour' : ' hours');
+  return m + ' min';
+}
+
+function remindersText_(reminders) {
+  return list_(reminders).map(function (r) {
+    if (!r) return '';
+    if (r.kind === 'at') return r.at ? 'At ' + shownTime_(r.at) : '';
+    const m = Number(r.minutes);
+    return isFinite(m) && m >= 0 ? minutesText_(m) + ' before' : '';
+  }).filter(function (text) { return text; }).join(', ');
+}
+
+function repeatText_(rule) {
+  if (!rule || typeof rule !== 'object') return '';
+  const n = Math.max(1, Number(rule.interval) || 1);
+  const days = list_(rule.days).map(function (d) { return WEEKDAYS[d]; }).filter(Boolean);
+  let text;
+  if (rule.kind === 'daily') text = n > 1 ? 'Every ' + n + ' days' : 'Every day';
+  else if (rule.kind === 'weekdays') text = 'Every weekday';
+  else if (rule.kind === 'weekly') text = (n > 1 ? 'Every ' + n + ' weeks' : 'Every week') + (days.length ? ' on ' + days.join(', ') : '');
+  else if (rule.kind === 'monthly') {
+    text = (n > 1 ? 'Every ' + n + ' months' : 'Every month') + (rule.week
+      ? ' on the ' + (ORDINALS[rule.week] || rule.week) + ' ' + (WEEKDAY_NAMES[rule.weekday] || '')
+      : rule.monthDay ? ' on day ' + rule.monthDay : '');
+  } else if (rule.kind === 'afterDone') text = n + (n === 1 ? ' day' : ' days') + ' after it’s done';
+  else text = 'Yes';
+  if (rule.until) text += ', until ' + rule.until;
+  if (rule.count) text += ', ' + rule.count + ' times';
+  return text;
+}
+
+function scheduleText_(schedule) {
+  if (!schedule || typeof schedule !== 'object' || schedule.kind === 'daily') return 'Every day';
+  if (schedule.kind === 'days') return list_(schedule.days).map(function (d) { return WEEKDAYS[d]; }).join(', ');
+  if (schedule.kind === 'perWeek') return (Number(schedule.times) || 1) + ' times a week';
+  return '';
+}
+
+/* ---------- Google Calendar link (to-do tasks → events) ----------
+ * One way only: a task with "Add to Google Calendar" switched on becomes an
+ * event, so its reminders ring from Google Calendar even while the app is
+ * closed. Events go into the "Life Dashboard Tasks" calendar (made the first
+ * time a task is linked) or the calendar you choose in the app.
+ *
+ * What a linked task becomes:
+ *   - with a time: an event at that time (30 minutes long if there's no end time)
+ *   - a date and reminders but no time: a 15-minute entry at your default
+ *     reminder time (8:00 AM), because Google can only alert before an event
+ *     starts and all-day events start at midnight
+ *   - a date only: an all-day event
+ * Reminders become the event's pop-up alerts (Google allows 5, each at least 5
+ * minutes and at most 4 weeks before). A done task's event is renamed
+ * "✓ title" (or removed — a setting in the app); a deleted task's is deleted.
+ *
+ * The "Calendar links" tab keeps each task's event and status; the app reads
+ * it. Every 30 minutes a timer (started by setup) checks the linked tasks: it
+ * adds a short "Still not done: …" event when a task is still open after its
+ * reminder (following your follow-up settings: how often, how many, quiet
+ * hours), and notices events you deleted in Calendar — those are never made
+ * again; the app tells you and unlinks the task.
+ */
+
+const CAL_NAME = 'Life Dashboard Tasks';
+const CAL_TAG = 'lifeDashboardTaskId';
+const CAL_WEB_BUDGET_MS = 15000;    // calendar work per request from the app (the rest is done next time)
+const CAL_TIMER_BUDGET_MS = 20000;  // …and per 30-minute check
+const CAL_CHECK_DAYS_BEFORE = 7;    // the 30-minute check looks at linked tasks from a week ago…
+const CAL_CHECK_DAYS_AFTER = 60;    // …to two months ahead
+const CAL_FOLLOW_LEAD_MIN = 35;     // a follow-up alert is added this long before it's due
+const CAL_POPUP_MIN = 5;            // Google Calendar alerts: at least 5 minutes before…
+const CAL_POPUP_MAX = 40320;        // …and at most 4 weeks before the event
+const CAL_MAX_POPUPS = 5;
+const CAL_ENTRY_MIN = 15;           // a dated task with reminders but no time
+const CAL_TIMED_MIN = 30;           // a timed task with no end time
+const CAL_FOLLOW_EVENT_MIN = 10;
+const MANILA_OFFSET_MIN = 480;      // Manila is UTC+8 all year (no daylight saving)
+
+const CAL_STATUS_NAMES = { linked: 'Linked', paused: 'Paused', deleted: 'Deleted in Google Calendar', unlinked: 'Not linked' };
+const CAL_REASONS = {
+  'calendar-missing': 'The calendar was deleted or can’t be found. In the app: Settings → Tasks → Google Calendar.',
+  'calendar-needs-auth': 'The sync script needs permission to use Google Calendar: in Apps Script choose setup, click Run and allow access.',
+  'calendar-failed': 'Google Calendar didn’t answer. It will try again.',
+  'no-date': 'Add a date to put this task in Google Calendar.',
+  'removed-in-calendar': 'You deleted this event in Google Calendar, so it won’t be made again.',
+  done: 'Task done.',
+  'done-removed': 'Task done — its event was removed.',
+};
+
+// The app's task settings this script uses (Settings tab), with their defaults
+const TASK_DEFAULTS = {
+  defaultTime: '08:00',
+  calendar: { calendarId: '', completed: 'rename' },
+  followUps: { enabled: true, minutes: 120, limit: 2, quiet: true, quietStart: '22:00', quietEnd: '08:00', highMinutes: 0 },
+};
+
+const CAL_ACTIONS = {
+  calendarStatus: calStatus_,
+  calendarSetup: calSetup_,
+  calendarSync: calSync_,
+};
+
+/** Which calendars you own, which one tasks go into, and whether the 30-minute check is running. */
+function calStatus_(ss, props) {
+  const cfg = taskSettings_(ss);
+  let calendars;
+  let target;
+  try {
+    calendars = CalendarApp.getAllOwnedCalendars().map(function (c) { return { id: c.getId(), name: c.getName() }; });
+    target = calTarget_(props, cfg, false);
+  } catch (err) {
+    return { ok: false, version: SCRIPT_VERSION, error: calErrorCode_(err), message: String((err && err.message) || err) };
+  }
+  let timer = false;
+  try { timer = calHasTimer_(); } catch (err) { /* reported as not running */ }
+  return {
+    ok: true,
+    version: SCRIPT_VERSION,
+    calendars: calendars,
+    calendar: { id: target.id, name: target.name, state: target.state }, // state: ok | not-created | missing
+    timer: timer,
+    lastCheckAt: props.getProperty('CAL_LAST_RUN') || '',
+    lastError: props.getProperty('CAL_LAST_ERROR') || '',
+  };
+}
+
+/**
+ * "Try again" in the app: make the "Life Dashboard Tasks" calendar again if it
+ * was deleted (create: true), restart the 30-minute check, re-check every linked task.
+ */
+function calSetup_(ss, props, req) {
+  try {
+    const cfg = taskSettings_(ss);
+    if (req.create && !cfg.calendar.calendarId) {
+      if (calTarget_(props, cfg, false).state === 'missing') props.setProperty('CAL_ID', '');
+      calTarget_(props, cfg, true);
+    }
+    calEnsureTimer_();
+  } catch (err) {
+    return { ok: false, version: SCRIPT_VERSION, error: calErrorCode_(err), message: String((err && err.message) || err) };
+  }
+  const synced = calRun_(ss, props, { budgetMs: CAL_WEB_BUDGET_MS, all: true, appUrl: req.appUrl });
+  const status = calStatus_(ss, props);
+  status.links = synced.links;
+  status.pending = synced.pending;
+  return status;
+}
+
+/** Bring linked tasks' events up to date (the app asks for this after sending task changes). */
+function calSync_(ss, props, req) {
+  return calRun_(ss, props, { budgetMs: CAL_WEB_BUDGET_MS, ids: req.ids, all: Boolean(req.all), appUrl: req.appUrl });
+}
+
+/** Run by the 30-minute timer (setup starts it). */
+function calendarTick() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return; // a device is syncing right now: next time
+  const props = PropertiesService.getScriptProperties();
+  try {
+    calRun_(SpreadsheetApp.getActiveSpreadsheet(), props, { budgetMs: CAL_TIMER_BUDGET_MS });
+  } catch (err) {
+    props.setProperty('CAL_LAST_ERROR', now_().toISOString() + ' — ' + String((err && err.message) || err).slice(0, 300));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function calHasTimer_() {
+  return ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'calendarTick'; });
+}
+
+function calEnsureTimer_() {
+  if (!calHasTimer_()) ScriptApp.newTrigger('calendarTick').timeBased().everyMinutes(30).create();
+}
+
+/**
+ * Check linked tasks and update their events, within a time budget (the rest
+ * waits for the next call). Looks at tasks changed since the last check,
+ * linked tasks that are still open (for follow-ups and deleted events), and
+ * any ids the app asks about.
+ */
+function calRun_(ss, props, opts) {
+  const startedMs = Date.now();
+  const now = now_();
+  if (opts.appUrl && /^https:\/\/\S{1,190}$/.test(String(opts.appUrl))) props.setProperty('APP_URL', String(opts.appUrl));
+  const cfg = taskSettings_(ss);
+  const ctx = readableContext_(ss);
+  const linkSheet = storeSheet_(ss, 'calendarLinks');
+  const prepared = prepareSheet_(linkSheet, 'calendarLinks', ctx);
+  const header = prepared.header;
+  const links = {};
+  const linkRow = {};
+  prepared.rows.forEach(function (row, i) {
+    if (!row[COL.id]) return;
+    try {
+      links[row[COL.id]] = JSON.parse(row[COL.json]);
+      linkRow[row[COL.id]] = i;
+    } catch (err) { /* a damaged row */ }
+  });
+
+  const sinceSeq = Number(props.getProperty('CAL_SEQ') || '0');
+  const asked = {};
+  (Array.isArray(opts.ids) ? opts.ids : []).slice(0, MAX_RECORDS).forEach(function (id) { asked[String(id)] = true; });
+  const today = shownDate_(now);
+  const from = addDaysKey_(today, -CAL_CHECK_DAYS_BEFORE);
+  const until = addDaysKey_(today, CAL_CHECK_DAYS_AFTER);
+  const changedTasks = [];
+  const watched = [];
+  let maxSeq = sinceSeq;
+  const tasksSheet = ss.getSheetByName(STORES.tasks);
+  (tasksSheet ? dataRows_(tasksSheet, HEADER.length) : []).forEach(function (row) {
+    const id = row[COL.id];
+    if (!id) return;
+    const seq = Number(row[COL.seq]) || 0;
+    if (seq > maxSeq) maxSeq = seq;
+    const link = links[id] || null;
+    const isNew = seq > sinceSeq;
+    const watch = Boolean(link) && (link.status === 'paused'
+      || (link.status === 'linked' && link.taskOpen && link.taskDate >= from && link.taskDate <= until));
+    if (!(isNew || watch || asked[id] || opts.all)) return;
+    let task;
+    try { task = JSON.parse(row[COL.json]); } catch (err) { return; }
+    if (!task || task.sample || (!task.addToCalendar && !link)) return; // never linked: nothing to do
+    (isNew ? changedTasks : watched).push({ task: task, seq: seq, link: link });
+  });
+  changedTasks.sort(function (a, b) { return a.seq - b.seq; });
+  watched.sort(function (a, b) { return String(a.task.date || '').localeCompare(String(b.task.date || '')); });
+  const queue = changedTasks.concat(watched);
+
+  let target = null;
+  let targetError = '';
+  if (queue.some(function (c) { return calWanted_(c.task) || (c.link && c.link.eventId); })) {
+    try {
+      // The "Life Dashboard Tasks" calendar is made the first time a task is linked
+      target = calTarget_(props, cfg, !cfg.calendar.calendarId && !props.getProperty('CAL_ID'));
+    } catch (err) {
+      targetError = calErrorCode_(err);
+    }
+  }
+
+  const out = [];
+  let seq = 0;
+  let doneSeq = maxSeq;
+  let pending = 0;
+  for (let i = 0; i < queue.length; i++) {
+    const c = queue[i];
+    if (Date.now() - startedMs > opts.budgetMs) {
+      pending = queue.length - i;
+      if (c.seq > sinceSeq) doneSeq = c.seq - 1; // come back to the changes not yet handled
+      break;
+    }
+    const next = calReconcile_(c.task, c.link, cfg, target, targetError, now, ctx, props);
+    if (!next) continue;
+    if (!seq) seq = nextSeq_(props);
+    const row = rowFor_('calendarLinks', next, JSON.stringify(next), seq, 'Google Calendar', header, ctx);
+    if (linkRow[next.id] === undefined) {
+      prepared.rows.push(row);
+      linkRow[next.id] = prepared.rows.length - 1;
+    } else {
+      prepared.rows[linkRow[next.id]] = row;
+    }
+    prepared.changed[linkRow[next.id]] = true;
+    out.push(next);
+  }
+  if (Object.keys(prepared.changed).length || prepared.relaid) writeRows_(linkSheet, header, prepared.rows, prepared.changed);
+  props.setProperty('CAL_SEQ', String(doneSeq));
+  props.setProperty('CAL_LAST_RUN', now.toISOString());
+  if (!targetError) props.setProperty('CAL_LAST_ERROR', '');
+  return {
+    ok: true,
+    version: SCRIPT_VERSION,
+    links: out,
+    pending: pending,
+    calendar: target ? { id: target.id, name: target.name, state: target.state } : null,
+    error: targetError,
+  };
+}
+
+/** One task: returns its updated link, or null when nothing changed. */
+function calReconcile_(task, link, cfg, target, targetError, now, ctx, props) {
+  const before = link ? JSON.stringify(link) : '';
+  const next = link ? JSON.parse(before) : {
+    id: task.id, createdAt: now.toISOString(), updatedAt: '', deletedAt: null,
+    status: 'unlinked', reason: '', calendarId: '', calendarName: '', eventId: '', kind: '',
+    followUps: [], followUpBase: '', nextAlertAt: '',
+  };
+  next.followUps = list_(next.followUps);
+  next.taskUpdatedAt = String(task.updatedAt || '');
+  next.taskDate = task.date || '';
+  next.taskOpen = task.status !== 'done' && !task.deletedAt;
+  const cal = target && target.calendar;
+  try {
+    if (!calWanted_(task)) {
+      // Unlinked, deleted or no date: take its events away
+      if (next.eventId || next.followUps.length) {
+        const home = !next.calendarId ? null : cal && cal.getId() === next.calendarId ? cal : calById_(next.calendarId);
+        if (home) {
+          calDelete_(home, next.eventId);
+          calDeleteFollowUps_(home, next);
+        }
+        next.eventId = '';
+        next.followUps = [];
+      }
+      next.status = 'unlinked';
+      next.reason = task.addToCalendar && !task.deletedAt && !task.date ? 'no-date' : '';
+      next.followUpBase = '';
+      next.nextAlertAt = '';
+    } else if (next.status === 'deleted' && !next.eventId) {
+      // Deleted in Google Calendar: stays that way until the app unlinks the task
+    } else if (!cal) {
+      next.status = 'paused';
+      next.reason = targetError || (target && target.state === 'missing' ? 'calendar-missing' : 'calendar-failed');
+    } else {
+      calApply_(task, next, cal, cfg, now, ctx, props);
+    }
+  } catch (err) {
+    next.status = 'paused';
+    next.reason = calErrorCode_(err);
+  }
+  if (link && JSON.stringify(Object.assign({}, next, { updatedAt: link.updatedAt })) === before) return null;
+  if (!link && next.status === 'unlinked' && !next.reason) return null;
+  next.updatedAt = now.toISOString();
+  return next;
+}
+
+/** Create or update a linked task's event and follow-ups. */
+function calApply_(task, link, cal, cfg, now, ctx, props) {
+  // Tasks now go into another calendar (chosen in the app): take the old event away first
+  if (link.calendarId && link.calendarId !== cal.getId()) {
+    const old = calById_(link.calendarId);
+    if (old) {
+      calDelete_(old, link.eventId);
+      calDeleteFollowUps_(old, link);
+    }
+    link.eventId = '';
+    link.followUps = [];
+    link.followUpBase = '';
+  }
+  link.calendarId = cal.getId();
+  link.calendarName = cal.getName();
+
+  let event = link.eventId ? calAlive_(cal, link.eventId) : null;
+  if (link.eventId && !event) {
+    // Deleted in Google Calendar: the app tells you and unlinks the task. Never made again silently.
+    calDeleteFollowUps_(cal, link);
+    link.eventId = '';
+    link.followUpBase = '';
+    link.nextAlertAt = '';
+    link.status = 'deleted';
+    link.reason = 'removed-in-calendar';
+    return;
+  }
+
+  if (task.status === 'done') {
+    calDeleteFollowUps_(cal, link);
+    link.followUpBase = '';
+    link.nextAlertAt = '';
+    if (event && cfg.calendar.completed === 'remove') {
+      event.deleteEvent();
+      link.eventId = '';
+      event = null;
+    } else if (event) {
+      const doneTitle = '✓ ' + calTitle_(task);
+      if (event.getTitle() !== doneTitle) event.setTitle(doneTitle);
+      if (event.getPopupReminders().length) event.removeAllReminders();
+    }
+    link.status = event ? 'linked' : 'unlinked';
+    link.reason = event ? 'done' : 'done-removed';
+    return;
+  }
+
+  const want = calDesired_(task, cfg, ctx, props);
+  if (!event) {
+    event = want.kind === 'allday'
+      ? cal.createAllDayEvent(want.title, want.date, { description: want.description })
+      : cal.createEvent(want.title, want.start, want.end, { description: want.description });
+    try { event.setTag(CAL_TAG, task.id); } catch (err) { /* only a label */ }
+    link.eventId = event.getId();
+    calSetPopups_(event, want.popups, true);
+  } else {
+    if (event.getTitle() !== want.title) event.setTitle(want.title);
+    if ((event.getDescription() || '') !== want.description) event.setDescription(want.description);
+    if (want.kind === 'allday') {
+      if (!event.isAllDayEvent() || shownDateOf_(event.getAllDayStartDate()) !== want.dateKey) event.setAllDayDate(want.date);
+    } else if (event.isAllDayEvent() || event.getStartTime().getTime() !== want.start.getTime() || event.getEndTime().getTime() !== want.end.getTime()) {
+      event.setTime(want.start, want.end);
+    }
+    calSetPopups_(event, want.popups, false);
+  }
+  link.kind = want.kind;
+  link.status = 'linked';
+  link.reason = '';
+  calFollowUps_(task, link, cal, cfg, want, now);
+
+  const nowMs = now.getTime();
+  const alerts = (want.start ? want.popups.map(function (m) { return want.start.getTime() - m * 60000; }) : [])
+    .concat(link.followUps.filter(function (f) { return f && f.eventId; }).map(function (f) { return Date.parse(f.at); }))
+    .filter(function (t) { return t > nowMs; });
+  link.nextAlertAt = alerts.length ? new Date(Math.min.apply(null, alerts)).toISOString() : '';
+}
+
+/** What a task's event should look like. */
+function calDesired_(task, cfg, ctx, props) {
+  const title = calTitle_(task);
+  const description = calDescription_(task, ctx, props);
+  const reminders = list_(task.reminders);
+  if (task.startTime) {
+    const start = manilaTime_(task.date, task.startTime);
+    let end = task.endTime ? manilaTime_(task.date, task.endTime) : null;
+    if (end && end.getTime() <= start.getTime()) end = new Date(end.getTime() + 864e5); // ends after midnight
+    if (!end) end = new Date(start.getTime() + CAL_TIMED_MIN * 60000);
+    return { kind: 'timed', title: title, description: description, start: start, end: end, popups: calPopups_(reminders, start) };
+  }
+  if (reminders.length) {
+    const start = manilaTime_(task.date, cfg.defaultTime);
+    return { kind: 'entry', title: title, description: description, start: start, end: new Date(start.getTime() + CAL_ENTRY_MIN * 60000), popups: calPopups_(reminders, start) };
+  }
+  return { kind: 'allday', title: title, description: description, start: null, date: noonUtc_(task.date), dateKey: task.date, popups: [] };
+}
+
+/** Reminders as minutes before the start, the way Google Calendar takes them. */
+function calPopups_(reminders, start) {
+  const out = [];
+  reminders.forEach(function (r) {
+    if (!r) return;
+    const m = r.kind === 'at' ? Math.round((start.getTime() - Date.parse(r.at)) / 60000) : Number(r.minutes);
+    if (!isFinite(m) || m < 0 || m > CAL_POPUP_MAX) return; // after the start, or earlier than Google allows
+    const minutes = Math.max(CAL_POPUP_MIN, Math.round(m));
+    if (out.indexOf(minutes) < 0) out.push(minutes);
+  });
+  return out.sort(function (a, b) { return a - b; }).slice(0, CAL_MAX_POPUPS);
+}
+
+function calSetPopups_(event, popups, fresh) {
+  if (!fresh) {
+    const have = event.getPopupReminders().slice().sort(function (a, b) { return a - b; });
+    if (have.join(',') === popups.join(',')) return;
+  }
+  event.removeAllReminders(); // also drops the calendar's own default alerts
+  popups.forEach(function (m) { event.addPopupReminder(m); });
+}
+
+/** "Still not done" alerts after a linked task's reminder, while it stays open. */
+function calFollowUps_(task, link, cal, cfg, want, now) {
+  const f = followSettings_(task, cfg);
+  const nowMs = now.getTime();
+  const due = want.start
+    ? want.popups.map(function (m) { return want.start.getTime() - m * 60000; }).filter(function (t) { return t <= nowMs; })
+    : [];
+  const base = due.length ? Math.max.apply(null, due) : 0;
+  if (!f.enabled || !base) {
+    calDeleteFollowUps_(cal, link);
+    link.followUpBase = '';
+    return;
+  }
+  const baseIso = new Date(base).toISOString();
+  if (link.followUpBase !== baseIso) {
+    // The reminder changed (a new time or date): start the follow-ups again
+    calDeleteFollowUps_(cal, link);
+    link.followUpBase = baseIso;
+  }
+  let at = base;
+  for (let k = 0; k < f.limit; k++) {
+    at = calOutOfQuiet_(at + f.minutes * 60000, f);
+    if (link.followUps[k]) continue;
+    if (at < nowMs) {
+      link.followUps[k] = { eventId: '', at: new Date(at).toISOString(), missed: true }; // its time has passed
+      continue;
+    }
+    if (at - nowMs > CAL_FOLLOW_LEAD_MIN * 60000) break; // not yet: a later check adds it
+    const start = new Date(at + CAL_POPUP_MIN * 60000); // so the 5-minute alert rings right on time
+    const event = cal.createEvent('Still not done: ' + calTitle_(task), start, new Date(start.getTime() + CAL_FOLLOW_EVENT_MIN * 60000),
+      { description: 'A follow-up from your Life Dashboard: this task isn’t ticked yet. Ticking it in the app removes these.' });
+    try { event.setTag(CAL_TAG, task.id); } catch (err) { /* only a label */ }
+    event.removeAllReminders();
+    event.addPopupReminder(CAL_POPUP_MIN);
+    link.followUps[k] = { eventId: event.getId(), at: new Date(at).toISOString() };
+  }
+}
+
+function followSettings_(task, cfg) {
+  const base = cfg.followUps;
+  const own = task.followUp && typeof task.followUp === 'object' ? task.followUp : {};
+  const shorter = task.priority === 'high' && base.highMinutes ? base.highMinutes : base.minutes;
+  return {
+    enabled: own.enabled == null ? base.enabled : Boolean(own.enabled),
+    minutes: numberIn_(own.minutes, 5, 1440, shorter),
+    limit: numberIn_(own.limit, 1, 5, base.limit),
+    quiet: base.quiet,
+    quietStart: base.quietStart,
+    quietEnd: base.quietEnd,
+  };
+}
+
+/** A time inside quiet hours (Manila time) moves to when they end — the next morning. */
+function calOutOfQuiet_(ms, f) {
+  if (!f.quiet) return ms;
+  const start = clockMin_(f.quietStart);
+  const end = clockMin_(f.quietEnd);
+  if (start === end) return ms;
+  const whole = Math.floor(ms / 60000);
+  const minute = (((whole + MANILA_OFFSET_MIN) % 1440) + 1440) % 1440;
+  const quiet = start < end ? minute >= start && minute < end : minute >= start || minute < end;
+  if (!quiet) return ms;
+  return (whole + ((end - minute + 1440) % 1440)) * 60000;
+}
+
+/** The calendar tasks go into: the one chosen in the app, or "Life Dashboard Tasks" (made when create is true). */
+function calTarget_(props, cfg, create) {
+  const chosen = cfg.calendar.calendarId;
+  if (chosen) {
+    const cal = calById_(chosen);
+    return cal ? { calendar: cal, id: chosen, name: cal.getName(), state: 'ok' } : { calendar: null, id: chosen, name: '', state: 'missing' };
+  }
+  const saved = props.getProperty('CAL_ID') || '';
+  if (saved) {
+    const cal = calById_(saved);
+    return cal ? { calendar: cal, id: saved, name: cal.getName(), state: 'ok' } : { calendar: null, id: saved, name: CAL_NAME, state: 'missing' };
+  }
+  if (!create) return { calendar: null, id: '', name: CAL_NAME, state: 'not-created' };
+  const cal = CalendarApp.createCalendar(CAL_NAME, { timeZone: SHOWN_TZ, summary: 'Tasks from your Life Dashboard app, put here by its sync script.' });
+  props.setProperty('CAL_ID', cal.getId());
+  return { calendar: cal, id: cal.getId(), name: cal.getName(), state: 'ok' };
+}
+
+function calById_(id) {
+  try {
+    return CalendarApp.getCalendarById(id) || null;
+  } catch (err) {
+    if (calNeedsAuth_(err)) throw err;
+    return null;
+  }
+}
+
+/** The event, if it still exists. (Google can return deleted events by id, so it's looked for in the calendar too.) */
+function calAlive_(cal, id) {
+  let event = null;
+  try {
+    event = cal.getEventById(id);
+  } catch (err) {
+    if (calNeedsAuth_(err)) throw err;
+    return null;
+  }
+  if (!event) return null;
+  const around = cal.getEvents(new Date(event.getStartTime().getTime() - 60000), new Date(event.getEndTime().getTime() + 60000));
+  return around.some(function (e) { return e.getId() === id; }) ? event : null;
+}
+
+function calDelete_(cal, id) {
+  if (!id) return;
+  let event = null;
+  try {
+    event = cal.getEventById(id);
+    if (event) event.deleteEvent();
+  } catch (err) {
+    if (calNeedsAuth_(err)) throw err; // otherwise it's already gone
+  }
+}
+
+function calDeleteFollowUps_(cal, link) {
+  list_(link.followUps).forEach(function (f) { if (f && f.eventId) calDelete_(cal, f.eventId); });
+  link.followUps = [];
+}
+
+function calWanted_(task) {
+  return Boolean(task.addToCalendar) && /^\d{4}-\d{2}-\d{2}$/.test(String(task.date || '')) && !task.deletedAt;
+}
+
+function calTitle_(task) {
+  return String(task.title || '').replace(/\s+/g, ' ').trim().slice(0, 200) || 'Untitled task';
+}
+
+function calDescription_(task, ctx, props) {
+  const lines = ['A task from your Life Dashboard to-do list.'];
+  const priority = PRIORITY_NAMES[task.priority];
+  if (priority && priority !== 'None') lines.push('Priority: ' + priority);
+  const category = ctx.name('taskCategories', task.categoryId);
+  if (category) lines.push('Category: ' + category);
+  if (task.notes) lines.push('', String(task.notes).slice(0, 1500));
+  const url = props.getProperty('APP_URL');
+  if (url) lines.push('', 'Open the app: ' + url.replace(/#.*$/, '') + '#/todo');
+  lines.push('', 'Change this task in the app: edits made here are replaced.');
+  return lines.join('\n');
+}
+
+function calNeedsAuth_(err) {
+  return /permission|authori[sz]/i.test(String((err && err.message) || err));
+}
+
+function calErrorCode_(err) {
+  return calNeedsAuth_(err) ? 'calendar-needs-auth' : 'calendar-failed';
+}
+
+/** The app's task settings (from the Settings tab), with defaults for anything missing. */
+function taskSettings_(ss) {
+  let saved = {};
+  const sheet = ss.getSheetByName(STORES.settings);
+  if (sheet) {
+    dataRows_(sheet, HEADER.length).forEach(function (row) {
+      if (row[COL.id] !== 'app') return;
+      try { saved = (JSON.parse(row[COL.json]) || {}).tasks || {}; } catch (err) { /* keep the defaults */ }
+    });
+  }
+  const cal = saved.calendar || {};
+  const fu = saved.followUps || {};
+  const d = TASK_DEFAULTS;
+  return {
+    defaultTime: clockText_(saved.defaultTime) || d.defaultTime,
+    calendar: {
+      calendarId: typeof cal.calendarId === 'string' ? cal.calendarId : '',
+      completed: cal.completed === 'remove' ? 'remove' : 'rename',
+    },
+    followUps: {
+      enabled: fu.enabled == null ? d.followUps.enabled : Boolean(fu.enabled),
+      minutes: numberIn_(fu.minutes, 5, 1440, d.followUps.minutes),
+      limit: numberIn_(fu.limit, 1, 5, d.followUps.limit),
+      quiet: fu.quiet == null ? d.followUps.quiet : Boolean(fu.quiet),
+      quietStart: clockText_(fu.quietStart) || d.followUps.quietStart,
+      quietEnd: clockText_(fu.quietEnd) || d.followUps.quietEnd,
+      highMinutes: numberIn_(fu.highMinutes, 5, 1440, 0),
+    },
+  };
+}
+
+function numberIn_(value, min, max, fallback) {
+  const n = Number(value);
+  return value !== null && value !== undefined && value !== '' && isFinite(n) && n >= min && n <= max ? Math.round(n) : fallback;
+}
+
+function clockText_(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '')) ? String(value) : '';
+}
+
+function clockMin_(hhmm) {
+  const parts = String(hhmm).split(':');
+  return Number(parts[0]) * 60 + Number(parts[1]);
+}
+
+/** "2026-09-27" at "08:15" in Manila time. */
+function manilaTime_(dateKey, hhmm) {
+  const d = String(dateKey).split('-').map(Number);
+  const t = String(hhmm).split(':').map(Number);
+  return new Date(Date.UTC(d[0], d[1] - 1, d[2], t[0], t[1]) - MANILA_OFFSET_MIN * 60000);
+}
+
+/** Midday on a date: the same calendar day wherever the script's time zone is. */
+function noonUtc_(dateKey) {
+  const d = String(dateKey).split('-').map(Number);
+  return new Date(Date.UTC(d[0], d[1] - 1, d[2], 12));
+}
+
+function shownDate_(date) {
+  return Utilities.formatDate(date, SHOWN_TZ, 'yyyy-MM-dd');
+}
+
+/** An all-day event's date, in the time zone Google uses for this script. */
+function shownDateOf_(date) {
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function addDaysKey_(key, n) {
+  const d = String(key).split('-').map(Number);
+  const x = new Date(Date.UTC(d[0], d[1] - 1, d[2] + n));
+  const pad = function (v) { return (v < 10 ? '0' : '') + v; };
+  return x.getUTCFullYear() + '-' + pad(x.getUTCMonth() + 1) + '-' + pad(x.getUTCDate());
+}
+
 /* ---------- Sheet helpers ---------- */
 
+function tabName_(store) {
+  return STORES[store] || SCRIPT_STORES[store];
+}
+
 function storeSheet_(ss, store) {
-  let sheet = ss.getSheetByName(STORES[store]);
+  let sheet = ss.getSheetByName(tabName_(store));
   if (!sheet) {
-    sheet = ss.insertSheet(STORES[store]);
-    sheet.getRange(1, 1, 1, HEADER.length).setNumberFormat('@').setValues([HEADER]).setFontWeight('bold');
+    sheet = ss.insertSheet(tabName_(store));
+    const header = LAYOUTS[store] ? HEADER.concat(Object.keys(LAYOUTS[store])) : HEADER;
+    ensureSize_(sheet, 1, header.length);
+    sheet.getRange(1, 1, 1, header.length).setNumberFormat('@').setValues([header]).setFontWeight('bold');
     sheet.setFrozenRows(1);
   }
   return sheet;
@@ -654,15 +1597,21 @@ function headerOf_(sheet) {
 function dataRows_(sheet, width) {
   const last = sheet.getLastRow();
   if (last < 2) return [];
-  return sheet.getRange(2, 1, last - 1, width).getValues().map(function (row) {
-    return row.map(function (v) { return v === null || v === undefined ? '' : String(v); });
+  const cols = Math.min(width, sheet.getMaxColumns());
+  return sheet.getRange(2, 1, last - 1, cols).getValues().map(function (row) {
+    const out = row.map(function (v) { return v === null || v === undefined ? '' : String(v); });
+    while (out.length < width) out.push('');
+    return out;
   });
 }
 
-/** One sheet row: fixed columns, then readable columns (the header grows as needed). */
-function rowFor_(record, json, seq, device, header) {
-  const readable = readable_(record);
-  Object.keys(readable).forEach(function (k) { if (header.indexOf(k) < 0) header.push(k); });
+/**
+ * One sheet row: fixed columns, then readable columns. Tabs with a fixed
+ * layout (LAYOUTS) keep their columns; on the others the header grows as needed.
+ */
+function rowFor_(store, record, json, seq, device, header, ctx) {
+  const readable = readableFor_(store, record, ctx);
+  if (!LAYOUTS[store]) Object.keys(readable).forEach(function (k) { if (header.indexOf(k) < 0) header.push(k); });
   return header.map(function (name, c) {
     switch (c) {
       case COL.id: return record.id;
@@ -688,11 +1637,17 @@ function readable_(record) {
     else if (Array.isArray(v) && v.every(function (x) { return x === null || typeof x !== 'object'; })) text = v.join(', ');
     else if (Array.isArray(v) && v.every(isNamed_)) text = v.map(function (x) { return x.name; }).join(', '); // e.g. a workout's exercises
     else text = JSON.stringify(v);
-    if (text.length > TEXT_LIMIT) text = text.slice(0, TEXT_LIMIT - 1) + '…';
-    if (text.charAt(0) === '=') text = "'" + text; // show as text, never run as a formula
-    out[k] = text;
+    out[k] = cellText_(text);
   });
   return out;
+}
+
+/** Text for a readable cell: shortened, and never run as a formula. */
+function cellText_(value) {
+  let text = value === null || value === undefined ? '' : String(value);
+  if (text.length > TEXT_LIMIT) text = text.slice(0, TEXT_LIMIT - 1) + '…';
+  if (text.charAt(0) === '=') text = "'" + text;
+  return text;
 }
 
 function isNamed_(x) {
@@ -833,4 +1788,9 @@ function nextSeq_(props) {
 
 function json_(value) {
   return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** The current time (the test runner on the Mac can set it). */
+function now_() {
+  return new Date();
 }

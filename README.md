@@ -4,10 +4,11 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 2 — Workout core and ward census (v0.3).** Log workouts with sets, reps and
-weights, a rest timer, templates, full history and a Hevy import, and run ward rounds from your logsheet
-(**Ward Patients** in the Neurology tab) — on top of Phase 1 (dashboard, settings, Google Sheets sync and
-backups). Data is stored on each device and, once sync is set up, in your own Google Sheet.
+**Current status: Phase 3 — Tasks and productivity (v0.4.0, the first of seven small releases).** A real
+to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting —
+on top of Phase 2 (workouts, and ward rounds from your logsheet in **Ward Patients**, Neurology tab) and
+Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on each device and, once sync is
+set up, in your own Google Sheet.
 
 ## Install the app (from GitHub Pages)
 
@@ -50,17 +51,22 @@ If you change `Code.gs` later: **Deploy → Manage deployments → Edit → Vers
 ### Updating the sync script
 
 Some app versions need a newer script in your Google Sheet: v0.3 needs script version 2 (your exercises
-and workout templates get their own tabs), v0.3.2 needs version 3 (Ward Patients) and v0.3.4 needs
-version 4 (editing lab results). Until it's updated,
-everything else keeps syncing and anything new stays safely on your devices; the app shows **Update sync**
-on the dashboard and **Update the sync script** in Settings → Sync (tap it for these steps):
+and workout templates get their own tabs), v0.3.2 needs version 3 (Ward Patients), v0.3.4 needs
+version 4 (editing lab results) and v0.4 needs **version 5** (your tasks get readable tabs, and tasks can go
+into Google Calendar). Each version includes everything before it. Until it's updated, everything else keeps
+syncing and anything new stays safely on your devices; the app shows **Update sync** on the dashboard and
+**Update the sync script** in Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-3. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
-   (Don't make a *new deployment* — that would change the Web app URL.) If Google asks for permission,
-   allow it — it's your own script.
-4. Back in the app, tap **Check now**.
+   Line 24 should now read `const SCRIPT_VERSION = 5;`.
+3. **Version 5 only, once:** in the toolbar choose **setup** and click **Run**. Google asks for permission
+   (now including Google Calendar): **Review permissions** → your account → **Advanced** → **Go to … (unsafe)**
+   → **Allow**. This also tidies the task tabs and starts a 30-minute check used by the Calendar link.
+4. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
+   (Don't make a *new deployment* — that would change the Web app URL.)
+5. Back in the app, tap **Check now**. To double-check, open the Web app URL in Safari: it should end with
+   `"version":5`.
 
 ## Backups
 
@@ -93,6 +99,35 @@ Good to know about the Wi-Fi preview:
 - Each browser and home-screen app keeps its **own** data. Don't enter anything important
   yet — this is for trying the design.
 - Some networks (guest, hospital or office Wi-Fi) block devices from reaching each other.
+
+## To Do (Phase 3)
+
+The To Do tab is a full task list (v0.4.0). Reminders, the Google Calendar link, repeating tasks, the focus timer
+and habits arrive in the next small updates (0.4.1 – 0.4.6).
+
+- **Add a task:** **New task** (To Do tab or the To Do card on Main). A task has a name, a priority (High, Medium,
+  Low or None — always shown as a coloured dot *and* a word), a date, an optional time or time range, a category,
+  tags, notes, subtasks and links. Pin a task to keep it at the top and always in Today. One tap adds one task.
+- **Views:** Today (overdue, due today and pinned), Upcoming (the next 7 days, by day), Overdue, By category, All and
+  Completed (with when you did each one). The search box looks in names, notes, tags and categories.
+- **Sort** (top right): Smart — overdue first, then pinned, then High → Medium → Low → None, earliest time first —
+  or Priority, Time, Recently added, Category or Manual (drag ≡). Automatic sorting can be switched off so tasks stay
+  put until you choose Sort now.
+- **Ticking:** the circle on the right ticks a task (with Undo); a task stays visible, moves to a "Completed today"
+  group or hides, as you choose in Settings → Tasks. Ticking a task's last subtask offers to complete the task too.
+- **Move to tomorrow** (in a task) always changes the task's date — it's never used for reminders.
+- **Deleting** asks first and can be undone; deleted tasks stay in ⋯ → **Recently deleted** for 30 days. They're never
+  erased: backups and your Google Sheet keep them.
+- **Categories** (⋯ → Categories, or Settings → Tasks): add, rename, recolour, change the icon, reorder, or delete —
+  deleting asks where its tasks should go.
+- **Main dashboard:** the To Do card lists what's left today and lets you tick tasks; Today at a Glance shows tasks
+  left, overdue, the top priority and the next timed task.
+- **Manila time:** days roll over at midnight Manila time, even if a device is set to another time zone.
+- **Export tasks (CSV)** is in Settings → Backup (and ⋯ in the To Do tab). It opens cleanly in Excel, Numbers and
+  Google Sheets.
+- **In your Google Sheet** (script version 5): the Tasks, Subtasks and Task categories tabs have readable columns —
+  priority as "High", times like "2026-09-27 08:15" (Manila time), categories by name and id. The Sheet is a copy for
+  reading: change tasks in the app.
 
 ## Workouts (Phase 2)
 
@@ -177,23 +212,27 @@ Setting it up (once the sync script is updated):
 index.html            App page
 manifest.json         Makes it installable (name, icons, colours)
 sw.js                 Service worker: offline copy of the app
-css/                  Design tokens, base, components, layout, screens, workout, ward
+css/                  Design tokens, base, components, layout, screens, workout, ward, todo
 js/main.js            Start-up
-js/core/              Database, state, navigation, UI helpers, icons, dates
+js/core/              Database, state, navigation, UI helpers, icons, dates (manila.js: Manila time for tasks)
 js/modules/           Life categories (workout, todo, neurology) + registry
 js/modules/workout/   Workout pieces: model, exercise library, logger, rest timer, templates,
                       history, Hevy import/export
+js/modules/todo/      To Do: model (views, sorting, search, CSV), store (saving), rows, list (the screen),
+                      detail (the task sheet), pages (Recently deleted, Categories, export)
 js/modules/ward/      Ward Patients (Neurology): model (Manila time, sorting), engine (list, rounds,
                       changes waiting to be saved), page (screen, patient sheet, history), store
 js/screens/           Dashboard, settings, welcome
 js/services/          Sync, backup, calendar provider, sample data, storage, images
 apps-script/Code.gs   Google Sheets sync script (runs in your Google account)
 icons/                App icons (edit the SVGs, then run tools/make-icons.py)
-tools/                Local preview server and icon generator
+tools/                Local preview server, icon generator, and todo-checks.html (checks the task logic in
+                      the browser: open http://localhost:8000/tools/todo-checks.html while previewing)
 tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (checks) and
                       mock_server.py (pretend web app at http://127.0.0.1:8124/macros/s/TEST/exec;
                       --code OLD.gs runs an older script, to test the update notice; /__ward/… edits
-                      a pretend logsheet like a co-resident would). Made-up patients only.
+                      a pretend logsheet like a co-resident would). Made-up patients only. The checks also
+                      cover the to-do tabs and the Google Calendar link (with a pretend calendar).
 ```
 
 ### Notes for future phases
@@ -216,6 +255,11 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
   in `sync.js`. A new synced store that an older script can't save waits in the outbox until the script is updated.
   Version 3 adds the Ward Patients actions (`wardCheck`, `wardSync`, `wardCreateTest`), which open the logsheet
   by the ID the app sends; the app reaches them with `callSyncScript()`.
+- **To Do:** tasks, subtasks (`subtasks` store) and categories sync; tasks and subtasks wait for script version 5,
+  so they always arrive together. Task dates are Manila days (`js/core/manila.js`). The Google Calendar link's state
+  lives in the script's own **Calendar links** tab (`calendarLinks`), which the app will read from 0.4.3 — the script
+  keeps it next to the task rather than inside it, so it never competes with your edits. Starting categories carry a
+  fixed old timestamp, so a device that joins later can't overwrite a category renamed elsewhere.
 - **Ward Patients data** is device-only: the `wardDays` and `wardQueue` stores and the `ward` / `wardCache`
   meta keys are never synced or backed up. Never log patient data or put a logsheet link in the code.
 - **Calendar:** `js/services/calendar.js` uses a provider; a Google Calendar provider (via Apps

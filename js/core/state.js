@@ -29,9 +29,13 @@ export const DEFAULT_SETTINGS = {
     keepAwake: true,        // keep the screen on during a workout
   },
   tasks: {
-    sort: 'smart',          // 'smart' | 'priority' | 'time' | 'recent' | 'category'
-    completed: 'keep',      // 'keep' | 'move' | 'hide'
-    defaultReminder: 30,    // minutes before; 0 = none (used from Phase 6)
+    view: 'today',          // the To Do screen opens on: 'today' | 'upcoming' | 'overdue' | 'category' | 'all' | 'completed'
+    sort: 'smart',          // 'smart' | 'priority' | 'time' | 'recent' | 'category' | 'manual'
+    autoSort: true,         // re-sort as tasks change (off: the order stays until you tap Sort now)
+    completed: 'keep',      // done tasks: 'keep' (in place) | 'move' (a Completed group) | 'hide'
+    defaultPriority: 'none',
+    defaultCategoryId: null,
+    // (v0.3 had a "defaultReminder: 30" here that never did anything; reminders arrive in 0.4.2)
   },
   backup: {
     reminders: true,        // weekly "back up your data" nudge (not shown while sync works)

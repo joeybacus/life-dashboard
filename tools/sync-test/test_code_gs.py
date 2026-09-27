@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 4
+SCRIPT_VERSION = 5
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -81,8 +81,8 @@ state = gas('dump')
 task_rows = rows_of(state, 'Tasks')
 check('rows beyond the sheet size are added', len(task_rows) == 8, len(task_rows))
 header = sheet(state, 'Tasks')['rows'][0]
-check('readable columns are added after the fixed ones', header[:6] == ['id', 'updatedAt', 'deletedAt', 'seq', 'device', 'json'] and 'title' in header, header)
-check('formulas are shown as text', task_rows[0][header.index('title')] == "'=1+1", task_rows[0][header.index('title')])
+check('readable columns are added after the fixed ones', header[:6] == ['id', 'updatedAt', 'deletedAt', 'seq', 'device', 'json'] and 'Title' in header, header)
+check('formulas are shown as text', task_rows[0][header.index('Title')] == "'=1+1", task_rows[0][header.index('Title')])
 check('the full item is kept exactly', json.loads(task_rows[0][5]) == tasks[0])
 
 res = gas('post', {**base, 'action': 'pull', 'sinceSeq': 0})
@@ -361,6 +361,276 @@ check('missing script permission is reported', gas('post', {**ward, 'action': 'w
 state = gas('dump')
 state['noAuth'] = False
 save_state(state)
+
+# ---------------------------------------------------------------------------
+print('\nTo-do tabs (version 5)')
+open(STATE, 'w').close()
+token = gas('setup')['token']
+base = {'protocol': 1, 'token': token}
+state = gas('dump')
+names = [s['name'] for s in state['sheets']]
+check('setup adds the to-do tabs', {'Subtasks', 'Habits', 'Habit log', 'Focus sessions', 'Calendar links'} <= set(names), names)
+check('setup starts the 30-minute calendar check', state['triggers'] == [{'fn': 'calendarTick', 'everyMinutes': 30}], state['triggers'])
+
+# A Tasks tab written by an older version (its own readable columns, wider than the new layout)
+old_task = rec('old-1', '2026-09-20T02:00:00.000Z', title='Old style task', priority='low', status='open')
+tasks_tab = sheet(state, 'Tasks')
+tasks_tab['maxCols'] = 40
+tasks_tab['rows'] = [['id', 'updatedAt', 'deletedAt', 'seq', 'device', 'json'] + [f'old{i}' for i in range(30)],
+                     ['old-1', old_task['updatedAt'], '', '1', 'Mac-aaaa', json.dumps(old_task)] + ['stale'] * 30]
+save_state(state)
+gas('setup')
+state = gas('dump')
+check('running setup again doesn\'t add a second timer', len(state['triggers']) == 1)
+tasks_tab = sheet(state, 'Tasks')
+check('setup gives an older Tasks tab the new readable columns', tasks_tab['rows'][0][6:8] == ['Title', 'Status'] and len([h for h in tasks_tab['rows'][0] if h]) == 24, tasks_tab['rows'][0])
+check('…recalculated from each task, with old columns cleared', tasks_tab['rows'][1][6] == 'Old style task' and 'stale' not in tasks_tab['rows'][1] and tasks_tab['rows'][1][5] == json.dumps(old_task), tasks_tab['rows'][1])
+
+
+def push(records, device='iPhone-bbbb'):
+    return gas('post', {**base, 'action': 'push', 'deviceId': device, 'sinceSeq': 999,
+                        'records': [{'store': s, 'record': r} for s, r in records]})
+
+
+def readable(state, tab, id_):
+    s = sheet(state, tab)
+    header = s['rows'][0]
+    row = next(r for r in s['rows'][1:] if r and r[0] == id_)
+    return dict(zip(header, list(row) + [''] * (len(header) - len(row))))
+
+
+T = '2026-09-27T00:15:00.000Z'  # 08:15 in Manila
+cat = rec('cat-mba', T, name='MBA', order=2, color='#2fc4ff', icon='briefcase')
+task = rec('task-1', T, title='Finish STRAMA paper', status='open', priority='high', categoryId='cat-mba', tags=['school', 'paper'],
+           date='2026-09-28', startTime='20:00', endTime='21:00', pinned=True, notes='Chapter 3', addToCalendar=False,
+           reminders=[{'id': 'r1', 'kind': 'before', 'minutes': 30}, {'id': 'r2', 'kind': 'at', 'at': '2026-09-28T04:00:00.000Z'}],
+           recurrence={'kind': 'monthly', 'interval': 1, 'week': 2, 'weekday': 2}, links=[{'id': 'l1', 'title': 'Brief', 'url': 'https://example.com'}])
+res = push([('tasks', task), ('taskCategories', cat)])  # the category is listed after the task: still named
+check('tasks and categories are accepted', set(res['results'].values()) == {'applied'}, res)
+r = readable(gas('dump'), 'Tasks', 'task-1')
+check('tasks have readable columns', r['Title'] == 'Finish STRAMA paper' and r['Priority'] == 'High' and r['Status'] == 'Open'
+      and r['Date'] == '2026-09-28' and r['Time'] == '20:00–21:00', r)
+check('the category is shown by name as well as id', r['Category'] == 'MBA' and r['Category id'] == 'cat-mba', r)
+check('times are shown in Manila time', r['Created'] == '2026-09-01 08:00' and r['Updated'] == '2026-09-27 08:15', r)
+check('reminders, repeats, links and pins are readable', r['Reminders'] == '30 min before, At 2026-09-28 12:00'
+      and r['Repeats'] == 'Every month on the second Tuesday' and r['Links'] == 'Brief' and r['Pinned'] == 'Yes', r)
+check('the full task is kept exactly', json.loads(r['json']) == task)
+
+push([('taskCategories', {**cat, 'name': 'MBA school', 'updatedAt': '2026-09-27T01:00:00.000Z'})])
+check('renaming a category updates the Tasks tab', readable(gas('dump'), 'Tasks', 'task-1')['Category'] == 'MBA school')
+
+push([('subtasks', rec('sub-1', T, taskId='task-1', title='Outline', done=True, order=0))])
+r = readable(gas('dump'), 'Subtasks', 'sub-1')
+check('subtasks show their task\'s title', r['Task'] == 'Finish STRAMA paper' and r['Subtask'] == 'Outline' and r['Done'] == 'Yes', r)
+done_task = {**task, 'title': 'Finish STRAMA paper (final)', 'status': 'done', 'completedAt': '2026-09-28T13:05:00.000Z', 'updatedAt': '2026-09-28T13:05:00.000Z'}
+push([('tasks', done_task)])
+state = gas('dump')
+check('renaming a task updates its subtasks', readable(state, 'Subtasks', 'sub-1')['Task'] == 'Finish STRAMA paper (final)')
+check('a done task shows when it was done', readable(state, 'Tasks', 'task-1')['Status'] == 'Done' and readable(state, 'Tasks', 'task-1')['Completed'] == '2026-09-28 21:05')
+
+push([('habitLogs', rec('hl1', T, habitId='h1', date='2026-09-27', done=True)),
+      ('focusSessions', rec('f1', T, taskId='task-1', type='focus', start='2026-09-27T01:00:00.000Z', end='2026-09-27T01:25:00.000Z', plannedMinutes=25, completed=True)),
+      ('habits', rec('h1', T, name='Read 20 pages', group='Evening', schedule={'kind': 'days', 'days': [1, 3, 5]}, active=True, order=0))])
+state = gas('dump')
+check('habits, the habit log and focus sessions are readable', readable(state, 'Habits', 'h1')['Schedule'] == 'Mon, Wed, Fri'
+      and readable(state, 'Habit log', 'hl1')['Habit'] == 'Read 20 pages' and readable(state, 'Focus sessions', 'f1')['Minutes'] == '25'
+      and readable(state, 'Focus sessions', 'f1')['Task'] == 'Finish STRAMA paper (final)', [readable(state, t, i) for t, i in (('Habits', 'h1'), ('Habit log', 'hl1'), ('Focus sessions', 'f1'))])
+check('devices can\'t write the Calendar links tab', push([('calendarLinks', rec('task-1', T, status='linked'))])['results'] == {})
+res = gas('post', {**base, 'action': 'pull', 'sinceSeq': 0})
+check('pull returns the new kinds of data', {'subtasks', 'habits', 'habitLogs', 'focusSessions', 'taskCategories', 'tasks'} <= {c['store'] for c in res['changes']}, {c['store'] for c in res['changes']})
+
+# ---------------------------------------------------------------------------
+print('\nGoogle Calendar link (pretend calendar)')
+
+
+def set_now(iso):
+    st = gas('dump')
+    st['now'] = iso
+    save_state(st)
+
+
+def live_events(st=None):
+    st = st or gas('dump')
+    return {e['id']: e for c in st['calendars'].values() if not c['deleted'] for e in c['events'].values() if not e['deleted']}
+
+
+def link(id_):
+    s = sheet(gas('dump'), 'Calendar links')
+    row = next((r for r in s['rows'][1:] if r and r[0] == id_), None)
+    return json.loads(row[5]) if row else None
+
+
+def cal_sync(**extra):
+    return gas('post', {**base, 'action': 'calendarSync', **extra})
+
+
+def ctask(id_, **fields):
+    fields.setdefault('status', 'open')
+    fields.setdefault('priority', 'medium')
+    fields.setdefault('reminders', [])
+    fields.setdefault('addToCalendar', True)
+    return rec(id_, fields.pop('updated', '2026-09-28T01:00:00.000Z'), **fields)
+
+
+set_now('2026-09-28T01:00:00.000Z')  # Monday 28 September, 09:00 in Manila
+res = gas('post', {**base, 'action': 'calendarStatus'})
+check('status: no calendar yet, timer running', res.get('ok') and res['calendar']['state'] == 'not-created' and res['timer'] is True, res)
+
+c1 = ctask('cal-1', title='Grand rounds prep', date='2026-09-28', startTime='14:00',
+           reminders=[{'id': 'a', 'kind': 'before', 'minutes': 30}, {'id': 'b', 'kind': 'before', 'minutes': 10}])
+push([('tasks', c1)])
+res = cal_sync(ids=['cal-1'], appUrl='https://joeybacus.github.io/life-dashboard/')
+st = gas('dump')
+check('the first linked task makes the "Life Dashboard Tasks" calendar', [c['name'] for c in st['calendars'].values()] == ['Life Dashboard Tasks'], st['calendars'])
+l1 = link('cal-1')
+ev = live_events(st).get(l1['eventId'] if l1 else '')
+check('a timed task becomes an event at its time (30 minutes long)', ev and ev['start'] == '2026-09-28T06:00:00.000Z' and ev['end'] == '2026-09-28T06:30:00.000Z' and ev['title'] == 'Grand rounds prep', ev)
+check('its reminders become the alerts (the calendar\'s default is removed)', ev and sorted(ev['popups']) == [10, 30], ev and ev['popups'])
+check('the link is saved for the app, with the next alert', l1['status'] == 'linked' and l1['nextAlertAt'] == '2026-09-28T05:30:00.000Z' and res['links'][0]['id'] == 'cal-1', l1)
+check('the event says where it came from', 'https://joeybacus.github.io/life-dashboard/#/todo' in ev['description'] and ev['tags'].get('lifeDashboardTaskId') == 'cal-1')
+res = gas('post', {**base, 'action': 'pull', 'sinceSeq': 0})
+check('devices receive the link', any(c['store'] == 'calendarLinks' and c['record']['id'] == 'cal-1' for c in res['changes']))
+res = cal_sync(ids=['cal-1'])
+check('nothing changes when nothing changed', res['links'] == [] and len(live_events()) == 1, res)
+
+c1b = {**c1, 'title': 'Grand rounds prep (moved)', 'startTime': '15:30', 'endTime': '16:15', 'updatedAt': '2026-09-28T01:05:00.000Z'}
+push([('tasks', c1b)])
+cal_sync()  # no ids: tasks changed since the last check
+evs = live_events()
+check('editing the task updates the same event', list(evs) == [l1['eventId']] and evs[l1['eventId']]['start'] == '2026-09-28T07:30:00.000Z'
+      and evs[l1['eventId']]['end'] == '2026-09-28T08:15:00.000Z' and evs[l1['eventId']]['title'] == 'Grand rounds prep (moved)', evs)
+
+push([('tasks', ctask('cal-2', title='Submit IRB form', date='2026-09-30', reminders=[{'id': 'c', 'kind': 'before', 'minutes': 60}])),
+      ('tasks', ctask('cal-3', title='Pay rent', date='2026-10-01')),
+      ('tasks', ctask('cal-4', title='Someday', date=None))])
+cal_sync()
+evs = live_events()
+e2 = evs.get(link('cal-2')['eventId'])
+e3 = evs.get(link('cal-3')['eventId'])
+check('a date with reminders but no time: a 15-minute entry at 8:00 AM', e2 and e2['start'] == '2026-09-30T00:00:00.000Z' and e2['end'] == '2026-09-30T00:15:00.000Z' and e2['popups'] == [60], e2)
+check('a date only: an all-day event without alerts', e3 and e3['allDay'] and e3['date'] == '2026-10-01' and e3['popups'] == [], e3)
+check('no date: not in Calendar, and the app is told why', link('cal-4')['status'] == 'unlinked' and link('cal-4')['reason'] == 'no-date' and len(evs) == 3, link('cal-4'))
+
+push([('tasks', {**c1b, 'status': 'done', 'completedAt': '2026-09-28T02:00:00.000Z', 'updatedAt': '2026-09-28T02:00:00.000Z'})])
+cal_sync()
+e1 = live_events().get(l1['eventId'])
+check('a done task\'s event is renamed "✓ …" with no alerts', e1 and e1['title'] == '✓ Grand rounds prep (moved)' and e1['popups'] == [] and link('cal-1')['reason'] == 'done', e1)
+push([('tasks', {**c1b, 'updatedAt': '2026-09-28T02:05:00.000Z'})])
+cal_sync()
+e1 = live_events().get(l1['eventId'])
+check('reopening it brings the title and alerts back', e1 and e1['title'] == 'Grand rounds prep (moved)' and sorted(e1['popups']) == [10, 30], e1)
+
+push([('tasks', {**c1b, 'deletedAt': '2026-09-28T02:10:00.000Z', 'updatedAt': '2026-09-28T02:10:00.000Z'})])
+cal_sync()
+check('deleting the task deletes its event', l1['eventId'] not in live_events() and link('cal-1')['status'] == 'unlinked')
+push([('tasks', {**c1b, 'deletedAt': None, 'updatedAt': '2026-09-28T02:11:00.000Z'})])
+cal_sync()
+l1 = link('cal-1')
+check('undo brings a new event back', l1['status'] == 'linked' and l1['eventId'] in live_events(), l1)
+
+# The event for cal-3 is deleted in Google Calendar
+st = gas('dump')
+for c in st['calendars'].values():
+    if link('cal-3')['eventId'] in c['events']:
+        c['events'][link('cal-3')['eventId']]['deleted'] = True
+save_state(st)
+gas('tick')
+check('an event deleted in Calendar is noticed by the 30-minute check', link('cal-3')['status'] == 'deleted' and link('cal-3')['reason'] == 'removed-in-calendar', link('cal-3'))
+push([('tasks', ctask('cal-3', title='Pay rent (edited)', date='2026-10-01', updated='2026-09-28T01:30:00.000Z'))])
+gas('tick')
+check('…and never made again, even after an edit', link('cal-3')['status'] == 'deleted' and not any(e['tags'].get('lifeDashboardTaskId') == 'cal-3' for e in live_events().values()))
+push([('tasks', ctask('cal-3', title='Pay rent (edited)', date='2026-10-01', addToCalendar=False, updated='2026-09-28T01:31:00.000Z'))])
+gas('tick')
+check('when the app unlinks it, it shows as not linked', link('cal-3')['status'] == 'unlinked')
+push([('tasks', ctask('cal-3', title='Pay rent (edited)', date='2026-10-01', updated='2026-09-28T01:32:00.000Z'))])
+gas('tick')
+check('linking it again makes a new event', link('cal-3')['status'] == 'linked' and link('cal-3')['eventId'] in live_events())
+
+# Follow-ups: a task at 10:00 with a reminder 30 minutes before (09:30), still open afterwards
+set_now('2026-09-29T01:00:00.000Z')  # 09:00
+push([('tasks', ctask('cal-5', title='Call the lab', date='2026-09-29', startTime='10:00', reminders=[{'id': 'x', 'kind': 'before', 'minutes': 30}]))])
+gas('tick')
+follow = lambda: sorted((e for e in live_events().values() if e['title'].startswith('Still not done')), key=lambda e: e['start'])
+check('no follow-up before the reminder is due', follow() == [] and link('cal-5')['status'] == 'linked')
+set_now('2026-09-29T03:00:00.000Z')  # 11:00 — the first follow-up (11:30) is coming up
+gas('tick')
+f = follow()
+check('a follow-up is added 2 hours after the reminder', len(f) == 1 and f[0]['title'] == 'Still not done: Call the lab'
+      and f[0]['start'] == '2026-09-29T03:35:00.000Z' and f[0]['popups'] == [5], f)
+set_now('2026-09-29T05:00:00.000Z')  # 13:00 — the second (13:30)
+gas('tick')
+set_now('2026-09-29T07:10:00.000Z')  # 15:10 — the limit (2) is reached
+gas('tick')
+check('follow-ups stop at the limit (2)', len(follow()) == 2 and link('cal-5')['followUps'][1]['at'] == '2026-09-29T05:30:00.000Z', follow())
+push([('tasks', ctask('cal-5', title='Call the lab', date='2026-09-29', startTime='10:00', reminders=[{'id': 'x', 'kind': 'before', 'minutes': 30}],
+                      status='done', completedAt='2026-09-29T07:12:00.000Z', updated='2026-09-29T07:12:00.000Z'))])
+cal_sync()
+check('ticking the task removes its follow-ups', follow() == [] and link('cal-5')['followUps'] == [], follow())
+
+# Quiet hours: a follow-up that would land at 23:00 moves to 08:00 the next morning
+push([('tasks', ctask('cal-6', title='Evening meds review', date='2026-09-29', startTime='21:30', reminders=[{'id': 'q', 'kind': 'before', 'minutes': 30}]))])
+set_now('2026-09-29T14:00:00.000Z')  # 22:00
+gas('tick')
+check('no follow-up during quiet hours', follow() == [], follow())
+set_now('2026-09-29T23:30:00.000Z')  # 07:30 the next morning
+gas('tick')
+f = follow()
+check('it rings at 8:00 AM instead', len(f) == 1 and f[0]['start'] == '2026-09-30T00:05:00.000Z', f)
+
+# Setting: remove the event when a task is done
+push([('settings', rec('app', '2026-09-29T23:40:00.000Z', tasks={'calendar': {'completed': 'remove'}}))])
+push([('tasks', ctask('cal-6', title='Evening meds review', date='2026-09-29', startTime='21:30', status='done', updated='2026-09-29T23:41:00.000Z',
+                      reminders=[{'id': 'q', 'kind': 'before', 'minutes': 30}]))])
+cal_sync()
+check('with "remove", a done task\'s event and follow-ups are deleted', link('cal-6')['eventId'] == '' and link('cal-6')['reason'] == 'done-removed' and follow() == [], link('cal-6'))
+
+# The calendar is deleted: links pause; "Try again" makes a new one
+st = gas('dump')
+for c in st['calendars'].values():
+    c['deleted'] = True
+save_state(st)
+push([('tasks', ctask('cal-2', title='Submit IRB form (v2)', date='2026-09-30', reminders=[{'id': 'c', 'kind': 'before', 'minutes': 60}], updated='2026-09-29T23:50:00.000Z'))])
+cal_sync()
+check('a deleted calendar pauses the link', link('cal-2')['status'] == 'paused' and link('cal-2')['reason'] == 'calendar-missing', link('cal-2'))
+check('status reports the calendar missing', gas('post', {**base, 'action': 'calendarStatus'})['calendar']['state'] == 'missing')
+res = gas('post', {**base, 'action': 'calendarSetup', 'create': True})
+st = gas('dump')
+active = [c for c in st['calendars'].values() if not c['deleted']]
+check('"Try again" makes a new calendar and relinks the tasks', res.get('ok') and len(active) == 1 and res['calendar']['state'] == 'ok'
+      and link('cal-2')['status'] == 'linked' and link('cal-2')['calendarId'] == active[0]['id'] and link('cal-2')['eventId'] in active[0]['events'], res)
+
+# Choosing another calendar in the app moves the events there
+st = gas('dump')
+st['calendars']['practice@group.calendar.google.com'] = {'id': 'practice@group.calendar.google.com', 'name': 'Practice tasks', 'tz': 'Asia/Manila', 'deleted': False, 'events': {}}
+save_state(st)
+push([('settings', rec('app', '2026-09-29T23:55:00.000Z', tasks={'calendar': {'calendarId': 'practice@group.calendar.google.com'}}))])
+gas('post', {**base, 'action': 'calendarSetup'})
+st = gas('dump')
+check('choosing another calendar moves the events', link('cal-2')['calendarId'] == 'practice@group.calendar.google.com'
+      and link('cal-2')['eventId'] in st['calendars']['practice@group.calendar.google.com']['events']
+      and not any(not e['deleted'] for c in st['calendars'].values() if c['id'] != 'practice@group.calendar.google.com' and not c['deleted'] for e in c['events'].values()),
+      [(c['name'], e['title']) for c in st['calendars'].values() if c['id'] != 'practice@group.calendar.google.com' and not c['deleted'] for e in c['events'].values() if not e['deleted']])
+
+# No Calendar permission: calendar links pause, but syncing still works
+st = gas('dump')
+st['calNoAuth'] = True
+save_state(st)
+check('status reports the missing permission', gas('post', {**base, 'action': 'calendarStatus'}).get('error') == 'calendar-needs-auth')
+res = push([('tasks', ctask('cal-2', title='Submit IRB form (v3)', date='2026-09-30', reminders=[{'id': 'c', 'kind': 'before', 'minutes': 60}], updated='2026-09-30T00:00:00.000Z'))])
+check('syncing still works without Calendar permission', set(res['results'].values()) == {'applied'}, res)
+cal_sync()
+check('the link pauses with the reason', link('cal-2')['status'] == 'paused' and link('cal-2')['reason'] == 'calendar-needs-auth', link('cal-2'))
+gas('tick')
+check('the 30-minute check doesn\'t crash', gas('dump')['props'].get('CAL_LAST_RUN') is not None)
+st = gas('dump')
+st['calNoAuth'] = False
+save_state(st)
+cal_sync()
+check('once allowed again, the link recovers', link('cal-2')['status'] == 'linked', link('cal-2'))
+st = gas('dump')
+link_tab = sheet(st, 'Calendar links')
+r = readable(st, 'Calendar links', 'cal-2')
+check('the Calendar links tab is readable', r['Task'] == 'Submit IRB form (v3)' and r['Status'] == 'Linked' and r['Calendar'] == 'Practice tasks', r)
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

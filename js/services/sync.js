@@ -33,7 +33,7 @@ const MESSAGES = {
   network: 'Couldn’t reach Google. Check your internet connection.',
   timeout: 'Google took too long to answer. It will try again shortly.',
   busy: 'Your Google Sheet was busy. It will try again shortly.',
-  'bad-response': 'That link didn’t answer like the Life Dashboard sync script. Check the Web app URL, and that “Who has access” is set to Anyone.',
+  'bad-response': 'That link didn’t answer like the Life Dashboard sync script. Check the Web app URL and that “Who has access” is set to Anyone. Just updated the script? In Apps Script choose setup, click Run and allow access.',
   'bad-token': 'The secret token doesn’t match. Copy it again from the Connection tab of your Google Sheet.',
   'not-set-up': 'The sync script isn’t set up yet. In Apps Script, choose “setup” and click Run once.',
   protocol: 'The sync script needs updating: paste the latest code into Apps Script and deploy a new version.',
@@ -47,9 +47,12 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
 
 /* The sync script (apps-script/Code.gs) reports its version. Older scripts
    don't have tabs for newer kinds of data: those wait on this device (nothing
-   is lost) until the script is updated. Version 3 adds Ward Patients; 4 lets it edit lab results. */
-export const LATEST_SCRIPT_VERSION = 4;
-const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2 };
+   is lost) until the script is updated. Version 3 adds Ward Patients; 4 lets it
+   edit lab results; 5 adds the to-do tabs (readable columns, subtasks) and the
+   Google Calendar link — tasks wait for it too, so they always arrive with
+   their subtasks. */
+export const LATEST_SCRIPT_VERSION = 5;
+const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 const scriptSupports = (store, config) => (STORE_SCRIPT_VERSION[store] ?? 1) <= scriptVersion(config);
 
