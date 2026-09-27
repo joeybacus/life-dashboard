@@ -21,7 +21,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 3;  // 2: Exercises and Workout templates tabs · 3: Ward Patients
+const SCRIPT_VERSION = 4;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -250,8 +250,10 @@ function pull_(ss, props, req) {
  *   E Rounded · F Rounds Start · G Rounds End  (headings added by the app, only
  *   if E1:G1 are empty — if they hold something else, nothing is written there)
  *
- * Safety rules: never writes to columns A–C, never adds, deletes or moves
- * rows. Before every write it finds the patient's row again by hospital
+ * Safety rules: never writes to columns A and B (names and hospital numbers),
+ * never adds, deletes or moves rows. Lab results (C) and recommendations (D)
+ * are written only when you edit them in the app. Before every write it finds
+ * the patient's row again by hospital
  * number (rows may have moved) and checks the cell still holds what the app
  * last saw; if someone changed it, it reports both versions instead of
  * overwriting. Times are written as text in Manila time: "2026-09-27 08:15".
@@ -260,9 +262,9 @@ function pull_(ss, props, req) {
 const WARD_HEADERS = ['Rounded', 'Rounds Start', 'Rounds End'];
 const WARD_TZ = 'Asia/Manila';
 const WARD_TIME_FORMAT = 'yyyy-MM-dd HH:mm';
-const WARD_COL = { D: 4, E: 5, F: 6, G: 7 };
+const WARD_COL = { C: 3, D: 4, E: 5, F: 6, G: 7 };
 const WARD_MAX_ROWS = 2000;
-const WARD_MAX_TEXT = 20000;   // characters in one recommendation
+const WARD_MAX_TEXT = 20000;   // characters in one lab result or recommendation
 const WARD_MAX_WRITES = 100;   // per request
 
 const WARD_ACTIONS = {
@@ -290,7 +292,7 @@ function wardCheck_(req) {
 
 /**
  * Save the app's changes (if any), then send back the whole list.
- *   writes:      [{ id, hn, expect: { D | E, F, G }, set: { D | E, F, G }, quiet }]
+ *   writes:      [{ id, hn, expect: { C | D | E, F, G }, set: { C | D | E, F, G }, quiet }]
  *   claim:       add the E–G headings if E1:G1 are empty
  *   resetBefore: "YYYY-MM-DD" — untick patients last rounded before that day (Manila)
  */
@@ -507,14 +509,16 @@ function wardWriteOne_(sheet, w, keys, headers, claimError) {
   if (rows.length > 1) return { status: 'duplicate' };
   const row = rows[0];
 
-  const width = Math.min(4, sheet.getMaxColumns() - 3);
+  const width = Math.min(5, sheet.getMaxColumns() - 2); // columns C to G
   if (width < 1) return { status: 'invalid' };
-  const range = sheet.getRange(row, 4, 1, width);
+  const range = sheet.getRange(row, 3, 1, width);
   const formulas = range.getFormulas()[0];
-  if (cols.some(function (c) { return formulas[WARD_COL[c] - 4]; })) return { status: 'formula', row: row };
+  if (cols.some(function (c) { return formulas[WARD_COL[c] - 3]; })) return { status: 'formula', row: row };
   const shown = range.getDisplayValues()[0];
   const raw = range.getValues()[0];
-  const current = { D: wardText_(shown[0]), E: wardBool_(raw[1]), F: wardTime_(raw[2], shown[2]), G: wardTime_(raw[3], shown[3]) };
+  const current = {
+    C: wardText_(shown[0]), D: wardText_(shown[1]), E: wardBool_(raw[2]), F: wardTime_(raw[3], shown[3]), G: wardTime_(raw[4], shown[4]),
+  };
   const same = function (c, a, b) { return c === 'E' ? Boolean(a) === Boolean(b) : String(a == null ? '' : a) === String(b == null ? '' : b); };
 
   if (cols.every(function (c) { return same(c, current[c], set[c]); })) return { status: 'same', row: row };
@@ -572,15 +576,15 @@ function wardCanEdit_(sheet) {
   }
 }
 
-/** Check the cells of one write. Only D–G are ever accepted, never A–C. */
+/** Check the cells of one write. Only C–G are ever accepted, never A or B. */
 function wardCells_(cells, forWriting) {
   if (!cells || typeof cells !== 'object' || Array.isArray(cells)) return null;
   const out = {};
   const ok = Object.keys(cells).every(function (c) {
     const v = cells[c];
-    if (c === 'D') {
+    if (c === 'C' || c === 'D') {
       if (typeof v !== 'string' || v.length > WARD_MAX_TEXT) return false;
-      out.D = wardText_(v);
+      out[c] = wardText_(v);
     } else if (c === 'E') {
       if (typeof v !== 'boolean') return false;
       out.E = v;

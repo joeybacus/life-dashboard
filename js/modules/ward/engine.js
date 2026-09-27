@@ -10,10 +10,10 @@
    automatically while the app is open.
 
    Screens listen with on('ward', …) and read wardView(). */
-import { emit } from '../../core/events.js';
+import { emit, on } from '../../core/events.js';
 import { nowISO } from '../../core/dates.js';
 import { uid } from '../../core/ids.js';
-import { SyncError, callSyncScript, syncSnapshot } from '../../services/sync.js';
+import { SyncError, callSyncScript, syncScriptVersion, syncSnapshot } from '../../services/sync.js';
 import {
   LOAD_PROBLEMS, MAX_RECS, cleanText, fromSheetTime, hnKey, manilaDateKey, msUntilManilaMidnight, priorityOf,
   parseSheetLink, previousDateKey, sheetTimeDay, sortPatients, toSheetTime,
@@ -24,6 +24,13 @@ const SEND_DELAY_MS = 700;               // quick taps go out together
 const RETRY_MS = [15, 30, 60, 120, 300].map((s) => s * 1000);
 const SESSION_MAX_MS = 12 * 3600e3;      // an unfinished rounds session older than this was forgotten
 const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response']);
+const LABS_SCRIPT_VERSION = 4;           // sync scripts older than this can't save lab results
+
+/* What you can edit in the app, and the logsheet column each one is saved to */
+export const EDITABLE = {
+  labs: { column: 'C', label: 'lab results' },
+  recs: { column: 'D', label: 'recommendations' },
+};
 
 const ward = {
   link: null,        // the logsheet on this device (see store.js)
@@ -109,6 +116,7 @@ export function wardView(now = Date.now()) {
   rows.forEach((r) => { if (r.key) counts.set(r.key, (counts.get(r.key) ?? 0) + 1); });
 
   const patients = rows.map((r) => {
+    const labsItem = r.key ? ward.queue.get(`${r.key}|labs`) ?? null : null;
     const recsItem = r.key ? ward.queue.get(`${r.key}|recs`) ?? null : null;
     const roundsItem = r.key ? ward.queue.get(`${r.key}|rounds`) ?? null : null;
     const recs = recsItem ? recsItem.set.D : r.recs;
@@ -122,9 +130,8 @@ export function wardView(now = Date.now()) {
       row: r.row,
       name: r.name,
       hn: r.hn,
-      labs: r.labs,
+      labs: labsItem ? labsItem.set.C : r.labs,
       recs,
-      sheetRecs: r.recs,
       duplicate: counts.get(r.key) > 1,
       tickable: Boolean(r.key) && counts.get(r.key) === 1,
       priority: priorityOf(recs), // { level, tag } or null
@@ -134,6 +141,7 @@ export function wardView(now = Date.now()) {
       durationMs: rounded ? entry.durationMs ?? null : null,
       opened,
       lastRounded: !rounded && lastDay && lastDay < date ? fromSheetTime(r.end) : null,
+      labsItem,
       recsItem,
       roundsItem,
     };
@@ -228,7 +236,14 @@ async function request() {
     publish();
     return false;
   }
-  const sent = outgoing();
+  const waiting = outgoing();
+  const held = (syncScriptVersion() ?? 0) < LABS_SCRIPT_VERSION ? waiting.filter((i) => i.kind === 'labs') : [];
+  for (const item of held) {
+    if (item.problem === 'needs-update') continue;
+    Object.assign(item, { state: 'blocked', problem: 'needs-update' });
+    await store.saveQueueItem(item);
+  }
+  const sent = waiting.filter((i) => !held.includes(i));
   const toSheet = !link.roundsHere;
   const reset = toSheet && (ward.cache?.resetDay !== date || sent.some((i) => i.kind === 'rounds' && i.day < date));
   ward.phase = 'loading';
@@ -370,16 +385,16 @@ async function removeItem(key) {
 const sameCell = (c, a, b) => (c === 'E' ? Boolean(a) === Boolean(b) : String(a ?? '') === String(b ?? ''));
 
 /**
- * Queue a change to one patient's recommendations (set: { D }) or rounds
- * (set: { E, F, G }). A newer change to the same thing replaces the waiting
+ * Queue a change to one patient's lab results (set: { C }), recommendations
+ * (set: { D }) or rounds (set: { E, F, G }). A newer change to the same thing replaces the waiting
  * one but keeps what the logsheet held before, so conflicts are still noticed.
  */
 async function queueChange(r, kind, set) {
   const key = `${r.key}|${kind}`;
   const existing = ward.queue.get(key);
-  const expect = existing?.expect ?? (kind === 'recs'
-    ? { D: r.recs }
-    : { E: Boolean(r.rounded), F: r.start ?? '', G: r.end ?? '' });
+  const expect = existing?.expect ?? (kind === 'rounds'
+    ? { E: Boolean(r.rounded), F: r.start ?? '', G: r.end ?? '' }
+    : { [EDITABLE[kind].column]: kind === 'labs' ? r.labs : r.recs });
   if (Object.keys(set).every((c) => sameCell(c, expect[c], set[c]))) {
     // Back to what the logsheet already has: nothing to save
     if (existing) await removeItem(key);
@@ -445,14 +460,17 @@ export async function setRounded(key, rounded) {
   return entry;
 }
 
-/** Save edited recommendations (column D). Resolves with the change's state afterwards. */
-export async function saveRecommendations(key, text) {
+/**
+ * Save edited lab results (field 'labs', column C) or recommendations ('recs',
+ * column D). Resolves with the change's state afterwards.
+ */
+export async function saveText(key, field, text) {
   const r = rowByKey(key);
   if (!r) throw new WardError('not-found', { message: 'This patient is no longer in the logsheet.' });
-  await queueChange(r, 'recs', { D: cleanText(text).slice(0, MAX_RECS) });
+  await queueChange(r, field, { [EDITABLE[field].column]: cleanText(text).slice(0, MAX_RECS) });
   publish();
   await flushWard();
-  const item = ward.queue.get(`${key}|recs`);
+  const item = ward.queue.get(`${key}|${field}`);
   return { saved: !item, state: item?.state ?? 'saved', problem: item?.problem ?? null };
 }
 
@@ -637,6 +655,9 @@ export async function initWard() {
     if (ward.link && outgoing().length) sendSoon(1000);
   });
   window.addEventListener('offline', publish);
+  on('sync', (s) => {
+    if (ward.link && !s.scriptOutdated && [...ward.queue.values()].some((i) => i.problem === 'needs-update')) sendSoon(800);
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     checkNewDay();

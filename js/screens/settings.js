@@ -111,6 +111,14 @@ function installHint() {
 
 /* ---------- Sections ---------- */
 
+/** What updating the sync script brings, for the script this device last talked to. */
+function scriptUpdateFor() {
+  const version = syncScriptVersion() ?? 1;
+  if (version < 2) return 'workout templates, exercises and Ward Patients';
+  if (version < 3) return 'Ward Patients';
+  return 'editing lab results in Ward Patients';
+}
+
 function syncSection() {
   const s = syncSnapshot();
   if (!s.connected) {
@@ -136,7 +144,7 @@ function syncSection() {
       </div>
       ${s.scriptOutdated ? html`<button type="button" class="row row--icon accent-workout" data-action="sync:update" data-slot="scriptUpdate">
         <span class="row__icon">${icon('sparkles')}</span>
-        <span class="row__text"><span class="row__label">Update the sync script</span><span class="row__sub">A 2-minute update in your Google Sheet, needed for ${(syncScriptVersion() ?? 1) < 2 ? 'workout templates, exercises and Ward Patients' : 'Ward Patients'}</span></span>
+        <span class="row__text"><span class="row__label">Update the sync script</span><span class="row__sub">A 2-minute update in your Google Sheet, needed for ${scriptUpdateFor()}</span></span>
         ${icon('chevronRight', 'row__chev')}
       </button>` : ''}
       <label class="row row--icon accent-todo">
@@ -835,9 +843,10 @@ async function openScriptUpdate() {
     className: 'setup',
     title: 'Update the sync script',
     body: html`
-      <p class="setup__lead">${(syncScriptVersion() ?? 1) < 2
-        ? 'The latest sync script stores your workout templates and exercises in your Google Sheet, and lets Ward Patients (Neurology tab) read and update your ward logsheet.'
-        : 'The latest sync script lets Ward Patients (Neurology tab) read and update your ward logsheet.'} Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
+      <p class="setup__lead">${{
+        'workout templates, exercises and Ward Patients': 'The latest sync script stores your workout templates and exercises in your Google Sheet, and lets Ward Patients (Neurology tab) read and update your ward logsheet.',
+        'Ward Patients': 'The latest sync script lets Ward Patients (Neurology tab) read and update your ward logsheet.',
+      }[scriptUpdateFor()] ?? 'The latest sync script lets Ward Patients save the lab results you edit.'} Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
       <ol class="setup__steps">
         <li><strong>Copy the new code.</strong>
           <span class="setup__buttons">

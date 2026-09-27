@@ -50,7 +50,8 @@ If you change `Code.gs` later: **Deploy → Manage deployments → Edit → Vers
 ### Updating the sync script
 
 Some app versions need a newer script in your Google Sheet: v0.3 needs script version 2 (your exercises
-and workout templates get their own tabs) and v0.3.2 needs version 3 (Ward Patients). Until it's updated,
+and workout templates get their own tabs), v0.3.2 needs version 3 (Ward Patients) and v0.3.4 needs
+version 4 (editing lab results). Until it's updated,
 everything else keeps syncing and anything new stays safely on your devices; the app shows **Update sync**
 on the dashboard and **Update the sync script** in Settings → Sync (tap it for these steps):
 
@@ -138,16 +139,17 @@ Good to know about the Wi-Fi preview:
   asks first and clears the end time. Ticks reset at midnight, Manila time. Each device keeps a daily
   rounds history (⋯ → Rounds history): dates, times and hospital numbers.
 - **Saved to the logsheet:** ticks go to columns **E–G** (Rounded, Rounds Start, Rounds End — the headings
-  are added only if E1:G1 are empty; if they hold anything else the app stops and asks). Edited
-  recommendations go to column **D**. Columns A–C are never changed, and rows are never added, deleted or
-  moved. Before each write the app finds the patient's row again by hospital number and checks the cell
+  are added only if E1:G1 are empty; if they hold anything else the app stops and asks). Lab results and
+  recommendations can be edited in a patient's sheet (**Edit**) and go back to columns **C** and **D**.
+  Names and hospital numbers (A, B) are never changed, and rows are never added, deleted or moved. Before each write the app finds the patient's row again by hospital number and checks the cell
   hasn't changed; if someone else changed it, you see both versions and choose. Changes that can't be saved
   yet stay on the device, marked **Not synced**, and are retried automatically.
 - **Private by design:** the logsheet link, the patient list and the rounds history stay on each device —
   never synced to your Life Dashboard sheet, never in backup files, the app's code or its logs.
-- It works through your sync script (version 3, running as you), so sync must be set up on the device.
+- It works through your sync script (version 4, running as you), so sync must be set up on the device.
+  Edited lab results wait on the device until the script is version 4.
 
-Setting it up (once the sync script is version 3):
+Setting it up (once the sync script is updated):
 
 1. Make sure the logsheet is shared — with edit access — with the Google account that owns your Life
    Dashboard sheet (the account the sync script runs as).

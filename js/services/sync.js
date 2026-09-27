@@ -47,8 +47,8 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
 
 /* The sync script (apps-script/Code.gs) reports its version. Older scripts
    don't have tabs for newer kinds of data: those wait on this device (nothing
-   is lost) until the script is updated. Version 3 adds Ward Patients. */
-export const LATEST_SCRIPT_VERSION = 3;
+   is lost) until the script is updated. Version 3 adds Ward Patients; 4 lets it edit lab results. */
+export const LATEST_SCRIPT_VERSION = 4;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 const scriptSupports = (store, config) => (STORE_SCRIPT_VERSION[store] ?? 1) <= scriptVersion(config);

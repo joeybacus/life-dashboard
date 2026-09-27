@@ -98,7 +98,7 @@ export const hnKey = (hn) => String(hn ?? '').trim().replace(/\s+/g, ' ').toUppe
 /** Free text as the logsheet shows it: line breaks kept, trailing blank space dropped. */
 export const cleanText = (text) => String(text ?? '').replace(/\r\n?/g, '\n').replace(/\s+$/, '');
 
-export const MAX_RECS = 20000;
+export const MAX_RECS = 20000; // characters, for lab results too
 
 export const PRIORITY_LEVELS = {
   1: { word: 'High', group: 'P1 · High priority' },
@@ -147,6 +147,7 @@ export const WRITE_PROBLEMS = {
   protected: 'This part of the logsheet is protected',
   'write-failed': 'Google couldn’t save it — it will try again',
   invalid: 'This change couldn’t be saved',
+  'needs-update': 'Update the sync script (Settings → Sync) to save lab results — it’s kept on this device until then',
 };
 
 /** Problems opening or reading the logsheet. */

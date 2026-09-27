@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 3
+SCRIPT_VERSION = 4
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -200,7 +200,7 @@ add_logsheet(LOG, [
     ['Patient E twin', '1005', '', ''],
 ])
 ward = {**base, 'spreadsheetId': LOG, 'tab': 'Sheet1'}
-A_TO_C = [r[:3] for r in log_rows(LOG)]
+A_TO_B = [r[:2] for r in log_rows(LOG)]
 
 check('ward actions need the secret token', gas('post', {**ward, 'action': 'wardSync', 'token': 'AAAA-BBBB-CCCC-DDDD'}).get('error') == 'bad-token')
 check('a malformed spreadsheet ID is refused', gas('post', {**ward, 'action': 'wardCheck', 'spreadsheetId': 'abc'}).get('error') == 'ward-bad-id')
@@ -247,7 +247,7 @@ state = gas('dump')
 lrows = next(s for s in state['files'][LOG]['sheets'] if s['name'] == 'Sheet1')['rows']
 lrows[1], lrows[2] = lrows[2], lrows[1]
 save_state(state)
-A_TO_C = [r[:3] for r in log_rows(LOG)]
+A_TO_B = [r[:2] for r in log_rows(LOG)]
 res = write([{'id': 'w5', 'hn': '1001', 'expect': {'D': 'Edited by a co-resident'}, 'set': {'D': 'Saved after the move'}}])
 check('a write finds the patient\'s new row', res['results']['w5'] == {'status': 'ok', 'row': 3} and cell(log_rows(LOG), 3, 4) == 'Saved after the move' and cell(log_rows(LOG), 2, 4) == 'PRIORITY: CT today', res['results'])
 
@@ -258,7 +258,7 @@ res = write([
     {'id': 'n4', 'hn': '1099', 'expect': {'D': 'x'}, 'set': {'D': 'y'}},
     {'id': 'n5', 'hn': '1001', 'expect': {}, 'set': {'A': 'Renamed'}},
     {'id': 'n6', 'hn': '1001', 'expect': {}, 'set': {'B': '2002', 'D': 'x'}},
-    {'id': 'n7', 'hn': '1001', 'expect': {}, 'set': {'C': 'labs'}},
+    {'id': 'n7', 'hn': '1001', 'expect': {}, 'set': {'A': 'x', 'C': 'labs'}},
     {'id': 'n8', 'hn': '1001', 'expect': {'E': False}, 'set': {'E': True, 'F': 'soon'}},
     {'id': 'n9', 'hn': 'AB-1003', 'expect': {'D': ''}, 'set': {'D': '=HYPERLINK("x")'}},
 ])
@@ -267,10 +267,20 @@ check('unknown hospital number → not-found', st['n1'] == 'not-found', st)
 check('duplicate hospital number → duplicate (nothing written)', st['n2'] == 'duplicate' and cell(log_rows(LOG), 7, 4) == '' and cell(log_rows(LOG), 8, 4) == '', st)
 check('a formula cell is never overwritten', st['n3'] == 'formula' and log_rows(LOG)[5][3]['__f'].startswith('=CONCAT'), st)
 check('rows without a name can\'t be written', st['n4'] == 'not-found', st)
-check('columns A, B and C are never written', st['n5'] == st['n6'] == st['n7'] == 'invalid' and [r[:3] for r in log_rows(LOG)] == A_TO_C, st)
+check('columns A and B are never written', st['n5'] == st['n6'] == st['n7'] == 'invalid' and [r[:2] for r in log_rows(LOG)] == A_TO_B, st)
 check('times must look like 2026-09-27 08:15', st['n8'] == 'invalid', st)
 check('hospital numbers match ignoring capitals', st['n9'] == 'ok', st)
 check('text that looks like a formula is saved as text', cell(log_rows(LOG), 5, 4) == '=HYPERLINK("x")')
+
+# Lab results (column C) can be edited too, with the same protections
+res = write([{'id': 'c1', 'hn': '1002', 'expect': {'C': 'WBC 12'}, 'set': {'C': 'WBC 12\nCRP 20'}}])
+check('lab results are saved to column C', res['results']['c1']['status'] == 'ok' and cell(log_rows(LOG), 2, 3) == 'WBC 12\nCRP 20' and cell(log_rows(LOG), 2, 1) == 'Patient B', res['results'])
+edit_cell(LOG, 2, 3, 'Updated by the lab')
+res = write([{'id': 'c2', 'hn': '1002', 'expect': {'C': 'WBC 12\nCRP 20'}, 'set': {'C': 'My newer labs'}}])
+check('lab results changed by someone else are not overwritten', res['results']['c2']['status'] == 'conflict' and res['results']['c2']['current']['C'] == 'Updated by the lab' and cell(log_rows(LOG), 2, 3) == 'Updated by the lab', res['results'])
+edit_cell(LOG, 6, 3, {'__f': '=IMPORTRANGE("x","y")', 'v': 'imported'})
+res = write([{'id': 'c3', 'hn': '1004', 'expect': {'C': 'imported'}, 'set': {'C': 'typed'}}])
+check('lab results from a formula are never overwritten', res['results']['c3']['status'] == 'formula' and log_rows(LOG)[5][2]['__f'].startswith('=IMPORTRANGE'), res['results'])
 
 tick = {'E': True, 'F': '2026-09-27 08:00', 'G': '2026-09-27 08:15'}
 res = write([{'id': 't1', 'hn': '1002', 'expect': {'E': False, 'F': '', 'G': ''}, 'set': tick}])
