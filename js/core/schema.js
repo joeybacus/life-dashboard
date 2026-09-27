@@ -53,6 +53,13 @@ const MIGRATIONS = [
     const templates = db.createObjectStore('templates', { keyPath: 'id' });
     templates.createIndex('updatedAt', 'updatedAt');
   },
+  // v4 — Ward Patients (Neurology): this device's daily rounds history (one record
+  // per Manila date) and changes waiting to be saved to the ward logsheet. Both
+  // hold hospital numbers, so they stay on this device: never synced or backed up.
+  (db) => {
+    db.createObjectStore('wardDays', { keyPath: 'date' });
+    db.createObjectStore('wardQueue', { keyPath: 'key' });
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
@@ -60,8 +67,11 @@ export const DB_VERSION = MIGRATIONS.length;
 /** Stores included in JSON backups, in export order. */
 export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
 
+/** Ward Patients data kept on this device only (see migration v4). */
+export const WARD_STORES = ['wardDays', 'wardQueue'];
+
 /** Every store (used when deleting all data). */
-export const STORE_NAMES = [...BACKUP_STORES, 'outbox'];
+export const STORE_NAMES = [...BACKUP_STORES, 'outbox', ...WARD_STORES];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
 export const SYNC_STORES = ['profile', 'settings', 'tasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];

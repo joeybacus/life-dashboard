@@ -12,6 +12,15 @@ a POST gets a 302 redirect to an "echo" URL that returns the JSON result.
     GET  /__reset   → starts over with an empty spreadsheet
     GET  /__offline?on=1|0 → simulate Google being unreachable
     --code OLD.gs  runs another copy of the script (e.g. an older version, to test updating)
+
+Ward Patients: other spreadsheets (like the practice logsheet the app can create)
+live in the state's "files". To act like someone else editing a logsheet:
+    GET  /__ward                                   → all of them (JSON)
+    GET  /__ward/cell?id=…&row=2&col=4&value=text  → change a cell (&type=bool for TRUE/FALSE)
+    GET  /__ward/swap?id=…&a=2&b=3                 → swap two rows (like sorting the sheet)
+    GET  /__ward/delete?id=…&row=3                 → delete a row (a discharged patient)
+    GET  /__ward/access?id=…&to=view|edit|none     → change your access to it
+Use made-up patients only.
 """
 import argparse
 import http.server
@@ -20,6 +29,7 @@ import os
 import subprocess
 import tempfile
 import threading
+import urllib.parse
 import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -46,6 +56,48 @@ def run_gas(mode, request_text=''):
         if done.returncode != 0:
             raise RuntimeError(done.stderr.strip())
         return done.stdout.strip()
+
+
+def edit_state(change):
+    """Change the pretend spreadsheets directly (like a person editing them)."""
+    with LOCK:
+        with open(STATE['path']) as f:
+            text = f.read()
+        state = json.loads(text) if text.strip() else {'sheets': [], 'props': {}, 'logs': [], 'files': {}}
+        result = change(state)
+        with open(STATE['path'], 'w') as f:
+            json.dump(state, f)
+        return result
+
+
+def ward_edit(path, params):
+    def first_tab(state):
+        file = state.get('files', {}).get(params.get('id', ''))
+        if not file:
+            raise KeyError('no such spreadsheet')
+        return file, file['sheets'][0]['rows']
+
+    def change(state):
+        file, rows = first_tab(state)
+        if path == '/__ward/cell':
+            row, col = int(params['row']), int(params['col'])
+            value = params.get('value', '')
+            if params.get('type') == 'bool':
+                value = value.lower() == 'true'
+            while len(rows) < row:
+                rows.append([])
+            while len(rows[row - 1]) < col:
+                rows[row - 1].append('')
+            rows[row - 1][col - 1] = value
+        elif path == '/__ward/swap':
+            a, b = int(params['a']) - 1, int(params['b']) - 1
+            rows[a], rows[b] = rows[b], rows[a]
+        elif path == '/__ward/delete':
+            del rows[int(params['row']) - 1]
+        elif path == '/__ward/access':
+            file['access'] = params['to']
+        return {'ok': True}
+    return edit_state(change)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -85,7 +137,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         path, _, query = self.path.partition('?')
-        params = dict(p.split('=', 1) for p in query.split('&') if '=' in p)
+        params = {k: v[0] for k, v in urllib.parse.parse_qs(query, keep_blank_values=True).items()}
         if path == '/macros/echo':
             return self.send(200, RESPONSES.pop(params.get('user_content_key', ''), '{"ok":false,"error":"expired"}'))
         if path.startswith('/macros/') and path.rstrip('/').endswith('/exec'):
@@ -101,6 +153,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == '/__offline':
             STATE['offline'] = params.get('on') == '1'
             return self.send(200, json.dumps({'offline': STATE['offline']}))
+        if path == '/__ward':
+            return self.send(200, json.dumps(edit_state(lambda state: state.get('files', {}))))
+        if path.startswith('/__ward/'):
+            try:
+                return self.send(200, json.dumps(ward_edit(path, params)))
+            except (KeyError, ValueError, IndexError) as err:
+                return self.send(400, json.dumps({'ok': False, 'error': str(err)}))
         self.send(404, '{"error":"not found"}')
 
 

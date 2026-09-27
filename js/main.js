@@ -15,6 +15,7 @@ import { initSync } from './services/sync.js';
 import { requestPersistentStorage } from './services/storage.js';
 import './modules/index.js'; // registers Workout, To Do and Neurology
 import { initWorkout } from './modules/workout.js';
+import { initWard } from './modules/ward/engine.js';
 import { initDashboard } from './screens/dashboard.js';
 import { initSettings } from './screens/settings.js';
 import { maybeShowWelcome } from './screens/welcome.js';
@@ -69,6 +70,7 @@ async function boot() {
   await ensureDefaults();
   await ensureSampleData();
   await initSync(); // reads the sync connection; the first sync starts shortly after
+  await initWard(); // Ward Patients: this device's logsheet, rounds and unsaved changes
 
   initActions();
   await initWorkout(); // the workout in progress, rest timer and workout bar

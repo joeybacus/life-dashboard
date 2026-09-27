@@ -1,0 +1,364 @@
+/* ==========================================================================
+   Ward Patients (Neurology tab): cards on iPhone, a table on iPad landscape
+   and Mac, the patient sheet, conflict chooser, logsheet setup, history
+   ========================================================================== */
+
+/* ---- The Ward Patients button (Neurology tab and dashboard card) ---- */
+.ward-entry { display: flex; align-items: center; gap: 14px; margin-top: 20px; padding: 16px; color: inherit; transition: transform var(--t-fast) var(--ease); }
+.ward-entry:active { transform: scale(.99); }
+@media (hover: hover) { .ward-entry.card:hover { border-color: var(--border-2); } }
+.ward-entry__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 15px;
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.ward-entry__icon .icon { width: 26px; height: 26px; }
+.ward-entry__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ward-entry__title { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; }
+.ward-entry__sub { font-size: var(--fs-sm); color: var(--text-2); }
+.ward-entry__chev { width: 1.1rem; height: 1.1rem; color: var(--text-3); }
+.ward-entry--compact {
+  margin: 0 0 12px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.ward-entry--compact .ward-entry__icon { width: 40px; height: 40px; border-radius: 12px; }
+.ward-entry--compact .ward-entry__icon .icon { width: 22px; height: 22px; }
+.ward-entry--compact .ward-entry__title { font-size: var(--fs-md); }
+
+/* ---- Before a logsheet is linked ---- */
+.ward-intro { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 18px; padding: 28px 20px 20px; text-align: center; overflow: hidden; }
+.ward-intro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(60% 55% at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.ward-intro > * { position: relative; }
+.ward-intro__icon {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 24px;
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent), 0 0 44px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.ward-intro__icon .icon { width: 38px; height: 38px; stroke-width: 1.5; }
+.ward-intro__title { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.02em; }
+.ward-intro__text { max-width: 32rem; font-size: var(--fs-md); line-height: 1.5; color: var(--text-2); }
+.ward-intro__list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0; text-align: left; }
+.ward-intro__list li { display: flex; align-items: flex-start; gap: 10px; font-size: var(--fs-sm); line-height: 1.4; color: var(--text-2); }
+.ward-intro__list .icon { width: 1.1rem; height: 1.1rem; color: var(--accent-ink); }
+.ward-intro .btn--block { max-width: 22rem; }
+.ward-intro .note { max-width: 32rem; }
+
+/* ---- Messages at the top ---- */
+.ward-banner { margin-top: 14px; }
+.ward-banner .banner__sub { line-height: 1.45; }
+.ward-banner .banner__actions { flex-wrap: wrap; }
+.ward-foot { display: flex; align-items: flex-start; gap: 8px; margin: 16px 4px 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-3); }
+.ward-foot > .icon { width: 1rem; height: 1rem; margin-top: 2px; }
+.ward-foot span .icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -3px; }
+.ward-foot strong { color: var(--text-2); }
+
+.ward-orphans { margin-top: 14px; padding: 14px 16px; border-color: color-mix(in srgb, var(--workout) 40%, var(--border)); }
+.ward-orphans__title { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--workout-ink); }
+.ward-orphan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ward-orphan__text { font-size: var(--fs-sm); color: var(--text-2); }
+.ward-orphan__text strong { color: var(--text); }
+.ward-orphan__actions { display: flex; gap: 6px; }
+
+/* ---- Rounds: progress and the session timer ---- */
+.ward-rounds { margin-top: 16px; padding: 16px; }
+.ward-rounds__top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.ward-rounds__count { font-size: var(--fs-lg); color: var(--text-2); }
+.ward-rounds__count strong { margin-right: 2px; font-size: 1.75rem; font-weight: 700; color: var(--text); }
+.ward-rounds__aside { font-size: var(--fs-sm); color: var(--text-3); }
+.ward-progress { height: 8px; margin-top: 10px; border-radius: 8px; background: var(--ring-track); overflow: hidden; }
+.ward-progress > span {
+  display: block;
+  width: calc(var(--p, 0) * 100%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width var(--t-slow) var(--ease);
+}
+.ward-rounds__session { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; margin-top: 14px; }
+.ward-rounds__live { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-md); font-weight: 650; }
+.ward-rounds__live .num { font-weight: 700; }
+.ward-rounds__dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: live-blink 1.6s ease-in-out infinite; }
+.ward-rounds__past { font-size: var(--fs-sm); color: var(--text-2); }
+.ward-rounds__past strong { color: var(--text); }
+.ward-rounds__note { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: var(--fs-sm); font-weight: 600; color: color-mix(in srgb, var(--success) 70%, var(--text)); }
+.ward-rounds__note .icon { width: 1rem; height: 1rem; }
+
+.ward-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 4px 0; }
+.ward-status__text { font-size: var(--fs-sm); color: var(--text-3); }
+.ward-status__pending { display: inline-flex; align-items: center; gap: 4px; font-weight: 650; color: var(--todo-ink); }
+.ward-status__pending .icon { width: .95rem; height: .95rem; }
+.ward-status__btn { margin-right: -8px; }
+.ward-status__btn.is-busy .icon { animation: spin 1.1s linear infinite; }
+
+/* ---- Patients (iPhone and iPad portrait: cards) ---- */
+.ward-group { margin-top: 20px; }
+.ward-group__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 10px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.ward-group__title .icon { width: 1rem; height: 1rem; }
+.ward-group--priority .ward-group__title { color: var(--danger-ink); }
+.ward-group--done .ward-group__title .icon { color: color-mix(in srgb, var(--success) 70%, var(--text)); }
+.ward-group__count {
+  min-width: 1.6rem;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  letter-spacing: 0;
+  text-align: center;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.ward-list { display: flex; flex-direction: column; gap: 10px; }
+
+.pt {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  grid-template-areas:
+    "tick who"
+    "labs labs"
+    "recs recs";
+  column-gap: 10px;
+  padding: 12px 14px 10px 10px;
+  border-radius: var(--r-lg);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+}
+.pt--head { display: none; }
+/* Priority: a red edge plus the "Priority" badge (never colour alone) */
+.pt.is-priority:not(.is-rounded) {
+  border-color: color-mix(in srgb, var(--pri-high) 42%, var(--border));
+  box-shadow: inset 3px 0 0 var(--pri-high), var(--shadow-1);
+}
+.pt.is-rounded { background: color-mix(in srgb, var(--success) 5%, var(--surface)); }
+.pt.is-rounded .pt__name { color: var(--text-2); }
+
+.pt__tick { grid-area: tick; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; margin-top: -4px; border-radius: 50%; }
+.pt__box {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border-2);
+  color: transparent;
+  transition: background-color var(--t-fast), border-color var(--t-fast), transform var(--t-fast) var(--ease-spring);
+}
+.pt__box .icon { width: 16px; height: 16px; stroke-width: 3; }
+.pt__tick:active .pt__box { transform: scale(.88); }
+@media (hover: hover) { button.pt__tick:hover .pt__box { border-color: color-mix(in srgb, var(--success) 70%, transparent); } }
+.pt__tick[aria-checked="true"] .pt__box { background: var(--success); border-color: var(--success); color: #062015; }
+.pt__tick.is-disabled { cursor: not-allowed; }
+.pt__tick.is-disabled .pt__box { border-style: dashed; opacity: .45; }
+
+.pt__who { grid-area: who; min-width: 0; }
+.pt__name {
+  display: block;
+  max-width: 100%;
+  padding: 2px 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.25;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.pt__chev { display: inline-block; width: 1rem; height: 1rem; margin-left: 2px; vertical-align: -2px; color: var(--text-3); }
+.pt__hn { margin-top: 1px; font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pt__hn-cell { display: none; }
+.pt__label { font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+
+.pt__badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.wbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: left;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.wbadge .icon { width: .9rem; height: .9rem; }
+.wbadge--priority {
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--danger-ink);
+  background: color-mix(in srgb, var(--pri-high) 14%, transparent);
+  border-color: color-mix(in srgb, var(--pri-high) 40%, transparent);
+}
+.wbadge--done { color: color-mix(in srgb, var(--success) 70%, var(--text)); background: color-mix(in srgb, var(--success) 12%, transparent); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
+.wbadge--live { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
+.wbadge--live .num { font-weight: 700; }
+.wbadge--sync { color: var(--todo-ink); background: color-mix(in srgb, var(--todo) 12%, transparent); border-color: color-mix(in srgb, var(--todo) 30%, transparent); }
+.wbadge--warn { color: var(--workout-ink); background: color-mix(in srgb, var(--workout) 14%, transparent); border-color: color-mix(in srgb, var(--workout) 38%, transparent); }
+button.wbadge { cursor: pointer; }
+
+.pt__field { min-width: 0; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); }
+.pt__field--labs { grid-area: labs; }
+.pt__field--recs { grid-area: recs; }
+.pt__field .pt__label { display: block; margin-bottom: 3px; }
+.pt__text { font-size: var(--fs-md); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
+.pt__text.is-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.pt__text--empty { color: var(--text-3); cursor: inherit; }
+.pt__more { margin-top: 2px; padding: 6px 0 2px; font-size: var(--fs-sm); font-weight: 650; color: var(--accent-ink); }
+
+/* ---- iPad landscape & Mac: a table ---- */
+@media (min-width: 1024px) {
+  .ward-table { margin-top: 16px; border-radius: var(--r-lg); background: var(--card-bg); border: 1px solid var(--border); box-shadow: var(--shadow-1); overflow: hidden; }
+  .ward-group { margin: 0; }
+  .ward-group__title { margin: 0; padding: 12px 16px 8px; border-top: 1px solid var(--border); background: var(--surface); }
+  .ward-list { gap: 0; }
+  .pt {
+    grid-template-columns: 4.5rem minmax(9rem, 1.1fr) minmax(6.5rem, .55fr) minmax(0, 1.7fr) minmax(0, 1.9fr);
+    grid-template-areas: "tick who hn labs recs";
+    column-gap: 16px;
+    align-items: start;
+    padding: 10px 16px 12px 8px;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .ward-list > .pt:first-child { border-top: 0; }
+  .pt.is-priority:not(.is-rounded) { border-color: var(--border); box-shadow: inset 3px 0 0 var(--pri-high); background: color-mix(in srgb, var(--pri-high) 4%, transparent); }
+  .pt.is-rounded { background: color-mix(in srgb, var(--success) 4%, transparent); }
+  @media (hover: hover) { .pt:not(.pt--head):hover { background: var(--surface); } }
+  .pt--head {
+    display: grid;
+    padding-top: 12px;
+    padding-bottom: 10px;
+    border-top: 0;
+    cursor: default;
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+  .pt--head > :first-child { text-align: center; }
+  .pt__tick { justify-self: center; margin-top: -2px; }
+  .pt__who .pt__hn { display: none; }
+  .pt__hn-cell { display: block; grid-area: hn; padding-top: 4px; font-size: var(--fs-md); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .pt__name { font-size: var(--fs-base); }
+  .pt__badges { margin-top: 6px; }
+  .pt__field { margin: 0; padding: 4px 0 0; border: 0; }
+  .pt__field .pt__label { display: none; }
+  .pt__text { font-size: var(--fs-sm); }
+  .pt__text.is-clamped { -webkit-line-clamp: 3; }
+}
+
+/* ---- One patient (sheet) ---- */
+.ward-detail .dlg__panel { width: min(100%, 640px); }
+.ptd { display: flex; flex-direction: column; gap: 14px; }
+.ptd__meta { margin-top: -8px; font-size: var(--fs-md); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ptd > .pt__badges { margin-top: -6px; }
+.ptd__rounds {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.ptd__rounds.is-done {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  background: color-mix(in srgb, var(--success) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--success) 28%, transparent);
+}
+.ptd__rounds.is-done .note { flex: 1 1 100%; }
+.ptd__status { display: flex; align-items: flex-start; gap: 8px; font-size: var(--fs-md); font-weight: 600; line-height: 1.4; }
+.ptd__status > .icon { margin-top: 1px; color: var(--accent-ink); }
+.ptd__rounds.is-done .ptd__status > .icon { color: color-mix(in srgb, var(--success) 70%, var(--text)); }
+.ptd__status small { display: block; margin-top: 2px; font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); }
+.ptd__status .link-inline { font-size: inherit; }
+.ptd__section { padding-top: 12px; border-top: 1px solid var(--border); }
+.ptd__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ptd__title { font-size: var(--fs-sm); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.ptd__text { margin-top: 6px; font-size: var(--fs-base); color: var(--text); }
+.ptd__section .note { margin-top: 10px; }
+.ward-note--warn { background: color-mix(in srgb, var(--workout) 13%, transparent); color: var(--text); }
+.ward-note--warn > .icon { color: var(--workout-ink); }
+
+/* Editing recommendations */
+.ward-edit .dlg__panel { width: min(100%, 640px); }
+.ward-edit .dlg__msg { margin-top: -6px; }
+.ward-edit__text { min-height: 12rem; max-height: 55dvh; }
+.ward-edit__hint { font-size: var(--fs-sm); line-height: 1.4; color: var(--text-3); }
+
+/* Two versions side by side */
+.ward-conflict .dlg__panel { width: min(100%, 600px); }
+.ward-versions { display: grid; gap: 10px; margin-top: 14px; }
+@media (min-width: 560px) { .ward-versions { grid-template-columns: 1fr 1fr; } }
+.ward-version { max-height: 38dvh; padding: 12px; overflow: auto; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--border); }
+.ward-version--mine { border-color: color-mix(in srgb, var(--brand) 50%, transparent); }
+.ward-version__title { margin-bottom: 6px; font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.ward-version .prose { font-size: var(--fs-md); color: var(--text); }
+
+/* Linking the logsheet */
+.ward-setup .note { margin-top: 14px; }
+.ward-setup .form-error p + p { margin-top: 8px; }
+.ward-setup .form-error .chips { margin-top: 8px; }
+.ward-setup .form-error .btn { margin-top: 10px; }
+.ward-setup__tabs-label { font-weight: 600; }
+.ward-setup__found { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); }
+.ward-setup__found .note { margin-top: 0; }
+.ward-setup__ok { display: flex; align-items: flex-start; gap: 8px; font-size: var(--fs-md); line-height: 1.4; overflow-wrap: anywhere; }
+.ward-setup__ok > .icon { color: color-mix(in srgb, var(--success) 70%, var(--text)); }
+.ward-setup__test { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); }
+
+/* ---- Rounds history ---- */
+.ward-day { margin-top: 12px; overflow: hidden; }
+.ward-day__sum { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; cursor: pointer; list-style: none; }
+.ward-day__sum::-webkit-details-marker { display: none; }
+.ward-day__title { font-weight: 700; }
+.ward-day__meta { font-size: var(--fs-sm); color: var(--text-2); }
+.ward-day[open] .ward-day__sum { padding-bottom: 8px; }
+.ward-day__table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.ward-day__table th { padding: 6px 16px; font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .06em; text-align: left; text-transform: uppercase; color: var(--text-3); }
+.ward-day__table td { padding: 9px 16px; border-top: 1px solid var(--border); vertical-align: top; }
+.ward-day__table td small { display: block; color: var(--text-3); }
+.ward-day__table :is(th, td):not(:first-child) { padding-left: 4px; text-align: right; white-space: nowrap; }
+.ward-day__none { padding: 0 16px 14px; font-size: var(--fs-sm); color: var(--text-3); }

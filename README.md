@@ -6,7 +6,8 @@ iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
 **Current status: Phase 2 — Workout core (v0.3).** Log workouts with sets, reps and weights, a rest
 timer, templates, full history and a Hevy import — on top of Phase 1 (dashboard, settings, Google
-Sheets sync and backups). Data is stored on each device and, once sync is set up, in your own Google Sheet.
+Sheets sync and backups). The Neurology tab has **Ward Patients** (v0.3.2): your ward logsheet as a
+rounds list. Data is stored on each device and, once sync is set up, in your own Google Sheet.
 
 ## Install the app (from GitHub Pages)
 
@@ -46,17 +47,19 @@ joins, the profile and settings already in the sheet are used. Sample data never
 
 If you change `Code.gs` later: **Deploy → Manage deployments → Edit → Version: New version → Deploy**.
 
-### Updating the sync script (needed once for v0.3)
+### Updating the sync script
 
-Version 0.3 adds two kinds of data — your exercises and workout templates — that need the latest
-script in your Google Sheet. Until it's updated they stay safely on your devices, and the app shows
-**Update sync** on the dashboard and **Update the sync script** in Settings → Sync (tap it for these steps):
+Some app versions need a newer script in your Google Sheet: v0.3 needs script version 2 (your exercises
+and workout templates get their own tabs) and v0.3.2 needs version 3 (Ward Patients). Until it's updated,
+everything else keeps syncing and anything new stays safely on your devices; the app shows **Update sync**
+on the dashboard and **Update the sync script** in Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
 3. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
-   (Don't make a *new deployment* — that would change the Web app URL.)
-4. Back in the app, tap **Check now**. The new **Exercises** and **Workout templates** tabs appear in the sheet.
+   (Don't make a *new deployment* — that would change the Web app URL.) If Google asks for permission,
+   allow it — it's your own script.
+4. Back in the app, tap **Check now**.
 
 ## Backups
 
@@ -115,6 +118,42 @@ Good to know about the Wi-Fi preview:
   this app choose **Import Hevy** (Workout tab) or Settings → Hevy. You'll see a preview first; workouts you
   already have are skipped, so importing again later is safe. **Export workouts (CSV)** writes the same format.
 
+## Ward Patients (Neurology tab)
+
+**Neurology → Ward Patients** shows your ward logsheet — a Google Sheet — as a rounds list.
+
+- **Logsheet layout:** patients from row 2: **A** Name, **B** Hospital Number, **C** Laboratory Results,
+  **D** Recommendations. Rows without a name are ignored; the hospital number identifies each patient.
+- **The list:** first the patients not yet rounded whose recommendations mention "priority" (any
+  capitals), then the others not yet rounded, then those rounded — each group in the sheet's order.
+  Cards on iPhone, a table on iPad landscape and Mac. Long labs and recommendations fold behind
+  **Show more**; tap a patient for everything. Priority patients get a flag and a "Priority" label.
+- **Always current:** it reloads when you open it, with **Refresh**, and every 3 minutes while it's on
+  screen. Offline, the last list stays with an "Offline — last updated at …" note.
+- **Rounds:** **Start Rounds** / **End Rounds** time the session. During rounds, opening a patient starts
+  their timer and ticking **Rounded** records the end time and duration ("5 of 12 rounded"). Unticking
+  asks first and clears the end time. Ticks reset at midnight, Manila time. Each device keeps a daily
+  rounds history (⋯ → Rounds history): dates, times and hospital numbers.
+- **Saved to the logsheet:** ticks go to columns **E–G** (Rounded, Rounds Start, Rounds End — the headings
+  are added only if E1:G1 are empty; if they hold anything else the app stops and asks). Edited
+  recommendations go to column **D**. Columns A–C are never changed, and rows are never added, deleted or
+  moved. Before each write the app finds the patient's row again by hospital number and checks the cell
+  hasn't changed; if someone else changed it, you see both versions and choose. Changes that can't be saved
+  yet stay on the device, marked **Not synced**, and are retried automatically.
+- **Private by design:** the logsheet link, the patient list and the rounds history stay on each device —
+  never synced to your Life Dashboard sheet, never in backup files, the app's code or its logs.
+- It works through your sync script (version 3, running as you), so sync must be set up on the device.
+
+Setting it up (once the sync script is version 3):
+
+1. Make sure the logsheet is shared — with edit access — with the Google account that owns your Life
+   Dashboard sheet (the account the sync script runs as).
+2. In the app: **Neurology → Ward Patients → Link logsheet**. Paste the logsheet's link (from the address
+   bar, or Share → Copy link) and its tab name (Sheet1 unless yours is different), then **Check logsheet**
+   → **Link this logsheet**. Do this on each device: the link is never shared between them.
+3. To try it first, choose **Create a practice logsheet**: made-up patients in a new sheet in your Google
+   Drive. Change to your real logsheet later from ⋯ → **Change logsheet** (or Settings → Neurology).
+
 ## What Phase 1 includes
 
 - Five-tab navigation (Workout · To Do · **Main** · Neurology · Settings) with the Main button
@@ -133,12 +172,14 @@ Good to know about the Wi-Fi preview:
 index.html            App page
 manifest.json         Makes it installable (name, icons, colours)
 sw.js                 Service worker: offline copy of the app
-css/                  Design tokens, base, components, layout, screens
+css/                  Design tokens, base, components, layout, screens, workout, ward
 js/main.js            Start-up
 js/core/              Database, state, navigation, UI helpers, icons, dates
 js/modules/           Life categories (workout, todo, neurology) + registry
 js/modules/workout/   Workout pieces: model, exercise library, logger, rest timer, templates,
                       history, Hevy import/export
+js/modules/ward/      Ward Patients (Neurology): model (Manila time, sorting), engine (list, rounds,
+                      changes waiting to be saved), page (screen, patient sheet, history), store
 js/screens/           Dashboard, settings, welcome
 js/services/          Sync, backup, calendar provider, sample data, storage, images
 apps-script/Code.gs   Google Sheets sync script (runs in your Google account)
@@ -146,7 +187,8 @@ icons/                App icons (edit the SVGs, then run tools/make-icons.py)
 tools/                Local preview server and icon generator
 tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (checks) and
                       mock_server.py (pretend web app at http://127.0.0.1:8124/macros/s/TEST/exec;
-                      --code OLD.gs runs an older script, to test the update notice)
+                      --code OLD.gs runs an older script, to test the update notice; /__ward/… edits
+                      a pretend logsheet like a co-resident would). Made-up patients only.
 ```
 
 ### Notes for future phases
@@ -167,6 +209,10 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
   exercises and your changes to built-in ones. Never rename a built-in exercise: its id comes from its name.
 - **Sync script versions:** `SCRIPT_VERSION` in `Code.gs` and `LATEST_SCRIPT_VERSION` / `STORE_SCRIPT_VERSION`
   in `sync.js`. A new synced store that an older script can't save waits in the outbox until the script is updated.
+  Version 3 adds the Ward Patients actions (`wardCheck`, `wardSync`, `wardCreateTest`), which open the logsheet
+  by the ID the app sends; the app reaches them with `callSyncScript()`.
+- **Ward Patients data** is device-only: the `wardDays` and `wardQueue` stores and the `ward` / `wardCache`
+  meta keys are never synced or backed up. Never log patient data or put a logsheet link in the code.
 - **Calendar:** `js/services/calendar.js` uses a provider; a Google Calendar provider (via Apps
   Script) will replace the sample one without dashboard changes.
 - **Releasing:** bump the version in `js/core/config.js` and `CACHE_VERSION` in `sw.js`, and list

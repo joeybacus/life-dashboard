@@ -20,7 +20,10 @@ import {
   applyRestore, buildBackup, deliverBackupFile, lastBackupAt, markBackedUp, prepareBackupFile,
   readBackupFile, validateBackup,
 } from '../services/backup.js';
-import { LATEST_SCRIPT_VERSION, connectSync, disconnectSync, setAutoSync, syncNow, syncSnapshot, syncStatusText } from '../services/sync.js';
+import {
+  LATEST_SCRIPT_VERSION, connectSync, disconnectSync, setAutoSync, syncNow, syncScriptVersion, syncSnapshot, syncStatusText,
+} from '../services/sync.js';
+import { wardLinkInfo } from '../modules/ward/engine.js';
 import { imageFileToAvatar } from '../services/images.js';
 import { formatBytes, storageInfo } from '../services/storage.js';
 import { offlineLabel } from '../services/pwa.js';
@@ -79,6 +82,7 @@ export function initSettings() {
   on('settings', ({ source }) => { if ((source === 'sync' || source === 'restore') && isVisible()) render(); });
   on('sync', updateSyncStatus);
   on('backup', updateLastBackup);
+  on('ward', updateNeurology);
   setInterval(() => { if (isVisible()) updateSyncStatus(syncSnapshot()); }, 30_000);
 }
 
@@ -132,7 +136,7 @@ function syncSection() {
       </div>
       ${s.scriptOutdated ? html`<button type="button" class="row row--icon accent-workout" data-action="sync:update" data-slot="scriptUpdate">
         <span class="row__icon">${icon('sparkles')}</span>
-        <span class="row__text"><span class="row__label">Update the sync script</span><span class="row__sub">A 2-minute update in your Google Sheet, so workout templates and exercises sync too</span></span>
+        <span class="row__text"><span class="row__label">Update the sync script</span><span class="row__sub">A 2-minute update in your Google Sheet, needed for ${(syncScriptVersion() ?? 1) < 2 ? 'workout templates, exercises and Ward Patients' : 'Ward Patients'}</span></span>
         ${icon('chevronRight', 'row__chev')}
       </button>` : ''}
       <label class="row row--icon accent-todo">
@@ -147,6 +151,30 @@ function syncSection() {
     </div>
     <p class="group__foot">If the same item is changed on two devices, the newest change is kept and the other is saved in the Sheet’s Conflicts tab.</p>
   </section>`;
+}
+
+/** Ward Patients: the logsheet on this device (the same options as on the Ward Patients screen). */
+function neurologySection() {
+  const link = wardLinkInfo();
+  return html`<h2 class="group__title" id="set-neuro-title">Neurology</h2>
+    <div class="card group__card accent-neuro">
+      <button type="button" class="row row--icon" data-action="ward:setup">
+        <span class="row__icon">${icon('stethoscope')}</span>
+        <span class="row__text"><span class="row__label">${link ? 'Change logsheet' : 'Ward Patients logsheet'}</span>
+          <span class="row__sub">${link ? `${link.title || 'Logsheet'} · ${link.tab}${link.test ? ' (practice logsheet)' : ''}` : 'Not linked on this device'}</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>
+      ${link ? html`<button type="button" class="row row--icon row--danger accent-danger" data-action="ward:remove">
+        <span class="row__icon">${icon('x')}</span>
+        <span class="row__text"><span class="row__label">Remove logsheet from this device</span><span class="row__sub">Removes the link and the patient list here. The logsheet itself isn’t touched.</span></span>
+      </button>` : ''}
+    </div>
+    <p class="group__foot">Ward Patients is in the Neurology tab. The logsheet link is kept on this device only — it’s never synced, backed up or put in the app’s code.</p>`;
+}
+
+function updateNeurology() {
+  const slot = root?.querySelector('[data-slot="neurology"]');
+  if (slot && isVisible()) setHTML(slot, neurologySection());
 }
 
 function backupSection() {
@@ -320,6 +348,8 @@ function render() {
       </div>
       <p class="group__foot">Smart sorting puts overdue tasks first, then high, medium and low priority, earliest time first. Reminders start working in Phase 6.</p>
     </section>
+
+    <section class="group" id="settings-neurology" aria-labelledby="set-neuro-title" data-slot="neurology">${neurologySection()}</section>
 
     ${syncSection()}
     ${backupSection()}
@@ -805,7 +835,9 @@ async function openScriptUpdate() {
     className: 'setup',
     title: 'Update the sync script',
     body: html`
-      <p class="setup__lead">This version of the app has new kinds of data (workout templates and your exercises). Your Google Sheet needs the latest sync script to store them. Until then they stay safely on this device. It’s easiest on a Mac.</p>
+      <p class="setup__lead">${(syncScriptVersion() ?? 1) < 2
+        ? 'The latest sync script stores your workout templates and exercises in your Google Sheet, and lets Ward Patients (Neurology tab) read and update your ward logsheet.'
+        : 'The latest sync script lets Ward Patients (Neurology tab) read and update your ward logsheet.'} Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
       <ol class="setup__steps">
         <li><strong>Copy the new code.</strong>
           <span class="setup__buttons">
@@ -814,7 +846,7 @@ async function openScriptUpdate() {
           </span>
         </li>
         <li><strong>Replace the old code.</strong> Open your Google Sheet → <strong>Extensions → Apps Script</strong>. Click in the code, select everything (<strong>⌘A</strong>), paste (<strong>⌘V</strong>), then click <strong>Save</strong>.</li>
-        <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>.</li>
+        <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>. If Google asks for permission, allow it (it’s your own script).</li>
         <li><strong>Check.</strong> Come back here and tap <strong>Check now</strong>.</li>
       </ol>
       <p class="note">${icon('info')}<span>Your Web app URL and secret token stay the same, so there’s nothing to change on your other devices. Don’t create a “New deployment” — that would give you a new URL.</span></p>
@@ -834,7 +866,7 @@ async function openScriptUpdate() {
         const snap = syncSnapshot();
         if (!snap.scriptOutdated) {
           close('done');
-          toast('The sync script is up to date. Templates and exercises now sync too.', { icon: 'cloudCheck', duration: 6000 });
+          toast('The sync script is up to date. Ward Patients is ready to use.', { icon: 'cloudCheck', duration: 6000 });
         } else if (snap.phase === 'error') {
           toast(snap.error?.message ?? 'Couldn’t reach your Google Sheet.', { icon: 'info', duration: 6000 });
         } else {

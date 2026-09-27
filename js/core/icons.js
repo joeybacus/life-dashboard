@@ -103,6 +103,7 @@ const PATHS = {
   book: '<path d="M5 5.5a2 2 0 0 1 2-2h12.5v14H7a2 2 0 0 0-2 2z"/><path d="M5 19.5a2 2 0 0 0 2 2h12.5v-4"/>',
   clipboard: '<rect x="5" y="4.5" width="14" height="16.5" rx="2"/><rect x="9" y="3" width="6" height="3.2" rx="1"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/>',
   briefcase: '<rect x="3.5" y="7" width="17" height="12.5" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3.5 12.5h17"/>',
+  stethoscope: '<path d="M5 3.5v5a4 4 0 0 0 8 0v-5M3.8 3.5h2.4M11.8 3.5h2.4"/><path d="M9 12.5v2a5 5 0 0 0 10 0V12"/><circle cx="19" cy="10" r="2"/>',
   chart: '<path d="M4 20.5h16"/><rect x="5.5" y="11" width="3" height="6.5" rx="1"/><rect x="10.5" y="6" width="3" height="11.5" rx="1"/><rect x="15.5" y="9" width="3" height="8.5" rx="1"/>',
 };
 

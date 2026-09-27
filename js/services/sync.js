@@ -40,23 +40,27 @@ const MESSAGES = {
   'bad-url': 'That doesn’t look like a Web app URL. It should start with https://script.google.com/ and end with /exec.',
   'dev-url': 'That’s the test link (it ends with /dev). Use the Web app URL from Deploy → New deployment, which ends with /exec.',
   'no-token': 'Enter the secret token from the Connection tab of your Google Sheet.',
+  'not-connected': 'Set up Google Sheets sync first (Settings → Sync).',
   server: 'Your Google Sheet reported a problem. It will try again shortly.',
 };
 const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response']);
 
 /* The sync script (apps-script/Code.gs) reports its version. Older scripts
    don't have tabs for newer kinds of data: those wait on this device (nothing
-   is lost) until the script is updated. */
-export const LATEST_SCRIPT_VERSION = 2;
+   is lost) until the script is updated. Version 3 adds Ward Patients. */
+export const LATEST_SCRIPT_VERSION = 3;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 const scriptSupports = (store, config) => (STORE_SCRIPT_VERSION[store] ?? 1) <= scriptVersion(config);
 
 export class SyncError extends Error {
-  constructor(code, detail) {
+  /** reason: the script's own error code (e.g. 'ward-no-tab'); data: its full answer. */
+  constructor(code, detail, data = null) {
     super(MESSAGES[code] ?? MESSAGES.server);
     this.code = MESSAGES[code] ? code : 'server';
+    this.reason = code;
     this.detail = detail;
+    this.data = data;
   }
 }
 
@@ -138,13 +142,42 @@ async function call(action, payload = {}, config = sync.config) {
     }
     let data;
     try { data = await response.json(); } catch { throw new SyncError('bad-response'); }
-    if (!data || data.ok !== true) throw new SyncError(data?.error ?? 'server', data?.message);
+    if (!data || data.ok !== true) throw new SyncError(data?.error ?? 'server', data?.message, data);
     config.scriptVersion = Number(data.version) || 1;
     return data;
   } finally {
     clearTimeout(timer);
   }
 }
+
+/**
+ * Ask the sync script to do something besides syncing (Ward Patients uses
+ * this to reach the ward logsheet). Uses this device's sync connection.
+ * Throws SyncError: code 'not-connected' without one; reason holds the
+ * script's own error code.
+ */
+export async function callSyncScript(action, payload = {}) {
+  const config = sync.config;
+  if (!config) throw new SyncError('not-connected');
+  const before = scriptVersion(config);
+  let data;
+  try {
+    data = await call(action, payload, config);
+  } catch (err) {
+    // Scripts older than version 3 don't know the action
+    if (err.reason === 'bad-action' && before >= LATEST_SCRIPT_VERSION) config.scriptVersion = LATEST_SCRIPT_VERSION - 1;
+    throw err;
+  } finally {
+    if (sync.config === config && scriptVersion(config) !== before) {
+      await saveConfig();
+      publish();
+    }
+  }
+  return data;
+}
+
+/** The sync script's version, as last reported (null when not connected). */
+export const syncScriptVersion = () => (sync.config ? scriptVersion() : null);
 
 /* ---------- One sync round ---------- */
 

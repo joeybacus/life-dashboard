@@ -15,10 +15,13 @@
  * your data. After changing this code, publish it with
  * Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy.
  * (The Web app URL stays the same, so nothing changes in the app.)
+ *
+ * The same script also reads and updates your ward logsheet for the app's
+ * Ward Patients screen (Neurology tab) — see "Ward Patients" further down.
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 2;  // 2: adds the Exercises and Workout templates tabs
+const SCRIPT_VERSION = 3;  // 2: Exercises and Workout templates tabs · 3: Ward Patients
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -105,6 +108,15 @@ function doPost(e) {
   if (!token) return json_({ ok: false, error: 'not-set-up' });
   if (!sameToken_(req.token, token)) return json_({ ok: false, error: 'bad-token' });
   if (req.protocol !== PROTOCOL) return json_({ ok: false, error: 'protocol', protocol: PROTOCOL });
+
+  // Ward Patients works on your logsheet, not this spreadsheet (it locks only while writing)
+  if (WARD_ACTIONS[req.action]) {
+    try {
+      return json_(WARD_ACTIONS[req.action](req));
+    } catch (err) {
+      return json_({ ok: false, error: 'server', message: String((err && err.message) || err) });
+    }
+  }
 
   const lock = LockService.getScriptLock();
   try {
@@ -226,6 +238,393 @@ function pull_(ss, props, req) {
     });
   });
   return { ok: true, version: SCRIPT_VERSION, seq: seq, changes: changes };
+}
+
+/* ---------- Ward Patients (Neurology tab) ----------
+ * Reads your ward logsheet — any Google Sheet this Google account can open —
+ * and saves rounds and recommendations back to it. The app sends the
+ * logsheet's ID with each request; this script doesn't keep it.
+ *
+ * Logsheet layout (patients from row 2; rows without a name are ignored):
+ *   A Name · B Hospital Number · C Laboratory Results · D Recommendations
+ *   E Rounded · F Rounds Start · G Rounds End  (headings added by the app, only
+ *   if E1:G1 are empty — if they hold something else, nothing is written there)
+ *
+ * Safety rules: never writes to columns A–C, never adds, deletes or moves
+ * rows. Before every write it finds the patient's row again by hospital
+ * number (rows may have moved) and checks the cell still holds what the app
+ * last saw; if someone changed it, it reports both versions instead of
+ * overwriting. Times are written as text in Manila time: "2026-09-27 08:15".
+ */
+
+const WARD_HEADERS = ['Rounded', 'Rounds Start', 'Rounds End'];
+const WARD_TZ = 'Asia/Manila';
+const WARD_TIME_FORMAT = 'yyyy-MM-dd HH:mm';
+const WARD_COL = { D: 4, E: 5, F: 6, G: 7 };
+const WARD_MAX_ROWS = 2000;
+const WARD_MAX_TEXT = 20000;   // characters in one recommendation
+const WARD_MAX_WRITES = 100;   // per request
+
+const WARD_ACTIONS = {
+  wardCheck: wardCheck_,
+  wardSync: wardSync_,
+  wardCreateTest: wardCreateTest_,
+};
+
+/** Check a logsheet link: can it be opened, does the tab exist, are E1:G1 free? */
+function wardCheck_(req) {
+  const opened = wardOpen_(req);
+  if (opened.error) return opened;
+  const headers = wardHeaders_(opened.sheet);
+  return {
+    ok: true,
+    version: SCRIPT_VERSION,
+    title: opened.ss.getName(),
+    tab: opened.sheet.getName(),
+    tabs: opened.tabs,
+    headers: headers,
+    canEdit: wardCanEdit_(opened.sheet),
+    patients: wardRead_(opened.sheet, headers).rows.length,
+  };
+}
+
+/**
+ * Save the app's changes (if any), then send back the whole list.
+ *   writes:      [{ id, hn, expect: { D | E, F, G }, set: { D | E, F, G }, quiet }]
+ *   claim:       add the E–G headings if E1:G1 are empty
+ *   resetBefore: "YYYY-MM-DD" — untick patients last rounded before that day (Manila)
+ */
+function wardSync_(req) {
+  const opened = wardOpen_(req);
+  if (opened.error) return opened;
+  const sheet = opened.sheet;
+  const writes = Array.isArray(req.writes) ? req.writes.slice(0, WARD_MAX_WRITES) : [];
+  const resetBefore = /^\d{4}-\d{2}-\d{2}$/.test(String(req.resetBefore || '')) ? String(req.resetBefore) : '';
+  const out = { ok: true, version: SCRIPT_VERSION, title: opened.ss.getName(), tab: sheet.getName(), results: {}, reset: [], claimed: false };
+
+  let headers = wardHeaders_(sheet);
+  const wantsRounds = Boolean(req.claim) || writes.some(function (w) { return w && wardTouchesRounds_(w.set); });
+  const claimable = headers.state === 'empty' || headers.state === 'partial';
+  if (writes.length || resetBefore || (wantsRounds && claimable)) {
+    const lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(25000);
+    } catch (err) {
+      return { ok: false, error: 'busy' };
+    }
+    try {
+      headers = wardHeaders_(sheet); // again, now that no other request is writing
+      let claimError = '';
+      if (wantsRounds && (headers.state === 'empty' || headers.state === 'partial')) {
+        claimError = wardClaimHeaders_(sheet);
+        if (!claimError) {
+          out.claimed = true;
+          headers = wardHeaders_(sheet);
+        }
+      }
+      if (writes.length) out.results = wardApplyWrites_(sheet, writes, headers, claimError);
+      if (resetBefore && headers.state === 'ours') out.reset = wardResetStale_(sheet, resetBefore);
+      SpreadsheetApp.flush();
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
+  const read = wardRead_(sheet, headers);
+  out.headers = headers;
+  out.canEdit = wardCanEdit_(sheet);
+  out.rows = read.rows;
+  out.truncated = read.truncated;
+  return out;
+}
+
+/** Make a practice logsheet with made-up patients in your Google Drive, for trying the feature. */
+function wardCreateTest_() {
+  let ss;
+  try {
+    ss = SpreadsheetApp.create('Ward Patients — TEST logsheet (synthetic patients)');
+  } catch (err) {
+    return { ok: false, error: wardAccessError_(err) };
+  }
+  try { ss.setSpreadsheetTimeZone(WARD_TZ); } catch (err) { /* keep Google's default */ }
+  const sheet = ss.getSheets()[0];
+  const rows = [['Name', 'Hospital Number', 'Laboratory Results', 'Recommendations']].concat(WARD_TEST_PATIENTS);
+  sheet.getRange(1, 1, rows.length, 4).setNumberFormat('@').setValues(rows);
+  sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+  sheet.getRange(1, 3, rows.length, 2).setWrap(true);
+  sheet.setFrozenRows(1);
+  sheet.setColumnWidth(1, 220);
+  sheet.setColumnWidth(2, 130);
+  sheet.setColumnWidth(3, 300);
+  sheet.setColumnWidth(4, 360);
+  return { ok: true, version: SCRIPT_VERSION, spreadsheetId: ss.getId(), url: ss.getUrl(), title: ss.getName(), tab: sheet.getName() };
+}
+
+// Made-up patients (no real people) for the practice logsheet
+const WARD_TEST_PATIENTS = [
+  ['Test Patient 01', 'TEST-0001', 'CBC: Hgb 132, WBC 9.8, Plt 250\nNa 138, K 4.1, Crea 76', 'Continue current medications.\nNeuro vital signs every 4 hours.'],
+  ['Test Patient 02', 'TEST-0002', 'CBC: Hgb 118, WBC 14.2 (high), Plt 310\nNa 134, K 3.6\nCRP 48\nBlood culture: pending\nCSF: WBC 5, protein 0.62, glucose 3.1\nCT head: no acute bleed\nMRI brain: scheduled\nECG: sinus rhythm\nChest X-ray: clear\nLDL 3.9',
+    'PRIORITY: repeat cranial CT today. Tell the resident on duty if GCS drops.'],
+  ['Test Patient 03', 'TEST-0003', '', 'For EEG tomorrow morning.'],
+  ['Test Patient 04', 'TEST-0004', 'Procalcitonin 2.1\nLactate 2.4', 'priority — start IV antibiotics after two blood cultures.'],
+  ['', 'TEST-0099', 'This row has no name, so the app ignores it.', ''],
+  ['Test Patient 05', 'TEST-0005', 'HbA1c 7.9\nFBS 8.2',
+    'Physical therapy daily.\nSpeech therapy assessment.\nSwallow screen before starting a diet.\nContinue aspirin 80 mg daily.\nAtorvastatin 40 mg at night.\nBlood pressure target below 140/90.\nDischarge planning on Friday.'],
+  ['Test Patient 06', 'TEST-0006', 'Na 141, K 4.4', 'Start levetiracetam 500 mg twice a day.'],
+  ['Test Patient 07 — a long name to check wrapping', 'TEST-0007', 'Mg 0.7 (low)', 'Replace magnesium, recheck tomorrow.'],
+  ['Test Patient 08', 'TEST-0008', 'Na 128 (low)\nSerum osmolality 262', 'Priority: correct sodium slowly (no more than 8 a day).'],
+  ['Test Patient 09', '', 'No hospital number yet.', 'Admitting team to add the hospital number.'],
+  ['Test Patient 10', 'TEST-0010', 'Troponin I negative ×2', 'Cardiology referral sent.'],
+];
+
+/** Open the logsheet and find the tab (ignoring capitals and extra spaces in its name). */
+function wardOpen_(req) {
+  const id = String(req.spreadsheetId || '').trim();
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(id)) return { ok: false, error: 'ward-bad-id' };
+  let ss;
+  try {
+    ss = SpreadsheetApp.openById(id);
+  } catch (err) {
+    return { ok: false, error: wardAccessError_(err) };
+  }
+  const tabs = ss.getSheets().map(function (s) { return s.getName(); });
+  const wanted = String(req.tab || '').trim() || 'Sheet1';
+  let sheet = ss.getSheetByName(wanted);
+  if (!sheet) {
+    const match = tabs.filter(function (name) { return name.trim().toLowerCase() === wanted.toLowerCase(); })[0];
+    if (match) sheet = ss.getSheetByName(match);
+  }
+  if (!sheet) return { ok: false, error: 'ward-no-tab', title: ss.getName(), tabs: tabs.slice(0, 60) };
+  return { ss: ss, sheet: sheet, tabs: tabs.slice(0, 60) };
+}
+
+function wardAccessError_(err) {
+  const message = String((err && err.message) || err);
+  // The script itself lacks permission (Google asks again after "setup" is run)
+  if (/required permissions|authori[sz]/i.test(message)) return 'ward-needs-auth';
+  return 'ward-no-access';
+}
+
+/**
+ * Columns E–G: "ours" (our headings), "empty", "partial" (some of ours, the
+ * rest empty) or "taken" (other headings, or data under empty headings).
+ */
+function wardHeaders_(sheet) {
+  const width = Math.max(0, Math.min(3, sheet.getMaxColumns() - 4));
+  const shown = width ? sheet.getRange(1, 5, 1, width).getDisplayValues()[0] : [];
+  const values = [0, 1, 2].map(function (i) { return String(shown[i] == null ? '' : shown[i]).trim(); });
+  let ours = 0;
+  let empty = 0;
+  values.forEach(function (v, i) {
+    if (!v) empty++;
+    else if (v.toLowerCase() === WARD_HEADERS[i].toLowerCase()) ours++;
+  });
+  let state = ours === 3 ? 'ours' : ours + empty === 3 ? (ours ? 'partial' : 'empty') : 'taken';
+  let dataBelow = false;
+  if (state === 'empty' || state === 'partial') {
+    // The headings are free — but don't claim a column that already holds data
+    const last = sheet.getLastRow();
+    const free = values.map(function (v, i) { return v ? -1 : i; }).filter(function (i) { return i >= 0 && i < width; });
+    if (last >= 2 && free.length) {
+      const below = sheet.getRange(2, 5, Math.min(last - 1, WARD_MAX_ROWS), width).getDisplayValues();
+      dataBelow = below.some(function (row) { return free.some(function (i) { return String(row[i]).trim() !== ''; }); });
+    }
+    if (dataBelow) state = 'taken';
+  }
+  return { state: state, values: values, dataBelow: dataBelow };
+}
+
+/** Add the missing E–G headings (styled like D1). Returns '' or an error code. */
+function wardClaimHeaders_(sheet) {
+  try {
+    const cols = sheet.getMaxColumns();
+    if (cols < 7) sheet.insertColumnsAfter(cols, 7 - cols);
+    const range = sheet.getRange(1, 5, 1, 3);
+    const current = range.getDisplayValues()[0];
+    const next = WARD_HEADERS.map(function (h, i) { return String(current[i]).trim() ? current[i] : h; });
+    sheet.getRange(1, 4).copyFormatToRange(sheet, 5, 7, 1, 1);
+    range.setNumberFormat('@').setValues([next]);
+    return '';
+  } catch (err) {
+    return wardWriteError_(err);
+  }
+}
+
+/** Patients from row 2 on. E–G are only read when they hold our headings. */
+function wardRead_(sheet, headers) {
+  const lastRow = sheet.getLastRow();
+  const count = Math.min(Math.max(0, lastRow - 1), WARD_MAX_ROWS);
+  const rows = [];
+  if (count) {
+    const width = Math.min(7, sheet.getMaxColumns());
+    const shown = sheet.getRange(2, 1, count, width).getDisplayValues();
+    const raw = headers.state === 'ours' ? sheet.getRange(2, 5, count, 3).getValues() : null;
+    for (let i = 0; i < count; i++) {
+      const name = String(shown[i][0] == null ? '' : shown[i][0]).trim();
+      if (!name) continue;
+      const item = { row: i + 2, name: name, hn: String(shown[i][1] == null ? '' : shown[i][1]).trim(), labs: wardText_(shown[i][2]), recs: wardText_(shown[i][3]) };
+      if (raw) {
+        item.rounded = wardBool_(raw[i][0]);
+        item.start = wardTime_(raw[i][1], shown[i][5]);
+        item.end = wardTime_(raw[i][2], shown[i][6]);
+      }
+      rows.push(item);
+    }
+  }
+  return { rows: rows, truncated: lastRow - 1 > WARD_MAX_ROWS };
+}
+
+function wardApplyWrites_(sheet, writes, headers, claimError) {
+  const last = sheet.getLastRow();
+  const keys = last >= 2
+    ? sheet.getRange(2, 1, Math.min(last - 1, WARD_MAX_ROWS), 2).getDisplayValues().map(function (r) {
+      return String(r[0]).trim() ? wardKey_(r[1]) : ''; // rows without a name don't count
+    })
+    : [];
+  const results = {};
+  writes.forEach(function (w) {
+    const id = String((w && w.id) || '');
+    if (!id || results[id]) return;
+    results[id] = wardWriteOne_(sheet, w, keys, headers, claimError);
+  });
+  return results;
+}
+
+function wardWriteOne_(sheet, w, keys, headers, claimError) {
+  const set = wardCells_(w.set, true);
+  const expect = wardCells_(w.expect, false);
+  const cols = set ? Object.keys(set) : [];
+  const key = wardKey_(w.hn);
+  if (!set || !expect || !cols.length || !key) return { status: 'invalid' };
+  if (wardTouchesRounds_(set) && headers.state !== 'ours') {
+    return { status: headers.state === 'taken' ? 'headers-taken' : claimError || 'headers-taken' };
+  }
+
+  // Find the patient again: rows may have been sorted or moved since the app loaded them
+  const rows = [];
+  keys.forEach(function (k, i) { if (k === key) rows.push(i + 2); });
+  if (!rows.length) return { status: 'not-found' };
+  if (rows.length > 1) return { status: 'duplicate' };
+  const row = rows[0];
+
+  const width = Math.min(4, sheet.getMaxColumns() - 3);
+  if (width < 1) return { status: 'invalid' };
+  const range = sheet.getRange(row, 4, 1, width);
+  const formulas = range.getFormulas()[0];
+  if (cols.some(function (c) { return formulas[WARD_COL[c] - 4]; })) return { status: 'formula', row: row };
+  const shown = range.getDisplayValues()[0];
+  const raw = range.getValues()[0];
+  const current = { D: wardText_(shown[0]), E: wardBool_(raw[1]), F: wardTime_(raw[2], shown[2]), G: wardTime_(raw[3], shown[3]) };
+  const same = function (c, a, b) { return c === 'E' ? Boolean(a) === Boolean(b) : String(a == null ? '' : a) === String(b == null ? '' : b); };
+
+  if (cols.every(function (c) { return same(c, current[c], set[c]); })) return { status: 'same', row: row };
+  const unchanged = Object.keys(expect).every(function (c) { return same(c, current[c], expect[c]); });
+  if (!unchanged) {
+    if (w.quiet) return { status: 'skipped', row: row };
+    const shownNow = {};
+    Object.keys(expect).concat(cols).forEach(function (c) { shownNow[c] = current[c]; });
+    return { status: 'conflict', row: row, current: shownNow };
+  }
+  try {
+    cols.forEach(function (c) {
+      const cell = sheet.getRange(row, WARD_COL[c]);
+      if (c === 'E') cell.setValue(set.E);
+      else cell.setNumberFormat('@').setValue(set[c]); // text, so Sheets never turns it into a date or formula
+    });
+  } catch (err) {
+    return { status: wardWriteError_(err), row: row };
+  }
+  return { status: 'ok', row: row };
+}
+
+/** Untick patients whose tick is from an earlier day (Manila time). F and G keep the last rounds times. */
+function wardResetStale_(sheet, before) {
+  const last = sheet.getLastRow();
+  const count = Math.min(Math.max(0, last - 1), WARD_MAX_ROWS);
+  if (!count) return [];
+  const names = sheet.getRange(2, 1, count, 2).getDisplayValues();
+  const range = sheet.getRange(2, 5, count, 3);
+  const raw = range.getValues();
+  const shown = range.getDisplayValues();
+  const formulas = sheet.getRange(2, 5, count, 1).getFormulas();
+  const reset = [];
+  for (let i = 0; i < count; i++) {
+    if (!String(names[i][0]).trim() || !wardBool_(raw[i][0]) || formulas[i][0]) continue;
+    const start = wardTime_(raw[i][1], shown[i][1]);
+    const end = wardTime_(raw[i][2], shown[i][2]);
+    const day = (end || start).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day >= before) continue; // no date: leave it alone
+    try {
+      sheet.getRange(i + 2, 5).setValue(false);
+    } catch (err) {
+      break; // can't edit the logsheet: try again another time
+    }
+    reset.push({ hn: String(names[i][1]).trim(), start: start, end: end });
+  }
+  return reset;
+}
+
+function wardCanEdit_(sheet) {
+  try {
+    return sheet.getRange(Math.min(2, sheet.getMaxRows()), 4, 1, Math.max(1, Math.min(4, sheet.getMaxColumns() - 3))).canEdit();
+  } catch (err) {
+    return null;
+  }
+}
+
+/** Check the cells of one write. Only D–G are ever accepted, never A–C. */
+function wardCells_(cells, forWriting) {
+  if (!cells || typeof cells !== 'object' || Array.isArray(cells)) return null;
+  const out = {};
+  const ok = Object.keys(cells).every(function (c) {
+    const v = cells[c];
+    if (c === 'D') {
+      if (typeof v !== 'string' || v.length > WARD_MAX_TEXT) return false;
+      out.D = wardText_(v);
+    } else if (c === 'E') {
+      if (typeof v !== 'boolean') return false;
+      out.E = v;
+    } else if (c === 'F' || c === 'G') {
+      if (typeof v !== 'string' || v.length > 200) return false;
+      if (forWriting && !/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})?$/.test(v.trim())) return false;
+      out[c] = v.trim();
+    } else {
+      return false;
+    }
+    return true;
+  });
+  return ok ? out : null;
+}
+
+function wardTouchesRounds_(cells) {
+  return Boolean(cells) && typeof cells === 'object' && ['E', 'F', 'G'].some(function (c) { return c in cells; });
+}
+
+/** Hospital numbers match ignoring capitals and extra spaces. */
+function wardKey_(value) {
+  return String(value == null ? '' : value).trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+/** Free text as shown in the sheet: line breaks kept, trailing blank space dropped. */
+function wardText_(value) {
+  return String(value == null ? '' : value).replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+}
+
+function wardBool_(value) {
+  if (value === true || value === false) return value;
+  return /^(true|yes|y|1|✓|✔|x)$/i.test(String(value == null ? '' : value).trim());
+}
+
+function wardTime_(value, shown) {
+  if (value instanceof Date) return Utilities.formatDate(value, WARD_TZ, WARD_TIME_FORMAT);
+  return String(shown == null ? '' : shown).trim();
+}
+
+function wardWriteError_(err) {
+  const message = String((err && err.message) || err);
+  if (/protected/i.test(message)) return 'protected';
+  if (/permission|access/i.test(message)) return 'read-only';
+  return 'write-failed';
 }
 
 /* ---------- Sheet helpers ---------- */

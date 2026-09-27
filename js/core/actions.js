@@ -6,6 +6,11 @@ export function registerAction(name, handler) {
   handlers.set(name, handler);
 }
 
+/** Run a registered action from code (as if an element with data-action="name" was clicked). */
+export function runAction(name, el = document.body) {
+  handlers.get(name)?.(el, null);
+}
+
 export function initActions() {
   document.addEventListener('click', (event) => {
     const el = event.target.closest('[data-action]');
