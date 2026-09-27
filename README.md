@@ -4,10 +4,10 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 2 — Workout core (v0.3).** Log workouts with sets, reps and weights, a rest
-timer, templates, full history and a Hevy import — on top of Phase 1 (dashboard, settings, Google
-Sheets sync and backups). The Neurology tab has **Ward Patients** (v0.3.2): your ward logsheet as a
-rounds list. Data is stored on each device and, once sync is set up, in your own Google Sheet.
+**Current status: Phase 2 — Workout core and ward census (v0.3).** Log workouts with sets, reps and
+weights, a rest timer, templates, full history and a Hevy import, and run ward rounds from your logsheet
+(**Ward Patients** in the Neurology tab) — on top of Phase 1 (dashboard, settings, Google Sheets sync and
+backups). Data is stored on each device and, once sync is set up, in your own Google Sheet.
 
 ## Install the app (from GitHub Pages)
 
@@ -119,7 +119,7 @@ Good to know about the Wi-Fi preview:
   this app choose **Import Hevy** (Workout tab) or Settings → Hevy. You'll see a preview first; workouts you
   already have are skipped, so importing again later is safe. **Export workouts (CSV)** writes the same format.
 
-## Ward Patients (Neurology tab)
+## Ward census: Ward Patients (Neurology tab, Phase 2)
 
 **Neurology → Ward Patients** shows your ward logsheet — a Google Sheet — as a rounds list.
 

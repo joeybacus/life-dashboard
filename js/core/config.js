@@ -3,5 +3,5 @@ export const APP = {
   name: 'Life Dashboard',
   version: '0.3.4',
   phase: 2,
-  phaseName: 'Workout core',
+  phaseName: 'Workout core and ward census',
 };
