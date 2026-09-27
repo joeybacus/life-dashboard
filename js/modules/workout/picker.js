@@ -163,7 +163,7 @@ export async function editExercise(exercise, { name = '', primary = null } = {})
         <legend class="field__label">Logged as</legend>
         <div class="segmented">${Object.entries(KINDS).map(([value, label]) => html`<label class="segmented__opt"><input type="radio" name="kind" value="${value}"${(e.kind ?? 'weight') === value ? raw(' checked') : ''}><span>${label}</span></label>`)}</div>
       </fieldset>`}
-      <label class="field"><span class="field__label">Rest timer</span>
+      <label class="field"><span class="field__label">Rest between sets</span>
         <select class="select" name="rest">
           <option value=""${selected(e.restSeconds == null)}>Your default (${formatRest(defaultRest)})</option>
           ${REST_CHOICES.map((sec) => html`<option value="${sec}"${selected(e.restSeconds === sec)}>${formatRest(sec)}</option>`)}

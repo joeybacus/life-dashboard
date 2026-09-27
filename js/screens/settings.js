@@ -33,6 +33,8 @@ let renderedOutdated = null;
 const THEMES = [['system', 'System', 'monitor'], ['dark', 'Dark', 'moon'], ['light', 'Light', 'sun']];
 const SPLIT_LABELS = { ppl: 'Push · Pull · Legs', body: 'Body-part split' };
 const REST_PRESETS = [30, 60, 90, 120, 180];
+const EXERCISE_REST = [['same', 'Same as between sets'], [0, 'Off'], [60, '1 min'], [90, '1 min 30 sec'], [120, '2 min'],
+  [150, '2 min 30 sec'], [180, '3 min'], [240, '4 min'], [300, '5 min']];
 const REMINDERS = [[0, 'None'], [5, '5 min before'], [10, '10 min before'], [30, '30 min before'], [60, '1 hour before']];
 const EFFORTS = [['rir', 'RIR'], ['rpe', 'RPE'], ['off', 'Off']];
 const INTEGRATIONS = [
@@ -239,7 +241,7 @@ function render() {
         </div>
         <div class="row row--stack row--icon">
           <span class="row__icon">${icon('hourglass')}</span>
-          <span class="row__text"><span class="row__label" id="lbl-rest">Default rest timer</span><span class="row__sub">Each exercise can have its own — set it while logging or in the exercise library</span></span>
+          <span class="row__text"><span class="row__label" id="lbl-rest">Rest between sets</span><span class="row__sub">Each exercise can have its own — set it while logging or in the exercise library</span></span>
           <div class="row__full">
             <div class="chips" role="radiogroup" aria-labelledby="lbl-rest">
               ${REST_PRESETS.map((sec) => html`<label class="chip-opt"><input type="radio" name="rest" value="${sec}" data-field="rest"${checked(!restCustom && s.workout.restSeconds === sec)}><span>${restLabel(sec)}</span></label>`)}
@@ -251,11 +253,18 @@ function render() {
             </div>
           </div>
         </div>
+        ${pickerRow({ field: 'exerciseRest', iconName: 'arrowRight', label: 'Rest between exercises',
+          value: s.workout.exerciseRestSeconds ?? 'same', options: EXERCISE_REST })}
         <label class="row row--icon">
           <span class="row__icon">${icon('volume')}</span>
-          <span class="row__text"><span class="row__label">Rest timer alert</span><span class="row__sub">A chime and a vibration when rest is over, while the app is open${isIOS() ? ' (iPhone gives a light tap instead of vibrating)' : ''}</span></span>
+          <span class="row__text"><span class="row__label">Chime when rest is over</span><span class="row__sub">Two notes before your next set, three before your next exercise, while the app is open${isIOS() ? '. iPhone gives a light tap instead of vibrating.' : ''}</span></span>
           <input type="checkbox" class="switch" switch data-field="restAlert"${checked(s.workout.restAlert)}>
         </label>
+        ${isIOS() ? html`<label class="row row--icon">
+          <span class="row__icon">${icon('bell')}</span>
+          <span class="row__text"><span class="row__label">Chime even on silent</span><span class="row__sub">Plays when your iPhone is on silent too — but music apps like Spotify pause while it plays. Off: the chime plays over your music, and stays quiet on silent.</span></span>
+          <input type="checkbox" class="switch" switch data-field="restOnSilent"${checked(s.workout.restOnSilent)}${s.workout.restAlert ? '' : raw(' disabled')}>
+        </label>` : ''}
         <div class="row row--stack row--icon">
           <span class="row__icon">${icon('pulse')}</span>
           <span class="row__text"><span class="row__label" id="lbl-effort">Effort column</span><span class="row__sub">RIR = reps in reserve · RPE = rate of perceived exertion (1–10)</span></span>
@@ -439,8 +448,17 @@ async function onChange(event) {
       case 'effort':
         await save((s) => { s.workout.effort = el.value; });
         break;
-      case 'restAlert':
+      case 'restAlert': {
         await save((s) => { s.workout.restAlert = el.checked; });
+        const onSilent = root.querySelector('[data-field="restOnSilent"]');
+        if (onSilent) onSilent.disabled = !el.checked;
+        break;
+      }
+      case 'restOnSilent':
+        await save((s) => { s.workout.restOnSilent = el.checked; });
+        break;
+      case 'exerciseRest':
+        await save((s) => { s.workout.exerciseRestSeconds = el.value === 'same' ? null : Number(el.value); });
         break;
       case 'keepAwake':
         await save((s) => { s.workout.keepAwake = el.checked; });
@@ -470,7 +488,7 @@ async function onChange(event) {
           break;
         }
         await save((s) => { s.workout.restSeconds = secs; });
-        toast(`Default rest set to ${restLabel(secs)}.`, { icon: 'hourglass' });
+        toast(`Rest between sets: ${restLabel(secs)}.`, { icon: 'hourglass' });
         break;
       }
       case 'sort':

@@ -533,15 +533,37 @@ fieldset.field .field__label { padding: 0; margin-bottom: 6px; }
   box-shadow: 0 16px 40px rgba(0, 0, 0, .45);
 }
 .wbar__progress { position: absolute; left: 0; top: 0; height: 3px; width: 100%; transform-origin: left; transform: scaleX(var(--p, 0)); background: linear-gradient(90deg, var(--workout), var(--workout-2)); }
-.wbar__rest { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 4px; }
-.wbar__label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--workout-ink); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.wbar__rest { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; }
+.wbar__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wbar__label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--workout-ink); white-space: nowrap; }
 .wbar__label .icon { width: 1rem; height: 1rem; }
-.wbar__next { font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; }
+.wbar__next { font-size: var(--fs-md); font-weight: 650; color: var(--text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .wbar__time { font-size: 2rem; font-weight: 700; line-height: 1.1; }
 .wbar__btns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
 .wbar__btn { display: grid; place-items: center; min-height: 44px; border-radius: 12px; background: var(--surface-2); font-size: var(--fs-md); font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; }
 .wbar__btn:active { background: var(--surface-3); }
 .wbar__btn--skip { color: var(--on-accent); background: linear-gradient(135deg, var(--workout), var(--workout-2)); }
+.wbar__panel--exercise { border-color: color-mix(in srgb, var(--workout-2) 60%, var(--glass-border)); }
+.wbar__panel--exercise .wbar__progress { background: linear-gradient(90deg, var(--workout-2), var(--workout)); }
+
+/* When a rest is over: a soft glow around the screen edge, twice (not shown with Reduce Motion) */
+.rest-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 5px color-mix(in srgb, var(--workout) 85%, transparent),
+    inset 0 0 90px color-mix(in srgb, var(--workout) 40%, transparent);
+  animation: rest-glow 1.8s ease-out both;
+}
+@keyframes rest-glow {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  40% { opacity: .25; }
+  55% { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 html.has-wbar .views { padding-bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + 170px); }
 html.has-wbar .toasts { bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + 84px); }

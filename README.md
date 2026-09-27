@@ -100,9 +100,13 @@ Good to know about the Wi-Fi preview:
   delete; ⋯ on an exercise for notes, rest time, supersets, reorder, replace or remove. The effort column is
   RIR or RPE (Settings → Workout). Everything saves the moment you change it.
 - **Timers:** the workout timer (with Pause, which asks first, and End Workout) is calculated from the start
-  time, so it's right even after the phone locks. The rest timer starts when you tick a set, with −15 / +15 /
-  +30 / Skip, and chimes (and vibrates, or taps on iPhone) when rest is over while the app is open.
-  A small bar above the tabs shows a workout in progress while you look at other screens.
+  time, so it's right even after the phone locks. Ticking a set starts the **rest between sets**; ticking the
+  last set of an exercise starts the **rest between exercises** (Settings → Workout, 2 min to start with).
+  Both have −15 / +15 / +30 / Skip. When a rest is over (while the app is open) you hear a chime — two notes
+  before your next set, three before your next exercise — and the screen edge glows. The chime plays over your
+  music; on iPhone it's quiet when the phone is on silent unless you turn on **Chime even on silent** (music
+  apps pause while it plays — iPhone doesn't let web apps do both). A small bar above the tabs shows a
+  workout in progress while you look at other screens.
 - **History:** every workout with filters (dates, muscle group, exercise, template); open one to edit it,
   do it again, save it as a template, or delete it (with Undo).
 - **Exercise library:** ~200 exercises named like Hevy's, plus your own; favourites, notes, rest time per

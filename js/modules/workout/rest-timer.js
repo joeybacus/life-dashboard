@@ -1,19 +1,22 @@
-/* Rest timer.
+/* Rest timer — between sets, and (usually a bit longer) between exercises.
 
    It stores when the rest ends (not a countdown), so it's right again the
    moment you unlock the phone. When it runs out while the app is open you get
-   a chime, a buzz and a message. It's separate from the workout timer, which
-   keeps running either way. The rest timer belongs to this device only. */
+   a chime (two notes before your next set, three before your next exercise),
+   a glow around the screen, a buzz and a message. It's separate from the
+   workout timer, which keeps running either way. The rest timer belongs to
+   this device only. */
 import { db } from '../../core/db.js';
 import { state } from '../../core/state.js';
 import { buzz, chime } from '../../core/feedback.js';
+import { prefersReducedMotion } from '../../core/platform.js';
 import { announce, toast } from '../../core/ui.js';
 import { formatSeconds } from './model.js';
 
 const META_KEY = 'restTimer';
 const LATE_MS = 30_000; // ended longer ago than this (app was closed) → no alert
 
-let rest = null; // { workoutId, label, startedAt, endsAt, totalSec }
+let rest = null; // { workoutId, kind: 'set' | 'exercise', label, startedAt, endsAt, totalSec }
 let ticker = null;
 const listeners = new Set();
 
@@ -47,11 +50,13 @@ export async function initRestTimer() {
   });
 }
 
-export function startRest(seconds, { workoutId = null, label = '' } = {}) {
+/** Start (or restart) the rest timer. kind: 'set' (between sets) or 'exercise' (before the next exercise). */
+export function startRest(seconds, { workoutId = null, label = '', kind = 'set' } = {}) {
   if (!(seconds > 0)) return;
   const now = Date.now();
   rest = {
     workoutId,
+    kind,
     label,
     startedAt: new Date(now).toISOString(),
     endsAt: new Date(now + seconds * 1000).toISOString(),
@@ -111,6 +116,16 @@ function tick() {
   if (left <= 0) finish();
 }
 
+/** A soft glow around the edge of the screen, easy to notice from a distance. */
+function glow() {
+  if (prefersReducedMotion()) return;
+  const el = document.createElement('div');
+  el.className = 'rest-glow';
+  el.setAttribute('aria-hidden', 'true');
+  document.body.append(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
 function finish() {
   const ended = rest;
   rest = null;
@@ -118,10 +133,15 @@ function finish() {
   stopTicking();
   changed();
   if (Date.now() - Date.parse(ended.endsAt) > LATE_MS) return;
-  if (state.settings.workout.restAlert) {
-    chime();
+  const settings = state.settings.workout;
+  if (settings.restAlert) {
+    chime(ended.kind, { onSilent: settings.restOnSilent });
     buzz();
   }
-  toast(ended.label ? `Rest over — next up: ${ended.label}` : 'Rest over — time for your next set.', { icon: 'timer', duration: 5000 });
-  announce('Rest over.');
+  glow();
+  const message = ended.kind === 'exercise'
+    ? `Rest over — next exercise${ended.label ? `: ${ended.label}` : ''}`
+    : `Rest over — ${ended.label ? `next: ${ended.label}` : 'time for your next set'}`;
+  toast(message, { icon: 'timer', duration: 5000 });
+  announce(ended.kind === 'exercise' ? 'Rest over. Time for your next exercise.' : 'Rest over. Time for your next set.');
 }

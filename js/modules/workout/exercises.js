@@ -136,7 +136,7 @@ export const exercisePage = {
         <div class="stat"><dt>${icon('trophy')}Best set</dt><dd class="stat__value">${best ? describeSet(best, e.kind) : '—'}</dd><dd class="stat__sub">${best && describeEffort(best) ? describeEffort(best) : 'Heaviest working set'}</dd></div>
         <div class="stat"><dt>${icon('calendarCheck')}Sessions</dt><dd class="stat__value">${sessions.length}</dd><dd class="stat__sub">${sessions.length ? `Last: ${formatShortDate(new Date(sessions[0].workout.startedAt))}` : 'Not done yet'}</dd></div>
         <div class="stat"><dt>${icon('chart')}Best volume</dt><dd class="stat__value">${bestVolume ? formatVolume(bestVolume) : '—'}</dd><dd class="stat__sub">In one session</dd></div>
-        <div class="stat"><dt>${icon('timer')}Rest timer</dt><dd class="stat__value">${formatRest(e.restSeconds ?? defaultRest)}</dd><dd class="stat__sub">${e.restSeconds == null ? 'Your default' : 'Set for this exercise'}</dd></div>
+        <div class="stat"><dt>${icon('timer')}Rest</dt><dd class="stat__value">${formatRest(e.restSeconds ?? defaultRest)}</dd><dd class="stat__sub">${e.restSeconds == null ? 'Between sets (your default)' : 'Between sets, for this exercise'}</dd></div>
       </dl>
 
       ${e.notes ? html`<section class="section"><div class="section__head"><h2 class="section__title">Your notes</h2></div><p class="card card--pad prose">${e.notes}</p></section>` : ''}

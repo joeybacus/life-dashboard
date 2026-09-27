@@ -81,7 +81,10 @@ function renderMissing(mode, workout) {
 const exerciseOf = (entry) => s.library.get(entry.exerciseId);
 const kindOf = (entry) => exerciseOf(entry)?.kind ?? 'weight';
 const effortField = () => ({ rir: 'rir', rpe: 'rpe' })[state.settings.workout.effort] ?? null;
+/** Rest between sets of this exercise: set in this workout, else the exercise's own, else your default. */
 const restFor = (entry) => entry.restSeconds ?? exerciseOf(entry)?.restSeconds ?? state.settings.workout.restSeconds;
+/** Rest before the next exercise (Settings → Workout); "same as between sets" when not set. */
+const exerciseRestFor = (entry) => state.settings.workout.exerciseRestSeconds ?? restFor(entry);
 
 /** The columns you type into, by kind of exercise: [field, header, keyboard]. Times are typed as 1:30 or 1.30. */
 function columns(kind) {
@@ -257,7 +260,7 @@ function exerciseCard(entry, index, letters) {
     </div>
     <div class="wx__tags">
       ${letter ? html`<span class="tag tag--superset">${icon('link')}Superset ${letter}</span>` : ''}
-      <button type="button" class="tag tag--btn" data-action="wl:rest" aria-label="Rest timer: ${formatRest(restFor(entry))}. Change">${icon('timer')}${formatRest(restFor(entry))}</button>
+      <button type="button" class="tag tag--btn" data-action="wl:rest" aria-label="Rest between sets: ${formatRest(restFor(entry))}. Change">${icon('timer')}${formatRest(restFor(entry))}</button>
       ${entry.targetReps ? html`<span class="tag">${icon('target')}Target ${entry.targetReps} reps</span>` : ''}
     </div>
     <p class="wx__prev">${best
@@ -448,15 +451,44 @@ function refreshRow(entry, set) {
   });
 }
 
-/** The exercise you'll do next (for the rest timer's "next up"). A superset starts its round again. */
-function nextUp(fromEntry) {
+const allDone = (entry) => entry.sets.every((x) => x.done);
+const nameOf = (entry) => exerciseOf(entry)?.name ?? entry.name;
+
+/** "Bench Press · set 3" — the next set to do, starting from this exercise (a superset starts its round again). */
+function nextSetLabel(fromEntry) {
   const list = s.workout.exercises;
   const start = fromEntry.supersetId ? list.findIndex((e) => e.supersetId === fromEntry.supersetId) : list.indexOf(fromEntry);
   for (let i = 0; i < list.length; i++) {
     const entry = list[(start + i) % list.length];
-    if (entry.sets.some((x) => !x.done)) return exerciseOf(entry)?.name ?? entry.name;
+    const set = entry.sets.find((x) => !x.done);
+    if (set) return `${nameOf(entry)} · ${set.type === 'normal' ? `set ${setLabel(entry, set)}` : SET_TYPES[set.type].label.toLowerCase()}`;
   }
   return '';
+}
+
+/** The next exercise with sets left, after this one (or after its superset). */
+function nextExerciseName(group) {
+  const list = s.workout.exercises;
+  const last = list.indexOf(group[group.length - 1]);
+  for (let i = 1; i <= list.length; i++) {
+    const entry = list[(last + i) % list.length];
+    if (!allDone(entry)) return nameOf(entry);
+  }
+  return '';
+}
+
+/**
+ * After a set is ticked: rest before the next set, a (longer) rest before the
+ * next exercise once this one — or its whole superset — is finished, no rest
+ * in the middle of a superset round, and nothing after the very last set.
+ */
+function afterSet(entry) {
+  const list = s.workout.exercises;
+  if (list.every(allDone)) return { kind: 'done' };
+  const group = entry.supersetId ? list.filter((e) => e.supersetId === entry.supersetId) : [entry];
+  if (group.every(allDone)) return { kind: 'exercise', seconds: exerciseRestFor(entry), label: nextExerciseName(group) };
+  if (!endsSuperset(s.workout, entry)) return { kind: 'none' };
+  return { kind: 'set', seconds: restFor(entry), label: nextSetLabel(entry) };
 }
 
 registerAction('wl:check', (el) => {
@@ -472,10 +504,16 @@ registerAction('wl:check', (el) => {
       if (field !== 'rir' && field !== 'rpe' && set[field] == null && prev?.[field] != null) set[field] = prev[field];
     });
     set.done = true;
-    const rest = restFor(entry);
-    if (s.mode === 'active' && rest > 0 && endsSuperset(s.workout, entry)) {
-      startRest(rest, { workoutId: s.workout.id, label: nextUp(entry) });
-      announce(`Set done. Resting ${formatRest(rest)}.`);
+    const next = s.mode === 'active' ? afterSet(entry) : { kind: 'none' };
+    if (next.kind === 'done') {
+      stopRest();
+      announce('Set done. That was your last set.');
+      toast('That’s every set done. Tap End Workout when you’re finished.', { icon: 'checkCircle', duration: 5000 });
+    } else if ((next.kind === 'set' || next.kind === 'exercise') && next.seconds > 0) {
+      startRest(next.seconds, { workoutId: s.workout.id, label: next.label, kind: next.kind });
+      announce(next.kind === 'exercise'
+        ? `Exercise done. Resting ${formatRest(next.seconds)} before ${next.label}.`
+        : `Set done. Resting ${formatRest(next.seconds)}.`);
     } else {
       announce('Set done.');
     }
@@ -588,7 +626,7 @@ async function chooseRest(entry) {
   const result = await openDialog({
     variant: 'sheet',
     className: 'rest-dialog',
-    title: 'Rest timer',
+    title: 'Rest between sets',
     body: html`<p class="dlg__msg">${name}</p>
       <div class="chips" role="radiogroup" aria-label="Rest time">
         ${REST_CHOICES.map((sec) => html`<label class="chip-opt"><input type="radio" name="rest" value="${sec}"${checked(sec === current)}><span>${formatRest(sec)}</span></label>`)}
@@ -642,7 +680,7 @@ registerAction('wl:ex-menu', async (el) => {
     items: [
       { value: 'info', label: 'Exercise details & history', icon: 'info' },
       { value: 'note', label: entry.notes || s.noteOpen.has(entry.id) ? 'Edit note' : 'Add note', icon: 'note' },
-      { value: 'rest', label: 'Rest timer', icon: 'timer', detail: formatRest(restFor(entry)) },
+      { value: 'rest', label: 'Rest between sets', icon: 'timer', detail: formatRest(restFor(entry)) },
       entry.supersetId
         ? { value: 'unsuperset', label: 'Remove from superset', icon: 'link' }
         : i < list.length - 1 && { value: 'superset', label: 'Superset with next exercise', icon: 'link' },

@@ -20,10 +20,12 @@ export const DEFAULT_SETTINGS = {
   workout: {
     split: 'ppl',           // 'ppl' (Push/Pull/Legs) | 'body' (body-part split)
     weeklyGoal: 4,          // workouts per week (drives the Workout card ring)
-    restSeconds: 90,        // default rest timer; each exercise can override it
+    restSeconds: 90,        // rest between sets; each exercise can override it
+    exerciseRestSeconds: 120, // rest before the next exercise; null = same as between sets, 0 = off
     units: 'kg',            // kilograms only
     effort: 'rir',          // effort column when logging sets: 'rir' | 'rpe' | 'off'
-    restAlert: true,        // sound + vibration when the rest timer ends
+    restAlert: true,        // chime + vibration when the rest timer ends
+    restOnSilent: false,    // iPhone: chime even on silent (pauses music apps while it plays)
     keepAwake: true,        // keep the screen on during a workout
   },
   tasks: {

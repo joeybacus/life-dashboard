@@ -124,7 +124,7 @@ function exerciseRow(entry, i, count) {
         <label class="tpl-ex__reps"><span>Reps</span>
           <input class="input input--sm" data-tpl="reps" value="${entry.reps ?? ''}" placeholder="8–12" maxlength="12" autocomplete="off" inputmode="text" aria-label="Target reps for ${name}">
         </label>
-        <button type="button" class="tag tag--btn" data-action="tpl:rest" aria-label="Rest ${formatRest(restOf(entry))}. Change">${icon('timer')}${formatRest(restOf(entry))}</button>
+        <button type="button" class="tag tag--btn" data-action="tpl:rest" aria-label="Rest between sets: ${formatRest(restOf(entry))}. Change">${icon('timer')}${formatRest(restOf(entry))}</button>
       </div>
     </div>
     <div class="tpl-ex__side">
@@ -245,7 +245,7 @@ registerAction('tpl:rest', async (el) => {
   if (!entry) return;
   const current = restOf(entry);
   const choice = await actionSheet({
-    title: 'Rest timer',
+    title: 'Rest between sets',
     message: library.get(entry.exerciseId)?.name ?? entry.name,
     items: [
       { value: 'default', label: `Exercise default (${formatRest(library.get(entry.exerciseId)?.restSeconds ?? state.settings.workout.restSeconds)})`, checked: entry.restSeconds == null },

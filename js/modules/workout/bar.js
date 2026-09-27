@@ -1,6 +1,7 @@
 /* The floating bar above the tab bar while a workout is in progress:
    - on other screens: "Push day · 23:41 · rest 1:12" — tap to go back to the workout
-   - while resting, on the workout screen: the rest countdown with −15, +15, +30 and Skip
+   - while resting, on the workout screen: the rest countdown (before your next
+     set, or before your next exercise) with −15, +15, +30 and Skip
    It also keeps the screen on during a workout (Settings → Workout). */
 import { html, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
@@ -49,10 +50,15 @@ function update() {
   bar.dataset.mode = mode;
   const left = formatSeconds(Math.ceil(restLeftMs() / 1000));
   if (mode === 'rest') {
-    setHTML(bar, html`<div class="wbar__panel accent-workout" role="timer" aria-label="Rest timer">
+    const beforeExercise = rest.kind === 'exercise';
+    setHTML(bar, html`<div class="wbar__panel accent-workout${beforeExercise ? ' wbar__panel--exercise' : ''}" role="timer"
+        aria-label="${beforeExercise ? 'Rest before your next exercise' : 'Rest before your next set'}">
       <span class="wbar__progress" data-rest-bar aria-hidden="true"></span>
       <div class="wbar__rest">
-        <span class="wbar__label">${icon('hourglass')}Rest${rest.label ? html`<span class="wbar__next"> · next: ${rest.label}</span>` : ''}</span>
+        <div class="wbar__text">
+          <span class="wbar__label">${icon(beforeExercise ? 'arrowRight' : 'hourglass')}${beforeExercise ? 'Next exercise' : 'Rest'}</span>
+          ${rest.label ? html`<span class="wbar__next">${beforeExercise ? '' : 'Next: '}${rest.label}</span>` : ''}
+        </div>
         <span class="wbar__time num" data-rest-left>${left}</span>
       </div>
       <div class="wbar__btns">
