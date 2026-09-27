@@ -100,15 +100,38 @@ export const cleanText = (text) => String(text ?? '').replace(/\r\n?/g, '\n').re
 
 export const MAX_RECS = 20000;
 
-/** Recommendations that mention "priority" (any capitals) mark a priority patient. */
-export const isPriority = (recs) => /priority/i.test(String(recs ?? ''));
+export const PRIORITY_LEVELS = {
+  1: { word: 'High', group: 'P1 · High priority' },
+  2: { word: 'Medium', group: 'P2 · Medium priority' },
+  3: { word: 'Low', group: 'P3 · Low priority' },
+};
 
 /**
- * Round in this order: priority patients not yet rounded, then the others
- * not yet rounded, then those already rounded — each group in the sheet's order.
+ * How urgent a patient is, from their recommendations (capitals don't matter):
+ * P1 is high priority, P2 and P3 lower ("Priority 2" counts as P2 too). The
+ * word "priority" without a number counts as high. When several appear, the
+ * most urgent wins. Returns { level: 1 | 2 | 3, tag: 'P1' | … | 'Priority' } or null.
+ */
+export function priorityOf(recs) {
+  const text = String(recs ?? '');
+  const levels = [
+    ...[...text.matchAll(/\bP([123])\b/gi)].map((m) => Number(m[1])),
+    ...[...text.matchAll(/\bpriority\s*(?:level\s*)?[:#-]?\s*([123])\b/gi)].map((m) => Number(m[1])),
+  ];
+  if (levels.length) {
+    const level = Math.min(...levels);
+    return { level, tag: `P${level}` };
+  }
+  return /priority/i.test(text) ? { level: 1, tag: 'Priority' } : null;
+}
+
+/**
+ * Round in this order: patients not yet rounded by priority (P1 or "priority",
+ * then P2, then P3), then the others not yet rounded, then those already
+ * rounded — each group in the sheet's order.
  */
 export function sortPatients(patients) {
-  const group = (p) => (p.rounded ? 2 : p.priority ? 0 : 1);
+  const group = (p) => (p.rounded ? 4 : p.priority ? p.priority.level - 1 : 3);
   return [...patients].sort((a, b) => group(a) - group(b) || a.row - b.row);
 }
 

@@ -3,6 +3,11 @@
    and Mac, the patient sheet, conflict chooser, logsheet setup, history
    ========================================================================== */
 
+/* Priority levels from the recommendations: P1 (high), P2, P3 — always shown
+   with words and a flag as well as a colour */
+:root { --p1: var(--pri-high); --p1-ink: var(--danger-ink); --p2: var(--pri-med); --p2-ink: #ffd166; --p3: #60a5fa; --p3-ink: #93c5fd; }
+[data-theme="light"] { --p2-ink: #8a5a00; --p3-ink: #1d4ed8; }
+
 /* ---- The Ward Patients button (Neurology tab and dashboard card) ---- */
 .ward-entry { display: flex; align-items: center; gap: 14px; margin-top: 20px; padding: 16px; color: inherit; transition: transform var(--t-fast) var(--ease); }
 .ward-entry:active { transform: scale(.99); }
@@ -125,7 +130,9 @@
   color: var(--text-3);
 }
 .ward-group__title .icon { width: 1rem; height: 1rem; }
-.ward-group--priority .ward-group__title { color: var(--danger-ink); }
+.ward-group--p1 .ward-group__title { color: var(--p1-ink); }
+.ward-group--p2 .ward-group__title { color: var(--p2-ink); }
+.ward-group--p3 .ward-group__title { color: var(--p3-ink); }
 .ward-group--done .ward-group__title .icon { color: color-mix(in srgb, var(--success) 70%, var(--text)); }
 .ward-group__count {
   min-width: 1.6rem;
@@ -156,10 +163,13 @@
   cursor: pointer;
 }
 .pt--head { display: none; }
-/* Priority: a red edge plus the "Priority" badge (never colour alone) */
-.pt.is-priority:not(.is-rounded) {
-  border-color: color-mix(in srgb, var(--pri-high) 42%, var(--border));
-  box-shadow: inset 3px 0 0 var(--pri-high), var(--shadow-1);
+/* Priority: a coloured edge plus the P1 / P2 / P3 badge (never colour alone) */
+.pt.is-p1 { --pc: var(--p1); }
+.pt.is-p2 { --pc: var(--p2); }
+.pt.is-p3 { --pc: var(--p3); }
+.pt:is(.is-p1, .is-p2, .is-p3):not(.is-rounded) {
+  border-color: color-mix(in srgb, var(--pc) 42%, var(--border));
+  box-shadow: inset 3px 0 0 var(--pc), var(--shadow-1);
 }
 .pt.is-rounded { background: color-mix(in srgb, var(--success) 5%, var(--surface)); }
 .pt.is-rounded .pt__name { color: var(--text-2); }
@@ -216,14 +226,10 @@
   border: 1px solid var(--border);
 }
 .wbadge .icon { width: .9rem; height: .9rem; }
-.wbadge--priority {
-  font-weight: 800;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--danger-ink);
-  background: color-mix(in srgb, var(--pri-high) 14%, transparent);
-  border-color: color-mix(in srgb, var(--pri-high) 40%, transparent);
-}
+.wbadge--p1, .wbadge--p2, .wbadge--p3 { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.wbadge--p1 { color: var(--p1-ink); background: color-mix(in srgb, var(--p1) 14%, transparent); border-color: color-mix(in srgb, var(--p1) 40%, transparent); }
+.wbadge--p2 { color: var(--p2-ink); background: color-mix(in srgb, var(--p2) 16%, transparent); border-color: color-mix(in srgb, var(--p2) 45%, transparent); }
+.wbadge--p3 { color: var(--p3-ink); background: color-mix(in srgb, var(--p3) 14%, transparent); border-color: color-mix(in srgb, var(--p3) 40%, transparent); }
 .wbadge--done { color: color-mix(in srgb, var(--success) 70%, var(--text)); background: color-mix(in srgb, var(--success) 12%, transparent); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
 .wbadge--live { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
 .wbadge--live .num { font-weight: 700; }
@@ -259,7 +265,7 @@ button.wbadge { cursor: pointer; }
     box-shadow: none;
   }
   .ward-list > .pt:first-child { border-top: 0; }
-  .pt.is-priority:not(.is-rounded) { border-color: var(--border); box-shadow: inset 3px 0 0 var(--pri-high); background: color-mix(in srgb, var(--pri-high) 4%, transparent); }
+  .pt:is(.is-p1, .is-p2, .is-p3):not(.is-rounded) { border-color: var(--border); box-shadow: inset 3px 0 0 var(--pc); background: color-mix(in srgb, var(--pc) 4%, transparent); }
   .pt.is-rounded { background: color-mix(in srgb, var(--success) 4%, transparent); }
   @media (hover: hover) { .pt:not(.pt--head):hover { background: var(--surface); } }
   .pt--head {

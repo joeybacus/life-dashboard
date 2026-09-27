@@ -365,16 +365,16 @@ const WARD_TEST_PATIENTS = [
   ['Test Patient 01', 'TEST-0001', 'CBC: Hgb 132, WBC 9.8, Plt 250\nNa 138, K 4.1, Crea 76', 'Continue current medications.\nNeuro vital signs every 4 hours.'],
   ['Test Patient 02', 'TEST-0002', 'CBC: Hgb 118, WBC 14.2 (high), Plt 310\nNa 134, K 3.6\nCRP 48\nBlood culture: pending\nCSF: WBC 5, protein 0.62, glucose 3.1\nCT head: no acute bleed\nMRI brain: scheduled\nECG: sinus rhythm\nChest X-ray: clear\nLDL 3.9',
     'PRIORITY: repeat cranial CT today. Tell the resident on duty if GCS drops.'],
-  ['Test Patient 03', 'TEST-0003', '', 'For EEG tomorrow morning.'],
-  ['Test Patient 04', 'TEST-0004', 'Procalcitonin 2.1\nLactate 2.4', 'priority — start IV antibiotics after two blood cultures.'],
+  ['Test Patient 03', 'TEST-0003', '', 'P3 — for EEG tomorrow morning.'],
+  ['Test Patient 04', 'TEST-0004', 'Procalcitonin 2.1\nLactate 2.4', 'p1: start IV antibiotics after two blood cultures.'],
   ['', 'TEST-0099', 'This row has no name, so the app ignores it.', ''],
   ['Test Patient 05', 'TEST-0005', 'HbA1c 7.9\nFBS 8.2',
     'Physical therapy daily.\nSpeech therapy assessment.\nSwallow screen before starting a diet.\nContinue aspirin 80 mg daily.\nAtorvastatin 40 mg at night.\nBlood pressure target below 140/90.\nDischarge planning on Friday.'],
-  ['Test Patient 06', 'TEST-0006', 'Na 141, K 4.4', 'Start levetiracetam 500 mg twice a day.'],
+  ['Test Patient 06', 'TEST-0006', 'Na 141, K 4.4', 'P2 — start levetiracetam 500 mg twice a day.'],
   ['Test Patient 07 — a long name to check wrapping', 'TEST-0007', 'Mg 0.7 (low)', 'Replace magnesium, recheck tomorrow.'],
-  ['Test Patient 08', 'TEST-0008', 'Na 128 (low)\nSerum osmolality 262', 'Priority: correct sodium slowly (no more than 8 a day).'],
+  ['Test Patient 08', 'TEST-0008', 'Na 128 (low)\nSerum osmolality 262', 'P1 — correct sodium slowly (no more than 8 a day).'],
   ['Test Patient 09', '', 'No hospital number yet.', 'Admitting team to add the hospital number.'],
-  ['Test Patient 10', 'TEST-0010', 'Troponin I negative ×2', 'Cardiology referral sent.'],
+  ['Test Patient 10', 'TEST-0010', 'Troponin I negative ×2', 'P3 · cardiology referral sent.'],
 ];
 
 /** Open the logsheet and find the tab (ignoring capitals and extra spaces in its name). */

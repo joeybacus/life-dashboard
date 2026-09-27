@@ -124,12 +124,15 @@ Good to know about the Wi-Fi preview:
 
 - **Logsheet layout:** patients from row 2: **A** Name, **B** Hospital Number, **C** Laboratory Results,
   **D** Recommendations. Rows without a name are ignored; the hospital number identifies each patient.
-- **The list:** first the patients not yet rounded whose recommendations mention "priority" (any
-  capitals), then the others not yet rounded, then those rounded — each group in the sheet's order.
-  Cards on iPhone, a table on iPad landscape and Mac. Long labs and recommendations fold behind
-  **Show more**; tap a patient for everything. Priority patients get a flag and a "Priority" label.
+- **The list:** patients not yet rounded come first, by the priority written in their recommendations:
+  **P1** (high — the word "priority" on its own counts as P1), then **P2**, then **P3**; then the others not
+  yet rounded, then those rounded — each group in the sheet's order. Capitals don't matter, and if a note
+  has more than one, the most urgent counts. Each priority shows a flag and words ("P1 · High"), not just a
+  colour. Cards on iPhone, a table on iPad landscape and Mac. Long labs and recommendations fold behind
+  **Show more**; tap a patient for everything.
 - **Always current:** it reloads when you open it, with **Refresh**, and every 3 minutes while it's on
   screen. Offline, the last list stays with an "Offline — last updated at …" note.
+- **Colours:** Neurology is green.
 - **Rounds:** **Start Rounds** / **End Rounds** time the session. During rounds, opening a patient starts
   their timer and ticking **Rounded** records the end time and duration ("5 of 12 rounded"). Unticking
   asks first and clears the end time. Ticks reset at midnight, Manila time. Each device keeps a daily

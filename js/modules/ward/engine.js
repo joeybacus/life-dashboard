@@ -15,7 +15,7 @@ import { nowISO } from '../../core/dates.js';
 import { uid } from '../../core/ids.js';
 import { SyncError, callSyncScript, syncSnapshot } from '../../services/sync.js';
 import {
-  LOAD_PROBLEMS, MAX_RECS, cleanText, fromSheetTime, hnKey, isPriority, manilaDateKey, msUntilManilaMidnight,
+  LOAD_PROBLEMS, MAX_RECS, cleanText, fromSheetTime, hnKey, manilaDateKey, msUntilManilaMidnight, priorityOf,
   parseSheetLink, previousDateKey, sheetTimeDay, sortPatients, toSheetTime,
 } from './model.js';
 import * as store from './store.js';
@@ -127,7 +127,7 @@ export function wardView(now = Date.now()) {
       sheetRecs: r.recs,
       duplicate: counts.get(r.key) > 1,
       tickable: Boolean(r.key) && counts.get(r.key) === 1,
-      priority: isPriority(recs),
+      priority: priorityOf(recs), // { level, tag } or null
       rounded,
       start: entry?.start ?? opened,
       end: rounded ? entry.end ?? null : null,

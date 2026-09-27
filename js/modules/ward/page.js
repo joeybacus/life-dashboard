@@ -17,7 +17,7 @@ import {
   startRounds, useLogsheet, wardView,
 } from './engine.js';
 import {
-  LOAD_PROBLEMS, MAX_RECS, WRITE_PROBLEMS, formatSpan, fromSheetTime, wardDayLong, wardStamp, wardTime,
+  LOAD_PROBLEMS, MAX_RECS, PRIORITY_LEVELS, WRITE_PROBLEMS, formatSpan, fromSheetTime, wardDayLong, wardStamp, wardTime,
 } from './model.js';
 
 const AUTO_REFRESH_MS = 3 * 60 * 1000;
@@ -105,7 +105,7 @@ function setupBody() {
   return html`<section class="card ward-intro">
     <span class="ward-intro__icon">${icon('stethoscope')}</span>
     <h2 class="ward-intro__title">Link your ward logsheet</h2>
-    <p class="ward-intro__text">See your ward patients sorted for rounds, tick them off as you go, and edit recommendations — saved straight to your Google Sheet logsheet.</p>
+    <p class="ward-intro__text">See your ward patients sorted for rounds (P1, P2, P3 first), tick them off as you go, and edit recommendations — saved straight to your Google Sheet logsheet.</p>
     <ul class="ward-intro__list">
       <li>${icon('sheet')}<span>Reads Name, Hospital Number, Labs and Recommendations (columns A–D, from row 2)</span></li>
       <li>${icon('checkCircle')}<span>Saves rounds in columns E–G; never changes A–C</span></li>
@@ -249,7 +249,7 @@ function patientTable(v) {
     return html`<div class="card empty">${icon('sheet')}<span>No patients in “${v.link.tab}” yet. The app reads patients from row 2, with the name in column A.</span></div>`;
   }
   const groups = [
-    ['priority', 'Priority', 'flag', v.patients.filter((p) => !p.rounded && p.priority)],
+    ...[1, 2, 3].map((level) => [`p${level}`, PRIORITY_LEVELS[level].group, 'flag', v.patients.filter((p) => !p.rounded && p.priority?.level === level)]),
     ['todo', 'Not yet rounded', 'circle', v.patients.filter((p) => !p.rounded && !p.priority)],
     ['done', 'Rounded', 'checkCircle', v.patients.filter((p) => p.rounded)],
   ].filter((g) => g[3].length);
@@ -281,9 +281,16 @@ function changeBadge(p) {
   return '';
 }
 
+/** "P1 · High", "P2 · Medium", "P3 · Low" or "Priority": an icon and words, never colour alone. */
+function priorityBadge({ level, tag }) {
+  return tag === 'Priority'
+    ? html`<span class="wbadge wbadge--p${level}">${icon('flag')}Priority</span>`
+    : html`<span class="wbadge wbadge--p${level}">${icon('flag')}${tag} · ${PRIORITY_LEVELS[level].word}<span class="sr-only"> priority</span></span>`;
+}
+
 function badges(p, v, { detail = false } = {}) {
   const out = [];
-  if (p.priority) out.push(html`<span class="wbadge wbadge--priority">${icon('flag')}Priority</span>`);
+  if (p.priority) out.push(priorityBadge(p.priority));
   if (!detail) {
     if (p.rounded) {
       out.push(html`<span class="wbadge wbadge--done">${icon('check')}${p.end ? `Rounded ${wardTime(p.end)}` : 'Rounded'}${p.durationMs != null ? ` · ${formatSpan(p.durationMs)}` : ''}</span>`);
@@ -311,7 +318,7 @@ function clampText(p, field, label, text) {
 }
 
 function patientRow(p, v) {
-  return html`<li class="pt${p.rounded ? ' is-rounded' : ''}${p.priority ? ' is-priority' : ''}" data-id="${p.id}">
+  return html`<li class="pt${p.rounded ? ' is-rounded' : ''}${p.priority ? ` is-p${p.priority.level}` : ''}" data-id="${p.id}">
     ${tickButton(p)}
     <div class="pt__who">
       <button type="button" class="pt__name" data-action="ward:open" data-id="${p.id}" data-focus="open-${p.id}">${p.name}${icon('chevronRight', 'pt__chev')}</button>
@@ -474,7 +481,7 @@ async function editRecommendations(p) {
       <label class="field"><span class="sr-only">Recommendations</span>
         <textarea class="input textarea ward-edit__text" name="text" rows="9" maxlength="${MAX_RECS}" autocapitalize="sentences">${p.recs}</textarea>
       </label>
-      <p class="ward-edit__hint">Saved to column D of the logsheet. Anything with the word “priority” goes to the top of the list.</p>
+      <p class="ward-edit__hint">Saved to column D of the logsheet. Write P1, P2 or P3 to set the priority (P1 is highest; “priority” on its own counts as P1).</p>
       <div class="form__actions">
         <button type="button" class="btn btn--ghost" data-cancel>Cancel</button>
         <button type="submit" class="btn btn--primary">Save</button>

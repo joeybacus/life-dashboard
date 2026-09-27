@@ -45,7 +45,7 @@
   --brand: #5563ff;   --brand-2: #8b4dff;   /* Main dashboard */
   --workout: #ff8a3d; --workout-2: #ffc04d; /* energetic */
   --todo: #2fc4ff;    --todo-2: #5de0e6;    /* productivity */
-  --neuro: #ff6fb5;   --neuro-2: #ff9ad0;   /* reserved for Neurology */
+  --neuro: #22c55e;   --neuro-2: #a3e635;   /* Neurology (green) */
 
   /* Status colours — always paired with a text label or icon */
   --pri-high: #ff5a5f;
@@ -77,11 +77,11 @@
   --brand-ink: #a3adff;
   --workout-ink: #ffa066;
   --todo-ink: #66d4ff;
-  --neuro-ink: #ff8fc6;
+  --neuro-ink: #4ade80;
   --danger-ink: #ff7b7f;
   --ambient-a: rgba(85, 99, 255, .17);
   --ambient-b: rgba(47, 196, 255, .075);
-  --ambient-c: rgba(255, 111, 181, .065);
+  --ambient-c: rgba(34, 197, 94, .06);
   --scrim: rgba(3, 4, 8, .62);
   --statusbar: rgba(6, 7, 10, .78);
 }
@@ -108,11 +108,11 @@
   --brand-ink: #4338ca;
   --workout-ink: #b24a08;
   --todo-ink: #03699c;
-  --neuro-ink: #be185d;
+  --neuro-ink: #15803d;
   --danger-ink: #c81e24;
   --ambient-a: rgba(85, 99, 255, .12);
   --ambient-b: rgba(47, 196, 255, .1);
-  --ambient-c: rgba(255, 111, 181, .08);
+  --ambient-c: rgba(34, 197, 94, .07);
   --scrim: rgba(10, 14, 28, .35);
   /* The iPhone status bar text stays white in the installed app, so keep a dark band behind it */
   --statusbar: rgba(11, 16, 32, .9);
