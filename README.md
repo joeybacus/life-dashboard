@@ -4,9 +4,10 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 3 — Tasks and productivity (v0.4.1.1, the second of seven small releases).** A real
+**Current status: Phase 3 — Tasks and productivity (v0.4.2, the third of seven small releases).** A real
 to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting,
-and fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes —
+fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes — and
+reminders for tasks and subtasks (subtasks can have their own date and time), with "Still not done" follow-ups —
 on top of Phase 2 (workouts, and ward rounds from your logsheet in **Ward Patients**, Neurology tab) and
 Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on each device and, once sync is
 set up, in your own Google Sheet.
@@ -53,21 +54,24 @@ If you change `Code.gs` later: **Deploy → Manage deployments → Edit → Vers
 
 Some app versions need a newer script in your Google Sheet: v0.3 needs script version 2 (your exercises
 and workout templates get their own tabs), v0.3.2 needs version 3 (Ward Patients), v0.3.4 needs
-version 4 (editing lab results) and v0.4 needs **version 5** (your tasks get readable tabs, and tasks can go
-into Google Calendar). Each version includes everything before it. Until it's updated, everything else keeps
-syncing and anything new stays safely on your devices; the app shows **Update sync** on the dashboard and
-**Update the sync script** in Settings → Sync (tap it for these steps):
+version 4 (editing lab results), v0.4 needs version 5 (your tasks get readable tabs, and tasks can go
+into Google Calendar) and v0.4.2 brings **version 6** (each subtask's own date, time and reminders show in the
+Subtasks tab, and subtasks can go into Google Calendar too). Each version includes everything before it, so
+one update is enough however old yours is. Until it's updated, everything else keeps syncing and anything new
+stays safely on your devices; the app shows **Update sync** on the dashboard and **Update the sync script** in
+Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-   Line 24 should now read `const SCRIPT_VERSION = 5;`.
-3. **Version 5 only, once:** in the toolbar choose **setup** and click **Run**. Google asks for permission
-   (now including Google Calendar): **Review permissions** → your account → **Advanced** → **Go to … (unsafe)**
-   → **Allow**. This also tidies the task tabs and starts a 30-minute check used by the Calendar link.
+   Near the top, a line should now read `const SCRIPT_VERSION = 6;`.
+3. **Once, after pasting:** in the toolbar choose **setup** and click **Run** (it keeps your token, so your devices
+   stay connected). If Google asks for permission (coming from version 4 or older it will, now including Google
+   Calendar): **Review permissions** → your account → **Advanced** → **Go to … (unsafe)** → **Allow**. This also
+   tidies the task tabs and starts a 30-minute check used by the Calendar link.
 4. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
    (Don't make a *new deployment* — that would change the Web app URL.)
 5. Back in the app, tap **Check now**. To double-check, open the Web app URL in Safari: it should end with
-   `"version":5`.
+   `"version":6`.
 
 ## Backups
 
@@ -103,8 +107,8 @@ Good to know about the Wi-Fi preview:
 
 ## To Do (Phase 3)
 
-The To Do tab is a full task list (v0.4.0) with fast capture (v0.4.1). Reminders, the Google Calendar link,
-repeating tasks, the focus timer and habits arrive in the next small updates (0.4.2 – 0.4.6).
+The To Do tab is a full task list (v0.4.0) with fast capture (v0.4.1) and reminders (v0.4.2). The Google
+Calendar link, repeating tasks, the focus timer and habits arrive in the next small updates (0.4.3 – 0.4.6).
 
 - **Type a task the way you'd say it** in the box at the top of To Do, or after tapping **+** (bottom right, on every
   tab): *Finish STRAMA paper tomorrow 8pm #MBA !!!* becomes "Finish STRAMA paper", tomorrow at 8:00 PM, MBA, High.
@@ -122,6 +126,21 @@ repeating tasks, the focus timer and habits arrive in the next small updates (0.
   tomorrow, Details, Delete and Pin — Reminder and Focus take the top and left places when they arrive). Choose the
   four in Settings → Tasks → Quick menu. Everything has Undo.
 - **Swipes (iPhone, iPad):** swipe a task right to complete it, left to move it to tomorrow.
+- **Reminders:** in a task's sheet, tap **10 min**, **30 min** or **1 hour before** (several at once), or **Custom** —
+  any number of minutes, hours or days before, or an exact date and time. Also from the quick menu's **Reminder**
+  button, or by typing "remind me 30 min before". A task with a date but no time reminds you counting from 8:00 AM
+  (Settings → Tasks → Reminders, where you can also give new tasks a reminder automatically). The row shows a bell
+  with the next reminder's time.
+- **When one rings:** a banner at the top of any screen, with a chime — **Complete · Snooze · Stop · Open**. Stop means
+  "seen it": if the task still isn't ticked, **Still not done** follows 2 hours later, up to 2 times, never between
+  10 PM and 8 AM (all changeable in Settings; per task too, or off). Ticking a task on any device stops its follow-ups.
+  Anything that came due while the app was closed is listed in **Missed while the app was closed** when you open it.
+- **iPhone limit:** reminders ring only while Life Dashboard is open on your screen (and sound needs a tap after it
+  opens). Google Calendar alerts, which also ring on a locked phone, arrive in 0.4.3. **Try a reminder** in Settings
+  shows and plays one.
+- **Subtasks with their own time:** the clock button on a subtask gives it its own date, time and reminders. A subtask
+  with a date also shows as its own row in Today, Upcoming and Overdue, with its task's name under it — tap it for its
+  menu, tick it, or swipe it like a task.
 - **Mac keys:** N new task · / search · ↑ ↓ move between tasks · Space complete · Enter quick menu · ? help ·
   ⌘Enter save · Esc closes the quick menu.
 - **Nothing you type is lost by accident:** the task sheet, Quick Add and the small boxes for a link, a subtask or a
@@ -145,9 +164,9 @@ repeating tasks, the focus timer and habits arrive in the next small updates (0.
 - **Manila time:** days roll over at midnight Manila time, even if a device is set to another time zone.
 - **Export tasks (CSV)** is in Settings → Backup (and ⋯ in the To Do tab). It opens cleanly in Excel, Numbers and
   Google Sheets.
-- **In your Google Sheet** (script version 5): the Tasks, Subtasks and Task categories tabs have readable columns —
-  priority as "High", times like "2026-09-27 08:15" (Manila time), categories by name and id. The Sheet is a copy for
-  reading: change tasks in the app.
+- **In your Google Sheet** (script version 5; 6 adds subtasks' own date, time and reminders): the Tasks, Subtasks and
+  Task categories tabs have readable columns — priority as "High", times like "2026-09-27 08:15" (Manila time),
+  reminders like "30 min before", categories by name and id. The Sheet is a copy for reading: change tasks in the app.
 
 ## Workouts (Phase 2)
 
@@ -241,7 +260,10 @@ js/modules/workout/   Workout pieces: model, exercise library, logger, rest time
 js/modules/todo/      To Do: model (views, sorting, search, CSV), store (saving), rows, list (the screen),
                       detail (the task sheet), pages (Recently deleted, Categories, Views, export),
                       parse (plain words → a task), capture (the typing box), quickmenu (tap a task),
-                      gestures (swipes, Mac keys), task-actions (complete, tomorrow, delete… with Undo)
+                      gestures (swipes, Mac keys), task-actions (complete, tomorrow, delete… with Undo),
+                      alerts (when reminders ring; snooze and follow-ups), reminders (the banner and
+                      the missed list), reminder-ui (choosing reminders), subtask-sheet (a subtask's
+                      own date, time and reminders)
 js/core/quick-add.js  The + button on every tab and the Quick Add sheet
 js/modules/ward/      Ward Patients (Neurology): model (Manila time, sorting), engine (list, rounds,
                       changes waiting to be saved), page (screen, patient sheet, history), store
@@ -284,6 +306,11 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
   lives in the script's own **Calendar links** tab (`calendarLinks`), which the app will read from 0.4.3 — the script
   keeps it next to the task rather than inside it, so it never competes with your edits. Starting categories carry a
   fixed old timestamp, so a device that joins later can't overwrite a category renamed elsewhere.
+- **Reminders:** a task's or subtask's `reminders` (`{ kind: 'before', minutes }` or `{ kind: 'at', at }`) and `followUp`
+  are read by the sync script too (Calendar alerts), so keep that shape. What has rung lives in `alerts` on the item
+  and is changed only by `saveAlerts()` (store.js); every other save keeps the saved copy's `alerts`
+  (`settleAlerts()` in alerts.js), so a sheet that was open while a reminder rang can't make it ring again. The
+  engine is `js/modules/todo/reminders.js`; the rules (and their checks in todo-checks.html) are in `alerts.js`.
 - **Ward Patients data** is device-only: the `wardDays` and `wardQueue` stores and the `ward` / `wardCache`
   meta keys are never synced or backed up. Never log patient data or put a logsheet link in the code.
 - **Calendar:** `js/services/calendar.js` uses a provider; a Google Calendar provider (via Apps

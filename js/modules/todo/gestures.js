@@ -10,7 +10,11 @@
 import { currentRoute, currentSubRoute } from '../../core/router.js';
 import { haptic } from '../../core/feedback.js';
 import { prefersReducedMotion } from '../../core/platform.js';
-import { focusTaskLater, toggleDone, tomorrowTask } from './task-actions.js';
+import { focusTaskLater, toggleDone, toggleSubDone, tomorrowSub, tomorrowTask } from './task-actions.js';
+
+/** Complete or move a row's task — or its subtask, on a subtask's row. */
+const complete = (kind, id) => (kind === 'subtask' ? toggleSubDone(id) : toggleDone(id));
+const tomorrow = (kind, id) => (kind === 'subtask' ? tomorrowSub(id) : tomorrowTask(id));
 import { openCaptureHelp } from './capture.js';
 
 const START = 12;      // pixels before a sideways move counts as a swipe
@@ -70,7 +74,7 @@ export function bindSwipes(root) {
     if (event.pointerType !== 'touch' || s) return;
     const row = event.target.closest('.tlist:not(.tlist--manual) > .trow');
     if (!row || event.target.closest('[data-drag-handle]')) return;
-    s = { row, id: row.dataset.id, x: event.clientX, y: event.clientY, pointerId: event.pointerId, active: false, ready: false, done: row.classList.contains('is-done') };
+    s = { row, id: row.dataset.id, kind: row.dataset.kind, x: event.clientX, y: event.clientY, pointerId: event.pointerId, active: false, ready: false, done: row.classList.contains('is-done') };
   }, { passive: true });
 
   root.addEventListener('pointermove', (event) => {
@@ -90,7 +94,7 @@ export function bindSwipes(root) {
 
   const finish = (event, cancelled) => {
     if (!s || (event && event.pointerId !== s.pointerId)) return;
-    const { row, id, active, ready } = s;
+    const { row, id, kind, active, ready } = s;
     const right = row.dataset.swipe === 'right';
     s = null;
     if (!active) return;
@@ -101,8 +105,8 @@ export function bindSwipes(root) {
     }
     // Complete: the task slides back and gets its tick (it may stay in the list).
     // Tomorrow: it slides away (it usually leaves the list).
-    if (right) settle(row, 0, () => toggleDone(id));
-    else settle(row, -row.offsetWidth, () => tomorrowTask(id));
+    if (right) settle(row, 0, () => complete(kind, id));
+    else settle(row, -row.offsetWidth, () => tomorrow(kind, id));
   };
   root.addEventListener('pointerup', (event) => finish(event, false));
   root.addEventListener('pointercancel', (event) => finish(event, true));
@@ -123,7 +127,7 @@ export function bindKeys(root, { focusCapture, focusSearch }) {
     if (event.key === ' ' && t.matches?.('.trow__main')) {
       event.preventDefault(); // Space completes; Enter opens the quick menu
       focusTaskLater(t.dataset.id);
-      toggleDone(t.dataset.id);
+      complete(t.dataset.kind, t.dataset.id);
       return;
     }
     if (typing(t)) return;

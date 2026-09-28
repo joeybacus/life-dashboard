@@ -68,11 +68,12 @@ function bell(start, freq, length) {
 const CHIMES = {
   set: [[0, 1318.5], [0.24, 1046.5]],                  // two notes: next set
   exercise: [[0, 1046.5], [0.2, 1318.5], [0.4, 1568]], // three rising notes: next exercise
+  reminder: [[0, 1174.7], [0.18, 1568], [0.58, 1174.7], [0.76, 1568]], // two rising pairs: a to-do reminder
 };
 
 /**
- * A short chime: kind 'set' or 'exercise' (they sound different, so you can
- * tell without looking). onSilent: play even when the iPhone is on silent.
+ * A short chime: kind 'set', 'exercise' or 'reminder' (they sound different, so
+ * you can tell without looking). onSilent: play even when the iPhone is on silent.
  * Returns false when sound isn't available (no tap yet since the app opened).
  */
 export async function chime(kind = 'set', { onSilent = false } = {}) {

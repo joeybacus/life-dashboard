@@ -10,6 +10,8 @@
      category  #MBA — one of your categories (capitals, accents and spaces don't
                matter, and the start of a name is enough when it fits only one)
      tags      @paper
+     reminder  remind me 30 min before · remind me 1 hour before · remind me 2 days before ·
+               remind me (at the time) · "Remind me to call mom 7pm" → "Call mom", reminder at 7 PM
 
    What's left is the task's name. Every part it recognised keeps where it was in
    the text, so the box can show it as a chip — and removing a chip turns those
@@ -20,6 +22,7 @@ import {
   addDays, clockOf, formatClock, formatClockRange, formatDay, formatDayYear, formatMonthDay, relativeDay, todayKey, weekdayOf,
 } from '../../core/manila.js';
 import { PRIORITIES } from './model.js';
+import { minutesText } from './alerts.js';
 
 const B = '(?<![\\p{L}\\p{N}])'; // word start (works for any language, unlike \b)
 const E = '(?![\\p{L}\\p{N}])';  // word end
@@ -302,6 +305,28 @@ const RULES = [
     re: /(?<![^\s(])@([\p{L}\p{N}][\p{L}\p{N}_-]*)/gu,
     read: (m) => ({ value: m[1].slice(0, 40) }),
   },
+  // "Remind me to …" at the start: a reminder at the task's time; the rest is the name
+  {
+    kind: 'reminder',
+    re: /^\s*remind\s+me\s+to(?![\p{L}\p{N}])/giu,
+    read: () => ({ value: 0, lead: true }),
+  },
+  // remind me 30 min before · remind me an hour before · remind me half an hour before · remind me
+  // ("me" is needed, so "Remind the team about…" stays a name)
+  {
+    kind: 'reminder',
+    re: new RegExp(`${B}remind\\s+me(?:\\s+(\\d{1,3}|an?|one|half\\s+an?)\\s*(mins?|minutes?|m|hrs?|hours?|h|days?|d)\\s+(?:before|earlier|ahead))?${E}`, 'giu'),
+    read(m) {
+      if (!m[1]) return { value: 0 };
+      const amount = m[1].toLowerCase();
+      const unit = m[2].toLowerCase();
+      const per = unit.startsWith('d') ? 1440 : unit.startsWith('h') ? 60 : 1;
+      if (amount.startsWith('half')) return per === 60 ? { value: 30 } : per === 1440 ? { value: 720 } : null;
+      const n = /^\d/.test(amount) ? Number(amount) : 1;
+      const minutes = n * per;
+      return minutes > 0 && minutes <= 40320 ? { value: minutes } : null;
+    },
+  },
 ];
 
 /**
@@ -313,7 +338,7 @@ const RULES = [
  *   ignore     part keys to leave as words (chips you removed)
  *   choices    { partKey: value } — answers to "3/10 is…?" questions
  * Returns { title, parts, fields, unanswered }: fields holds only what was found
- * (date, startTime, endTime, priority, categoryId, tags); unanswered lists the
+ * (date, startTime, endTime, priority, categoryId, tags, reminders); unanswered lists the
  * parts that could mean two things and still need a choice.
  */
 export function parseTask(text, {
@@ -343,8 +368,9 @@ export function parseTask(text, {
     taken.push(f);
     if (skip.has(f.key)) continue;
     // One date, one time, one priority and one category; later ones stay as words
-    if (f.kind !== 'tag' && kept.some((k) => k.kind === f.kind)) continue;
-    if (f.kind === 'tag' && kept.some((k) => k.kind === 'tag' && fold(k.value) === fold(f.value))) continue;
+    const many = f.kind === 'tag' || f.kind === 'reminder';
+    if (!many && kept.some((k) => k.kind === f.kind)) continue;
+    if (many && kept.some((k) => k.kind === f.kind && fold(String(k.value)) === fold(String(f.value)))) continue;
     kept.push(f);
   }
 
@@ -364,6 +390,8 @@ export function parseTask(text, {
   });
   title += source.slice(cursor);
   title = title.replace(/\s+/g, ' ').replace(/^[\s,;:–—-]+|[\s,;:–—-]+$/g, '').trim();
+  // "Remind me to call mom" → "Call mom"
+  if (parts.some((p) => p.lead)) title = title.charAt(0).toLocaleUpperCase() + title.slice(1);
 
   // Fields
   const fields = {};
@@ -386,6 +414,8 @@ export function parseTask(text, {
   if (category) fields.categoryId = category.value;
   const tags = parts.filter((p) => p.kind === 'tag').map((p) => p.value);
   if (tags.length) fields.tags = tags;
+  const reminders = parts.filter((p) => p.kind === 'reminder').map((p) => ({ kind: 'before', minutes: p.value }));
+  if (reminders.length) fields.reminders = reminders;
 
   // Words for the chips
   parts.forEach((p) => {
@@ -396,6 +426,7 @@ export function parseTask(text, {
       p.label = p.impliedDate ? `${relativeDay(p.impliedDate, ctx.today)} ${clockText}` : clockText;
     } else if (p.kind === 'priority') p.label = PRIORITIES[p.value].label;
     else if (p.kind === 'category') p.label = categories.find((c) => c.id === p.value)?.name ?? p.text;
+    else if (p.kind === 'reminder') p.label = p.value ? `${minutesText(p.value)} before` : 'Remind at the time';
     else p.label = `@${p.value}`;
   });
 

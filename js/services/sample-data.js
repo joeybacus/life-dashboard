@@ -12,7 +12,7 @@ import { addDays as addDayKeys, todayKey } from '../core/manila.js';
 const DEFAULT_CATEGORIES = ['Hospital', 'Residency', 'MBA', 'NU', 'Research', 'Business', 'Personal'];
 
 /** Bump when the shape of sample records changes, so today's samples are rebuilt. */
-const SAMPLE_VERSION = 3;
+const SAMPLE_VERSION = 4;
 
 /* Sample workouts: [exercise id, name, { warmup kg, sets, kg, reps, weekly step kg, durationSec }] */
 const SAMPLE_EXERCISES = {
@@ -113,28 +113,33 @@ export function buildSampleRecords(now = new Date()) {
 
   const tasks = [
     task(1, { title: 'Update research IRB forms', priority: 'high', date: taskDay(-1), startTime: '16:00', endTime: '17:00', categoryId: 'cat-research' }, 40),
-    task(2, { title: 'Finish Neurology Report', priority: 'high', startTime: '20:00', endTime: '21:00', categoryId: 'cat-residency', notes: 'Include the EEG findings and the plan for follow-up.' }, 20),
+    task(2, { title: 'Finish Neurology Report', priority: 'high', startTime: '20:00', endTime: '21:00', categoryId: 'cat-residency', notes: 'Include the EEG findings and the plan for follow-up.',
+      reminders: [{ id: 'sample-rem-1', kind: 'before', minutes: 30, createdAt: hoursAgo(20) }] }, 20),
     task(3, { title: 'Review stroke protocol updates', priority: 'high', startTime: '07:30', endTime: '08:00', categoryId: 'cat-hospital', status: 'done', completedAt: hoursAgo(1) }, 30),
     task(4, { title: 'Submit MBA case write-up', priority: 'medium', startTime: '17:00', categoryId: 'cat-mba', tags: ['strama'],
       links: [{ id: 'sample-link-1', title: 'Case brief', url: 'https://www.example.com/strama-case' }] }, 26),
     task(5, { title: 'Read two research abstracts', priority: 'medium', categoryId: 'cat-research', status: 'done', completedAt: hoursAgo(2) }, 50),
     task(6, { title: 'Call pharmacy about refill', priority: 'low', categoryId: 'cat-personal' }, 6),
     task(7, { title: 'Book flights for NU conference', priority: 'low', date: taskDay(1), categoryId: 'cat-nu', tags: ['travel'] }, 3),
-    task(8, { title: 'Prepare journal club slides', priority: 'medium', date: taskDay(3), startTime: '13:00', endTime: '14:00', categoryId: 'cat-residency' }, 12),
+    task(8, { title: 'Prepare journal club slides', priority: 'medium', date: taskDay(3), startTime: '13:00', endTime: '14:00', categoryId: 'cat-residency',
+      reminders: [{ id: 'sample-rem-2', kind: 'before', minutes: 60, createdAt: hoursAgo(12) }] }, 12),
     task(9, { title: 'Renew medical license', priority: 'none', date: null, pinned: true, categoryId: 'cat-personal', notes: 'Online renewal — have the receipt ready.' }, 70),
     task(10, { title: 'Outline the business plan', priority: 'low', date: null, categoryId: 'cat-business', tags: ['idea'] }, 90),
   ];
 
-  const subtask = (n, taskN, title, done, order) => ({
+  // A subtask can have its own date, time and reminders (then it also shows as a row in Today and Upcoming)
+  const subtask = (n, taskN, title, done, order, fields = {}) => ({
     ...base(`sample-sub-${pad2(n)}`, hoursAgo(10)), taskId: `sample-task-${pad2(taskN)}`, title, done, order,
+    completedAt: done ? hoursAgo(9) : null, ...fields,
   });
   const subtasks = [
     subtask(1, 2, 'Collect the EEG results', true, 0),
     subtask(2, 2, 'Write the discussion', false, 1),
-    subtask(3, 2, 'Send to the consultant', false, 2),
+    subtask(3, 2, 'Send to the consultant', false, 2, { date: taskDay(1), startTime: '09:00',
+      reminders: [{ id: 'sample-rem-3', kind: 'before', minutes: 10, createdAt: hoursAgo(10) }] }),
     subtask(4, 8, 'Pick the article', true, 0),
     subtask(5, 8, 'Draft the slides', true, 1),
-    subtask(6, 8, 'Practice run', false, 2),
+    subtask(6, 8, 'Practice run', false, 2, { date: taskDay(2), startTime: '18:00', endTime: '18:30' }),
   ];
 
   // Push / Pull / Legs history over the last three weeks

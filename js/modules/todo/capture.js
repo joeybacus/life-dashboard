@@ -11,7 +11,9 @@ import { icon } from '../../core/icons.js';
 import { registerAction } from '../../core/actions.js';
 import { announce, openDialog, toast } from '../../core/ui.js';
 import { relativeDay, todayKey } from '../../core/manila.js';
+import { state } from '../../core/state.js';
 import { PRIORITIES, categoryStyle } from './model.js';
+import { minutesText, reminderDue, reminderSettings } from './alerts.js';
 import { parseTask } from './parse.js';
 import { createTask, loadTodo, softDelete } from './store.js';
 import { checkDuplicate } from './task-actions.js';
@@ -31,6 +33,7 @@ export function captureMarkup({ placeholder = 'Add a task…', label = 'New task
     </div>
     <p class="capture__hint" id="${id}-hint">Try: Call the lab tomorrow 8am #Hospital !!</p>
     <div class="capture__chips" data-capture-chips></div>
+    <p class="capture__warn" data-capture-warn hidden></p>
     <div class="capture__ask" data-capture-ask></div>
     <div class="capture__actions" data-capture-actions hidden>
       <button type="button" class="btn btn--sm btn--ghost" data-capture-details>${icon('sliders')}Details</button>
@@ -39,7 +42,7 @@ export function captureMarkup({ placeholder = 'Add a task…', label = 'New task
   </form>`;
 }
 
-const KIND_ICON = { date: 'calendar', time: 'clock', tag: 'link' };
+const KIND_ICON = { date: 'calendar', time: 'clock', tag: 'link', reminder: 'bell' };
 
 function chip({ key, kind, label, value, isDefault, ask, fresh, categories }) {
   const words = isDefault ? `${label} (a default). Remove` : ask ? `${label}: needs a choice. Keep it as words instead` : `${label}. Remove — keep these words in the name`;
@@ -65,6 +68,7 @@ export function bindCapture(form, { defaults = () => ({}), onAdded = () => {}, k
   const input = form.querySelector('[data-capture-input]');
   const chipsEl = form.querySelector('[data-capture-chips]');
   const askEl = form.querySelector('[data-capture-ask]');
+  const warnEl = form.querySelector('[data-capture-warn]');
   const actionsEl = form.querySelector('[data-capture-actions]');
   const st = { ignore: new Set(), choices: {}, off: new Set(), categories: [], parsed: null, adding: false, shown: new Set() };
 
@@ -82,7 +86,18 @@ export function bindCapture(form, { defaults = () => ({}), onAdded = () => {}, k
     if (!('date' in f) && !st.off.has('date') && d.date) f.date = d.date;
     if (!('priority' in f)) f.priority = !st.off.has('priority') && d.priority ? d.priority : 'none';
     if (!('categoryId' in f)) f.categoryId = !st.off.has('category') && d.categoryId ? d.categoryId : null;
+    if (!('reminders' in f) && !st.off.has('reminder') && Number.isFinite(d.reminderMinutes)) f.reminders = [{ kind: 'before', minutes: d.reminderMinutes }];
     return f;
+  }
+
+  /** A reminder you typed that could never ring (no date, or no time and the day's reminder time has passed): say so. */
+  function reminderWarning() {
+    if (!st.parsed?.fields.reminders?.length) return ''; // your default reminder is fine as it is
+    const f = fields();
+    const s = reminderSettings(state.settings.tasks);
+    const now = Date.now();
+    if (f.reminders.some((r) => (reminderDue(f, r, s.defaultTime) ?? 0) > now)) return '';
+    return f.date ? 'That reminder time has passed — add a time, like “5pm”, so it can ring.' : 'Add a day and time, like “tomorrow 8am”, so the reminder can ring.';
   }
 
   function update() {
@@ -93,6 +108,7 @@ export function bindCapture(form, { defaults = () => ({}), onAdded = () => {}, k
     if (!st.parsed) {
       setHTML(chipsEl, '');
       setHTML(askEl, '');
+      warnEl.hidden = true;
       st.shown.clear();
       return;
     }
@@ -110,11 +126,17 @@ export function bindCapture(form, { defaults = () => ({}), onAdded = () => {}, k
       const c = st.categories.find((x) => x.id === d.categoryId);
       if (c) defaultChips.push({ key: 'default:category', kind: 'category', value: c.id, label: c.name, isDefault: true });
     }
+    if (!('reminders' in p.fields) && Number.isFinite(d.reminderMinutes) && !st.off.has('reminder')) {
+      defaultChips.push({ key: 'default:reminder', kind: 'reminder', label: d.reminderMinutes ? `${minutesText(d.reminderMinutes)} before` : 'Remind at the time', isDefault: true });
+    }
     const all = [...p.parts.map((x) => ({ ...x, ask: x.value == null })), ...defaultChips];
     // Only chips that weren't there before the last key pop in (the rest stay still while you type)
     const before = st.shown;
     st.shown = new Set(all.map((c) => `${c.key}:${c.label}`));
     setHTML(chipsEl, all.map((c) => chip({ ...c, fresh: !before.has(`${c.key}:${c.label}`), categories: st.categories })));
+    const warning = reminderWarning();
+    warnEl.textContent = warning;
+    warnEl.hidden = !warning;
     setHTML(askEl, p.unanswered.map((x) => html`<div class="cask" role="group" aria-label="What does “${x.text}” mean?">
       <span class="cask__q">“${x.text}” is</span>
       ${x.options.map((o, i) => html`<button type="button" class="cask__opt" data-choose="${x.key}" data-index="${i}">${o.label}</button>`)}
@@ -239,8 +261,9 @@ const EXAMPLES = [
   ['Priority', '! low · !! medium · !!! high · or “high priority”'],
   ['Category', '#MBA — one of your categories. Capitals and spaces don’t matter (#boardexam), and the start of a name is enough (#res).'],
   ['Tags', '@paper @home'],
+  ['Reminders', 'remind me 30 min before · remind me an hour before · remind me 1 day before · “Remind me to call mom 7pm” → “Call mom” at 7:00 PM, with a reminder then.'],
   ['It asks', 'when something could mean two things — “3/10” (March 10 or October 3?) or “at 8” (morning or evening?).'],
-  ['Coming next', '“remind me 30 min before” with reminders (0.4.2), “cal” with the Google Calendar link (0.4.3), “every Monday” with repeating tasks (0.4.4).'],
+  ['Coming next', '“cal” with the Google Calendar link (0.4.3), “every Monday” with repeating tasks (0.4.4).'],
 ];
 const KEYS = [
   ['N', 'New task (the box at the top of To Do; the + sheet elsewhere)'],

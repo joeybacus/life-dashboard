@@ -3,14 +3,55 @@
    later. Deleting only marks an item (deletedAt): the deletion syncs to your
    other devices, and Undo or Restore brings it back. Nothing is ever erased.
    Sample tasks (and their subtasks) can be ticked and edited to try things
-   out; they carry sample: true, so they never sync and are rebuilt each day. */
+   out; they carry sample: true, so they never sync and are rebuilt each day.
+   Reminders: what has rung ("alerts") is always taken from the saved copy —
+   only the reminder engine changes it (saveAlerts) — so a sheet that was open
+   while a reminder rang can't make it ring again. */
 import { db, stamp } from '../../core/db.js';
 import { saveRecord, saveRecords } from '../../core/records.js';
 import { emit } from '../../core/events.js';
 import { uid } from '../../core/ids.js';
 import { nowISO } from '../../core/dates.js';
 import { addDays, isClock, isDateKey, todayKey } from '../../core/manila.js';
-import { DELETED_DAYS, MAX_NOTES, MAX_TITLE, PRIORITIES, isDone, newTask, normalizeTask } from './model.js';
+import { state } from '../../core/state.js';
+import { DELETED_DAYS, MAX_NOTES, MAX_TITLE, PRIORITIES, isDone, newTask, normalizeSub, normalizeTask } from './model.js';
+import { reminderSettings, settleAlerts, sortReminders } from './alerts.js';
+
+const MAX_REMINDERS = 10;
+const alertSettings = () => reminderSettings(state.settings?.tasks);
+
+/** Valid reminders only: "before" (0 minutes to 4 weeks) or an exact time; each keeps its id and when it was set. */
+function cleanReminders(list, now) {
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach((r, i) => {
+    if (!r || typeof r !== 'object') return;
+    const base = { id: String(r.id || `r${i}${Math.random().toString(36).slice(2, 6)}`), createdAt: r.createdAt || now };
+    if (r.kind === 'at') {
+      const ms = Date.parse(r.at);
+      if (Number.isFinite(ms)) out.push({ ...base, kind: 'at', at: new Date(ms).toISOString() });
+    } else {
+      const minutes = Math.round(Number(r.minutes));
+      if (Number.isFinite(minutes) && minutes >= 0 && minutes <= 40320) out.push({ ...base, kind: 'before', minutes });
+    }
+  });
+  return sortReminders(out).slice(0, MAX_REMINDERS);
+}
+
+/** A per-item follow-up choice: null (as in Settings), { enabled: false }, or { enabled: true, minutes }. */
+function cleanFollowUp(f) {
+  if (!f || typeof f !== 'object') return null;
+  if (f.enabled === false) return { enabled: false };
+  const minutes = Math.round(Number(f.minutes));
+  return Number.isFinite(minutes) && minutes >= 5 && minutes <= 1440 ? { enabled: true, minutes } : null;
+}
+
+/** Date and time fields made consistent (a time needs a date; an end needs a start). */
+function cleanWhen(x) {
+  if (!isDateKey(x.date)) x.date = null;
+  if (!x.date || !isClock(x.startTime)) x.startTime = null;
+  if (!x.startTime || !isClock(x.endTime) || x.endTime === x.startTime) x.endTime = null;
+  return x;
+}
 
 /** Tell the To Do screen and the dashboard that tasks changed. */
 export const todoChanged = (reason = 'todo') => emit('data', { reason });
@@ -37,23 +78,42 @@ export async function getTask(id) {
   return t ? normalizeTask(t) : null;
 }
 
+export async function getSub(id) {
+  const s = await db.get('subtasks', id);
+  return s ? normalizeSub(s) : null;
+}
+
 /** Keep a task's fields tidy before saving. */
-function clean(task) {
-  const t = { ...task };
+function clean(task, now = nowISO()) {
+  const t = cleanWhen({ ...task });
   t.title = String(t.title ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE);
   t.notes = String(t.notes ?? '').slice(0, MAX_NOTES);
   if (!PRIORITIES[t.priority]) t.priority = 'none';
-  if (!isDateKey(t.date)) t.date = null;
-  if (!t.date || !isClock(t.startTime)) t.startTime = null;
-  if (!t.startTime || !isClock(t.endTime) || t.endTime === t.startTime) t.endTime = null;
   t.allDay = Boolean(t.date && !t.startTime);
   if (!isDone(t)) t.completedAt = null;
+  t.reminders = cleanReminders(t.reminders, now);
+  t.followUp = cleanFollowUp(t.followUp);
   return t;
 }
+
+/** Keep a subtask's fields tidy before saving. */
+function cleanSub(sub, now = nowISO()) {
+  const s = cleanWhen(normalizeSub(sub));
+  s.title = String(s.title ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE);
+  s.completedAt = s.done ? (s.completedAt || now) : null;
+  s.reminders = cleanReminders(s.reminders, now);
+  s.followUp = cleanFollowUp(s.followUp);
+  return s;
+}
+
+/** A subtask in the shape the reminder rules read (status like a task's). */
+const asItem = (sub) => sub && { ...sub, status: sub.done ? 'done' : 'open' };
 
 /** Save a task (a new one gets an id). quiet: typing in a field — sync waits a little longer. */
 export async function saveTask(task, { quiet = false } = {}) {
   const record = stamp(clean(task));
+  const prev = await db.get('tasks', record.id);
+  record.alerts = settleAlerts(prev ? normalizeTask(prev) : null, record, alertSettings());
   await saveRecord('tasks', record, { quiet });
   todoChanged();
   return record;
@@ -62,14 +122,30 @@ export async function saveTask(task, { quiet = false } = {}) {
 /** A new task (and its subtasks) saved together. */
 export async function createTask(fields, { subtasks = [] } = {}) {
   const now = nowISO();
-  const task = stamp(clean(newTask(fields)), now);
+  const task = stamp(clean(newTask(fields), now), now);
+  task.alerts = settleAlerts(null, task, alertSettings());
   const items = [{ store: 'tasks', record: task }];
   subtasks.filter((s) => s.title?.trim()).forEach((s, i) => {
-    items.push({ store: 'subtasks', record: stamp({ id: uid(), taskId: task.id, title: s.title.trim().slice(0, MAX_TITLE), done: Boolean(s.done), order: i }, now) });
+    const sub = stamp(cleanSub({ ...s, id: uid(), taskId: task.id, order: i }, now), now);
+    sub.alerts = settleAlerts(null, asItem(sub), alertSettings());
+    items.push({ store: 'subtasks', record: sub });
   });
   await saveRecords(items);
   todoChanged();
   return task;
+}
+
+/**
+ * The reminder engine's own save: change only what has rung (mutate gets the
+ * saved item and returns its new alerts). Nothing else about the item changes.
+ */
+export async function saveAlerts(store, id, mutate) {
+  const current = await db.get(store, id);
+  if (!current || current.deletedAt) return null;
+  const record = stamp({ ...current, alerts: mutate(store === 'subtasks' ? asItem(normalizeSub(current)) : normalizeTask(current)) });
+  await saveRecord(store, record, { quiet: true });
+  todoChanged('alerts');
+  return record;
 }
 
 export function setDone(task, done) {
@@ -148,28 +224,37 @@ export async function mergeTasks(keep, drop) {
 
 /* ---------- Subtasks ---------- */
 
-export async function addSubtask(taskId, title, order) {
-  const record = stamp({ id: uid(), taskId, title: String(title).trim().slice(0, MAX_TITLE), done: false, order });
-  await saveSub(record);
-  return record;
+/** fields: a subtask's own date, time and reminders, if it has them. */
+export async function addSubtask(taskId, title, order, fields = {}) {
+  return saveSub({ ...fields, id: uid(), taskId, title: String(title).trim().slice(0, MAX_TITLE), done: false, order });
 }
 
-export async function saveSub(subtask) {
-  const record = stamp({ ...subtask });
-  if ((await db.get('tasks', record.taskId))?.sample) record.sample = true;
-  await saveRecord('subtasks', record);
+export async function saveSub(subtask, { quiet = false } = {}) {
+  const record = stamp(cleanSub(subtask));
+  const [prev, parent] = await Promise.all([db.get('subtasks', record.id), db.get('tasks', record.taskId)]);
+  if (parent?.sample) record.sample = true;
+  record.alerts = settleAlerts(prev ? asItem(normalizeSub(prev)) : null, asItem(record), alertSettings());
+  await saveRecord('subtasks', record, { quiet });
   todoChanged();
   return record;
 }
 
 export const deleteSub = (subtask) => saveSub({ ...subtask, deletedAt: nowISO() });
 
-/** Save a new order for a task's subtasks (only the ones that moved are written). */
+export const setSubDone = (subtask, done) => saveSub({ ...subtask, done, completedAt: done ? nowISO() : null });
+
+/** "Move to tomorrow" for a subtask: its own date becomes tomorrow. */
+export function moveSubToTomorrow(subtask, now = Date.now()) {
+  return saveSub({ ...subtask, date: addDays(todayKey(now), 1) });
+}
+
+/** Save a new order for a task's subtasks (only the ones that moved are written, from their saved copies). */
 export async function reorderSubs(subtasks, ids) {
   const now = nowISO();
   const items = [];
+  const saved = new Map((await db.all('subtasks')).map((x) => [x.id, x]));
   ids.forEach((id, order) => {
-    const s = subtasks.find((x) => x.id === id);
+    const s = saved.get(id) ?? subtasks.find((x) => x.id === id);
     if (s && s.order !== order) items.push({ store: 'subtasks', record: { ...s, order, updatedAt: now } });
   });
   if (!items.length) return;
@@ -177,18 +262,24 @@ export async function reorderSubs(subtasks, ids) {
   todoChanged();
 }
 
-/** Turn a subtask into its own task (same category and date as its parent). */
+/** Turn a subtask into its own task (its own date, time and reminders if it has them; else its task's date). */
 export async function subtaskToTask(subtask, parent) {
   const now = nowISO();
+  const own = normalizeSub(subtask);
   const task = stamp(clean(newTask({
-    title: subtask.title,
+    title: own.title,
     categoryId: parent.categoryId,
-    date: parent.date,
+    date: own.date ?? parent.date,
+    startTime: own.date ? own.startTime : null,
+    endTime: own.date ? own.endTime : null,
+    reminders: own.reminders,
+    followUp: own.followUp,
     priority: parent.priority,
-    status: subtask.done ? 'done' : 'open',
-    completedAt: subtask.done ? now : null,
+    status: own.done ? 'done' : 'open',
+    completedAt: own.done ? now : null,
     ...(parent.sample ? { sample: true } : {}),
-  })), now);
+  }), now), now);
+  task.alerts = settleAlerts(null, task, alertSettings());
   await saveRecords([
     { store: 'tasks', record: task },
     { store: 'subtasks', record: { ...subtask, deletedAt: now, updatedAt: now } },

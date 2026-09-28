@@ -7,9 +7,12 @@
      date ('YYYY-MM-DD', Manila) or null, startTime / endTime ('HH:MM') or null,
      allDay (it has a date but no time), status ('open' | 'done'), completedAt,
      pinned, manualOrder (for Manual sorting), links [{ id, title, url }],
-     reminders [], followUp, addToCalendar, recurrence, seriesId (used by later releases),
+     reminders [] and followUp (see alerts.js), alerts (what has rung), addToCalendar,
+     recurrence, seriesId (used by later releases),
      createdAt, updatedAt, deletedAt (deleting only marks it; Recently deleted shows it for 30 days)
-   A subtask (store "subtasks"): id, taskId, title, done, order.
+   A subtask (store "subtasks"): id, taskId, title, done, completedAt, order, and — like a
+     task — its own date, startTime, endTime, reminders, followUp, alerts, addToCalendar.
+     A subtask with a date also shows as its own row in Today, Upcoming and Overdue.
    A category (store "taskCategories"): id, name, color, icon, order. */
 import { addDays, at, daysFrom, formatClock, formatClockRange, formatStamp, relativeDay, sheetTime, todayKey } from '../../core/manila.js';
 
@@ -62,7 +65,7 @@ export const COMPLETED_MODES = {
    arrive with a later release; until then their arm shows a stand-in. */
 export const QUICK_ACTIONS = {
   complete: { label: 'Complete', icon: 'check' },
-  reminder: { label: 'Reminder', icon: 'bell', soon: true },
+  reminder: { label: 'Reminder', long: 'Reminders', icon: 'bell' },
   details: { label: 'Details', icon: 'edit' },
   delete: { label: 'Delete', icon: 'trash' },
   focus: { label: 'Focus', icon: 'timer', soon: true },
@@ -72,12 +75,16 @@ export const QUICK_ACTIONS = {
   subtask: { label: 'Subtask', long: 'Add subtask', icon: 'plusCircle' },
   pin: { label: 'Pin', icon: 'pushpin' },
   calendar: { label: 'Calendar', long: 'Add to Google Calendar', icon: 'calendar', soon: true },
+  // Only on a subtask's menu, in place of actions that are for tasks (priority, category, pin…)
+  task: { label: 'Task', long: 'Open its task', icon: 'checklist', internal: true },
 };
+/** What a subtask's menu can do; the other arms open its task instead. */
+export const SUBTASK_ACTIONS = new Set(['complete', 'reminder', 'details', 'delete', 'tomorrow', 'task']);
 export const QUICK_ARMS = ['up', 'right', 'down', 'left'];
 export const ARM_NAMES = { up: 'Top', right: 'Right', down: 'Bottom', left: 'Left' };
 const ARM_DEFAULTS = { up: 'reminder', right: 'details', down: 'delete', left: 'focus' };
 const STAND_INS = { reminder: 'tomorrow', focus: 'pin', calendar: 'category' };
-export const quickActionReady = (id) => Boolean(QUICK_ACTIONS[id]) && !QUICK_ACTIONS[id].soon;
+export const quickActionReady = (id) => Boolean(QUICK_ACTIONS[id]) && !QUICK_ACTIONS[id].soon && !QUICK_ACTIONS[id].internal;
 
 /** What each arm holds: your choice, or the default (Reminder, Details, Delete, Focus — with stand-ins until those exist). */
 export function quickArms(saved = {}) {
@@ -87,6 +94,17 @@ export function quickArms(saved = {}) {
     arms[arm] = quickActionReady(want) ? want : STAND_INS[want] ?? 'details';
   });
   return arms;
+}
+
+/** A subtask's menu: the same arms, with task-only actions swapped for others that fit. */
+export function subtaskArms(arms) {
+  const out = {};
+  const used = new Set(QUICK_ARMS.map((arm) => arms[arm]).filter((a) => SUBTASK_ACTIONS.has(a)));
+  const spare = ['task', 'details', 'reminder', 'tomorrow', 'delete'].filter((a) => !used.has(a));
+  QUICK_ARMS.forEach((arm) => {
+    out[arm] = SUBTASK_ACTIONS.has(arms[arm]) ? arms[arm] : spare.shift() ?? 'task';
+  });
+  return out;
 }
 
 /** How long deleted tasks stay in Recently deleted. They're never erased: the Sheet keeps them. */
@@ -136,11 +154,76 @@ export function newTask(fields = {}) {
     links: [],
     reminders: [],
     followUp: null,
+    alerts: {},
     addToCalendar: false,
     recurrence: null,
     seriesId: null,
     ...fields,
   };
+}
+
+/** A subtask with every field present (older ones have only a title, done and order). */
+export function normalizeSub(s) {
+  return {
+    date: null,
+    startTime: null,
+    endTime: null,
+    reminders: [],
+    followUp: null,
+    alerts: {},
+    addToCalendar: false,
+    completedAt: null,
+    ...s,
+    done: Boolean(s.done),
+    reminders: Array.isArray(s.reminders) ? s.reminders.filter((r) => r && typeof r === 'object') : [],
+    alerts: s.alerts && typeof s.alerts === 'object' ? s.alerts : {},
+  };
+}
+
+/**
+ * A subtask as a row of its own (Today, Upcoming, Overdue): it takes its task's
+ * priority and category, and knows its task (taskId, parentTitle).
+ */
+export function subtaskItem(sub, parent) {
+  const s = normalizeSub(sub);
+  return {
+    id: s.id,
+    kind: 'subtask',
+    taskId: parent.id,
+    parentTitle: parent.title,
+    title: s.title,
+    notes: '',
+    tags: [],
+    links: [],
+    date: s.date,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    allDay: Boolean(s.date && !s.startTime),
+    status: s.done ? 'done' : 'open',
+    completedAt: s.done ? s.completedAt : null,
+    priority: parent.priority,
+    categoryId: parent.categoryId,
+    pinned: false,
+    manualOrder: (parent.manualOrder ?? 0) + 1e-6 * ((s.order ?? 0) + 1), // right after its task in Manual order
+    reminders: s.reminders,
+    followUp: s.followUp,
+    alerts: s.alerts,
+    addToCalendar: s.addToCalendar,
+    sample: Boolean(s.sample || parent.sample),
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    deletedAt: s.deletedAt ?? null,
+    parentGone: Boolean(parent.deletedAt) || isDone(parent),
+  };
+}
+
+/** Subtasks with a date, as rows (not the ones whose task is done or deleted). */
+export function scheduledSubtasks(subtasks, tasks) {
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  return subtasks
+    .filter((s) => s.date && !s.deletedAt && byId.has(s.taskId))
+    .map((s) => subtaskItem(s, byId.get(s.taskId)))
+    .filter((item) => !item.parentGone);
 }
 
 /** Fill in fields older saved tasks may lack (the v0.1 preview stored completed: true/false). */
@@ -155,6 +238,7 @@ export function normalizeTask(t) {
     .map((r, i) => (typeof r === 'number' ? { id: `r${i}`, kind: 'before', minutes: r } : r))
     .filter((r) => r && typeof r === 'object');
   task.allDay = Boolean(task.date && !task.startTime);
+  if (!task.alerts || typeof task.alerts !== 'object') task.alerts = {};
   return task;
 }
 
@@ -224,9 +308,10 @@ function inView(view, t, today, now) {
  * Completed-tasks setting: keep (in place, after the open ones), move (a separate
  * "Completed" group at the end) or hide (counted in `hidden`).
  */
-export function viewGroups(view, tasks, { now = Date.now(), sort = 'smart', completed = 'keep', categories = new Map() } = {}) {
+export function viewGroups(view, tasks, { now = Date.now(), sort = 'smart', completed = 'keep', categories = new Map(), subtasks = [] } = {}) {
   const today = todayKey(now);
-  const live = tasks.filter((t) => !t.deletedAt);
+  // Subtasks with a date join Today, Upcoming and Overdue as rows of their own
+  const live = [...tasks, ...(SUBTASK_VIEWS.has(view) ? subtasks : [])].filter((t) => !t.deletedAt);
 
   if (view === 'completed') {
     const done = live.filter(isDone).sort((a, b) => cmp(b.completedAt ?? '', a.completedAt ?? ''));
@@ -273,14 +358,18 @@ export function viewGroups(view, tasks, { now = Date.now(), sort = 'smart', comp
   return { groups, hidden: completed === 'hide' ? done.length : 0, total: open.length };
 }
 
-/** Open-task counts for the view tabs. */
-export function viewCounts(tasks, now = Date.now()) {
+/** The views that show subtasks with a date as rows of their own. */
+const SUBTASK_VIEWS = new Set(['today', 'upcoming', 'overdue']);
+
+/** Open counts for the view tabs (Today, Upcoming and Overdue count dated subtasks too). */
+export function viewCounts(tasks, now = Date.now(), subtasks = []) {
   const today = todayKey(now);
   const open = tasks.filter((t) => !t.deletedAt && !isDone(t));
+  const withSubs = [...open, ...subtasks.filter((t) => !t.deletedAt && !isDone(t))];
   return {
-    today: open.filter((t) => inView('today', t, today, now)).length,
-    upcoming: open.filter((t) => inView('upcoming', t, today, now)).length,
-    overdue: open.filter((t) => isOverdue(t, now)).length,
+    today: withSubs.filter((t) => inView('today', t, today, now)).length,
+    upcoming: withSubs.filter((t) => inView('upcoming', t, today, now)).length,
+    overdue: withSubs.filter((t) => isOverdue(t, now)).length,
     all: open.length,
   };
 }
@@ -295,7 +384,7 @@ export function matchesTask(t, query, categoryName = '') {
   const words = foldText(query).split(/\s+/).filter(Boolean);
   if (!words.length) return true;
   // Tags are searched as "@tag" and "#tag", so "paper", "@paper" and "#paper" all find them
-  const haystack = foldText([t.title, t.notes, ...(t.tags ?? []).map((tag) => `@${tag} #${tag}`), categoryName].join(' \n '));
+  const haystack = foldText([t.title, t.notes, t.parentTitle ?? '', ...(t.tags ?? []).map((tag) => `@${tag} #${tag}`), categoryName].join(' \n '));
   return words.every((w) => haystack.includes(w));
 }
 
@@ -329,18 +418,22 @@ export function spokenTime(t, today = todayKey()) {
   return `${day}, ${formatClock(t.startTime)}${t.endTime ? ` to ${formatClock(t.endTime)}` : ''}`;
 }
 
-/** What VoiceOver reads for a row: "High priority. Finish neurology report. Today, 8:00 PM to 9:00 PM. Hospital. Not done." */
-export function spokenRow(t, { category = null, subtasks = null, now = Date.now() } = {}) {
+/**
+ * What VoiceOver reads for a row: "High priority. Finish neurology report. Today, 8:00 PM to 9:00 PM.
+ * Hospital. Reminder at 7:30 PM. Not done." A subtask row starts "Subtask of …".
+ */
+export function spokenRow(t, { category = null, subtasks = null, now = Date.now(), alertText = '' } = {}) {
   const today = todayKey(now);
   const parts = [
-    t.priority && t.priority !== 'none' ? `${PRIORITIES[t.priority].label} priority` : 'No priority',
-    t.title || 'Untitled task',
+    t.kind === 'subtask' ? `Subtask of ${t.parentTitle || 'a task'}` : t.priority && t.priority !== 'none' ? `${PRIORITIES[t.priority].label} priority` : 'No priority',
+    t.title || (t.kind === 'subtask' ? 'Untitled subtask' : 'Untitled task'),
     isOverdue(t, now) ? `${overdueText(t, today)}. ${spokenTime(t, today)}` : spokenTime(t, today),
   ];
   if (category) parts.push(category.name);
   if (t.pinned) parts.push('Pinned');
   if (subtasks?.total) parts.push(`${subtasks.done} of ${subtasks.total} subtasks done`);
-  if (t.reminders?.length) parts.push('Reminder on');
+  if (alertText) parts.push(`Reminder ${alertText}`);
+  else if (t.reminders?.length) parts.push('Reminder on');
   if (t.addToCalendar) parts.push('In Google Calendar');
   if (t.recurrence) parts.push('Repeats');
   if (t.links?.length) parts.push(`${t.links.length} ${t.links.length === 1 ? 'link' : 'links'}`);

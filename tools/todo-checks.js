@@ -3,10 +3,14 @@
    so the results don't depend on when or where the checks run. */
 import { addDays, at, daysFrom, msUntilMidnight, todayKey, weekdayOf } from '../js/core/manila.js';
 import {
-  cleanUrl, dueAt, isOverdue, matchesTask, newTask, normalizeTask, overdueText, parseTags, possibleDuplicate, sortTasks,
-  spokenRow, tasksToCsv, timeCell, viewCounts, viewGroups,
+  cleanUrl, dueAt, isOverdue, matchesTask, newTask, normalizeTask, overdueText, parseTags, possibleDuplicate, scheduledSubtasks,
+  sortTasks, spokenRow, subtaskArms, tasksToCsv, timeCell, viewCounts, viewGroups,
 } from '../js/modules/todo/model.js';
 import { parseTask } from '../js/modules/todo/parse.js';
+import {
+  afterSnooze, afterStop, afterStopFollowUps, dueAlerts, followRules, markRung, nextAlertAt, outOfQuiet, reminderDue, reminderLabel,
+  reminderSettings, settleAlerts,
+} from '../js/modules/todo/alerts.js';
 
 const results = [];
 const check = (name, ok, detail = '') => results.push({ name, ok: Boolean(ok), detail: ok ? '' : JSON.stringify(detail) });
@@ -183,6 +187,104 @@ check('chips: Tomorrow · 8:00 PM · MBA · High', chips[0] === 'Tomorrow' && /8
 const fridayChip = read('Journal club on Friday').parts[0]?.label;
 check('chips: a weekday shows its date (“Fri, Oct 2”)', /Fri/.test(fridayChip) && /Oct/.test(fridayChip) && /2/.test(fridayChip), fridayChip);
 check('empty text reads as nothing', same(read('').fields, {}) && read('').title === '');
+phrase('Call the lab tomorrow 8am remind me 30 min before', { title: 'Call the lab', date: '2026-09-28', startTime: '08:00', reminders: [{ kind: 'before', minutes: 30 }] });
+phrase('Remind me to call mom tonight 7pm', { title: 'Call mom', date: '2026-09-27', startTime: '19:00', reminders: [{ kind: 'before', minutes: 0 }] });
+phrase('Pay rent Oct 1 remind me 1 day before', { title: 'Pay rent', date: '2026-10-01', reminders: [{ kind: 'before', minutes: 1440 }] });
+phrase('Submit form 5pm remind me an hour before remind me 10 min before', { title: 'Submit form', date: '2026-09-27', startTime: '17:00',
+  reminders: [{ kind: 'before', minutes: 60 }, { kind: 'before', minutes: 10 }] });
+phrase('Journal club 3pm remind me half an hour before', { title: 'Journal club', date: '2026-09-27', startTime: '15:00', reminders: [{ kind: 'before', minutes: 30 }] });
+phrase('Remind the team about rounds', { title: 'Remind the team about rounds' }, { note: '"me" is needed' });
+phrase('Reminders app review', { title: 'Reminders app review' });
+const remChip = read('Call the lab 8am remind me 30 min before').parts.find((p) => p.kind === 'reminder')?.label;
+check('chips: a reminder shows as "30 min before"', remChip === '30 min before', remChip);
+
+/* ---------- Subtasks with their own date ---------- */
+
+const paper = T({ id: 'p1', title: 'Paper', date: '2026-09-30', priority: 'high' });
+const subList = [
+  { id: 's1', taskId: 'p1', title: 'Outline', done: false, order: 0, date: '2026-09-27', startTime: '15:00' },
+  { id: 's2', taskId: 'p1', title: 'Draft', done: false, order: 1, date: null },
+  { id: 's3', taskId: 'gone', title: 'Orphan', done: false, order: 0, date: '2026-09-27' },
+];
+const subRows = scheduledSubtasks(subList, [paper]);
+check('subtasks with a date become rows (not undated or orphaned ones)', subRows.length === 1 && subRows[0].kind === 'subtask'
+  && subRows[0].parentTitle === 'Paper' && subRows[0].priority === 'high', subRows);
+const todayIds = viewGroups('today', [paper], { now: noon, subtasks: subRows }).groups[0].tasks.map((t) => t.id);
+check('a subtask due today shows in Today, even when its task is due later', todayIds.includes('s1') && !todayIds.includes('p1'), todayIds);
+check('…and counts in Today', viewCounts([paper], noon, subRows).today === 1);
+check('…but stays inside its task in All and By category', !viewGroups('all', [paper], { now: noon, subtasks: subRows }).groups[0].tasks.some((t) => t.kind === 'subtask'));
+check('a done task\'s subtasks leave the lists', scheduledSubtasks(subList, [{ ...paper, status: 'done' }]).length === 0);
+check('a subtask row reads "Subtask of …"', spokenRow(subRows[0], { now: noon }).startsWith('Subtask of Paper. Outline. Today, 3:00 PM'), spokenRow(subRows[0], { now: noon }));
+check('a subtask\'s menu swaps task-only actions for others', JSON.stringify(subtaskArms({ up: 'reminder', right: 'priority', down: 'delete', left: 'pin' }))
+  === JSON.stringify({ up: 'reminder', right: 'task', down: 'delete', left: 'details' }), subtaskArms({ up: 'reminder', right: 'priority', down: 'delete', left: 'pin' }));
+
+/* ---------- Reminders (alerts.js) ---------- */
+
+// Monday 28 September 2026, 09:00 in Manila (01:00 UTC); default settings: 8:00 AM, follow-ups every 2 hours, up to 2, quiet 10 PM – 8 AM
+const R_NOW = Date.parse('2026-09-28T01:00:00Z');
+const M = (hhmm, day = '2026-09-28') => at(day, hhmm).getTime(); // a Manila time as ms
+const RS = reminderSettings({});
+const rem = (id, fields) => ({ id, kind: 'before', createdAt: '2026-09-27T00:00:00.000Z', ...fields });
+const task = (fields) => ({ id: 'rt', status: 'open', priority: 'medium', reminders: [], alerts: {}, ...fields });
+const timed = task({ date: '2026-09-28', startTime: '14:00', reminders: [rem('a', { minutes: 30 })] });
+check('reminders: 30 min before a 2:00 PM task rings at 1:30 PM', reminderDue(timed, timed.reminders[0]) === M('13:30'), new Date(reminderDue(timed, timed.reminders[0])));
+const untimed = task({ date: '2026-09-29', reminders: [rem('b', { minutes: 60 })] });
+check('reminders: a task with no time counts from 8:00 AM', reminderDue(untimed, untimed.reminders[0], RS.defaultTime) === M('07:00', '2026-09-29'));
+check('reminders: "before" needs a date; an exact time doesn\'t', reminderDue(task({ date: null }), rem('c', { minutes: 10 })) === null
+  && reminderDue(task({ date: null }), { id: 'd', kind: 'at', at: '2026-09-28T05:00:00.000Z' }) === Date.parse('2026-09-28T05:00:00.000Z'));
+check('reminders: nothing rings before its time', dueAlerts(timed, RS, M('13:29')).length === 0);
+const ring1 = dueAlerts(timed, RS, M('13:31'));
+check('reminders: it rings at its time', ring1.length === 1 && ring1[0].type === 'reminder' && ring1[0].due === M('13:30'), ring1);
+let t1 = { ...timed, alerts: markRung(timed, ring1, RS, M('13:31')) };
+check('reminders: …once only', dueAlerts(t1, RS, M('13:45')).length === 0, t1.alerts);
+check('follow-ups: lined up for when the banner would time out (+5 min) + 2 hours', t1.alerts.follow?.next === new Date(M('15:36')).toISOString(), t1.alerts);
+t1 = { ...t1, alerts: afterStop(t1, RS, M('13:40')) };
+check('follow-ups: Stop → 2 hours after you stopped it', t1.alerts.follow.next === new Date(M('15:40')).toISOString(), t1.alerts);
+const f1 = dueAlerts(t1, RS, M('15:41'));
+check('follow-ups: "Still not done" rings then', f1.length === 1 && f1[0].type === 'follow', f1);
+t1 = { ...t1, alerts: markRung(t1, f1, RS, M('15:41')) };
+t1 = { ...t1, alerts: afterStop(t1, RS, M('15:42')) };
+check('follow-ups: the next one 2 hours later', t1.alerts.follow.count === 1 && t1.alerts.follow.next === new Date(M('17:42')).toISOString(), t1.alerts);
+t1 = { ...t1, alerts: markRung(t1, dueAlerts(t1, RS, M('17:43')), RS, M('17:43')) };
+check('follow-ups: stop at the limit (2)', t1.alerts.follow.count === 2 && t1.alerts.follow.next === null && nextAlertAt(t1, RS, M('17:44')) === null, t1.alerts);
+check('quiet hours: 11:00 PM moves to 8:00 AM the next morning', outOfQuiet(M('23:00'), RS.followUps) === M('08:00', '2026-09-29')
+  && outOfQuiet(M('21:00'), RS.followUps) === M('21:00'));
+const late = task({ date: '2026-09-28', startTime: '21:00', reminders: [rem('e', { minutes: 30 })] });
+const lateRung = { ...late, alerts: afterStop({ ...late, alerts: markRung(late, dueAlerts(late, RS, M('20:31')), RS, M('20:31')) }, RS, M('20:32')) };
+check('quiet hours: a follow-up due at 10:32 PM waits until 8:00 AM', lateRung.alerts.follow.next === new Date(M('08:00', '2026-09-29')).toISOString(), lateRung.alerts);
+let t2 = { ...timed, alerts: afterSnooze({ ...timed, alerts: markRung(timed, ring1, RS, M('13:31')) }, 10, M('13:32')) };
+check('snooze: rings again in 10 minutes, follow-ups wait', t2.alerts.snooze.at === new Date(M('13:42')).toISOString() && t2.alerts.follow.next === null
+  && dueAlerts(t2, RS, M('13:41')).length === 0 && dueAlerts(t2, RS, M('13:42'))[0]?.type === 'snooze', t2.alerts);
+t2 = { ...t2, alerts: markRung(t2, dueAlerts(t2, RS, M('13:42')), RS, M('13:42')) };
+check('snooze: once it rings, follow-ups start again', !t2.alerts.snooze && t2.alerts.follow.count === 0 && Boolean(t2.alerts.follow.next), t2.alerts);
+const t3 = { ...t1, alerts: afterStopFollowUps({ ...timed, alerts: markRung(timed, ring1, RS, M('13:31')) }) };
+check('Stop follow-ups: nothing more rings', t3.alerts.follow.off && nextAlertAt(t3, RS, M('13:32')) === null && dueAlerts(t3, RS, M('20:00')).length === 0, t3.alerts);
+check('done, deleted and sample tasks never ring', dueAlerts({ ...timed, status: 'done' }, RS, M('13:31')).length === 0
+  && dueAlerts({ ...timed, deletedAt: '2026-09-28T00:00:00Z' }, RS, M('13:31')).length === 0 && dueAlerts({ ...timed, sample: true }, RS, M('13:31')).length === 0);
+const setLate = task({ date: '2026-09-28', startTime: '09:05', reminders: [rem('f', { minutes: 30, createdAt: '2026-09-28T01:00:00.000Z' })] });
+check('a reminder set after its time never rings late', dueAlerts(setLate, RS, M('09:10')).length === 0);
+check('reminders missed by more than a week are skipped', dueAlerts(task({ date: '2026-09-18', startTime: '10:00', reminders: [rem('g', { minutes: 10 })] }), RS, M('10:00')).length === 0);
+const withFollow = { ...timed, alerts: afterStop({ ...timed, alerts: markRung(timed, ring1, RS, M('13:31')) }, RS, M('13:40')) };
+const settledDone = settleAlerts(withFollow, { ...withFollow, status: 'done' }, RS, M('13:50'));
+check('completing a task ends its follow-ups', !settledDone.follow && !settledDone.snooze && Object.keys(settledDone.seen).length === 1, settledDone);
+const movedDay = { ...withFollow, date: '2026-09-29' };
+const settledMoved = settleAlerts(withFollow, movedDay, RS, M('13:50'));
+check('moving it to another day ends the old follow-ups; its reminder rings again then', !settledMoved.follow
+  && dueAlerts({ ...movedDay, alerts: settledMoved }, RS, M('13:31', '2026-09-29')).length === 1, settledMoved);
+const earlier = { ...timed, startTime: '09:20' };
+const settledEarlier = settleAlerts(timed, earlier, RS, R_NOW);
+check('a new time already passed counts as rung (never rung late)', dueAlerts({ ...earlier, alerts: settledEarlier }, RS, R_NOW + 60e3).length === 0, settledEarlier);
+check('follow-ups: sooner for High priority when set', followRules({ priority: 'high' }, reminderSettings({ followUps: { highMinutes: 60 } })).minutes === 60
+  && followRules({ priority: 'low' }, reminderSettings({ followUps: { highMinutes: 60 } })).minutes === 120);
+const own = { ...timed, followUp: { enabled: false } };
+check('follow-ups: a task can turn them off', markRung(own, ring1, RS, M('13:31')).follow?.next == null);
+check('next alert: the earliest still to come', nextAlertAt({ ...timed, reminders: [rem('h', { minutes: 60 }), rem('i', { minutes: 10 })] }, RS, M('13:10')) === M('13:50'));
+check('reminder words', reminderLabel(rem('j', { minutes: 30 })) === '30 min before' && reminderLabel(rem('k', { minutes: 60 })) === '1 hour before'
+  && reminderLabel(rem('l', { minutes: 2880 })) === '2 days before' && reminderLabel(rem('m', { minutes: 0 })) === 'At the time'
+  && /Tomorrow, 7:00/.test(reminderLabel({ kind: 'at', at: new Date(M('07:00', '2026-09-29')).toISOString() }, R_NOW)),
+  [reminderLabel(rem('j', { minutes: 30 })), reminderLabel({ kind: 'at', at: new Date(M('07:00', '2026-09-29')).toISOString() }, R_NOW)]);
+const oldSeen = settleAlerts({ ...timed, alerts: { seen: { 'z@2026-08-01T00:00:00.000Z': '2026-08-01T00:00:00.000Z' } } }, timed, RS, R_NOW);
+check('rung reminders are forgotten after a month', !oldSeen.seen?.['z@2026-08-01T00:00:00.000Z'], oldSeen);
 
 /* ---------- Show the results ---------- */
 

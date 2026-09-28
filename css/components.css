@@ -437,6 +437,14 @@ html.no-native-switch .switch:checked::before { transform: translateX(20px); }
 .row__value { flex: none; margin-left: auto; color: var(--text-2); font-size: var(--fs-md); text-align: right; }
 .row__control { flex: none; margin-left: auto; }
 .row--stack { flex-wrap: wrap; }
+/* Rows that show and hide together (e.g. follow-up settings) keep the separator lines */
+.row-group > .row:first-child::before,
+.row-group + .row::before { content: ""; position: absolute; top: 0; right: 0; left: 58px; border-top: 1px solid var(--border); }
+/* A time in a settings row */
+.row__time { flex: none; width: auto; min-width: 7.2rem; min-height: 40px; margin-left: auto; padding: 6px 10px; text-align: center; font-variant-numeric: tabular-nums; }
+.row--times .row__time { margin-left: 0; }
+.row--times .row__text { flex: 0 1 auto; }
+.row__to { font-size: var(--fs-sm); color: var(--text-3); }
 .row--stack > .row__text { flex: 1 1 0; }
 .row--stack > .row__full { flex: 1 1 100%; }
 

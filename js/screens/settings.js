@@ -18,6 +18,8 @@ import {
   ARM_NAMES, COMPLETED_MODES, PRIORITIES, PRIORITY_KEYS, QUICK_ACTIONS, QUICK_ARMS, SORTS, VIEWS, quickActionReady, quickArms,
 } from '../modules/todo/model.js';
 import { loadTodo } from '../modules/todo/store.js';
+import { reminderSettings } from '../modules/todo/alerts.js';
+import { isClock } from '../core/manila.js';
 import { ensureSampleData } from '../services/sample-data.js';
 import {
   applyRestore, buildBackup, deliverBackupFile, lastBackupAt, markBackedUp, prepareBackupFile,
@@ -389,8 +391,10 @@ function render() {
           ${icon('chevronRight', 'row__chev')}
         </button>
       </div>
-      <p class="group__foot">Smart sorting puts overdue tasks first, then High, Medium, Low and no priority, earliest time first. Tasks follow Manila time. Reminders, the Google Calendar link, the focus timer and habits arrive in the next updates.</p>
+      <p class="group__foot">Smart sorting puts overdue tasks first, then High, Medium, Low and no priority, earliest time first. Tasks follow Manila time. The Google Calendar link, the focus timer and habits arrive in the next updates.</p>
     </section>
+
+    <section class="group" id="settings-reminders" aria-labelledby="set-rem-title">${remindersSection()}</section>
 
     <section class="group" id="settings-quickmenu" aria-labelledby="set-quick-title" data-slot="quickMenu">${quickMenuSection()}</section>
 
@@ -455,6 +459,53 @@ function render() {
 }
 
 /** Tap a task: Complete in the middle, and these four arms. */
+const FOLLOW_EVERY = [[30, 'Every 30 min'], [60, 'Every hour'], [120, 'Every 2 hours'], [180, 'Every 3 hours'], [240, 'Every 4 hours']];
+
+/** Settings → Reminders: for new tasks, for tasks without a time, and "Still not done" follow-ups. */
+function remindersSection() {
+  const t = state.settings.tasks;
+  const rs = reminderSettings(t);
+  const f = rs.followUps;
+  const every = FOLLOW_EVERY.some(([m]) => m === f.minutes) ? FOLLOW_EVERY : [...FOLLOW_EVERY, [f.minutes, `Every ${f.minutes} min`]];
+  return html`<h2 class="group__title" id="set-rem-title">Reminders</h2>
+    <div class="card group__card accent-todo">
+      ${pickerRow({ field: 'newTaskReminder', iconName: 'bell', label: 'New tasks: reminder', value: Number.isFinite(t.newTaskReminder) ? t.newTaskReminder : '',
+        options: [['', 'None'], [0, 'At the time'], [10, '10 min before'], [30, '30 min before'], [60, '1 hour before']] })}
+      <label class="row row--icon">
+        <span class="row__icon">${icon('clock')}</span>
+        <span class="row__text"><span class="row__label">Tasks without a time</span><span class="row__sub">Their reminders count from this time</span></span>
+        <input type="time" class="input row__time" data-field="defaultTime" value="${rs.defaultTime}" aria-label="Reminder time for tasks without a time">
+      </label>
+      <label class="row row--icon">
+        <span class="row__icon">${icon('repeat')}</span>
+        <span class="row__text"><span class="row__label">Remind me again</span><span class="row__sub">“Still not done” after you tap Stop, until the task is ticked</span></span>
+        <input type="checkbox" class="switch" switch data-field="followEnabled"${checked(f.enabled)}>
+      </label>
+      <div class="row-group" data-slot="followRows"${raw(f.enabled ? '' : ' hidden')}>
+        ${pickerRow({ field: 'followMinutes', iconName: 'hourglass', label: 'How often', value: f.minutes, options: every })}
+        ${pickerRow({ field: 'followLimit', iconName: 'list', label: 'Up to', value: f.limit, options: [1, 2, 3, 4, 5].map((n) => [n, n === 1 ? 'Once' : `${n} times`]) })}
+        ${pickerRow({ field: 'followHigh', iconName: 'flag', label: 'High priority', value: f.highMinutes || 0, options: [[0, 'Same as others'], [30, 'Every 30 min'], [60, 'Every hour']] })}
+        <label class="row row--icon">
+          <span class="row__icon">${icon('moon')}</span>
+          <span class="row__text"><span class="row__label">Quiet hours</span><span class="row__sub">Follow-ups wait until they end</span></span>
+          <input type="checkbox" class="switch" switch data-field="quietEnabled"${checked(f.quiet)}>
+        </label>
+        <div class="row row--icon row--times" data-slot="quietTimes"${raw(f.quiet ? '' : ' hidden')}>
+          <span class="row__icon" aria-hidden="true"></span>
+          <span class="row__text"><span class="row__label">From</span></span>
+          <input type="time" class="input row__time" data-field="quietStart" value="${f.quietStart}" aria-label="Quiet hours start">
+          <span class="row__to">to</span>
+          <input type="time" class="input row__time" data-field="quietEnd" value="${f.quietEnd}" aria-label="Quiet hours end">
+        </div>
+      </div>
+      <button type="button" class="row row--icon" data-action="todo:try-reminder">
+        <span class="row__icon">${icon('volume')}</span>
+        <span class="row__text"><span class="row__label">Try a reminder</span><span class="row__sub">See and hear what one looks like</span></span>
+      </button>
+    </div>
+    <p class="group__foot">Reminders ring while Life Dashboard is open on your screen — an iPhone limit${isIOS() ? '. Their sound follows Workout → Chime even on silent' : ''}. Anything missed while it was closed is listed when you open it. Google Calendar alerts, which ring on a locked phone too, arrive in the next update.</p>`;
+}
+
 function quickMenuSection() {
   const arms = quickArms(state.settings.tasks.quickMenu);
   // Complete is always the middle button, so it isn't offered for the arms
@@ -633,6 +684,35 @@ async function onChange(event) {
       case 'taskCategory':
         await save((s) => { s.tasks.defaultCategoryId = el.value || null; });
         break;
+      case 'newTaskReminder':
+        await save((s) => { s.tasks.newTaskReminder = el.value === '' ? null : Number(el.value); });
+        break;
+      case 'defaultTime':
+        if (!isClock(el.value)) {
+          el.value = reminderSettings(state.settings.tasks).defaultTime;
+          break;
+        }
+        await save((s) => { s.tasks.defaultTime = el.value; });
+        break;
+      case 'followEnabled':
+      case 'followMinutes':
+      case 'followLimit':
+      case 'followHigh':
+      case 'quietEnabled':
+      case 'quietStart':
+      case 'quietEnd': {
+        const value = { followEnabled: el.checked, followMinutes: Number(el.value), followLimit: Number(el.value), followHigh: Number(el.value),
+          quietEnabled: el.checked, quietStart: el.value, quietEnd: el.value }[field];
+        const key = { followEnabled: 'enabled', followMinutes: 'minutes', followLimit: 'limit', followHigh: 'highMinutes', quietEnabled: 'quiet', quietStart: 'quietStart', quietEnd: 'quietEnd' }[field];
+        if ((field === 'quietStart' || field === 'quietEnd') && !isClock(value)) {
+          el.value = reminderSettings(state.settings.tasks).followUps[key];
+          break;
+        }
+        await save((s) => { s.tasks.followUps = { ...reminderSettings(s.tasks).followUps, [key]: value }; });
+        if (field === 'followEnabled') root.querySelector('[data-slot="followRows"]').hidden = !el.checked;
+        if (field === 'quietEnabled') root.querySelector('[data-slot="quietTimes"]').hidden = !el.checked;
+        break;
+      }
       case 'autoSync':
         await setAutoSync(el.checked);
         toast(el.checked ? 'Automatic sync is on.' : 'Automatic sync is off. Use “Sync now” when you want to sync.', { icon: 'refresh' });
@@ -938,7 +1018,7 @@ async function openScriptUpdate() {
     className: 'setup',
     title: 'Update the sync script',
     body: html`
-      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script gives your tasks and subtasks their own readable tabs in your Google Sheet, can put tasks in Google Calendar (for reminders that ring when the app is closed), and includes Ward Patients (Neurology tab). Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
+      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script gives your tasks and subtasks their own readable tabs in your Google Sheet (with each subtask’s own date, time and reminders), can put tasks and subtasks in Google Calendar (for reminders that ring when the app is closed), and includes Ward Patients (Neurology tab). Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
       <ol class="setup__steps">
         <li><strong>Copy the new code.</strong>
           <span class="setup__buttons">
@@ -946,7 +1026,7 @@ async function openScriptUpdate() {
             ${codeUrl ? html`<a class="btn btn--sm btn--ghost" href="${codeUrl}" target="_blank" rel="noopener">${icon('external')}View code</a>` : ''}
           </span>
         </li>
-        <li><strong>Replace the old code.</strong> Open your Google Sheet → <strong>Extensions → Apps Script</strong>. Click in the code, select everything (<strong>⌘A</strong>), paste (<strong>⌘V</strong>), then click <strong>Save</strong>. Line 24 should now read <code>const SCRIPT_VERSION = ${LATEST_SCRIPT_VERSION};</code></li>
+        <li><strong>Replace the old code.</strong> Open your Google Sheet → <strong>Extensions → Apps Script</strong>. Click in the code, select everything (<strong>⌘A</strong>), paste (<strong>⌘V</strong>), then click <strong>Save</strong>. Near the top, a line should now read <code>const SCRIPT_VERSION = ${LATEST_SCRIPT_VERSION};</code></li>
         <li><strong>Allow Google Calendar (once).</strong> In the toolbar, choose <strong>setup</strong> and click <strong>Run</strong>. Google asks for permission: <strong>Review permissions</strong> → your account → <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> → <strong>Allow</strong>. It’s your own script; this also tidies the task tabs and starts a 30-minute check it needs for Calendar alerts.</li>
         <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>.</li>
         <li><strong>Check.</strong> Come back here and tap <strong>Check now</strong>.</li>

@@ -12,7 +12,7 @@ import { html, setHTML } from '../core/html.js';
 import { registerQuickAdd } from '../core/quick-add.js';
 import { icon } from '../core/icons.js';
 import { formatClock, todayKey } from '../core/manila.js';
-import { PRIORITIES, isDone, isOverdue, sortTasks, subtaskProgress, viewCounts, viewGroups } from './todo/model.js';
+import { PRIORITIES, isDone, isOverdue, scheduledSubtasks, sortTasks, subtaskProgress, viewCounts, viewGroups } from './todo/model.js';
 import { loadTodo } from './todo/store.js';
 import { checkButton, priorityChip } from './todo/rows.js';
 import { mountList, newTaskDefaults, refreshList, showList } from './todo/list.js';
@@ -24,11 +24,12 @@ export async function loadTodoModel(now = new Date()) {
   const ms = now.getTime();
   const d = await loadTodo(ms);
   const today = todayKey(ms);
-  const { groups } = viewGroups('today', d.tasks, { now: ms, sort: 'smart', completed: 'keep', categories: d.categories });
+  const subs = scheduledSubtasks(d.subtasks, d.tasks); // subtasks with a date count as rows too
+  const { groups } = viewGroups('today', d.tasks, { now: ms, sort: 'smart', completed: 'keep', categories: d.categories, subtasks: subs });
   const list = groups[0]?.tasks ?? [];
   const pending = list.filter((t) => !isDone(t));
-  const counts = viewCounts(d.tasks, ms);
-  const upcomingTimed = sortTasks(d.tasks.filter((t) => !isDone(t) && t.date === today && t.startTime), 'time', { now: ms })
+  const counts = viewCounts(d.tasks, ms, subs);
+  const upcomingTimed = sortTasks([...d.tasks, ...subs].filter((t) => !isDone(t) && t.date === today && t.startTime), 'time', { now: ms })
     .filter((t) => !isOverdue(t, ms));
   return {
     now: ms,
@@ -86,9 +87,10 @@ registerModule({
     return html`<ul class="mini-tasks">${shown.map((t) => html`
       <li class="mini-task${isOverdue(t, m.now) ? ' is-overdue' : ''}">
         ${checkButton(t)}
-        <button type="button" class="mini-task__open" data-action="todo:quick" data-id="${t.id}" aria-label="${t.title}. Opens the quick menu.">
+        <button type="button" class="mini-task__open" data-action="todo:quick" data-id="${t.id}" data-kind="${t.kind === 'subtask' ? 'subtask' : 'task'}"
+          aria-label="${t.kind === 'subtask' ? `Subtask of ${t.parentTitle}: ` : ''}${t.title}. Opens the quick menu.">
           <span class="mini-task__title">${t.title}</span>
-          <span class="mini-task__meta">${priorityChip(t.priority)}<span class="mini-task__time">${dueWords(t, m)}</span></span>
+          <span class="mini-task__meta">${t.kind === 'subtask' ? html`<span class="mini-task__parent">↳ ${t.parentTitle}</span>` : priorityChip(t.priority)}<span class="mini-task__time">${dueWords(t, m)}</span></span>
         </button>
       </li>`)}</ul>
       ${m.pending.length > shown.length ? html`<p class="more-note">+${m.pending.length - shown.length} more</p>` : ''}
@@ -109,13 +111,13 @@ registerModule({
         value: top ? top.title : 'Nothing pending',
         sub: top ? `${PRIORITIES[top.priority].label} priority · ${dueWords(top, m)}` : 'You’re all caught up',
         subTone: top && isOverdue(top, m.now) ? 'danger' : null,
-        action: top ? 'todo:open' : 'nav', data: top ? { id: top.id } : { route: 'todo', sub: '' },
+        action: top ? 'todo:open' : 'nav', data: top ? { id: top.id, kind: top.kind ?? 'task' } : { route: 'todo', sub: '' },
       },
       {
         id: 'next-task', order: 25, icon: 'clock', accent: 'todo', label: 'Next task',
         value: m.next ? m.next.title : 'No more timed tasks today',
         sub: m.next ? formatClock(m.next.startTime) : 'Untimed tasks are in To Do',
-        action: m.next ? 'todo:open' : 'nav', data: m.next ? { id: m.next.id } : { route: 'todo', sub: '' },
+        action: m.next ? 'todo:open' : 'nav', data: m.next ? { id: m.next.id, kind: m.next.kind ?? 'task' } : { route: 'todo', sub: '' },
       },
     ];
   },

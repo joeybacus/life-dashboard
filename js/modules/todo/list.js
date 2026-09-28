@@ -16,13 +16,14 @@ import { makeReorderable } from '../../core/reorder.js';
 import { openQuickAdd } from '../../core/quick-add.js';
 import { addDays, formatDay, formatMonthDay, todayKey } from '../../core/manila.js';
 import {
-  PRIORITIES, SORTS, VIEWS, isDone, searchTasks, subtaskProgress, viewCounts, viewGroups, visibleViews,
+  PRIORITIES, SORTS, VIEWS, isDone, scheduledSubtasks, searchTasks, subtaskProgress, viewCounts, viewGroups, visibleViews,
 } from './model.js';
 import { loadTodo, placeBetween } from './store.js';
 import { categoryChip, taskRow } from './rows.js';
 import { bindCapture, captureMarkup } from './capture.js';
 import { bindKeys, bindSwipes } from './gestures.js';
-import { toggleDone } from './task-actions.js';
+import { toggleDone, toggleSubDone } from './task-actions.js';
+import { reminderSettings } from './alerts.js';
 import { exportTasksCsv } from './pages.js';
 import './quickmenu.js';
 
@@ -50,6 +51,7 @@ export function newTaskDefaults() {
     date: where === 'today' ? today : where === 'upcoming' ? addDays(today, 1) : null,
     priority: PRIORITIES[s.defaultPriority] ? s.defaultPriority : 'none',
     categoryId: s.defaultCategoryId ?? null,
+    reminderMinutes: Number.isFinite(s.newTaskReminder) ? s.newTaskReminder : null,
   };
 }
 
@@ -58,7 +60,11 @@ export function newTaskDefaults() {
 async function load() {
   const now = Date.now();
   const d = await loadTodo(now);
-  data = { ...d, now, progress: subtaskProgress(d.subtasks), counts: viewCounts(d.tasks, now) };
+  const subItems = scheduledSubtasks(d.subtasks, d.tasks);
+  data = {
+    ...d, now, subItems, reminderSettings: reminderSettings(settings()),
+    progress: subtaskProgress(d.subtasks), counts: viewCounts(d.tasks, now, subItems),
+  };
   return data;
 }
 
@@ -94,7 +100,8 @@ function listMarkup() {
   const today = todayKey(m.now);
   const sort = s.sort in SORTS ? s.sort : 'smart';
   const filtered = searchTasks(m.tasks, query, m.categories);
-  const { groups, hidden } = viewGroups(view, filtered, { now: m.now, sort, completed: s.completed, categories: m.categories });
+  const subs = searchTasks(m.subItems, query, m.categories);
+  const { groups, hidden } = viewGroups(view, filtered, { now: m.now, sort, completed: s.completed, categories: m.categories, subtasks: subs });
   const manual = sort === 'manual' && !query && view !== 'completed';
   const shown = groups.filter((g) => g.tasks.length);
 
@@ -294,7 +301,7 @@ async function moveTo(id, ids) {
   await placeBetween(list[i], list[i - 1], list[i + 1]);
 }
 
-registerAction('todo:toggle', (btn) => toggleDone(btn.dataset.id));
+registerAction('todo:toggle', (btn) => (btn.dataset.kind === 'subtask' ? toggleSubDone(btn.dataset.id) : toggleDone(btn.dataset.id)));
 
 // "New task" (Main dashboard, empty lists elsewhere): the Quick Add sheet, ready to type
 registerAction('todo:new', () => openQuickAdd());

@@ -1,7 +1,8 @@
 /* One task in a sheet: add a new task, or see and change everything about an
-   existing one — title, priority, date and time, category, tags, pin, notes,
-   subtasks and links. Changes to an existing task save as you make them (text
-   a moment after you stop typing); a new task is saved when you tap Add. */
+   existing one — title, priority, date and time, reminders, category, tags,
+   pin, notes, subtasks (each can have its own date, time and reminders: the
+   clock button) and links. Changes to an existing task save as you make them
+   (text a moment after you stop typing); a new task is saved when you tap Add. */
 import { html, raw, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { state } from '../../core/state.js';
@@ -10,7 +11,7 @@ import { uid } from '../../core/ids.js';
 import { actionSheet, announce, confirmDialog, openDialog, toast } from '../../core/ui.js';
 import { makeReorderable } from '../../core/reorder.js';
 import { prefersReducedMotion } from '../../core/platform.js';
-import { addDays, daysFrom, formatDayLong, formatStamp, todayKey } from '../../core/manila.js';
+import { addDays, daysFrom, formatClockRange, formatDay, formatDayLong, formatStamp, relativeDay, todayKey } from '../../core/manila.js';
 import {
   MAX_NOTES, MAX_TITLE, PRIORITIES, PRIORITY_KEYS, cleanUrl, isDone, linkTitle, newTask, normalizeTask, parseTags,
 } from './model.js';
@@ -18,6 +19,9 @@ import {
   addSubtask, createTask, deleteSub, loadTodo, moveToTomorrow, putBack, reorderSubs, saveSub, saveTask, setDone, softDelete, subtaskToTask,
 } from './store.js';
 import { checkDuplicate } from './task-actions.js';
+import { newReminder } from './alerts.js';
+import { bindReminderField, reminderFieldMarkup } from './reminder-ui.js';
+import { subtaskSheet } from './subtask-sheet.js';
 
 const checkedAttr = (on) => (on ? raw(' checked') : '');
 const disabledAttr = (on) => (on ? raw(' disabled') : '');
@@ -42,8 +46,11 @@ export async function openNewTask(fields = {}) {
   const task = newTask({
     priority: PRIORITIES[s.defaultPriority] ? s.defaultPriority : 'none',
     categoryId: data.categories.has(s.defaultCategoryId) ? s.defaultCategoryId : null,
+    // Settings → Tasks → Reminders → "New tasks: reminder"
+    reminders: Number.isFinite(s.newTaskReminder) ? [{ kind: 'before', minutes: s.newTaskReminder }] : [],
     ...fields,
   });
+  task.reminders = task.reminders.map((r) => (r.id ? r : newReminder(r))); // each needs its own id in the sheet
   return taskSheet({ task, data, isNew: true });
 }
 
@@ -97,6 +104,8 @@ function sheetBody(task, { isNew, categories, today }) {
       </div>
       <p class="tform__hint">${task.date ? 'Optional. Tasks without a time are fine.' : 'Pick a date to add a time.'}</p>
     </div>
+
+    ${reminderFieldMarkup(task, { id: 'tf-rem' })}
 
     <label class="tform__field"><span class="field__label">Category</span>
       <select class="select" name="categoryId">${categoryOptions(categories, task.categoryId)}</select>
@@ -153,11 +162,25 @@ function metaText(task) {
   return parts.join(' · ');
 }
 
-function subRow(sub, i, count) {
+/** "Tomorrow · 2:00 – 3:00 PM" — a subtask's own day and time. */
+function subWhen(sub, today) {
+  if (!sub.date) return '';
+  const near = relativeDay(sub.date, today);
+  const day = ['Today', 'Tomorrow', 'Yesterday'].includes(near) ? near : formatDay(sub.date);
+  return sub.startTime ? `${day} · ${formatClockRange(sub.startTime, sub.endTime)}` : day;
+}
+
+function subRow(sub, i, count, today) {
+  const when = subWhen(sub, today);
+  const bells = sub.reminders?.length ?? 0;
   return html`<li class="sub${sub.done ? ' is-done' : ''}" data-id="${sub.id}">
     <span class="sub__handle" data-drag-handle title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>
     <label class="sub__check"><input type="checkbox" data-sub-done${checkedAttr(sub.done)} aria-label="Done: ${sub.title}"><span class="sub__box" aria-hidden="true">${icon('check')}</span></label>
-    <input class="sub__title" value="${sub.title}" maxlength="${MAX_TITLE}" data-sub-title aria-label="Subtask ${i + 1} of ${count}" enterkeyhint="done">
+    <span class="sub__main">
+      <input class="sub__title" value="${sub.title}" maxlength="${MAX_TITLE}" data-sub-title aria-label="Subtask ${i + 1} of ${count}" enterkeyhint="done">
+      ${when || bells ? html`<span class="sub__when">${when ? html`<span>${icon('calendar')}${when}</span>` : ''}${bells ? html`<span>${icon('bell')}${bells === 1 ? '1 reminder' : `${bells} reminders`}</span>` : ''}</span>` : ''}
+    </span>
+    <button type="button" class="icon-btn icon-btn--sm sub__sched${when || bells ? ' is-set' : ''}" data-sub-sched aria-label="Date, time and reminders for ${sub.title}${when ? ` (${when})` : ''}">${icon('clock')}</button>
     <button type="button" class="icon-btn icon-btn--sm" data-sub-menu aria-label="Options for ${sub.title}">${icon('more')}</button>
     <button type="button" class="sr-only sr-only-focusable" data-sub-move="-1"${disabledAttr(i === 0)}>Move ${sub.title} up</button>
     <button type="button" class="sr-only sr-only-focusable" data-sub-move="1"${disabledAttr(i === count - 1)}>Move ${sub.title} down</button>
@@ -217,6 +240,7 @@ async function taskSheet({ task: start, data, isNew }) {
   let form = null;
   let closeSheet = null;
   let created = null; // the new task, once added
+  let reminderField = null;
   const pendingTitles = new Map(); // subtask id → title being typed
   let titlesTimer = null;
   const today = todayKey();
@@ -273,7 +297,7 @@ async function taskSheet({ task: start, data, isNew }) {
     form.querySelector('[data-slot="subCount"]').textContent = subs.length ? `${done} of ${subs.length} done` : '';
     setHTML(slot, subs.length ? html`
       <div class="progress" role="progressbar" aria-label="Subtasks done" aria-valuemin="0" aria-valuemax="${subs.length}" aria-valuenow="${done}"><span style="width: ${Math.round((done / subs.length) * 100)}%"></span></div>
-      <ol class="subs" data-subs>${subs.map((s, i) => subRow(s, i, subs.length))}</ol>` : '');
+      <ol class="subs" data-subs>${subs.map((s, i) => subRow(s, i, subs.length, today))}</ol>` : '');
     const list = slot.querySelector('[data-subs]');
     if (list) {
       makeReorderable(list, {
@@ -321,6 +345,7 @@ async function taskSheet({ task: start, data, isNew }) {
     endTime.value = draft.endTime ?? '';
     form.querySelector('[data-clear-time]').disabled = !draft.startTime;
     startTime.closest('.tform__field').querySelector('.tform__hint').textContent = draft.date ? 'Optional. Tasks without a time are fine.' : 'Pick a date to add a time.';
+    reminderField?.refresh(); // the reminders' times follow the task's
   };
 
   /** Ticking the last subtask offers to complete the task too (never automatically). */
@@ -433,6 +458,8 @@ async function taskSheet({ task: start, data, isNew }) {
       announce(`Moved to position ${to + 1} of ${ids.length}.`);
     } else if ('subMenu' in t.dataset) {
       await subMenu(t.closest('[data-id]').dataset.id);
+    } else if ('subSched' in t.dataset) {
+      await scheduleSub(t.closest('[data-id]').dataset.id);
     } else if ('linkAdd' in t.dataset) {
       const link = await askForLink();
       if (!link) return;
@@ -502,6 +529,23 @@ async function taskSheet({ task: start, data, isNew }) {
       await refreshSubs();
       if (!isNew) toast('Subtask deleted.', { icon: 'trash', action: { label: 'Undo', onClick: async () => { await saveSub({ ...sub, deletedAt: null }); await refreshSubs(); } } });
     }
+  };
+
+  /** A subtask's own date, time and reminders (its own sheet). */
+  const scheduleSub = async (id) => {
+    await flushTitles();
+    const sub = subs.find((s) => s.id === id);
+    if (!sub) return;
+    const saved = await subtaskSheet(sub, {
+      parentTitle: draft.title.trim() || 'this task',
+      save: async (fields) => {
+        if (isNew) Object.assign(sub, fields);
+        else await saveSub({ ...sub, ...fields });
+      },
+    });
+    if (!saved) return;
+    await refreshSubs();
+    form.querySelector(`[data-id="${id}"] [data-sub-sched]`)?.focus();
   };
 
   const linkMenu = async (id) => {
@@ -575,6 +619,13 @@ async function taskSheet({ task: start, data, isNew }) {
     onOpen(dlg, close) {
       closeSheet = close;
       form = dlg.querySelector('[data-tform]');
+      reminderField = bindReminderField(form, {
+        get: () => draft,
+        set: (patch) => {
+          draft = { ...draft, ...patch };
+          if (!isNew) persist();
+        },
+      });
       refreshSubs();
       refreshLinks();
       if (!isNew) form.querySelector('[data-slot="meta"]').textContent = metaText(draft);

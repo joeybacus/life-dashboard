@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 5
+SCRIPT_VERSION = 6
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -422,6 +422,10 @@ check('renaming a category updates the Tasks tab', readable(gas('dump'), 'Tasks'
 push([('subtasks', rec('sub-1', T, taskId='task-1', title='Outline', done=True, order=0))])
 r = readable(gas('dump'), 'Subtasks', 'sub-1')
 check('subtasks show their task\'s title', r['Task'] == 'Finish STRAMA paper' and r['Subtask'] == 'Outline' and r['Done'] == 'Yes', r)
+push([('subtasks', rec('sub-2', T, taskId='task-1', title='Call Dr Reyes', done=False, order=1, date='2026-09-28', startTime='14:00', endTime='14:30',
+                       reminders=[{'id': 's', 'kind': 'before', 'minutes': 15}, {'id': 't', 'kind': 'before', 'minutes': 0}]))])
+r = readable(gas('dump'), 'Subtasks', 'sub-2')
+check('subtasks show their own date, time and reminders (version 6)', r['Date'] == '2026-09-28' and r['Time'] == '14:00–14:30' and r['Reminders'] == '15 min before, At the time' and r['Google Calendar'] == '', r)
 done_task = {**task, 'title': 'Finish STRAMA paper (final)', 'status': 'done', 'completedAt': '2026-09-28T13:05:00.000Z', 'updatedAt': '2026-09-28T13:05:00.000Z'}
 push([('tasks', done_task)])
 state = gas('dump')
@@ -577,6 +581,7 @@ gas('tick')
 f = follow()
 check('it rings at 8:00 AM instead', len(f) == 1 and f[0]['start'] == '2026-09-30T00:05:00.000Z', f)
 
+
 # Setting: remove the event when a task is done
 push([('settings', rec('app', '2026-09-29T23:40:00.000Z', tasks={'calendar': {'completed': 'remove'}}))])
 push([('tasks', ctask('cal-6', title='Evening meds review', date='2026-09-29', startTime='21:30', status='done', updated='2026-09-29T23:41:00.000Z',
@@ -631,6 +636,51 @@ st = gas('dump')
 link_tab = sheet(st, 'Calendar links')
 r = readable(st, 'Calendar links', 'cal-2')
 check('the Calendar links tab is readable', r['Task'] == 'Submit IRB form (v3)' and r['Status'] == 'Linked' and r['Calendar'] == 'Practice tasks', r)
+
+# Subtasks with their own time (version 6): their own events, named with their task
+set_now('2026-09-30T01:00:00.000Z')  # Wednesday 09:00
+push([('settings', rec('app', '2026-09-30T00:30:00.000Z', tasks={'calendar': {'calendarId': 'practice@group.calendar.google.com', 'completed': 'rename'}}))])
+parent = ctask('cal-7', title='Finish STRAMA paper', date='2026-10-02', addToCalendar=False)
+sub = rec('sub-7', '2026-09-30T01:00:00.000Z', taskId='cal-7', title='Draft the introduction', done=False, order=0,
+          date='2026-09-30', startTime='14:00', reminders=[{'id': 's1', 'kind': 'before', 'minutes': 15}], addToCalendar=True)
+push([('tasks', parent), ('subtasks', sub)])
+cal_sync()
+ls = link('sub-7')
+es = live_events().get(ls['eventId'] if ls else '')
+check('a subtask with its own time becomes its own event, named with its task', es and es['title'] == 'Draft the introduction (Finish STRAMA paper)'
+      and es['start'] == '2026-09-30T06:00:00.000Z' and es['popups'] == [15] and ls['item'] == 'subtask' and ls['taskId'] == 'cal-7', (ls, es))
+check('its event says it\'s a subtask', es and 'A subtask of “Finish STRAMA paper”' in es['description'], es and es['description'])
+check('the Calendar links tab names the subtask and its task', readable(gas('dump'), 'Calendar links', 'sub-7')['Task'] == 'Draft the introduction (subtask of Finish STRAMA paper)',
+      readable(gas('dump'), 'Calendar links', 'sub-7'))
+parent2 = {**parent, 'title': 'Finish STRAMA paper (final)', 'updatedAt': '2026-09-30T01:05:00.000Z'}
+push([('tasks', parent2)])
+cal_sync()
+check('renaming its task renames the subtask\'s event', live_events()[ls['eventId']]['title'] == 'Draft the introduction (Finish STRAMA paper (final))', live_events()[ls['eventId']]['title'])
+check('…and the Calendar links tab', 'Finish STRAMA paper (final)' in readable(gas('dump'), 'Calendar links', 'sub-7')['Task'])
+push([('subtasks', {**sub, 'done': True, 'completedAt': '2026-09-30T01:10:00.000Z', 'updatedAt': '2026-09-30T01:10:00.000Z'})])
+cal_sync()
+check('a done subtask\'s event is renamed "✓ …"', live_events()[ls['eventId']]['title'] == '✓ Draft the introduction (Finish STRAMA paper (final))')
+push([('subtasks', {**sub, 'updatedAt': '2026-09-30T01:11:00.000Z'})])
+cal_sync()
+check('…and back when it isn\'t done', live_events()[ls['eventId']]['title'] == 'Draft the introduction (Finish STRAMA paper (final))' and live_events()[ls['eventId']]['popups'] == [15])
+push([('tasks', {**parent2, 'status': 'done', 'completedAt': '2026-09-30T01:12:00.000Z', 'updatedAt': '2026-09-30T01:12:00.000Z'})])
+cal_sync()
+check('completing its task marks the subtask\'s event done too', live_events()[ls['eventId']]['title'].startswith('✓ '))
+push([('tasks', {**parent2, 'deletedAt': '2026-09-30T01:13:00.000Z', 'updatedAt': '2026-09-30T01:13:00.000Z'})])
+cal_sync()
+check('deleting its task deletes the subtask\'s event', ls['eventId'] not in live_events() and link('sub-7')['status'] == 'unlinked', link('sub-7'))
+set_now('2026-10-01T01:00:00.000Z')  # Thursday 09:00
+push([('tasks', ctask('cal-8', title='Grand rounds', date='2026-10-01', addToCalendar=False, updated='2026-10-01T01:00:00.000Z')),
+      ('subtasks', rec('sub-8', '2026-10-01T01:00:00.000Z', taskId='cal-8', title='Print the handouts', done=False, order=0, date='2026-10-01',
+                       startTime='10:00', reminders=[{'id': 'p', 'kind': 'before', 'minutes': 30}], addToCalendar=True))])
+gas('tick')
+set_now('2026-10-01T03:00:00.000Z')  # 11:00: its reminder was at 09:30
+gas('tick')
+mine = lambda: [e['title'] for e in follow() if 'Print the handouts' in e['title']]
+check('a subtask still open after its reminder gets a follow-up too', mine() == ['Still not done: Print the handouts (Grand rounds)'], [e['title'] for e in follow()])
+push([('tasks', ctask('cal-8', title='Grand rounds', date='2026-10-01', addToCalendar=False, deletedAt='2026-10-01T03:01:00.000Z', updated='2026-10-01T03:01:00.000Z'))])
+cal_sync()
+check('…removed with its task', mine() == [] and link('sub-8')['status'] == 'unlinked', mine())
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

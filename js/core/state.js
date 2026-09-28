@@ -41,7 +41,11 @@ export const DEFAULT_SETTINGS = {
     },
     density: 'comfortable', // 'comfortable' | 'compact'
     quickMenu: { up: null, right: null, down: null, left: null }, // tap-a-task menu arms; null = the default
-    // (v0.3 had a "defaultReminder: 30" here that never did anything; reminders arrive in 0.4.2)
+    // Reminders (0.4.2). The sync script reads defaultTime and followUps too, for Google Calendar.
+    // (v0.3 had a "defaultReminder: 30" that never did anything: newTaskReminder is a new key, so nothing changes by itself.)
+    newTaskReminder: null,  // minutes before, for new tasks; null = none
+    defaultTime: '08:00',   // reminders for tasks with a date but no time count from this time
+    followUps: { enabled: true, minutes: 120, limit: 2, quiet: true, quietStart: '22:00', quietEnd: '08:00', highMinutes: 0 },
   },
   backup: {
     reminders: true,        // weekly "back up your data" nudge (not shown while sync works)

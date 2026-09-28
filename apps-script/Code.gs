@@ -18,12 +18,12 @@
  *
  * The same script also reads and updates your ward logsheet for the app's
  * Ward Patients screen (Neurology tab) — see "Ward Patients" further down —
- * and puts to-do tasks in Google Calendar when you ask it to — see
- * "Google Calendar link".
+ * and puts to-do tasks (and subtasks with their own time) in Google Calendar
+ * when you ask it to — see "Google Calendar link".
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 5;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link
+const SCRIPT_VERSION = 6;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -712,7 +712,12 @@ const LAYOUTS = {
     'Task id': function (s) { return s.taskId || ''; },
     Subtask: function (s) { return s.title; },
     Done: function (s) { return s.done ? 'Yes' : 'No'; },
+    Date: function (s) { return s.date || ''; },
+    Time: function (s) { return timeText_(s); },
+    Reminders: function (s) { return remindersText_(s.reminders); },
+    'Google Calendar': function (s) { return s.addToCalendar ? 'On' : ''; },
     Order: function (s) { return s.order == null ? '' : s.order; },
+    Completed: function (s) { return s.done ? shownTime_(s.completedAt) : ''; },
     Updated: function (s) { return shownTime_(s.updatedAt); },
     Deleted: function (s) { return shownTime_(s.deletedAt); },
   },
@@ -744,7 +749,9 @@ const LAYOUTS = {
     Completed: function (f) { return f.completed ? 'Yes' : 'No'; },
   },
   calendarLinks: {
-    Task: function (l, ctx) { return ctx.name('tasks', l.id); },
+    Task: function (l, ctx) {
+      return l.item === 'subtask' ? ctx.name('subtasks', l.id) + ' (subtask of ' + ctx.name('tasks', l.taskId) + ')' : ctx.name('tasks', l.id);
+    },
     Status: function (l) { return CAL_STATUS_NAMES[l.status] || l.status || ''; },
     Calendar: function (l) { return l.calendarName || ''; },
     'Next alert': function (l) { return shownTime_(l.nextAlertAt); },
@@ -761,7 +768,8 @@ const LAYOUTS = {
 // Tabs that show another tab's names: when a name changes, their readable columns are refreshed
 const DEPENDENTS = {
   taskCategories: [['tasks', 'categoryId']],
-  tasks: [['subtasks', 'taskId'], ['focusSessions', 'taskId'], ['calendarLinks', 'id']],
+  tasks: [['subtasks', 'taskId'], ['focusSessions', 'taskId'], ['calendarLinks', 'id'], ['calendarLinks', 'taskId']],
+  subtasks: [['calendarLinks', 'id']],
   habits: [['habitLogs', 'habitId']],
 };
 
@@ -910,7 +918,8 @@ function remindersText_(reminders) {
     if (!r) return '';
     if (r.kind === 'at') return r.at ? 'At ' + shownTime_(r.at) : '';
     const m = Number(r.minutes);
-    return isFinite(m) && m >= 0 ? minutesText_(m) + ' before' : '';
+    if (m === 0) return 'At the time';
+    return isFinite(m) && m > 0 ? minutesText_(m) + ' before' : '';
   }).filter(function (text) { return text; }).join(', ');
 }
 
@@ -944,7 +953,10 @@ function scheduleText_(schedule) {
  * One way only: a task with "Add to Google Calendar" switched on becomes an
  * event, so its reminders ring from Google Calendar even while the app is
  * closed. Events go into the "Life Dashboard Tasks" calendar (made the first
- * time a task is linked) or the calendar you choose in the app.
+ * time a task is linked) or the calendar you choose in the app. A subtask with
+ * its own date and the switch on becomes its own event too (version 6), named
+ * with its task — "Draft the introduction (Finish STRAMA paper)" — and done or
+ * removed along with its task.
  *
  * What a linked task becomes:
  *   - with a time: an event at that time (30 minutes long if there's no end time)
@@ -1110,21 +1122,47 @@ function calRun_(ss, props, opts) {
   const changedTasks = [];
   const watched = [];
   let maxSeq = sinceSeq;
+  const watch = function (link) {
+    return Boolean(link) && (link.status === 'paused'
+      || (link.status === 'linked' && link.taskOpen && link.taskDate >= from && link.taskDate <= until));
+  };
+  const taskJson = {};     // every task, for its subtasks' names and status
+  const tasksChanged = {}; // tasks changed since the last check (a rename, done or deleted also changes their subtasks' events): id → seq
   const tasksSheet = ss.getSheetByName(STORES.tasks);
   (tasksSheet ? dataRows_(tasksSheet, HEADER.length) : []).forEach(function (row) {
     const id = row[COL.id];
     if (!id) return;
     const seq = Number(row[COL.seq]) || 0;
     if (seq > maxSeq) maxSeq = seq;
+    taskJson[id] = row[COL.json];
     const link = links[id] || null;
     const isNew = seq > sinceSeq;
-    const watch = Boolean(link) && (link.status === 'paused'
-      || (link.status === 'linked' && link.taskOpen && link.taskDate >= from && link.taskDate <= until));
-    if (!(isNew || watch || asked[id] || opts.all)) return;
+    if (isNew) tasksChanged[id] = seq;
+    if (!(isNew || watch(link) || asked[id] || opts.all)) return;
     let task;
     try { task = JSON.parse(row[COL.json]); } catch (err) { return; }
     if (!task || task.sample || (!task.addToCalendar && !link)) return; // never linked: nothing to do
     (isNew ? changedTasks : watched).push({ task: task, seq: seq, link: link });
+  });
+  // Subtasks with their own date become events too (version 6), named with their task
+  const subsSheet = ss.getSheetByName(STORES.subtasks);
+  (subsSheet ? dataRows_(subsSheet, HEADER.length) : []).forEach(function (row) {
+    const id = row[COL.id];
+    if (!id) return;
+    const seq = Number(row[COL.seq]) || 0;
+    if (seq > maxSeq) maxSeq = seq;
+    const link = links[id] || null;
+    const isNew = seq > sinceSeq;
+    const parentChanged = Boolean(link && tasksChanged[link.taskId]);
+    if (!(isNew || parentChanged || watch(link) || asked[id] || opts.all)) return;
+    let sub;
+    try { sub = JSON.parse(row[COL.json]); } catch (err) { return; }
+    if (!sub || sub.sample || (!sub.addToCalendar && !link)) return;
+    let parent = null;
+    try { parent = taskJson[sub.taskId] ? JSON.parse(taskJson[sub.taskId]) : null; } catch (err) { /* a damaged row: treated as gone */ }
+    const item = subtaskAsTask_(sub, parent);
+    // Changed with its task: it counts as part of that change (if time runs out, both are looked at again)
+    (isNew || parentChanged ? changedTasks : watched).push({ task: item, seq: isNew ? seq : tasksChanged[link.taskId], link: link });
   });
   changedTasks.sort(function (a, b) { return a.seq - b.seq; });
   watched.sort(function (a, b) { return String(a.task.date || '').localeCompare(String(b.task.date || '')); });
@@ -1179,7 +1217,35 @@ function calRun_(ss, props, opts) {
   };
 }
 
-/** One task: returns its updated link, or null when nothing changed. */
+/**
+ * A subtask as the calendar sees a task: its own date, time and reminders, its
+ * task's priority and category; done or deleted when its task is.
+ */
+function subtaskAsTask_(sub, parent) {
+  const gone = !parent || Boolean(parent.deletedAt);
+  return {
+    id: sub.id,
+    item: 'subtask',
+    taskId: String(sub.taskId || ''),
+    parentTitle: parent ? String(parent.title || '') : '',
+    title: sub.title,
+    date: sub.date || null,
+    startTime: sub.startTime || null,
+    endTime: sub.endTime || null,
+    reminders: list_(sub.reminders),
+    followUp: sub.followUp || null,
+    addToCalendar: Boolean(sub.addToCalendar),
+    status: sub.done || (parent && parent.status === 'done') ? 'done' : 'open',
+    deletedAt: sub.deletedAt || (gone ? (parent && parent.deletedAt) || 'task-gone' : null),
+    priority: parent ? parent.priority : 'none',
+    categoryId: parent ? parent.categoryId : null,
+    notes: '',
+    updatedAt: sub.updatedAt,
+    sample: Boolean(sub.sample || (parent && parent.sample)),
+  };
+}
+
+/** One task (or subtask): returns its updated link, or null when nothing changed. */
 function calReconcile_(task, link, cfg, target, targetError, now, ctx, props) {
   const before = link ? JSON.stringify(link) : '';
   const next = link ? JSON.parse(before) : {
@@ -1187,6 +1253,10 @@ function calReconcile_(task, link, cfg, target, targetError, now, ctx, props) {
     status: 'unlinked', reason: '', calendarId: '', calendarName: '', eventId: '', kind: '',
     followUps: [], followUpBase: '', nextAlertAt: '',
   };
+  if (task.item === 'subtask') {
+    next.item = 'subtask';
+    next.taskId = task.taskId;
+  }
   next.followUps = list_(next.followUps);
   next.taskUpdatedAt = String(task.updatedAt || '');
   next.taskDate = task.date || '';
@@ -1470,11 +1540,16 @@ function calWanted_(task) {
 }
 
 function calTitle_(task) {
-  return String(task.title || '').replace(/\s+/g, ' ').trim().slice(0, 200) || 'Untitled task';
+  const clean = function (text) { return String(text || '').replace(/\s+/g, ' ').trim(); };
+  const title = clean(task.title) || (task.item === 'subtask' ? 'Untitled subtask' : 'Untitled task');
+  // A subtask says which task it's part of: "Draft the introduction (Finish STRAMA paper)"
+  return (task.item === 'subtask' && clean(task.parentTitle) ? title + ' (' + clean(task.parentTitle) + ')' : title).slice(0, 200);
 }
 
 function calDescription_(task, ctx, props) {
-  const lines = ['A task from your Life Dashboard to-do list.'];
+  const lines = [task.item === 'subtask'
+    ? 'A subtask of “' + String(task.parentTitle || 'a task') + '” from your Life Dashboard to-do list.'
+    : 'A task from your Life Dashboard to-do list.'];
   const priority = PRIORITY_NAMES[task.priority];
   if (priority && priority !== 'None') lines.push('Priority: ' + priority);
   const category = ctx.name('taskCategories', task.categoryId);

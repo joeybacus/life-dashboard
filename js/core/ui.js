@@ -58,6 +58,13 @@ export function toast(message, { action, duration, icon: iconName } = {}) {
 let dialogSeq = 0;
 
 /**
+ * A pop-up opened or closed. Things that must stay usable above any pop-up
+ * (the reminder banner) listen for this: while a pop-up is open, everything
+ * outside it can't be tapped, so they move inside the top one.
+ */
+const dialogsChanged = () => document.dispatchEvent(new Event('ld:dialogs'));
+
+/**
  * Open a dialog. variant: 'sheet' (slides up on phones), 'alert' (small centred) or 'modal'.
  * actions: [{ label, value, variant: 'primary'|'ghost'|'danger-solid', autofocus, href }]
  * dismissible: false for anything you type into — then a tap outside or Esc never
@@ -97,6 +104,7 @@ export function openDialog({ title = '', body = '', actions = [], variant = 'she
         if (dlg.open) dlg.close();
         dlg.remove();
         if (!document.querySelector('dialog[open]')) document.documentElement.classList.remove('has-dialog');
+        dialogsChanged();
         resolve(value);
       };
       if (prefersReducedMotion()) { finish(); return; }
@@ -130,6 +138,7 @@ export function openDialog({ title = '', body = '', actions = [], variant = 'she
       settled = true;
       dlg.remove();
       if (!document.querySelector('dialog[open]')) document.documentElement.classList.remove('has-dialog');
+      dialogsChanged();
       resolve(null);
     });
     dlg.addEventListener('click', (event) => {
@@ -146,6 +155,7 @@ export function openDialog({ title = '', body = '', actions = [], variant = 'she
     });
 
     dlg.showModal();
+    dialogsChanged();
     // The sheet must never stay scrolled inside its backdrop (older browsers without overflow: clip)
     dlg.addEventListener('animationend', () => { if (dlg.scrollTop || dlg.scrollLeft) dlg.scrollTo(0, 0); });
     onOpen?.(dlg, close);

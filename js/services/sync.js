@@ -50,8 +50,9 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    is lost) until the script is updated. Version 3 adds Ward Patients; 4 lets it
    edit lab results; 5 adds the to-do tabs (readable columns, subtasks) and the
    Google Calendar link — tasks wait for it too, so they always arrive with
-   their subtasks. */
-export const LATEST_SCRIPT_VERSION = 5;
+   their subtasks; 6 shows subtasks' own date, time and reminders in the Sheet
+   and can put them in Google Calendar (version 5 already syncs them). */
+export const LATEST_SCRIPT_VERSION = 6;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 const scriptSupports = (store, config) => (STORE_SCRIPT_VERSION[store] ?? 1) <= scriptVersion(config);

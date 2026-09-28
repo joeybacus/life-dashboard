@@ -1,12 +1,14 @@
-/* Things you can do to a task from anywhere — the list, the cross-shaped quick
-   menu, a swipe or a key — each with its Undo, so they behave the same way
-   wherever you start them. */
+/* Things you can do to a task — or to a subtask with its own row — from
+   anywhere: the list, the cross-shaped quick menu, a swipe, a key or a reminder.
+   Each has its Undo, so they behave the same way wherever you start them. */
 import { html } from '../../core/html.js';
+import { db } from '../../core/db.js';
 import { emit } from '../../core/events.js';
 import { actionSheet, announce, confirmDialog, openDialog, promptDialog, toast } from '../../core/ui.js';
 import { PRIORITIES, PRIORITY_KEYS, isDone, possibleDuplicate } from './model.js';
 import {
-  addSubtask, getTask, loadTodo, mergeTasks, moveToTomorrow, putBack, saveTask, setDone, softDelete,
+  addSubtask, deleteSub, getSub, getTask, loadTodo, mergeTasks, moveSubToTomorrow, moveToTomorrow, putBack, saveSub, saveTask,
+  setDone, setSubDone, softDelete,
 } from './store.js';
 
 /** Ask the To Do list to put the keyboard focus back on a task once it has redrawn. */
@@ -124,4 +126,47 @@ export async function checkDuplicate(task) {
   const [older, newer] = [twin, task].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
   const undo = await mergeTasks(older, newer);
   toast(`Merged into “${older.title}”.`, { icon: 'layers', action: { label: 'Undo', onClick: undo } });
+}
+
+/* ---------- Subtasks with their own rows ---------- */
+
+/** Put a subtask back as it was (Undo): a new save, so it syncs as the latest change. */
+const putSubBack = (snapshot) => saveSub({ ...snapshot });
+
+/**
+ * Tick a subtask (or untick it). Ticking its task's last open subtask offers to
+ * complete the task too — never automatically.
+ */
+export async function toggleSubDone(id, { refocus = false } = {}) {
+  const sub = await getSub(id);
+  if (!sub || sub.deletedAt) return;
+  const done = !sub.done;
+  if (refocus) focusTaskLater(id);
+  await setSubDone(sub, done);
+  const parent = await getTask(sub.taskId);
+  if (done && parent && !isDone(parent)) {
+    const siblings = (await db.all('subtasks')).filter((x) => x.taskId === parent.id && !x.deletedAt);
+    if (siblings.length && siblings.every((x) => x.done)) {
+      toast(`All subtasks of “${parent.title}” are done.`, { icon: 'checkCircle', action: { label: 'Complete task', onClick: () => toggleDone(parent.id) } });
+      announce(`${sub.title} done. All subtasks of ${parent.title} are done.`);
+      return;
+    }
+  }
+  toast(`${done ? 'Done' : 'Not done'}: ${sub.title}`, { icon: done ? 'checkCircle' : 'refresh', action: { label: 'Undo', onClick: () => putSubBack(sub) } });
+  announce(done ? `${sub.title} done.` : `${sub.title} is not done.`);
+}
+
+/** A subtask's own date becomes tomorrow. */
+export async function tomorrowSub(id) {
+  const sub = await getSub(id);
+  if (!sub || sub.deletedAt) return;
+  await moveSubToTomorrow(sub);
+  toast(`Moved to tomorrow: ${sub.title}`, { icon: 'arrowRight', action: { label: 'Undo', onClick: () => putSubBack(sub) } });
+}
+
+export async function deleteSubtask(id) {
+  const sub = await getSub(id);
+  if (!sub || sub.deletedAt) return;
+  await deleteSub(sub);
+  toast(`Deleted: ${sub.title}`, { icon: 'trash', action: { label: 'Undo', onClick: () => putSubBack({ ...sub, deletedAt: null }) } });
 }
