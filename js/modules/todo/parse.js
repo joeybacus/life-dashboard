@@ -12,6 +12,8 @@
      tags      @paper
      reminder  remind me 30 min before · remind me 1 hour before · remind me 2 days before ·
                remind me (at the time) · "Remind me to call mom 7pm" → "Call mom", reminder at 7 PM
+     calendar  add to calendar · add to Google Calendar · in my calendar · cal (lower case, so
+               "Cal" the person stays a name) → Google Calendar on
 
    What's left is the task's name. Every part it recognised keeps where it was in
    the text, so the box can show it as a chip — and removing a chip turns those
@@ -305,6 +307,18 @@ const RULES = [
     re: /(?<![^\s(])@([\p{L}\p{N}][\p{L}\p{N}_-]*)/gu,
     read: (m) => ({ value: m[1].slice(0, 40) }),
   },
+  // add to calendar · add it to my Google Calendar · in calendar → Google Calendar on
+  {
+    kind: 'calendar',
+    re: new RegExp(`${B}(?:add\\s+(?:it\\s+)?to|put\\s+(?:it\\s+)?in|in|on)\\s+(?:my\\s+)?(?:google\\s+)?calendar${E}`, 'giu'),
+    read: () => ({ value: true }),
+  },
+  // cal — the short way (lower case only)
+  {
+    kind: 'calendar',
+    re: new RegExp(`${B}cal${E}`, 'gu'),
+    read: () => ({ value: true }),
+  },
   // "Remind me to …" at the start: a reminder at the task's time; the rest is the name
   {
     kind: 'reminder',
@@ -338,7 +352,7 @@ const RULES = [
  *   ignore     part keys to leave as words (chips you removed)
  *   choices    { partKey: value } — answers to "3/10 is…?" questions
  * Returns { title, parts, fields, unanswered }: fields holds only what was found
- * (date, startTime, endTime, priority, categoryId, tags, reminders); unanswered lists the
+ * (date, startTime, endTime, priority, categoryId, tags, reminders, addToCalendar); unanswered lists the
  * parts that could mean two things and still need a choice.
  */
 export function parseTask(text, {
@@ -416,6 +430,7 @@ export function parseTask(text, {
   if (tags.length) fields.tags = tags;
   const reminders = parts.filter((p) => p.kind === 'reminder').map((p) => ({ kind: 'before', minutes: p.value }));
   if (reminders.length) fields.reminders = reminders;
+  if (part('calendar')) fields.addToCalendar = true;
 
   // Words for the chips
   parts.forEach((p) => {
@@ -427,6 +442,7 @@ export function parseTask(text, {
     } else if (p.kind === 'priority') p.label = PRIORITIES[p.value].label;
     else if (p.kind === 'category') p.label = categories.find((c) => c.id === p.value)?.name ?? p.text;
     else if (p.kind === 'reminder') p.label = p.value ? `${minutesText(p.value)} before` : 'Remind at the time';
+    else if (p.kind === 'calendar') p.label = 'Google Calendar';
     else p.label = `@${p.value}`;
   });
 

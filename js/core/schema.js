@@ -66,6 +66,11 @@ const MIGRATIONS = [
     subtasks.createIndex('taskId', 'taskId');
     subtasks.createIndex('updatedAt', 'updatedAt');
   },
+  // v6 — Google Calendar link (0.4.3): what the sync script reports for each linked task or
+  // subtask (its event, Linked / Paused, the next alert). Written by the script, read here.
+  (db) => {
+    db.createObjectStore('calendarLinks', { keyPath: 'id' });
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
@@ -76,8 +81,11 @@ export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks'
 /** Ward Patients data kept on this device only (see migration v4). */
 export const WARD_STORES = ['wardDays', 'wardQueue'];
 
+/** Kept by the sync script in its own tabs: devices receive them, never send them. */
+export const SCRIPT_STORES = ['calendarLinks'];
+
 /** Every store (used when deleting all data). */
-export const STORE_NAMES = [...BACKUP_STORES, 'outbox', ...WARD_STORES];
+export const STORE_NAMES = [...BACKUP_STORES, 'outbox', ...WARD_STORES, ...SCRIPT_STORES];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
 export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];

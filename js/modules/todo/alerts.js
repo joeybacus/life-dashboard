@@ -278,6 +278,15 @@ export function settleAlerts(prev, next, settings, now = Date.now()) {
   return out;
 }
 
+/**
+ * Does Google Calendar ring for this item (so the app stays quiet)? Only while its
+ * link says Linked for the same day — a task moved to another day rings from the
+ * app until its event has caught up. (The link comes from the sync script.)
+ */
+export function calendarRings(item, link) {
+  return Boolean(item?.addToCalendar && link && link.status === 'linked' && !link.reason && (link.taskDate ?? '') === (item.date ?? ''));
+}
+
 /** A new reminder (the id and time it was set are kept with it). */
 export function newReminder(fields, now = Date.now()) {
   return { id: `r${Math.random().toString(36).slice(2, 8)}`, createdAt: iso(now), ...fields };

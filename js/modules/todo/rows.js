@@ -56,6 +56,10 @@ function metaLine(t, m, cell, alert) {
   if (progress) bits.push(html`<span class="tmeta" title="Subtasks">${icon('list')}${progress.done}/${progress.total}</span>`);
   if (alert) bits.push(html`<span class="tmeta tmeta--bell" title="Next reminder">${icon('bell')}${alert}</span>`);
   else if (t.reminders?.length && !isDone(t)) bits.push(html`<span class="tmeta tmeta--icon" title="Reminders set">${icon('bell')}</span>`);
+  if (t.addToCalendar && !t.sample) {
+    const paused = ['paused', 'deleted'].includes(m.links?.get(t.id)?.status);
+    bits.push(html`<span class="tmeta tmeta--icon tmeta--cal${paused ? ' is-paused' : ''}" title="${paused ? 'Google Calendar link paused' : 'In Google Calendar'}">${icon('calendar')}</span>`);
+  }
   if (t.pinned) bits.push(html`<span class="tmeta tmeta--icon" title="Pinned">${icon('pushpin')}</span>`);
   if (t.links?.length) bits.push(html`<span class="tmeta tmeta--icon" title="Links">${icon('paperclip')}</span>`);
   if (t.tags?.length) bits.push(html`<span class="tmeta tmeta--tags">${t.tags.map((tag) => `@${tag}`).join(' ')}</span>`);

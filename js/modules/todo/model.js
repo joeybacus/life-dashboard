@@ -74,12 +74,12 @@ export const QUICK_ACTIONS = {
   category: { label: 'Category', long: 'Move category', icon: 'layers' },
   subtask: { label: 'Subtask', long: 'Add subtask', icon: 'plusCircle' },
   pin: { label: 'Pin', icon: 'pushpin' },
-  calendar: { label: 'Calendar', long: 'Add to Google Calendar', icon: 'calendar', soon: true },
+  calendar: { label: 'Calendar', long: 'Google Calendar', icon: 'calendar' },
   // Only on a subtask's menu, in place of actions that are for tasks (priority, category, pin…)
   task: { label: 'Task', long: 'Open its task', icon: 'checklist', internal: true },
 };
 /** What a subtask's menu can do; the other arms open its task instead. */
-export const SUBTASK_ACTIONS = new Set(['complete', 'reminder', 'details', 'delete', 'tomorrow', 'task']);
+export const SUBTASK_ACTIONS = new Set(['complete', 'reminder', 'details', 'delete', 'tomorrow', 'calendar', 'task']);
 export const QUICK_ARMS = ['up', 'right', 'down', 'left'];
 export const ARM_NAMES = { up: 'Top', right: 'Right', down: 'Bottom', left: 'Left' };
 const ARM_DEFAULTS = { up: 'reminder', right: 'details', down: 'delete', left: 'focus' };

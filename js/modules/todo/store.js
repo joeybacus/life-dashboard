@@ -119,14 +119,19 @@ export async function saveTask(task, { quiet = false } = {}) {
   return record;
 }
 
+/** Settings → Tasks → Google Calendar → "Always add timed tasks": for new ones with a time. */
+const autoCalendar = (x) => Boolean(state.settings?.tasks?.calendar?.always && x.date && x.startTime);
+
 /** A new task (and its subtasks) saved together. */
 export async function createTask(fields, { subtasks = [] } = {}) {
   const now = nowISO();
   const task = stamp(clean(newTask(fields), now), now);
+  if (fields.addToCalendar === undefined) task.addToCalendar = autoCalendar(task);
   task.alerts = settleAlerts(null, task, alertSettings());
   const items = [{ store: 'tasks', record: task }];
   subtasks.filter((s) => s.title?.trim()).forEach((s, i) => {
     const sub = stamp(cleanSub({ ...s, id: uid(), taskId: task.id, order: i }, now), now);
+    if (s.addToCalendar === undefined) sub.addToCalendar = autoCalendar(sub);
     sub.alerts = settleAlerts(null, asItem(sub), alertSettings());
     items.push({ store: 'subtasks', record: sub });
   });

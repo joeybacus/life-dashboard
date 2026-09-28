@@ -24,6 +24,7 @@ import { bindCapture, captureMarkup } from './capture.js';
 import { bindKeys, bindSwipes } from './gestures.js';
 import { toggleDone, toggleSubDone } from './task-actions.js';
 import { reminderSettings } from './alerts.js';
+import { loadLinks } from './calendar-link.js';
 import { exportTasksCsv } from './pages.js';
 import './quickmenu.js';
 
@@ -59,10 +60,10 @@ export function newTaskDefaults() {
 
 async function load() {
   const now = Date.now();
-  const d = await loadTodo(now);
+  const [d, links] = await Promise.all([loadTodo(now), loadLinks()]);
   const subItems = scheduledSubtasks(d.subtasks, d.tasks);
   data = {
-    ...d, now, subItems, reminderSettings: reminderSettings(settings()),
+    ...d, now, subItems, links, reminderSettings: reminderSettings(settings()),
     progress: subtaskProgress(d.subtasks), counts: viewCounts(d.tasks, now, subItems),
   };
   return data;

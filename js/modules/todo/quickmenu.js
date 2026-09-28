@@ -19,6 +19,7 @@ import { getSub, getTask, saveSub, saveTask } from './store.js';
 import { openTask } from './detail.js';
 import { openSubtask } from './subtask-sheet.js';
 import { openReminderSheet } from './reminder-ui.js';
+import { setInCalendar } from './calendar-link.js';
 import {
   addSubtaskTo, chooseCategory, choosePriority, deleteSubtask, deleteTask, focusTaskLater, toggleDone, togglePin, toggleSubDone,
   tomorrowSub, tomorrowTask,
@@ -49,9 +50,14 @@ function button(arm, action, task) {
     ic = 'refresh';
   }
   if (action === 'pin' && task.pinned) label = 'Unpin';
+  let spoken = info.long && label === info.label ? info.long : label;
+  if (action === 'calendar') {
+    label = task.addToCalendar ? 'Take out' : 'Calendar';
+    spoken = task.addToCalendar ? 'Take out of Google Calendar' : 'Add to Google Calendar';
+  }
   return html`<li class="xmenu__item xmenu__item--${arm}">
     <button type="button" class="xmenu__btn xmenu__btn--${action}" data-dialog-value="${action}" data-arm="${arm}"
-      aria-label="${info.long && label === info.label ? info.long : label}">${icon(ic)}<span class="xmenu__label" aria-hidden="true">${label}</span></button>
+      aria-label="${spoken}">${icon(ic)}<span class="xmenu__label" aria-hidden="true">${label}</span></button>
   </li>`;
 }
 
@@ -116,6 +122,7 @@ export async function openQuickMenu(id, rowEl, kind = 'task') {
     case 'category': return chooseCategory(id);
     case 'subtask': return addSubtaskTo(id);
     case 'pin': return togglePin(id);
+    case 'calendar': return setInCalendar('task', id, !task.addToCalendar);
     default: return null;
   }
 }
@@ -157,6 +164,7 @@ async function openSubMenu(id, rowEl) {
     case 'details': return openSubtask(id);
     case 'delete': return deleteSubtask(id);
     case 'tomorrow': return tomorrowSub(id);
+    case 'calendar': return setInCalendar('subtask', id, !sub.addToCalendar);
     case 'task': return openTask(parent.id);
     default: return null;
   }

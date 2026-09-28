@@ -9,7 +9,7 @@
    When a device syncs for the first time, the profile and settings already in
    the Sheet win, so a new device can't overwrite them with its defaults. */
 import { db, tx, promisify } from '../core/db.js';
-import { SYNC_STORES } from '../core/schema.js';
+import { SCRIPT_STORES, SYNC_STORES } from '../core/schema.js';
 import { isPristine, outboxKey, sameContent } from '../core/records.js';
 import { on, emit } from '../core/events.js';
 import { reloadFromDatabase, state, updateProfile } from '../core/state.js';
@@ -245,14 +245,17 @@ async function push(allItems, logs = []) {
  */
 function applyRemote(changes, firstSync) {
   const byKey = new Map();
+  const scriptItems = new Map();
   for (const change of changes) {
     const record = change?.record;
-    if (SYNC_STORES.includes(change?.store) && record && typeof record.id === 'string') byKey.set(outboxKey(change.store, record.id), change);
+    if (!record || typeof record.id !== 'string') continue;
+    if (SYNC_STORES.includes(change?.store)) byKey.set(outboxKey(change.store, record.id), change);
+    else if (SCRIPT_STORES.includes(change?.store)) scriptItems.set(outboxKey(change.store, record.id), change);
   }
   const items = [...byKey.values()];
   const touched = new Set();
   const logs = [];
-  if (!items.length) return Promise.resolve({ touched, logs });
+  if (!items.length) return applyScriptRecords([...scriptItems.values()], touched).then(() => ({ touched, logs }));
 
   return tx([...SYNC_STORES, 'outbox'], 'readwrite', (s) =>
     Promise.all(items.map(({ store, record }) => Promise.all([
@@ -282,7 +285,22 @@ function applyRemote(changes, firstSync) {
           }
         }
         return { touched, logs };
-      }));
+      }))
+    .then((result) => applyScriptRecords([...scriptItems.values()], touched).then(() => result));
+}
+
+/**
+ * What the sync script keeps itself (the Google Calendar link of each task):
+ * the newest copy is simply kept — this device never changes or sends them.
+ */
+export function applyScriptRecords(changes, touched = new Set()) {
+  if (!changes.length) return Promise.resolve(touched);
+  const stores = [...new Set(changes.map((c) => c.store))];
+  return tx(stores, 'readwrite', (s) => Promise.all(changes.map(({ store, record }) => promisify(s[store].get(record.id)).then((local) => {
+    if (local && String(local.updatedAt ?? '') >= String(record.updatedAt ?? '')) return;
+    s[store].put(record);
+    touched.add(store);
+  })))).then(() => touched);
 }
 
 /** First sync: send this device's profile/settings only if the Sheet had none yet. */
@@ -327,6 +345,7 @@ async function runSync() {
 
     const outgoing = await collectOutgoing(firstSync);
     const results = await push(outgoing);
+    if (outgoing.length) emit('sync:pushed', { items: outgoing.filter(({ store }) => scriptSupports(store)) }); // e.g. the Calendar link updates events
     const pulled = await call('pull', { sinceSeq: config.pullSeq ?? 0 });
     const { touched, logs } = await applyRemote(pulled.changes ?? [], firstSync);
 
@@ -473,7 +492,10 @@ export async function disconnectSync() {
   clearTimeout(retryTimer);
   sync.config = null;
   await db.delete('meta', META_KEY);
+  // What the old Sheet's script reported (Google Calendar links) means nothing without it
+  await tx(SCRIPT_STORES, 'readwrite', (s) => { SCRIPT_STORES.forEach((name) => s[name].clear()); });
   setPhase('off');
+  emit('data', { reason: 'sync' });
 }
 
 export async function setAutoSync(enabled) {

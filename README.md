@@ -4,10 +4,11 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 3 — Tasks and productivity (v0.4.2, the third of seven small releases).** A real
+**Current status: Phase 3 — Tasks and productivity (v0.4.3, the fourth of seven small releases).** A real
 to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting,
-fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes — and
-reminders for tasks and subtasks (subtasks can have their own date and time), with "Still not done" follow-ups —
+fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes —
+reminders for tasks and subtasks (subtasks can have their own date and time), with "Still not done" follow-ups,
+and the Google Calendar link, so reminders ring even on a locked phone —
 on top of Phase 2 (workouts, and ward rounds from your logsheet in **Ward Patients**, Neurology tab) and
 Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on each device and, once sync is
 set up, in your own Google Sheet.
@@ -107,8 +108,8 @@ Good to know about the Wi-Fi preview:
 
 ## To Do (Phase 3)
 
-The To Do tab is a full task list (v0.4.0) with fast capture (v0.4.1) and reminders (v0.4.2). The Google
-Calendar link, repeating tasks, the focus timer and habits arrive in the next small updates (0.4.3 – 0.4.6).
+The To Do tab is a full task list (v0.4.0) with fast capture (v0.4.1), reminders (v0.4.2) and the Google Calendar
+link (v0.4.3). Repeating tasks, the focus timer and habits arrive in the next small updates (0.4.4 – 0.4.6).
 
 - **Type a task the way you'd say it** in the box at the top of To Do, or after tapping **+** (bottom right, on every
   tab): *Finish STRAMA paper tomorrow 8pm #MBA !!!* becomes "Finish STRAMA paper", tomorrow at 8:00 PM, MBA, High.
@@ -135,9 +136,20 @@ Calendar link, repeating tasks, the focus timer and habits arrive in the next sm
   "seen it": if the task still isn't ticked, **Still not done** follows 2 hours later, up to 2 times, never between
   10 PM and 8 AM (all changeable in Settings; per task too, or off). Ticking a task on any device stops its follow-ups.
   Anything that came due while the app was closed is listed in **Missed while the app was closed** when you open it.
-- **iPhone limit:** reminders ring only while Life Dashboard is open on your screen (and sound needs a tap after it
-  opens). Google Calendar alerts, which also ring on a locked phone, arrive in 0.4.3. **Try a reminder** in Settings
-  shows and plays one.
+  **Keep ringing until I stop it** (Settings → Tasks → Reminders) makes the chime repeat every few seconds until you
+  tap one of the banner's buttons.
+- **iPhone limit:** the app's reminders ring only while Life Dashboard is open on your screen (and sound needs a tap
+  after it opens). For a locked phone, put the task in Google Calendar (below). **Try a reminder** in Settings shows
+  and plays one.
+- **Google Calendar:** switch on **Add to Google Calendar** in a task or subtask (or type "cal", or use the quick
+  menu's Calendar button, if you put it on an arm). Your sync script makes it an event — in a "Life Dashboard Tasks"
+  calendar it creates, or one you choose — with its reminders as alerts, so they ring even on a locked phone; while
+  it's linked, the app stays quiet for it, and "Still not done" follow-ups come from Calendar. Editing the task
+  updates the event; completing it marks the event ✓ (or removes it — a setting); deleting it deletes the event.
+  An event you delete in Calendar is never made again: the app unlinks the task and tells you. Settings → Tasks →
+  Google Calendar shows whether the link works (with Check / Try again), which calendar to use, and **Always add
+  timed tasks**. If the link can't work (no permission, calendar deleted, old script), the task shows "paused" and
+  the app rings for it instead. Needs sync (script version 5; 6 for subtasks). Sample tasks never go to Calendar.
 - **Subtasks with their own time:** the clock button on a subtask gives it its own date, time and reminders. A subtask
   with a date also shows as its own row in Today, Upcoming and Overdue, with its task's name under it — tap it for its
   menu, tick it, or swipe it like a task.
@@ -263,7 +275,8 @@ js/modules/todo/      To Do: model (views, sorting, search, CSV), store (saving)
                       gestures (swipes, Mac keys), task-actions (complete, tomorrow, delete… with Undo),
                       alerts (when reminders ring; snooze and follow-ups), reminders (the banner and
                       the missed list), reminder-ui (choosing reminders), subtask-sheet (a subtask's
-                      own date, time and reminders)
+                      own date, time and reminders), calendar-link (the Google Calendar link: who rings,
+                      updating events after sync, Settings → Google Calendar)
 js/core/quick-add.js  The + button on every tab and the Quick Add sheet
 js/modules/ward/      Ward Patients (Neurology): model (Manila time, sorting), engine (list, rounds,
                       changes waiting to be saved), page (screen, patient sheet, history), store
@@ -306,6 +319,10 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
   lives in the script's own **Calendar links** tab (`calendarLinks`), which the app will read from 0.4.3 — the script
   keeps it next to the task rather than inside it, so it never competes with your edits. Starting categories carry a
   fixed old timestamp, so a device that joins later can't overwrite a category renamed elsewhere.
+- **Google Calendar link:** the script keeps each linked item's state in its **Calendar links** tab (`calendarLinks`,
+  a `SCRIPT_STORES` store: devices receive it in pulls and never send it). After a push, `calendar-link.js` asks the
+  script to update those items' events (`calendarSync`); `calendarRings()` (alerts.js) decides whether Calendar or
+  the app rings. Test it on the Mac with `mock_server.py`, which includes a pretend Google Calendar.
 - **Reminders:** a task's or subtask's `reminders` (`{ kind: 'before', minutes }` or `{ kind: 'at', at }`) and `followUp`
   are read by the sync script too (Calendar alerts), so keep that shape. What has rung lives in `alerts` on the item
   and is changed only by `saveAlerts()` (store.js); every other save keeps the saved copy's `alerts`

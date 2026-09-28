@@ -19,6 +19,9 @@ import {
 } from '../modules/todo/model.js';
 import { loadTodo } from '../modules/todo/store.js';
 import { reminderSettings } from '../modules/todo/alerts.js';
+import {
+  CAL_REASONS, addTimedFromToday, cachedCalendarStatus, calendarAvailability, calendarTryAgain, countTimedFromToday, fetchCalendarStatus,
+} from '../modules/todo/calendar-link.js';
 import { isClock } from '../core/manila.js';
 import { ensureSampleData } from '../services/sample-data.js';
 import {
@@ -74,6 +77,16 @@ export function initSettings() {
   registerAction('settings:data', () => openSection('settings-data'));
   registerAction('settings:sync', () => openSection('settings-sync'));
   registerAction('settings:tasks', () => openSection('settings-tasks'));
+  registerAction('calendar:check', async () => {
+    const slot = root?.querySelector('[data-slot="calendar"]');
+    if (slot) setHTML(slot, calendarSection(cachedCalendarStatus(), true));
+    const missing = cachedCalendarStatus()?.calendar?.state === 'missing';
+    const status = await calendarTryAgain({ create: missing });
+    calendarCheckedAt = Date.now();
+    await fillCalendar(false);
+    if (status?.ok) toast(status.pending ? 'Google Calendar is catching up — the rest follows within 30 minutes.' : 'Google Calendar is up to date.', { icon: 'calendarCheck' });
+    else toast('Google Calendar didn’t answer. Your tasks keep their reminders in the app.', { icon: 'info' });
+  });
   registerAction('settings:quick-reset', async () => {
     await save((s) => { s.tasks.quickMenu = { up: null, right: null, down: null, left: null }; });
     updateQuickMenu();
@@ -396,6 +409,8 @@ function render() {
 
     <section class="group" id="settings-reminders" aria-labelledby="set-rem-title">${remindersSection()}</section>
 
+    <section class="group" id="settings-calendar" aria-labelledby="set-cal-title" data-slot="calendar">${calendarSection(null, true)}</section>
+
     <section class="group" id="settings-quickmenu" aria-labelledby="set-quick-title" data-slot="quickMenu">${quickMenuSection()}</section>
 
     <section class="group" id="settings-neurology" aria-labelledby="set-neuro-title" data-slot="neurology">${neurologySection()}</section>
@@ -456,6 +471,93 @@ function render() {
   refreshStorage();
   updateLastBackup();
   fillTaskCategories();
+  fillCalendar();
+}
+
+/* ---------- Google Calendar ---------- */
+
+/** The top line of Settings → Google Calendar: does the link work? */
+function calendarLine(status, available, checking) {
+  if (!available.ok) {
+    return { tone: 'warn', icon: 'info', label: available.reason === 'no-sync' ? 'Needs sync' : 'Needs the updated sync script', sub: available.message, button: '' };
+  }
+  if (checking && !status) return { tone: 'neutral', icon: 'refresh', label: 'Checking Google Calendar…', sub: 'Asking your Google Sheet.', button: 'Check' };
+  if (!status || status.ok === false) {
+    const needsAuth = status?.error === 'calendar-needs-auth';
+    return {
+      tone: 'warn', icon: 'info',
+      label: needsAuth ? 'Needs permission' : 'Google Calendar didn’t answer',
+      sub: needsAuth ? CAL_REASONS['calendar-needs-auth'] : 'Tasks keep their reminders in the app meanwhile. Try again in a moment.',
+      button: 'Try again',
+    };
+  }
+  const cal = status.calendar ?? {};
+  if (cal.state === 'missing') {
+    return { tone: 'warn', icon: 'info', label: 'Calendar missing', sub: 'It was deleted or can’t be found. Try again makes “Life Dashboard Tasks” again — or choose another calendar below.', button: 'Try again' };
+  }
+  if (cal.state === 'not-created') {
+    return { tone: 'ok', icon: 'calendarCheck', label: 'Ready', sub: 'The “Life Dashboard Tasks” calendar is made when you add your first task to Google Calendar.', button: 'Check' };
+  }
+  if (!status.timer) {
+    return { tone: 'warn', icon: 'info', label: `Linked to “${cal.name}”`, sub: 'The 30-minute check (for follow-ups and deleted events) isn’t running — tap Try again.', button: 'Try again' };
+  }
+  return {
+    tone: 'ok', icon: 'calendarCheck', label: `Linked to “${cal.name}”`,
+    sub: status.lastCheckAt ? `Checked ${formatAgo(status.lastCheckAt)} · every 30 minutes` : 'Checks every 30 minutes',
+    button: 'Check',
+  };
+}
+
+/** Settings → Google Calendar. status: the script's answer (null while checking). */
+function calendarSection(status, checking = false) {
+  const cal = { calendarId: '', completed: 'rename', always: false, ...(state.settings.tasks.calendar ?? {}) };
+  const available = calendarAvailability();
+  const line = calendarLine(status, available, checking);
+  const made = status?.calendar && !cal.calendarId ? status.calendar.id : ''; // "Life Dashboard Tasks", listed first
+  // "Life Dashboard Tasks" is the first choice (value ''), so it isn't listed again among your calendars
+  const options = [['', 'Life Dashboard Tasks (made for you)'], ...(status?.calendars ?? [])
+    .filter((c) => c.id !== made && !(c.name === 'Life Dashboard Tasks' && c.id !== cal.calendarId)).map((c) => [c.id, c.name])];
+  if (cal.calendarId && !options.some(([v]) => v === cal.calendarId)) options.push([cal.calendarId, status ? 'A calendar that can’t be found' : 'Your chosen calendar']);
+  return html`<h2 class="group__title" id="set-cal-title">Google Calendar</h2>
+    <div class="card group__card accent-todo">
+      <div class="row row--icon cal-line is-${line.tone}">
+        <span class="row__icon">${icon(line.icon)}</span>
+        <span class="row__text"><span class="row__label">${line.label}</span><span class="row__sub">${line.sub}</span></span>
+        ${line.button ? html`<button type="button" class="btn btn--sm cal-line__btn" data-action="calendar:check"${raw(checking ? ' disabled' : '')}>${line.button}</button>` : ''}
+      </div>
+      ${available.ok ? html`
+        ${pickerRow({ field: 'calendarId', iconName: 'calendar', label: 'Put tasks in', value: cal.calendarId, options })}
+        <label class="row row--icon">
+          <span class="row__icon">${icon('clock')}</span>
+          <span class="row__text"><span class="row__label">Always add timed tasks</span><span class="row__sub">New tasks and subtasks with a time go to Calendar by themselves</span></span>
+          <input type="checkbox" class="switch" switch data-field="calendarAlways"${checked(cal.always)}>
+        </label>
+        ${pickerRow({ field: 'calendarCompleted', iconName: 'checkCircle', label: 'When a task is done', value: cal.completed,
+          options: [['rename', 'Mark it ✓'], ['remove', 'Remove it']] })}` : ''}
+    </div>
+    <p class="group__foot">Switch on <strong>Add to Google Calendar</strong> in a task (or type “cal”): it becomes an event with its reminders as alerts, so they ring even on a locked phone — and the app stays quiet for it. Alerts come from the Google account that owns your Life Dashboard sheet. To try it safely, make a calendar called “Practice tasks” in Google Calendar and choose it above; choose “Life Dashboard Tasks” later and the events move there.</p>`;
+}
+
+let calendarCheckedAt = 0;
+
+/** Fill Settings → Google Calendar with what the script says (asked at most once a minute unless you tap Check). */
+async function fillCalendar(force = false) {
+  const slot = root?.querySelector('[data-slot="calendar"]');
+  if (!slot) return;
+  if (!calendarAvailability().ok) {
+    setHTML(slot, calendarSection(null));
+    return;
+  }
+  const cached = cachedCalendarStatus();
+  if (cached && !force && Date.now() - calendarCheckedAt < 60_000) {
+    setHTML(slot, calendarSection(cached));
+    return;
+  }
+  setHTML(slot, calendarSection(cached, true));
+  const status = await fetchCalendarStatus();
+  calendarCheckedAt = Date.now();
+  const again = root?.querySelector('[data-slot="calendar"]');
+  if (again) setHTML(again, calendarSection(status));
 }
 
 /** Tap a task: Complete in the middle, and these four arms. */
@@ -475,6 +577,11 @@ function remindersSection() {
         <span class="row__icon">${icon('clock')}</span>
         <span class="row__text"><span class="row__label">Tasks without a time</span><span class="row__sub">Their reminders count from this time</span></span>
         <input type="time" class="input row__time" data-field="defaultTime" value="${rs.defaultTime}" aria-label="Reminder time for tasks without a time">
+      </label>
+      <label class="row row--icon">
+        <span class="row__icon">${icon('volume')}</span>
+        <span class="row__text"><span class="row__label">Keep ringing until I stop it</span><span class="row__sub">The chime repeats every few seconds until you tap Complete, Snooze, Stop or Open. Google Calendar alerts ring once, as usual.</span></span>
+        <input type="checkbox" class="switch" switch data-field="keepRinging"${checked(Boolean(t.keepRinging))}>
       </label>
       <label class="row row--icon">
         <span class="row__icon">${icon('repeat')}</span>
@@ -683,6 +790,39 @@ async function onChange(event) {
       }
       case 'taskCategory':
         await save((s) => { s.tasks.defaultCategoryId = el.value || null; });
+        break;
+      case 'calendarId':
+        await save((s) => { s.tasks.calendar = { ...(s.tasks.calendar ?? {}), calendarId: el.value }; });
+        toast('Moving your tasks’ events there…', { icon: 'calendar' });
+        await syncNow(); // the Sheet needs the new choice first
+        await calendarTryAgain({ create: false });
+        await fillCalendar(true);
+        break;
+      case 'calendarCompleted':
+        await save((s) => { s.tasks.calendar = { ...(s.tasks.calendar ?? {}), completed: el.value }; });
+        break;
+      case 'calendarAlways': {
+        await save((s) => { s.tasks.calendar = { ...(s.tasks.calendar ?? {}), always: el.checked }; });
+        if (!el.checked) break;
+        const count = await countTimedFromToday();
+        if (!count) {
+          toast('New tasks with a time will go to Google Calendar.', { icon: 'calendar' });
+          break;
+        }
+        const also = await confirmDialog({
+          title: 'Add the ones you have too?',
+          message: `You have ${count} open ${count === 1 ? 'task' : 'tasks and subtasks'} with a time, from today on. Add ${count === 1 ? 'it' : 'them'} to Google Calendar as well?`,
+          confirmLabel: 'Add them too', cancelLabel: 'Only new ones',
+        });
+        if (also) {
+          const added = await addTimedFromToday();
+          toast(`Adding ${added} to Google Calendar.`, { icon: 'calendar' });
+        }
+        break;
+      }
+      case 'keepRinging':
+        await save((s) => { s.tasks.keepRinging = el.checked; });
+        toast(el.checked ? 'Reminders keep ringing until you tap a button. Try one below.' : 'Reminders ring once.', { icon: 'bell' });
         break;
       case 'newTaskReminder':
         await save((s) => { s.tasks.newTaskReminder = el.value === '' ? null : Number(el.value); });

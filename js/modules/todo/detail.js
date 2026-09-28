@@ -21,6 +21,7 @@ import {
 import { checkDuplicate } from './task-actions.js';
 import { newReminder } from './alerts.js';
 import { bindReminderField, reminderFieldMarkup } from './reminder-ui.js';
+import { autoCalendar, bindCalendarField, calendarFieldMarkup } from './calendar-link.js';
 import { subtaskSheet } from './subtask-sheet.js';
 
 const checkedAttr = (on) => (on ? raw(' checked') : '');
@@ -49,6 +50,8 @@ export async function openNewTask(fields = {}) {
     // Settings → Tasks → Reminders → "New tasks: reminder"
     reminders: Number.isFinite(s.newTaskReminder) ? [{ kind: 'before', minutes: s.newTaskReminder }] : [],
     ...fields,
+    // Settings → "Always add timed tasks" (unless the words said "cal")
+    addToCalendar: fields.addToCalendar ?? autoCalendar(fields),
   });
   task.reminders = task.reminders.map((r) => (r.id ? r : newReminder(r))); // each needs its own id in the sheet
   return taskSheet({ task, data, isNew: true });
@@ -106,6 +109,8 @@ function sheetBody(task, { isNew, categories, today }) {
     </div>
 
     ${reminderFieldMarkup(task, { id: 'tf-rem' })}
+
+    ${calendarFieldMarkup(task, { kind: 'task' })}
 
     <label class="tform__field"><span class="field__label">Category</span>
       <select class="select" name="categoryId">${categoryOptions(categories, task.categoryId)}</select>
@@ -241,6 +246,8 @@ async function taskSheet({ task: start, data, isNew }) {
   let closeSheet = null;
   let created = null; // the new task, once added
   let reminderField = null;
+  let calendarField = null;
+  let calTouched = false; // you switched Google Calendar yourself: "Always add" leaves it alone
   const pendingTitles = new Map(); // subtask id → title being typed
   let titlesTimer = null;
   const today = todayKey();
@@ -346,6 +353,9 @@ async function taskSheet({ task: start, data, isNew }) {
     form.querySelector('[data-clear-time]').disabled = !draft.startTime;
     startTime.closest('.tform__field').querySelector('.tform__hint').textContent = draft.date ? 'Optional. Tasks without a time are fine.' : 'Pick a date to add a time.';
     reminderField?.refresh(); // the reminders' times follow the task's
+    // "Always add timed tasks": a new task that gets a time goes to Calendar (unless you switched it yourself)
+    if (isNew && !calTouched && autoCalendar(draft)) draft.addToCalendar = true;
+    calendarField?.refresh();
   };
 
   /** Ticking the last subtask offers to complete the task too (never automatically). */
@@ -396,6 +406,8 @@ async function taskSheet({ task: start, data, isNew }) {
       draft.categoryId = t.value || null;
     } else if (t.name === 'pinned') {
       draft.pinned = t.checked;
+    } else if (t.name === 'addToCalendar') {
+      return; // the Google Calendar switch saves itself
     } else if (t.name === 'tags') {
       t.value = draft.tags.join(', ');
       return;
@@ -626,6 +638,15 @@ async function taskSheet({ task: start, data, isNew }) {
           if (!isNew) persist();
         },
       });
+      calendarField = bindCalendarField(form, {
+        get: () => draft,
+        kind: 'task',
+        touched: () => { calTouched = true; },
+        set: (on) => {
+          draft = { ...draft, addToCalendar: on };
+          if (!isNew) persist();
+        },
+      });
       refreshSubs();
       refreshLinks();
       if (!isNew) form.querySelector('[data-slot="meta"]').textContent = metaText(draft);
@@ -668,6 +689,7 @@ async function taskSheet({ task: start, data, isNew }) {
   });
 
   // Closed: save the last typing (an emptied name goes back to what it was)
+  calendarField?.stop();
   await flushTitles();
   if (!isNew) {
     if (!draft.title.trim()) draft.title = start.title;

@@ -44,8 +44,15 @@ export const DEFAULT_SETTINGS = {
     // Reminders (0.4.2). The sync script reads defaultTime and followUps too, for Google Calendar.
     // (v0.3 had a "defaultReminder: 30" that never did anything: newTaskReminder is a new key, so nothing changes by itself.)
     newTaskReminder: null,  // minutes before, for new tasks; null = none
+    keepRinging: false,     // a reminder's chime repeats until you tap a button on it
     defaultTime: '08:00',   // reminders for tasks with a date but no time count from this time
     followUps: { enabled: true, minutes: 120, limit: 2, quiet: true, quietStart: '22:00', quietEnd: '08:00', highMinutes: 0 },
+    // Google Calendar link (0.4.3). The sync script reads calendarId and completed.
+    calendar: {
+      calendarId: '',       // '' = "Life Dashboard Tasks" (the script makes it); or one of your calendars
+      completed: 'rename',  // a done task's event: 'rename' ("✓ title") | 'remove'
+      always: false,        // new tasks and subtasks with a time go to Calendar by themselves
+    },
   },
   backup: {
     reminders: true,        // weekly "back up your data" nudge (not shown while sync works)

@@ -19,6 +19,7 @@ import './modules/index.js'; // registers Workout, To Do and Neurology
 import { initWorkout } from './modules/workout.js';
 import { initWard } from './modules/ward/engine.js';
 import { initReminders } from './modules/todo/reminders.js';
+import { initCalendarLink } from './modules/todo/calendar-link.js';
 import { initDashboard } from './screens/dashboard.js';
 import { initSettings } from './screens/settings.js';
 import { maybeShowWelcome } from './screens/welcome.js';
@@ -86,6 +87,7 @@ async function boot() {
   watchDayChange();
   hideBoot();
   initReminders(); // to-do reminders ring while the app is open; missed ones are listed
+  initCalendarLink(); // linked tasks' Google Calendar events follow their changes
 
   registerServiceWorker();
   requestPersistentStorage();

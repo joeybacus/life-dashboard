@@ -783,6 +783,9 @@ kbd {
   transition: opacity var(--t) var(--ease), transform var(--t) var(--ease-spring);
 }
 .rbanner.is-in { opacity: 1; transform: translate(-50%, 0); }
+/* Keeps ringing until you tap a button: a slow glow so it's clear it's still going */
+.rbanner.is-ringing { animation: ring-glow 1.5s ease-in-out infinite; }
+@keyframes ring-glow { 50% { box-shadow: var(--shadow-2), 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); } }
 .rbanner.is-out { opacity: 0; transform: translate(-50%, -10px); transition-duration: 180ms; }
 .rbanner__top { display: flex; align-items: flex-start; gap: 10px; }
 .rbanner__icon {
@@ -810,7 +813,7 @@ kbd {
 .rbanner__wide { flex-basis: 100% !important; }
 @media (prefers-reduced-motion: reduce) {
   .rbanner { transform: translate(-50%, 0) !important; }
-  .rbanner__icon { animation: none !important; }
+  .rbanner__icon, .rbanner.is-ringing { animation: none !important; }
 }
 
 /* ---- Missed while the app was closed ---- */
@@ -824,3 +827,24 @@ kbd {
 .missed__btns .btn .icon { width: 1rem; height: 1rem; }
 .missed__done { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-sm); font-weight: 650; color: var(--text-2); }
 .missed__done .icon { width: 1rem; height: 1rem; color: var(--success); }
+
+/* ==========================================================================
+   Google Calendar link (0.4.3)
+   ========================================================================== */
+.tform__cal { padding: 4px 0; align-items: flex-start; }
+.tform__cal .row__label { display: inline-flex; align-items: center; gap: 6px; }
+.tform__cal .row__label .icon { width: 1rem; height: 1rem; color: var(--accent-ink); }
+.tform__cal .switch { margin-top: 2px; }
+.tform__cal.is-linked .row__sub { color: color-mix(in srgb, var(--success) 70%, var(--text)); }
+.tform__cal.is-paused .row__sub,
+.tform__cal.is-deleted .row__sub,
+.tform__cal.is-no-date .row__sub { color: color-mix(in srgb, var(--pri-med) 60%, var(--text)); }
+.tmeta--cal { color: var(--accent-ink); }
+.tmeta--cal.is-paused { color: color-mix(in srgb, var(--pri-med) 70%, var(--text)); }
+
+/* Settings → Google Calendar */
+.cal-line { flex-wrap: wrap; }
+.cal-line .row__text { flex: 1 1 12rem; }
+.cal-line__btn { flex: none; margin-left: auto; }
+.cal-line.is-warn .row__icon { background: linear-gradient(135deg, var(--pri-med), #ff9f43); }
+.cal-line.is-neutral .row__icon { background: var(--surface-3); color: var(--text-2); }

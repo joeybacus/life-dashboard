@@ -5,15 +5,17 @@
      Complete · Snooze · Stop · Open      (a follow-up adds Stop follow-ups)
    Stop — or leaving the banner for 5 minutes — means "I've seen it": if the
    task still isn't done, "Still not done" comes a couple of hours later
-   (Settings → Tasks → Reminders), never during quiet hours. Anything that
-   came due while the app was closed is listed in "Missed while the app was
-   closed" when you open it.
+   (Settings → Tasks → Reminders), never during quiet hours. With "Keep ringing
+   until I stop it" on, the chime repeats every few seconds and the banner stays
+   until you tap one of its buttons. Anything that came due while the app was
+   closed is listed in "Missed while the app was closed" when you open it.
 
    Nothing rings twice: what has rung is saved with the task (and synced), and
    before ringing the app first asks your Google Sheet for news, so a task
    ticked on another device stays quiet. The banner stays usable on top of any
    open pop-up. iPhone lets a web app make sound only while it's open on screen,
-   and only after a tap — Google Calendar alerts (0.4.3) are for a locked phone. */
+   and only after a tap — so for a locked phone there's the Google Calendar link:
+   while an item is linked, Calendar rings for it and the app stays quiet. */
 import { html, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { registerAction } from '../../core/actions.js';
@@ -26,7 +28,7 @@ import { syncNow, syncSnapshot } from '../../services/sync.js';
 import { isOverdue, normalizeSub, normalizeTask, spokenTime, subtaskItem } from './model.js';
 import { saveAlerts } from './store.js';
 import {
-  BANNER_TIMEOUT_MS, SNOOZE_PRESETS, afterSnooze, afterStop, afterStopFollowUps, alertTimeText, canRing, dueAlerts, followRules,
+  BANNER_TIMEOUT_MS, SNOOZE_PRESETS, afterSnooze, afterStop, afterStopFollowUps, alertTimeText, calendarRings, canRing, dueAlerts, followRules,
   markRung, minutesText, nextAlertAt, reminderSettings, tomorrowMorning,
 } from './alerts.js';
 import { toggleDone, toggleSubDone } from './task-actions.js';
@@ -34,6 +36,7 @@ import { openTask } from './detail.js';
 import { openSubtask } from './subtask-sheet.js';
 
 const TICK_MS = 20_000;   // the longest wait between checks while the app is on screen
+const RING_EVERY_MS = 3000; // "Keep ringing until I stop it": the chime repeats this often
 const LIVE_MS = 90_000;   // due within the last 90 seconds: ring it; earlier: it was missed while the app was closed
 const SYNC_WAIT_MS = 4000;
 
@@ -47,15 +50,21 @@ let banner = null;       // the banner element on screen
 let current = null;      // what it shows
 const queue = [];        // what rings next
 let bannerTimer = null;
+let ringTimer = null;
+const keepRinging = () => Boolean(state.settings.tasks?.keepRinging);
 let missedSheet = null;  // { add(entries) } while the missed list is open
 
 /* ---------- Checking ---------- */
 
-/** Every task and subtask that could ring, as items (a subtask carries its task's priority). */
+/**
+ * Every task and subtask that could ring, as items (a subtask carries its task's
+ * priority). Items Google Calendar rings for are left out: the phone never rings twice.
+ */
 async function candidates() {
-  const [tasks, subtasks] = await Promise.all([db.all('tasks'), db.all('subtasks')]);
+  const [tasks, subtasks, linkList] = await Promise.all([db.all('tasks'), db.all('subtasks'), db.all('calendarLinks')]);
+  const links = new Map(linkList.map((l) => [l.id, l]));
   const byId = new Map(tasks.map((t) => [t.id, normalizeTask(t)]));
-  const busy = (x) => x.reminders.length || x.alerts?.snooze || x.alerts?.follow?.next;
+  const busy = (x) => (x.reminders.length || x.alerts?.snooze || x.alerts?.follow?.next) && !calendarRings(x, links.get(x.id));
   const out = [];
   byId.forEach((t) => { if (busy(t)) out.push({ store: 'tasks', kind: 'task', id: t.id, item: t }); });
   subtasks.forEach((raw) => {
@@ -99,6 +108,7 @@ async function check() {
     if (!saved) continue;
     const last = x.rung[x.rung.length - 1];
     const entry = { ...x, type: last.type, due: last.due, count: saved.alerts?.follow?.count ?? 0 };
+    if (current?.id === x.id || queue.some((q) => q.id === x.id)) continue; // its banner is already up (or waiting)
     if (now - last.due <= LIVE_MS) queue.push(entry);
     else missed.push(entry);
   }
@@ -215,16 +225,28 @@ function showNext() {
   placeBanner();
   void banner.offsetWidth; // start the slide-in now, even if the screen hasn't redrawn yet
   banner.classList.add('is-in');
-  chime('reminder', { onSilent: Boolean(state.settings.workout?.restOnSilent) });
-  haptic();
+  const ring = () => {
+    chime('reminder', { onSilent: Boolean(state.settings.workout?.restOnSilent) });
+    haptic();
+  };
+  ring();
   announce(`${heading(e)}: ${e.item.title}`);
   clearTimeout(bannerTimer);
-  // Untouched for 5 minutes: it counts as Stop (the follow-up is already lined up)
-  bannerTimer = setTimeout(() => closeBanner(), BANNER_TIMEOUT_MS);
+  clearInterval(ringTimer);
+  if (keepRinging()) {
+    // Settings → "Keep ringing until I stop it": the chime repeats until you tap a button
+    // (while the app is on screen — iPhone pauses web apps that aren't)
+    banner.classList.add('is-ringing');
+    ringTimer = setInterval(() => { if (document.visibilityState === 'visible') ring(); }, RING_EVERY_MS);
+  } else {
+    // Untouched for 5 minutes: it counts as Stop (the follow-up is already lined up)
+    bannerTimer = setTimeout(() => closeBanner(), BANNER_TIMEOUT_MS);
+  }
 }
 
 function closeBanner() {
   clearTimeout(bannerTimer);
+  clearInterval(ringTimer);
   const el = banner;
   banner = null;
   current = null;

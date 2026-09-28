@@ -8,8 +8,8 @@ import {
 } from '../js/modules/todo/model.js';
 import { parseTask } from '../js/modules/todo/parse.js';
 import {
-  afterSnooze, afterStop, afterStopFollowUps, dueAlerts, followRules, markRung, nextAlertAt, outOfQuiet, reminderDue, reminderLabel,
-  reminderSettings, settleAlerts,
+  afterSnooze, afterStop, afterStopFollowUps, calendarRings, dueAlerts, followRules, markRung, nextAlertAt, outOfQuiet, reminderDue,
+  reminderLabel, reminderSettings, settleAlerts,
 } from '../js/modules/todo/alerts.js';
 
 const results = [];
@@ -195,6 +195,11 @@ phrase('Submit form 5pm remind me an hour before remind me 10 min before', { tit
 phrase('Journal club 3pm remind me half an hour before', { title: 'Journal club', date: '2026-09-27', startTime: '15:00', reminders: [{ kind: 'before', minutes: 30 }] });
 phrase('Remind the team about rounds', { title: 'Remind the team about rounds' }, { note: '"me" is needed' });
 phrase('Reminders app review', { title: 'Reminders app review' });
+phrase('Grand rounds tomorrow 7am cal', { title: 'Grand rounds', date: '2026-09-28', startTime: '07:00', addToCalendar: true });
+phrase('Journal club Friday 3pm add to calendar', { title: 'Journal club', date: '2026-10-02', startTime: '15:00', addToCalendar: true });
+phrase('Pay rent Oct 1 put it in my Google Calendar remind me 1 day before', { title: 'Pay rent', date: '2026-10-01', addToCalendar: true, reminders: [{ kind: 'before', minutes: 1440 }] });
+phrase('Lunch with Cal', { title: 'Lunch with Cal' }, { note: '"Cal" the person stays a name' });
+phrase('Update the calendar app', { title: 'Update the calendar app' });
 const remChip = read('Call the lab 8am remind me 30 min before').parts.find((p) => p.kind === 'reminder')?.label;
 check('chips: a reminder shows as "30 min before"', remChip === '30 min before', remChip);
 
@@ -283,6 +288,11 @@ check('reminder words', reminderLabel(rem('j', { minutes: 30 })) === '30 min bef
   && reminderLabel(rem('l', { minutes: 2880 })) === '2 days before' && reminderLabel(rem('m', { minutes: 0 })) === 'At the time'
   && /Tomorrow, 7:00/.test(reminderLabel({ kind: 'at', at: new Date(M('07:00', '2026-09-29')).toISOString() }, R_NOW)),
   [reminderLabel(rem('j', { minutes: 30 })), reminderLabel({ kind: 'at', at: new Date(M('07:00', '2026-09-29')).toISOString() }, R_NOW)]);
+const linkedTask = { ...timed, addToCalendar: true };
+check('Google Calendar rings instead of the app while the task is linked', calendarRings(linkedTask, { status: 'linked', reason: '', taskDate: '2026-09-28' }));
+check('…but the app rings when the link is paused, not made yet, or behind a moved task', !calendarRings(linkedTask, { status: 'paused', reason: 'calendar-needs-auth', taskDate: '2026-09-28' })
+  && !calendarRings(linkedTask, null) && !calendarRings({ ...linkedTask, date: '2026-09-29' }, { status: 'linked', reason: '', taskDate: '2026-09-28' })
+  && !calendarRings({ ...timed, addToCalendar: false }, { status: 'linked', reason: '', taskDate: '2026-09-28' }));
 const oldSeen = settleAlerts({ ...timed, alerts: { seen: { 'z@2026-08-01T00:00:00.000Z': '2026-08-01T00:00:00.000Z' } } }, timed, RS, R_NOW);
 check('rung reminders are forgotten after a month', !oldSeen.seen?.['z@2026-08-01T00:00:00.000Z'], oldSeen);
 

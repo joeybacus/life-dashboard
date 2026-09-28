@@ -1,6 +1,7 @@
 /* A subtask's own sheet: its name, its own date and time, and its reminders.
    Opened from the clock button on a subtask in the task sheet, or from a
-   subtask's row in Today, Upcoming or Overdue (quick menu → Details).
+   subtask's row in Today, Upcoming or Overdue (quick menu → Details). Like a
+   task, it can go to Google Calendar (sync script version 6).
    Like every sheet you type in, only Cancel or Save closes it; Cancel asks
    first if you changed something. A subtask with a date also shows as its
    own row in Today, Upcoming and Overdue. */
@@ -11,6 +12,7 @@ import { addDays, daysFrom, formatDayLong, todayKey } from '../../core/manila.js
 import { MAX_TITLE } from './model.js';
 import { getSub, getTask, saveSub } from './store.js';
 import { bindReminderField, reminderFieldMarkup } from './reminder-ui.js';
+import { autoCalendar, bindCalendarField, calendarFieldMarkup } from './calendar-link.js';
 
 const disabledAttr = (on) => (on ? raw(' disabled') : '');
 
@@ -29,12 +31,15 @@ function dateHint(item, today) {
 export async function subtaskSheet(sub, { parentTitle = '', save, openParent = null }) {
   const today = todayKey();
   let draft = {
+    id: sub.id, sample: Boolean(sub.sample),
     title: sub.title ?? '', date: sub.date ?? null, startTime: sub.startTime ?? null, endTime: sub.endTime ?? null,
-    reminders: [...(sub.reminders ?? [])], followUp: sub.followUp ?? null,
+    reminders: [...(sub.reminders ?? [])], followUp: sub.followUp ?? null, addToCalendar: Boolean(sub.addToCalendar),
   };
   const start = JSON.stringify(draft);
   let form = null;
   let reminders = null;
+  let calendar = null;
+  let calTouched = false;
   const quick = (key, label, date) => html`<button type="button" class="tform__quick" data-date="${key}" aria-pressed="${draft.date === date ? 'true' : 'false'}">${label}</button>`;
 
   const refreshWhen = () => {
@@ -57,6 +62,9 @@ export async function subtaskSheet(sub, { parentTitle = '', save, openParent = n
     endTime.value = draft.endTime ?? '';
     form.querySelector('[data-clear-time]').disabled = !draft.startTime;
     reminders?.refresh();
+    // "Always add timed tasks": a subtask that gets a time goes to Calendar (unless you switched it yourself)
+    if (!calTouched && !draft.addToCalendar && autoCalendar(draft)) draft.addToCalendar = true;
+    calendar?.refresh();
   };
 
   const choice = await openDialog({
@@ -90,6 +98,7 @@ export async function subtaskSheet(sub, { parentTitle = '', save, openParent = n
         </div>
       </div>
       ${reminderFieldMarkup(draft, { id: 'ss-rem' })}
+      ${calendarFieldMarkup(draft, { kind: 'subtask' })}
       <div class="tform__footer">
         <button type="button" class="btn btn--ghost" data-sub-cancel>Cancel</button>
         <button type="submit" class="btn btn--primary">Save</button>
@@ -98,6 +107,12 @@ export async function subtaskSheet(sub, { parentTitle = '', save, openParent = n
     onOpen(dlg, close) {
       form = dlg.querySelector('[data-sub-form]');
       reminders = bindReminderField(form, { get: () => draft, set: (patch) => { draft = { ...draft, ...patch }; } });
+      calendar = bindCalendarField(form, {
+        get: () => draft,
+        kind: 'subtask',
+        touched: () => { calTouched = true; },
+        set: (on) => { draft = { ...draft, addToCalendar: on }; },
+      });
       form.addEventListener('input', (event) => {
         if (event.target.name === 'title') draft.title = event.target.value;
       });
@@ -106,7 +121,7 @@ export async function subtaskSheet(sub, { parentTitle = '', save, openParent = n
         if (t.name === 'date') draft.date = t.value || null;
         else if (t.name === 'startTime') draft.startTime = t.value || null;
         else if (t.name === 'endTime') draft.endTime = t.value || null;
-        else return;
+        else return; // the reminders and Google Calendar parts keep their own changes
         refreshWhen();
       });
       form.addEventListener('keydown', (event) => {
@@ -145,6 +160,7 @@ export async function subtaskSheet(sub, { parentTitle = '', save, openParent = n
       });
     },
   });
+  calendar?.stop();
   if (choice === 'parent') {
     openParent?.();
     return false;
