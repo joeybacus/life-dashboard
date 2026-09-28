@@ -108,6 +108,7 @@ const PATHS = {
   briefcase: '<rect x="3.5" y="7" width="17" height="12.5" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3.5 12.5h17"/>',
   stethoscope: '<path d="M5 3.5v5a4 4 0 0 0 8 0v-5M3.8 3.5h2.4M11.8 3.5h2.4"/><path d="M9 12.5v2a5 5 0 0 0 10 0V12"/><circle cx="19" cy="10" r="2"/>',
   chart: '<path d="M4 20.5h16"/><rect x="5.5" y="11" width="3" height="6.5" rx="1"/><rect x="10.5" y="6" width="3" height="11.5" rx="1"/><rect x="15.5" y="9" width="3" height="8.5" rx="1"/>',
+  columns: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.2 4.5v15M14.8 4.5v15"/>',
 };
 
 export function icon(name, className = '') {

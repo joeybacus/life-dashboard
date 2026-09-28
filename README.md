@@ -4,12 +4,14 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 3 — Tasks and productivity (v0.4.3, the fourth of seven small releases).** A real
+**Current status: Phase 3 — Tasks and productivity (v0.4.3.1: the fourth of seven small releases, plus
+patient lists).** A real
 to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting,
 fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes —
 reminders for tasks and subtasks (subtasks can have their own date and time), with "Still not done" follow-ups,
 and the Google Calendar link, so reminders ring even on a locked phone —
-on top of Phase 2 (workouts, and ward rounds from your logsheet in **Ward Patients**, Neurology tab) and
+on top of Phase 2 (workouts, and ward rounds from your logsheets in **patient lists** like Ward Patients,
+Neurology tab — with your own columns and row order since v0.4.3.1) and
 Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on each device and, once sync is
 set up, in your own Google Sheet.
 
@@ -56,23 +58,25 @@ If you change `Code.gs` later: **Deploy → Manage deployments → Edit → Vers
 Some app versions need a newer script in your Google Sheet: v0.3 needs script version 2 (your exercises
 and workout templates get their own tabs), v0.3.2 needs version 3 (Ward Patients), v0.3.4 needs
 version 4 (editing lab results), v0.4 needs version 5 (your tasks get readable tabs, and tasks can go
-into Google Calendar) and v0.4.2 brings **version 6** (each subtask's own date, time and reminders show in the
-Subtasks tab, and subtasks can go into Google Calendar too). Each version includes everything before it, so
+into Google Calendar), v0.4.2 needs version 6 (each subtask's own date, time and reminders show in the
+Subtasks tab, and subtasks can go into Google Calendar too) and v0.4.3.1 brings **version 7** (patient lists
+sync between your devices, show your own logsheet columns, add columns and move rows). Each version includes
+everything before it, so
 one update is enough however old yours is. Until it's updated, everything else keeps syncing and anything new
 stays safely on your devices; the app shows **Update sync** on the dashboard and **Update the sync script** in
 Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-   Near the top, a line should now read `const SCRIPT_VERSION = 6;`.
+   Near the top, a line should now read `const SCRIPT_VERSION = 7;`.
 3. **Once, after pasting:** in the toolbar choose **setup** and click **Run** (it keeps your token, so your devices
    stay connected). If Google asks for permission (coming from version 4 or older it will, now including Google
    Calendar): **Review permissions** → your account → **Advanced** → **Go to … (unsafe)** → **Allow**. This also
-   tidies the task tabs and starts a 30-minute check used by the Calendar link.
+   adds any new tabs, tidies the task tabs and starts a 30-minute check used by the Calendar link.
 4. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
    (Don't make a *new deployment* — that would change the Web app URL.)
 5. Back in the app, tap **Check now**. To double-check, open the Web app URL in Safari: it should end with
-   `"version":6`.
+   `"version":7`.
 
 ## Backups
 
@@ -205,43 +209,59 @@ link (v0.4.3). Repeating tasks, the focus timer and habits arrive in the next sm
   this app choose **Import Hevy** (Workout tab) or Settings → Hevy. You'll see a preview first; workouts you
   already have are skipped, so importing again later is safe. **Export workouts (CSV)** writes the same format.
 
-## Ward census: Ward Patients (Neurology tab, Phase 2)
+## Ward census: patient lists (Neurology tab, Phase 2)
 
-**Neurology → Ward Patients** shows your ward logsheet — a Google Sheet — as a rounds list.
+**Neurology** shows your patient lists — **Ward Patients** first — each a ward logsheet (a Google Sheet, or one
+of its tabs) shown as a rounds list.
 
-- **Logsheet layout:** patients from row 2: **A** Name, **B** Hospital Number, **C** Laboratory Results,
-  **D** Recommendations. Rows without a name are ignored; the hospital number identifies each patient.
+- **Lists:** **New list** adds another (for example ICU or Referrals); each list's **⋯** renames it, moves it
+  up or down, or deletes it (on all your devices — the logsheet isn't touched). Each list has its own logsheet,
+  columns, rounds and history. List names and columns sync between your devices (sync script version 7, the
+  **Ward lists** tab); logsheet links and patients never do.
+- **Logsheet layout:** patients from row 2: **A** Name, **B** Hospital Number, then the list's columns — at
+  first **C** Laboratory Results and **D** Recommendations. Rows without a name are ignored; the hospital number
+  identifies each patient.
+- **Columns** (on the list, or ⋯ → Columns): rename any heading — in the app only, the logsheet's own headings
+  stay as they are (on the Mac, clicking a table heading renames it too); **Add column** — a new column after all
+  the others (H at the earliest, heading written in row 1) or one the logsheet already has; **Remove** — from the
+  app only, the logsheet keeps it. Adding and removing each ask first. Drag ≡ to reorder. Rounded, Name and
+  Hospital No. can be renamed but not removed. Adding columns and showing your own need script version 7.
+- **Arrange rows** (on the list, or ⋯ → Arrange rows): the patients in the logsheet's order; drag them into a
+  new order and tap **Save order** — the whole rows move in the logsheet (rows without a name stay put). Nothing
+  moves if someone changed the patient rows meanwhile; you see the latest order instead. Needs a connection and
+  script version 7.
 - **The list:** patients not yet rounded come first, by the priority written in their recommendations:
   **P1** (high — the word "priority" on its own counts as P1), then **P2**, then **P3**; then the others not
   yet rounded, then those rounded — each group in the sheet's order. Capitals don't matter, and if a note
   has more than one, the most urgent counts. Each priority shows a flag and words ("P1 · High"), not just a
-  colour. Cards on iPhone, a table on iPad landscape and Mac. Long labs and recommendations fold behind
-  **Show more**; tap a patient for everything.
+  colour. Cards on iPhone, a table on iPad landscape and Mac. Long text folds behind **Show more**; tap a
+  patient for everything.
 - **Always current:** it reloads when you open it, with **Refresh**, and every 3 minutes while it's on
   screen. Offline, the last list stays with an "Offline — last updated at …" note.
 - **Colours:** Neurology is green.
 - **Rounds:** **Start Rounds** / **End Rounds** time the session. During rounds, opening a patient starts
   their timer and ticking **Rounded** records the end time and duration ("5 of 12 rounded"). Unticking
   asks first and clears the end time. Ticks reset at midnight, Manila time. Each device keeps a daily
-  rounds history (⋯ → Rounds history): dates, times and hospital numbers.
+  rounds history per list (⋯ → Rounds history): dates, times and hospital numbers.
 - **Saved to the logsheet:** ticks go to columns **E–G** (Rounded, Rounds Start, Rounds End — the headings
-  are added only if E1:G1 are empty; if they hold anything else the app stops and asks). Lab results and
-  recommendations can be edited in a patient's sheet (**Edit**) and go back to columns **C** and **D**.
-  Names and hospital numbers (A, B) are never changed, and rows are never added, deleted or moved. Before each write the app finds the patient's row again by hospital number and checks the cell
-  hasn't changed; if someone else changed it, you see both versions and choose. Changes that can't be saved
-  yet stay on the device, marked **Not synced**, and are retried automatically.
-- **Private by design:** the logsheet link, the patient list and the rounds history stay on each device —
+  are added only if E1:G1 are empty; if they hold anything else the app stops and asks). Every column the list
+  shows can be edited in a patient's sheet (**Edit**) and goes back to its own column. Names and hospital
+  numbers (A, B) are never changed, and rows are never added or deleted. Before each write the app finds the
+  patient's row again by hospital number and checks the cell hasn't changed; if someone else changed it, you
+  see both versions and choose. Changes that can't be saved yet stay on the device, marked **Not synced**, and
+  are retried automatically.
+- **Private by design:** the logsheet links, the patients and the rounds history stay on each device —
   never synced to your Life Dashboard sheet, never in backup files, the app's code or its logs.
-- It works through your sync script (version 4, running as you), so sync must be set up on the device.
-  Edited lab results wait on the device until the script is version 4.
+- It works through your sync script (running as you), so sync must be set up on the device.
+  Edited lab results wait on the device until the script is version 4; other added columns need version 7.
 
 Setting it up (once the sync script is updated):
 
 1. Make sure the logsheet is shared — with edit access — with the Google account that owns your Life
    Dashboard sheet (the account the sync script runs as).
-2. In the app: **Neurology → Ward Patients → Link logsheet**. Paste the logsheet's link (from the address
-   bar, or Share → Copy link) and its tab name (Sheet1 unless yours is different), then **Check logsheet**
-   → **Link this logsheet**. Do this on each device: the link is never shared between them.
+2. In the app: **Neurology → Ward Patients** (or your own list) **→ Link logsheet**. Paste the logsheet's link
+   (from the address bar, or Share → Copy link) and its tab name (Sheet1 unless yours is different), then
+   **Check logsheet** → **Link this logsheet**. Do this on each device: the link is never shared between them.
 3. To try it first, choose **Create a practice logsheet**: made-up patients in a new sheet in your Google
    Drive. Change to your real logsheet later from ⋯ → **Change logsheet** (or Settings → Neurology).
 
@@ -278,8 +298,10 @@ js/modules/todo/      To Do: model (views, sorting, search, CSV), store (saving)
                       own date, time and reminders), calendar-link (the Google Calendar link: who rings,
                       updating events after sync, Settings → Google Calendar)
 js/core/quick-add.js  The + button on every tab and the Quick Add sheet
-js/modules/ward/      Ward Patients (Neurology): model (Manila time, sorting), engine (list, rounds,
-                      changes waiting to be saved), page (screen, patient sheet, history), store
+js/modules/ward/      Patient lists (Neurology): model (Manila time, sorting, columns), engine (the lists;
+                      each one's patients, rounds, changes waiting to be saved), page (a list's screen,
+                      patient sheet, history), manage (new, rename, move, delete lists), columns (the
+                      Columns sheet), arrange (Arrange rows), store
 js/screens/           Dashboard, settings, welcome
 js/services/          Sync, backup, calendar provider, sample data, storage, images
 apps-script/Code.gs   Google Sheets sync script (runs in your Google account)
@@ -313,7 +335,11 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
 - **Sync script versions:** `SCRIPT_VERSION` in `Code.gs` and `LATEST_SCRIPT_VERSION` / `STORE_SCRIPT_VERSION`
   in `sync.js`. A new synced store that an older script can't save waits in the outbox until the script is updated.
   Version 3 adds the Ward Patients actions (`wardCheck`, `wardSync`, `wardCreateTest`), which open the logsheet
-  by the ID the app sends; the app reaches them with `callSyncScript()`.
+  by the ID the app sends; the app reaches them with `callSyncScript()`. Version 7 adds to `wardSync`: `cols`
+  (the list's columns, read as cells), `addColumn`, `move` (Arrange rows) and text writes to any column but
+  A, B and the rounds columns; plus the synced `wardLists` store. A device that synced with an older app skipped
+  kinds of data it didn't know: `knownStores` in the sync config makes the first sync after an update fetch
+  those again from the start, once.
 - **To Do:** tasks, subtasks (`subtasks` store) and categories sync; tasks and subtasks wait for script version 5,
   so they always arrive together. Task dates are Manila days (`js/core/manila.js`). The Google Calendar link's state
   lives in the script's own **Calendar links** tab (`calendarLinks`), which the app will read from 0.4.3 — the script
@@ -329,7 +355,9 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
   (`settleAlerts()` in alerts.js), so a sheet that was open while a reminder rang can't make it ring again. The
   engine is `js/modules/todo/reminders.js`; the rules (and their checks in todo-checks.html) are in `alerts.js`.
 - **Ward Patients data** is device-only: the `wardDays` and `wardQueue` stores and the `ward` / `wardCache`
-  meta keys are never synced or backed up. Never log patient data or put a logsheet link in the code.
+  (first list) and `ward:<list>` / `wardCache:<list>` meta keys are never synced or backed up. Only the lists
+  themselves (`wardLists`: name, order, headings, columns) sync. The first list has the fixed id `ward` and a
+  fixed old timestamp, so a renamed copy always wins. Never log patient data or put a logsheet link in the code.
 - **Calendar:** `js/services/calendar.js` uses a provider; a Google Calendar provider (via Apps
   Script) will replace the sample one without dashboard changes.
 - **Releasing:** bump the version in `js/core/config.js` and `CACHE_VERSION` in `sw.js`, and list

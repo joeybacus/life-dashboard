@@ -1,18 +1,21 @@
 /* Neurology — mostly reserved for a future update (the tab, the dashboard card
-   and the placeholder), plus one working tool: Ward Patients (see ward/).
+   and the placeholder), plus one working tool: patient lists for ward rounds
+   (Ward Patients, and any lists you add — see ward/).
 
    Pages of the Neurology tab (#/neurology/…):
-     (none)          the Ward Patients button, then what's planned
-     ward            Ward Patients
-     ward/history    rounds history */
+     (none)                 your patient lists, then what's planned
+     list/<id>              a patient list (Ward Patients is list/ward)
+     list/<id>/history      its rounds history
+     ward, ward/history     older addresses of Ward Patients (they still work) */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
 import { on } from '../core/events.js';
 import { html, setHTML } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { pageHead } from '../core/components.js';
-import { wardSummary } from './ward/engine.js';
-import { handleCardClick, historyPage, wardPage } from './ward/page.js';
+import { wardSummaries } from './ward/engine.js';
+import { handleCardClick, historyPage, listPage } from './ward/page.js';
+import './ward/manage.js'; // New list, and each list's ⋯ menu
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -29,14 +32,29 @@ const PLANNED_TOOLS = [
   { name: 'Study analytics', icon: 'chart' },
 ];
 
-/** The Ward Patients button (Neurology tab and dashboard card). */
-function wardEntry(s, { compact = false } = {}) {
-  const sub = !s.linked ? 'Link your ward logsheet to get started'
-    : !s.loaded ? 'Open to load your logsheet'
-    : `${s.rounded} of ${s.total} rounded today${s.active ? ' · rounds in progress' : ''}${s.unsaved ? ` · ${s.unsaved} not synced` : ''}`;
-  return html`<a class="${compact ? '' : 'card '}ward-entry${compact ? ' ward-entry--compact' : ''}" href="#/neurology/ward" data-action="nav" data-route="neurology" data-sub="ward">
+function entrySub(s) {
+  if (!s.linked) return 'Link a logsheet to get started';
+  if (!s.loaded) return 'Open to load the logsheet';
+  return `${s.rounded} of ${s.total} rounded today${s.active ? ' · rounds in progress' : ''}${s.unsaved ? ` · ${s.unsaved} not synced` : ''}`;
+}
+
+/** A list's button on the Neurology tab, with its ⋯ menu (rename, move, delete). */
+function listCard(s) {
+  return html`<div class="card ward-entry">
+    <a class="ward-entry__link" href="#/neurology/list/${s.id}" data-action="nav" data-route="neurology" data-sub="list/${s.id}">
+      <span class="ward-entry__icon">${icon('stethoscope')}</span>
+      <span class="ward-entry__text"><span class="ward-entry__title">${s.name}</span><span class="ward-entry__sub">${entrySub(s)}</span></span>
+      ${icon('chevronRight', 'ward-entry__chev')}
+    </a>
+    <button type="button" class="icon-btn ward-entry__more" data-action="ward:list-menu" data-list="${s.id}" aria-label="Options for ${s.name}">${icon('more')}</button>
+  </div>`;
+}
+
+/** A list's button on the dashboard card. */
+function listLink(s) {
+  return html`<a class="ward-entry ward-entry--compact" href="#/neurology/list/${s.id}" data-action="nav" data-route="neurology" data-sub="list/${s.id}">
     <span class="ward-entry__icon">${icon('stethoscope')}</span>
-    <span class="ward-entry__text"><span class="ward-entry__title">Ward Patients</span><span class="ward-entry__sub">${sub}</span></span>
+    <span class="ward-entry__text"><span class="ward-entry__title">${s.name}</span><span class="ward-entry__sub">${entrySub(s)}</span></span>
     ${icon('chevronRight', 'ward-entry__chev')}
   </a>`;
 }
@@ -47,17 +65,24 @@ registerModule({
   icon: 'brain',
   accent: 'neuro',
   status: 'planned',
-  load: async () => wardSummary(),
-  summary: (s) => (s.linked && s.loaded
-    ? {
-      text: `Ward: ${s.rounded} of ${s.total} rounded${s.active ? ' · rounds in progress' : ''}`,
-      progress: s.total ? s.rounded / s.total : null,
-      ringText: `${s.rounded}/${s.total}`,
-      ringLabel: `${s.rounded} of ${s.total} ward patients rounded`,
-    }
-    : { text: 'Coming in a future update.', progress: null, ringLabel: 'Ward Patients not linked yet', idleIcon: 'lock' }),
-  body: (s) => html`
-    ${wardEntry(s, { compact: true })}
+  load: async () => wardSummaries(),
+  summary(all) {
+    const loaded = all.filter((s) => s.linked && s.loaded);
+    if (!loaded.length) return { text: 'Coming in a future update.', progress: null, ringLabel: 'No patient list linked yet', idleIcon: 'lock' };
+    const total = loaded.reduce((n, s) => n + s.total, 0);
+    const rounded = loaded.reduce((n, s) => n + s.rounded, 0);
+    const active = loaded.some((s) => s.active) ? ' · rounds in progress' : '';
+    return {
+      text: loaded.length === 1
+        ? `${loaded[0].name}: ${rounded} of ${total} rounded${active}`
+        : `${loaded.map((s) => `${s.name} ${s.rounded}/${s.total}`).join(' · ')} rounded${active}`,
+      progress: total ? rounded / total : null,
+      ringText: `${rounded}/${total}`,
+      ringLabel: `${rounded} of ${total} patients rounded`,
+    };
+  },
+  body: (all) => html`
+    ${all.map(listLink)}
     <p class="neuro-note">${MESSAGE}</p>
     <div class="tag-cloud">${PLANNED_TOOLS.slice(0, 6).map((t) => html`<span class="tag">${t.name}</span>`)}</div>
     <div class="card-foot"><button type="button" class="link-btn" data-action="nav" data-route="neurology" data-sub="">Open Neurology ${icon('arrowRight')}</button></div>`,
@@ -66,9 +91,13 @@ registerModule({
 /* ---- Pages ---- */
 
 function showHome(el) {
+  const all = wardSummaries();
   setHTML(el, html`
     ${pageHead({ title: 'Neurology', iconName: 'brain', accent: 'neuro', eyebrow: 'Module' })}
-    <div class="accent-neuro">${wardEntry(wardSummary())}</div>
+    <section class="ward-lists accent-neuro" aria-label="Patient lists">
+      ${all.map(listCard)}
+      <button type="button" class="btn ward-lists__new" data-action="ward:new-list">${icon('plus')}New list</button>
+    </section>
     <section class="card placeholder accent-neuro" aria-label="Coming soon">
       <div class="placeholder__orb">${icon('brain')}</div>
       <h2 class="placeholder__title">More coming in a future update</h2>
@@ -86,23 +115,29 @@ function showHome(el) {
 const HOME = { show: showHome };
 const ROUTES = [
   [/^$/, HOME],
-  [/^ward$/, wardPage],
-  [/^ward\/history$/, historyPage],
+  [/^list\/([\w-]+)$/, listPage],
+  [/^list\/([\w-]+)\/history$/, historyPage],
 ];
+const OLD_ROUTES = { ward: 'list/ward', 'ward/history': 'list/ward/history' };
 
 let view = null;
 let page = null;
 let visible = false;
 
 function route(el, sub) {
-  const def = ROUTES.find(([pattern]) => pattern.test(sub))?.[1];
-  if (!def) {
+  if (OLD_ROUTES[sub]) {
+    replacePage(OLD_ROUTES[sub]);
+    return null;
+  }
+  const found = ROUTES.map(([pattern, def]) => [pattern.exec(sub), def]).find(([match]) => match);
+  if (!found) {
     replacePage(''); // unknown page: back to the start
     return null;
   }
+  const [match, def] = found;
   if (page && page !== def) page.hide?.();
   page = def;
-  return def.show(el);
+  return def.show(el, match[1]);
 }
 
 registerScreen('neurology', {
@@ -127,5 +162,5 @@ registerScreen('neurology', {
   },
 });
 
-// Keep the Ward Patients button's summary current
+// Keep the lists' summaries current
 on('ward', () => { if (visible && page === HOME) showHome(view); });

@@ -197,6 +197,35 @@ MockSheet.prototype.insertColumnsAfter = function (after, count) {
   this.d.maxCols += count;
   return this;
 };
+/** Like Sheets: the rows rowSpec spans go before row destinationIndex (counted before the move), formats too. */
+MockSheet.prototype.moveRows = function (rowSpec, destinationIndex) {
+  var from = rowSpec.r;
+  var n = rowSpec.nr;
+  new MockRange(this.d, from, 1, n, this.d.maxCols, this.file).__checkEdit();
+  if (!(destinationIndex >= 1 && destinationIndex <= this.d.maxRows + 1)) __fail('Invalid argument: destinationIndex');
+  if (destinationIndex >= from && destinationIndex <= from + n) return this; // already there
+  var total = Math.max(this.d.rows.length, from + n - 1, destinationIndex - 1);
+  var seq = [];
+  for (var r = 1; r <= total; r++) seq.push(r);
+  var moving = seq.splice(from - 1, n);
+  var at = destinationIndex > from ? destinationIndex - 1 - n : destinationIndex - 1;
+  seq.splice.apply(seq, [at, 0].concat(moving));
+  var rows = this.d.rows;
+  var fmt = this.d.fmt || {};
+  var byRow = {};
+  Object.keys(fmt).forEach(function (k) {
+    var p = k.split(',');
+    (byRow[p[0]] = byRow[p[0]] || {})[p[1]] = fmt[k];
+  });
+  var nextFmt = {};
+  Object.keys(byRow).forEach(function (row) { if (Number(row) > total) Object.keys(byRow[row]).forEach(function (c) { nextFmt[__cellKey(row, c)] = byRow[row][c]; }); });
+  this.d.rows = seq.map(function (old, i) {
+    Object.keys(byRow[old] || {}).forEach(function (c) { nextFmt[__cellKey(i + 1, c)] = byRow[old][c]; });
+    return rows[old - 1] || [];
+  });
+  this.d.fmt = nextFmt;
+  return this;
+};
 MockSheet.prototype.setFrozenRows = function () { return this; };
 MockSheet.prototype.setColumnWidth = function () { return this; };
 

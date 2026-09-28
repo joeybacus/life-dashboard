@@ -31,7 +31,7 @@ import {
 import {
   LATEST_SCRIPT_VERSION, connectSync, disconnectSync, setAutoSync, syncNow, syncScriptVersion, syncSnapshot, syncStatusText,
 } from '../services/sync.js';
-import { wardLinkInfo } from '../modules/ward/engine.js';
+import { wardLists } from '../modules/ward/engine.js';
 import { imageFileToAvatar } from '../services/images.js';
 import { formatBytes, storageInfo } from '../services/storage.js';
 import { offlineLabel } from '../services/pwa.js';
@@ -139,7 +139,8 @@ function scriptUpdateFor() {
   const version = syncScriptVersion() ?? 1;
   if (version < 2) return 'your tasks, workout templates, exercises and Ward Patients';
   if (version < 4) return 'your tasks and Ward Patients';
-  return 'your tasks';
+  if (version < 5) return 'your tasks and your patient lists';
+  return 'your patient lists (columns, moving rows, and syncing the lists)';
 }
 
 function syncSection() {
@@ -184,23 +185,23 @@ function syncSection() {
   </section>`;
 }
 
-/** Ward Patients: the logsheet on this device (the same options as on the Ward Patients screen). */
+/** Patient lists: each list's logsheet on this device (the same options as on the list's ⋯ menu). */
 function neurologySection() {
-  const link = wardLinkInfo();
+  const lists = wardLists();
   return html`<h2 class="group__title" id="set-neuro-title">Neurology</h2>
     <div class="card group__card accent-neuro">
-      <button type="button" class="row row--icon" data-action="ward:setup">
+      ${lists.map((l) => html`<button type="button" class="row row--icon" data-action="ward:list-settings" data-list="${l.id}">
         <span class="row__icon">${icon('stethoscope')}</span>
-        <span class="row__text"><span class="row__label">${link ? 'Change logsheet' : 'Ward Patients logsheet'}</span>
-          <span class="row__sub">${link ? `${link.title || 'Logsheet'} · ${link.tab}${link.test ? ' (practice logsheet)' : ''}` : 'Not linked on this device'}</span></span>
+        <span class="row__text"><span class="row__label">${l.name}</span>
+          <span class="row__sub">${l.link ? `${l.link.title || 'Logsheet'} · ${l.link.tab}${l.link.test ? ' (practice logsheet)' : ''}` : 'No logsheet linked on this device'}</span></span>
         ${icon('chevronRight', 'row__chev')}
+      </button>`)}
+      <button type="button" class="row row--icon" data-action="ward:new-list">
+        <span class="row__icon">${icon('plus')}</span>
+        <span class="row__text"><span class="row__label">New patient list</span><span class="row__sub">Another list with its own logsheet or tab</span></span>
       </button>
-      ${link ? html`<button type="button" class="row row--icon row--danger accent-danger" data-action="ward:remove">
-        <span class="row__icon">${icon('x')}</span>
-        <span class="row__text"><span class="row__label">Remove logsheet from this device</span><span class="row__sub">Removes the link and the patient list here. The logsheet itself isn’t touched.</span></span>
-      </button>` : ''}
     </div>
-    <p class="group__foot">Ward Patients is in the Neurology tab. The logsheet link is kept on this device only — it’s never synced, backed up or put in the app’s code.</p>`;
+    <p class="group__foot">Patient lists are in the Neurology tab. Their names and columns sync between your devices; each logsheet link is kept on this device only — it’s never synced, backed up or put in the app’s code.</p>`;
 }
 
 function updateNeurology() {
@@ -1158,7 +1159,7 @@ async function openScriptUpdate() {
     className: 'setup',
     title: 'Update the sync script',
     body: html`
-      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script gives your tasks and subtasks their own readable tabs in your Google Sheet (with each subtask’s own date, time and reminders), can put tasks and subtasks in Google Calendar (for reminders that ring when the app is closed), and includes Ward Patients (Neurology tab). Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
+      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script lets your patient lists (Neurology tab) show your own logsheet columns, add columns and move rows, and syncs the lists’ names and columns between your devices. It includes everything before it too: readable tabs for your tasks and subtasks, Google Calendar for them, and Ward Patients. Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
       <ol class="setup__steps">
         <li><strong>Copy the new code.</strong>
           <span class="setup__buttons">
@@ -1167,7 +1168,7 @@ async function openScriptUpdate() {
           </span>
         </li>
         <li><strong>Replace the old code.</strong> Open your Google Sheet → <strong>Extensions → Apps Script</strong>. Click in the code, select everything (<strong>⌘A</strong>), paste (<strong>⌘V</strong>), then click <strong>Save</strong>. Near the top, a line should now read <code>const SCRIPT_VERSION = ${LATEST_SCRIPT_VERSION};</code></li>
-        <li><strong>Allow Google Calendar (once).</strong> In the toolbar, choose <strong>setup</strong> and click <strong>Run</strong>. Google asks for permission: <strong>Review permissions</strong> → your account → <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> → <strong>Allow</strong>. It’s your own script; this also tidies the task tabs and starts a 30-minute check it needs for Calendar alerts.</li>
+        <li><strong>Run setup (once).</strong> In the toolbar, choose <strong>setup</strong> and click <strong>Run</strong>. If Google asks for permission (it does when you’re coming from version 4 or older): <strong>Review permissions</strong> → your account → <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> → <strong>Allow</strong>. It’s your own script; this adds the new tabs and starts the 30-minute check Google Calendar alerts need.</li>
         <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>.</li>
         <li><strong>Check.</strong> Come back here and tap <strong>Check now</strong>.</li>
       </ol>
@@ -1188,7 +1189,7 @@ async function openScriptUpdate() {
         const snap = syncSnapshot();
         if (!snap.scriptOutdated) {
           close('done');
-          toast('The sync script is up to date. Your tasks and Ward Patients now sync.', { icon: 'cloudCheck', duration: 6000 });
+          toast('The sync script is up to date. Everything syncs now, your patient lists too.', { icon: 'cloudCheck', duration: 6000 });
         } else if (snap.phase === 'error') {
           toast(snap.error?.message ?? 'Couldn’t reach your Google Sheet.', { icon: 'info', duration: 6000 });
         } else {

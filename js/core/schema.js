@@ -71,14 +71,20 @@ const MIGRATIONS = [
   (db) => {
     db.createObjectStore('calendarLinks', { keyPath: 'id' });
   },
+  // v7 — Patient lists (0.4.3.1): each list in the Neurology tab — its name, order, headings and
+  // columns ({ id, name, order, headings, columns }). Synced; never holds patients.
+  (db) => {
+    const wardLists = db.createObjectStore('wardLists', { keyPath: 'id' });
+    wardLists.createIndex('updatedAt', 'updatedAt');
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
 
 /** Stores included in JSON backups, in export order. */
-export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
+export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists'];
 
-/** Ward Patients data kept on this device only (see migration v4). */
+/** Ward Patients data kept on this device only (see migration v4; the lists themselves sync — v7). */
 export const WARD_STORES = ['wardDays', 'wardQueue'];
 
 /** Kept by the sync script in its own tabs: devices receive them, never send them. */
@@ -88,7 +94,7 @@ export const SCRIPT_STORES = ['calendarLinks'];
 export const STORE_NAMES = [...BACKUP_STORES, 'outbox', ...WARD_STORES, ...SCRIPT_STORES];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
-export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements'];
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists'];
 
 /** Stores that may contain generated sample records. */
 export const SAMPLE_STORES = ['tasks', 'subtasks', 'workouts', 'bodyMeasurements'];

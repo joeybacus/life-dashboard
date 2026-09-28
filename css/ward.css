@@ -1,6 +1,7 @@
 /* ==========================================================================
-   Ward Patients (Neurology tab): cards on iPhone, a table on iPad landscape
-   and Mac, the patient sheet, conflict chooser, logsheet setup, history
+   Patient lists (Neurology tab): the lists, then a list's patients — cards
+   on iPhone, a table on iPad landscape and Mac — the patient sheet, conflict
+   chooser, logsheet setup, columns, arranging rows, history
    ========================================================================== */
 
 /* Priority levels from the recommendations: P1 (high), P2, P3 — always shown
@@ -8,10 +9,25 @@
 :root { --p1: var(--pri-high); --p1-ink: var(--danger-ink); --p2: var(--pri-med); --p2-ink: #ffd166; --p3: #60a5fa; --p3-ink: #93c5fd; }
 [data-theme="light"] { --p2-ink: #8a5a00; --p3-ink: #1d4ed8; }
 
-/* ---- The Ward Patients button (Neurology tab and dashboard card) ---- */
-.ward-entry { display: flex; align-items: center; gap: 14px; margin-top: 20px; padding: 16px; color: inherit; transition: transform var(--t-fast) var(--ease); }
-.ward-entry:active { transform: scale(.99); }
+/* ---- A list's button: a card with a ⋯ menu (Neurology tab), compact on the dashboard card ---- */
+.ward-lists { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+.ward-lists__new { align-self: flex-start; }
+.ward-entry { display: flex; align-items: center; gap: 14px; color: inherit; }
+.ward-entry.card { gap: 0; padding: 0; }
 @media (hover: hover) { .ward-entry.card:hover { border-color: var(--border-2); } }
+.ward-entry__link {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 6px 16px 16px;
+  border-radius: inherit;
+  color: inherit;
+  transition: transform var(--t-fast) var(--ease);
+}
+.ward-entry__link:active, .ward-entry--compact:active { transform: scale(.99); }
+.ward-entry__more { margin-right: 8px; }
 .ward-entry__icon {
   display: grid;
   place-items: center;
@@ -25,15 +41,16 @@
 }
 .ward-entry__icon .icon { width: 26px; height: 26px; }
 .ward-entry__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.ward-entry__title { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; }
+.ward-entry__title { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .ward-entry__sub { font-size: var(--fs-sm); color: var(--text-2); }
-.ward-entry__chev { width: 1.1rem; height: 1.1rem; color: var(--text-3); }
+.ward-entry__chev { width: 1.1rem; height: 1.1rem; flex: none; color: var(--text-3); }
 .ward-entry--compact {
   margin: 0 0 12px;
   padding: 12px;
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--accent) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  transition: transform var(--t-fast) var(--ease);
 }
 .ward-entry--compact .ward-entry__icon { width: 40px; height: 40px; border-radius: 12px; }
 .ward-entry--compact .ward-entry__icon .icon { width: 22px; height: 22px; }
@@ -109,8 +126,15 @@
 .ward-rounds__note { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: var(--fs-sm); font-weight: 600; color: color-mix(in srgb, var(--success) 70%, var(--text)); }
 .ward-rounds__note .icon { width: 1rem; height: 1rem; }
 
-.ward-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 4px 0; }
-.ward-status__text { font-size: var(--fs-sm); color: var(--text-3); }
+/* Last updated · Refresh, then Arrange rows and Columns (all on one line on wider screens) */
+.ward-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 10px; margin: 10px 4px 0; }
+.ward-status__text { flex: 1 1 auto; font-size: var(--fs-sm); color: var(--text-3); }
+.ward-status__tools { order: 3; flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-left: -8px; }
+.ward-status__btn { order: 2; }
+@media (min-width: 700px) {
+  .ward-status__tools { order: 2; flex: none; margin-left: 0; }
+  .ward-status__btn { order: 3; }
+}
 .ward-status__pending { display: inline-flex; align-items: center; gap: 4px; font-weight: 650; color: var(--todo-ink); }
 .ward-status__pending .icon { width: .95rem; height: .95rem; }
 .ward-status__btn { margin-right: -8px; }
@@ -150,10 +174,6 @@
   position: relative;
   display: grid;
   grid-template-columns: 2.75rem minmax(0, 1fr);
-  grid-template-areas:
-    "tick who"
-    "labs labs"
-    "recs recs";
   column-gap: 10px;
   padding: 12px 14px 10px 10px;
   border-radius: var(--r-lg);
@@ -174,7 +194,7 @@
 .pt.is-rounded { background: color-mix(in srgb, var(--success) 5%, var(--surface)); }
 .pt.is-rounded .pt__name { color: var(--text-2); }
 
-.pt__tick { grid-area: tick; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; margin-top: -4px; border-radius: 50%; }
+.pt__tick { grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; margin-top: -4px; border-radius: 50%; }
 .pt__box {
   display: grid;
   place-items: center;
@@ -192,7 +212,7 @@
 .pt__tick.is-disabled { cursor: not-allowed; }
 .pt__tick.is-disabled .pt__box { border-style: dashed; opacity: .45; }
 
-.pt__who { grid-area: who; min-width: 0; }
+.pt__who { grid-column: 2; grid-row: 1; min-width: 0; }
 .pt__name {
   display: block;
   max-width: 100%;
@@ -237,9 +257,7 @@
 .wbadge--warn { color: var(--workout-ink); background: color-mix(in srgb, var(--workout) 14%, transparent); border-color: color-mix(in srgb, var(--workout) 38%, transparent); }
 button.wbadge { cursor: pointer; }
 
-.pt__field { min-width: 0; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); }
-.pt__field--labs { grid-area: labs; }
-.pt__field--recs { grid-area: recs; }
+.pt__field { grid-column: 1 / -1; min-width: 0; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); }
 .pt__field .pt__label { display: block; margin-bottom: 3px; }
 .pt__text { font-size: var(--fs-md); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
 .pt__text.is-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
@@ -249,12 +267,14 @@ button.wbadge { cursor: pointer; }
 /* ---- iPad landscape & Mac: a table ---- */
 @media (min-width: 1024px) {
   .ward-table { margin-top: 16px; border-radius: var(--r-lg); background: var(--card-bg); border: 1px solid var(--border); box-shadow: var(--shadow-1); overflow: hidden; }
+  /* Many columns: the table scrolls sideways instead of squeezing them */
+  .ward-table.is-wide { overflow-x: auto; }
+  .ward-table__inner { min-width: var(--pt-min, 0); }
   .ward-group { margin: 0; }
   .ward-group__title { margin: 0; padding: 12px 16px 8px; border-top: 1px solid var(--border); background: var(--surface); }
   .ward-list { gap: 0; }
   .pt {
-    grid-template-columns: 4.5rem minmax(9rem, 1.1fr) minmax(6.5rem, .55fr) minmax(0, 1.7fr) minmax(0, 1.9fr);
-    grid-template-areas: "tick who hn labs recs";
+    grid-template-columns: var(--pt-cols, 4.5rem minmax(9rem, 1.1fr) minmax(6.5rem, .55fr) minmax(0, 1.7fr) minmax(0, 1.9fr));
     column-gap: 16px;
     align-items: start;
     padding: 10px 16px 12px 8px;
@@ -281,9 +301,10 @@ button.wbadge { cursor: pointer; }
     color: var(--text-3);
   }
   .pt--head > :first-child { text-align: center; }
+  .pt__tick, .pt__who, .pt__field { grid-column: auto; grid-row: auto; }
   .pt__tick { justify-self: center; margin-top: -2px; }
   .pt__who .pt__hn { display: none; }
-  .pt__hn-cell { display: block; grid-area: hn; padding-top: 4px; font-size: var(--fs-md); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .pt__hn-cell { display: block; padding-top: 4px; font-size: var(--fs-md); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .pt__name { font-size: var(--fs-base); }
   .pt__badges { margin-top: 6px; }
   .pt__field { margin: 0; padding: 4px 0 0; border: 0; }
@@ -291,6 +312,22 @@ button.wbadge { cursor: pointer; }
   .pt__text { font-size: var(--fs-sm); }
   .pt__text.is-clamped { -webkit-line-clamp: 3; }
 }
+
+/* Table headings: click one to rename it (in the app only) */
+.pt__hbtn {
+  max-width: calc(100% + 12px);
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  color: inherit;
+  overflow-wrap: break-word;
+  cursor: pointer;
+}
+@media (hover: hover) { .pt__hbtn:hover { color: var(--text); background: var(--surface-2); } }
 
 /* ---- One patient (sheet) ---- */
 .ward-detail .dlg__panel { width: min(100%, 640px); }
@@ -354,6 +391,94 @@ button.wbadge { cursor: pointer; }
 .ward-setup__ok { display: flex; align-items: flex-start; gap: 8px; font-size: var(--fs-md); line-height: 1.4; overflow-wrap: anywhere; }
 .ward-setup__ok > .icon { color: color-mix(in srgb, var(--success) 70%, var(--text)); }
 .ward-setup__test { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); }
+
+/* ---- A name box (new list, rename) ---- */
+.ward-name__hint { margin-top: 8px; font-size: var(--fs-sm); line-height: 1.4; color: var(--text-3); text-align: left; }
+.ward-name .form-error { margin-top: 10px; text-align: left; }
+
+/* ---- Columns (sheet) ---- */
+.ward-cols-sheet .dlg__panel { width: min(100%, 600px); }
+.ward-cols { margin-top: 12px; padding: 0; overflow: hidden; background: var(--surface-solid); }
+.ward-col { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 8px 8px 8px 12px; background: var(--surface-solid); }
+.ward-col + .ward-col { border-top: 1px solid var(--border); }
+.ward-col.is-dragging { z-index: 2; box-shadow: var(--shadow-2); border-radius: var(--r-md); }
+[data-cols-list] .ward-col { padding-left: 0; }
+.ward-col__handle { display: grid; place-items: center; align-self: stretch; width: 36px; margin: -8px -6px -8px 0; flex: none; color: var(--text-3); cursor: grab; touch-action: none; }
+.ward-col__handle .icon { width: 1.1rem; height: 1.1rem; }
+.ward-col__tag {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: var(--fs-sm);
+  font-weight: 750;
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.ward-col__tag .icon { width: 1.05rem; height: 1.05rem; }
+.ward-col__text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ward-col__label { font-size: var(--fs-md); font-weight: 650; overflow-wrap: anywhere; }
+.ward-col__sub { font-size: var(--fs-xs); line-height: 1.35; color: var(--text-3); overflow-wrap: anywhere; }
+.ward-col__actions { display: flex; flex: none; gap: 2px; }
+.ward-col__remove { color: var(--danger-ink); }
+@media (max-width: 480px) {
+  .ward-col__btn-text { display: none; }
+  .ward-col .btn--sm { padding-inline: 10px; }
+}
+.ward-cols__add { margin-top: 14px; }
+.ward-cols__none { margin-top: 12px; font-size: var(--fs-sm); color: var(--text-3); }
+.ward-cols__foot { margin-top: 12px; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-3); }
+.ward-cols__foot .icon, .ward-arrange .dlg__msg .icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -3px; }
+
+/* Adding a column */
+.ward-addcol .dlg__panel { width: min(100%, 560px); }
+.ward-where { display: flex; flex-direction: column; gap: 8px; margin: 16px 0 0; padding: 0; border: 0; min-width: 0; }
+.ward-where legend { margin-bottom: 8px; padding: 0; }
+.ward-where__opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
+.ward-where__opt:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.ward-where__opt input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); }
+.ward-where__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ward-where__text small { font-size: var(--fs-xs); line-height: 1.35; color: var(--text-3); overflow-wrap: anywhere; }
+.ward-addcol .form-error { margin-top: 12px; }
+.ward-addcol .form__actions { margin-top: 16px; }
+
+/* ---- Arrange rows (sheet) ---- */
+.ward-arrange .dlg__panel { width: min(100%, 560px); padding-bottom: 0; }
+.ward-arr { margin-top: 14px; padding: 0; overflow: hidden; background: var(--surface-solid); }
+.ward-arr__item { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 6px 14px 6px 0; background: var(--surface-solid); }
+.ward-arr__item + .ward-arr__item { border-top: 1px solid var(--border); }
+.ward-arr__item.is-dragging { z-index: 2; box-shadow: var(--shadow-2); border-radius: var(--r-md); }
+.ward-arr.is-drag-active { -webkit-user-select: none; user-select: none; }
+.ward-arr__handle { display: grid; place-items: center; align-self: stretch; width: 46px; margin: -6px 0; flex: none; color: var(--text-3); cursor: grab; touch-action: none; }
+.ward-arr__handle .icon { width: 1.15rem; height: 1.15rem; }
+.ward-arr__num { min-width: 1.5rem; flex: none; font-size: var(--fs-sm); font-weight: 700; text-align: right; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.ward-arr__text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ward-arr__name { font-weight: 650; overflow-wrap: anywhere; }
+.ward-arr__hn { font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.ward-arr__loading { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: var(--fs-sm); color: var(--text-3); }
+.ward-arr__loading .icon { width: 1rem; height: 1rem; }
+.ward-arrange .form-error { margin-top: 12px; }
+.ward-arr__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin: 16px -20px 0;
+  padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
+  background: var(--surface-solid);
+  border-top: 1px solid var(--border);
+}
 
 /* ---- Rounds history ---- */
 .ward-day { margin-top: 12px; overflow: hidden; }

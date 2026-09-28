@@ -51,10 +51,17 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    edit lab results; 5 adds the to-do tabs (readable columns, subtasks) and the
    Google Calendar link — tasks wait for it too, so they always arrive with
    their subtasks; 6 shows subtasks' own date, time and reminders in the Sheet
-   and can put them in Google Calendar (version 5 already syncs them). */
-export const LATEST_SCRIPT_VERSION = 6;
-const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5 };
+   and can put them in Google Calendar (version 5 already syncs them); 7 syncs
+   your patient lists (Ward lists tab) and lets them show your own logsheet
+   columns, add columns and move rows. */
+export const LATEST_SCRIPT_VERSION = 7;
+const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
+/* A device that synced with an older app skipped the kinds of data that app
+   didn't know yet (their changes were pulled and ignored). The first sync
+   after an update fetches those kinds again from the start, once. Devices
+   from before this was recorded knew every kind but the patient lists. */
+const STORES_KNOWN_BEFORE = SYNC_STORES.filter((name) => name !== 'wardLists');
 const scriptSupports = (store, config) => (STORE_SCRIPT_VERSION[store] ?? 1) <= scriptVersion(config);
 
 export class SyncError extends Error {
@@ -69,7 +76,7 @@ export class SyncError extends Error {
 }
 
 const sync = {
-  config: null,  // { url, token, deviceId, auto, pullSeq, firstSyncDone, lastSyncAt, connectedAt }
+  config: null,  // { url, token, deviceId, auto, pullSeq, knownStores, firstSyncDone, lastSyncAt, connectedAt }
   phase: 'off',  // off | idle | syncing | offline | error
   error: null,   // { code, message }
   pending: 0,    // changes waiting to be sent
@@ -347,7 +354,14 @@ async function runSync() {
     const results = await push(outgoing);
     if (outgoing.length) emit('sync:pushed', { items: outgoing.filter(({ store }) => scriptSupports(store)) }); // e.g. the Calendar link updates events
     const pulled = await call('pull', { sinceSeq: config.pullSeq ?? 0 });
-    const { touched, logs } = await applyRemote(pulled.changes ?? [], firstSync);
+    let changes = pulled.changes ?? [];
+    const known = config.knownStores ?? STORES_KNOWN_BEFORE;
+    const skipped = firstSync ? [] : SYNC_STORES.filter((name) => !known.includes(name));
+    if (skipped.some((name) => scriptSupports(name))) {
+      const everything = await call('pull', { sinceSeq: 0 });
+      changes = [...(everything.changes ?? []).filter((c) => skipped.includes(c.store)), ...changes]; // newer ones last, so they win
+    }
+    const { touched, logs } = await applyRemote(changes, firstSync);
 
     if (firstSync) {
       const present = new Set((pulled.changes ?? []).map((c) => c.store));
@@ -356,6 +370,7 @@ async function runSync() {
     }
 
     config.pullSeq = Number(pulled.seq) || config.pullSeq || 0;
+    config.knownStores = [...SYNC_STORES];
     config.firstSyncDone = true;
     config.lastSyncAt = nowISO();
     await saveConfig();

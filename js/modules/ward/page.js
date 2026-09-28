@@ -1,49 +1,59 @@
-/* Ward Patients screen (#/neurology/ward) and rounds history (#/neurology/ward/history).
+/* A patient list's screen (#/neurology/list/<id>) and its rounds history
+   (#/neurology/list/<id>/history). The first list, Ward Patients, has the id
+   "ward".
 
-   Patients show as cards on iPhone and as a table on wider screens. A
-   patient's details open in a sheet, not a page of their own, so hospital
-   numbers never appear in the address bar or browser history. */
+   Patients show as cards on iPhone and as a table on wider screens, with the
+   list's own columns. A patient's details open in a sheet, not a page of
+   their own, so hospital numbers never appear in the address bar or browser
+   history (list ids are random, never patient data). */
 import { html, raw, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { registerAction, runAction } from '../../core/actions.js';
 import { on } from '../../core/events.js';
 import { liveElapsed, subHead } from '../../core/components.js';
 import { actionSheet, announce, confirmDialog, openDialog, toast } from '../../core/ui.js';
-import { openPage } from '../../core/router.js';
+import { openPage, replacePage } from '../../core/router.js';
 import { LATEST_SCRIPT_VERSION, syncScriptVersion, syncSnapshot } from '../../services/sync.js';
+import { checkLogsheet, wardList } from './engine.js';
 import {
-  checkLogsheet, createTestLogsheet, deleteHistory, dropChange, endRounds, forgetLogsheet, lastLoadedAt, loadHistory,
-  EDITABLE, namesByKey, notePatientOpened, refreshWard, resolveConflict, saveText, setRounded, setRoundsHere,
-  startRounds, useLogsheet, wardView,
-} from './engine.js';
-import {
-  LOAD_PROBLEMS, MAX_RECS, PRIORITY_LEVELS, WRITE_PROBLEMS, formatSpan, fromSheetTime, wardDayLong, wardStamp, wardTime,
+  FIXED_HEADINGS, LOAD_PROBLEMS, MAX_TEXT, PRIORITY_LEVELS, WRITE_PROBLEMS, formatSpan, fromSheetTime, wardDayLong, wardStamp, wardTime,
 } from './model.js';
+import { openColumns, renameColumn } from './columns.js';
+import { openArrange } from './arrange.js';
+import { removeList, renameList } from './manage.js';
 
 const AUTO_REFRESH_MS = 3 * 60 * 1000;
 const FRESH_MS = 15_000; // opening the screen again within this doesn't reload
 
 let view = null;
-let showing = null;      // 'ward' | 'history' | null
+let showing = null;      // 'list' | 'history' | null
+let listId = null;       // the list on screen
 let refreshTimer = null;
 let renderQueued = false;
-const expanded = new Set(); // "id|labs" / "id|recs" opened with Show more
+const expanded = new Set(); // "id|C" opened with Show more
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const findPatient = (id) => wardView().patients.find((p) => p.id === id) ?? null;
+const current = () => wardList(listId);
+const findPatient = (id) => current()?.view().patients.find((p) => p.id === id) ?? null;
+/** "HN" on cards, unless you renamed Hospital No. */
+const hnLabel = (v) => (v.headings.hn === FIXED_HEADINGS.hn ? 'HN' : v.headings.hn);
+/** A list for an action: the one named on the button, or the one on screen. */
+const listFor = (el) => wardList(el?.dataset?.list || listId);
 
 /* ---------- Pages ---------- */
 
-export const wardPage = {
-  show(el) {
+export const listPage = {
+  show(el, id) {
     view = el;
-    showing = 'ward';
+    showing = 'list';
+    listId = id;
     render();
-    const last = Date.parse(lastLoadedAt() ?? '');
-    if (!(Date.now() - last < FRESH_MS)) refreshWard();
+    const list = current();
+    const last = Date.parse(list?.cache?.fetchedAt ?? '');
+    if (list && !(Date.now() - last < FRESH_MS)) list.refresh();
     clearInterval(refreshTimer);
     refreshTimer = setInterval(() => {
-      if (document.visibilityState === 'visible' && showing === 'ward') refreshWard();
+      if (document.visibilityState === 'visible' && showing === 'list') current()?.refresh();
     }, AUTO_REFRESH_MS);
   },
   hide() {
@@ -53,9 +63,10 @@ export const wardPage = {
 };
 
 export const historyPage = {
-  show(el) {
+  show(el, id) {
     view = el;
     showing = 'history';
+    listId = id;
     clearInterval(refreshTimer);
     return renderHistory();
   },
@@ -66,49 +77,57 @@ export const historyPage = {
 
 // Several changes in a row (a tick, then the logsheet's answer) redraw once
 function renderSoon() {
-  if (showing !== 'ward' || renderQueued) return;
+  if (showing !== 'list' || renderQueued) return;
   renderQueued = true;
   setTimeout(() => {
     renderQueued = false;
     render();
   }, 30);
 }
-on('ward', renderSoon);
+on('ward', ({ list }) => { if (!list || list === listId) renderSoon(); });
 // Before a logsheet is linked, the page depends on sync being connected and up to date
-on('sync', () => { if (!wardView().link) renderSoon(); });
+on('sync', () => { if (!current()?.link) renderSoon(); });
 
 // Back to the app after a while: catch up straight away (then every 3 minutes)
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || showing !== 'ward') return;
-  const last = Date.parse(lastLoadedAt() ?? '');
-  if (!(Date.now() - last < AUTO_REFRESH_MS)) refreshWard();
+  if (document.visibilityState !== 'visible' || showing !== 'list') return;
+  const last = Date.parse(current()?.cache?.fetchedAt ?? '');
+  if (!(Date.now() - last < AUTO_REFRESH_MS)) current()?.refresh();
 });
 
-/* ---------- The Ward Patients page ---------- */
+/* ---------- The list's page ---------- */
 
 function render() {
-  if (!view || showing !== 'ward') return;
-  const v = wardView();
+  if (!view || showing !== 'list') return;
+  const list = current();
+  if (!list) {
+    // Deleted (here or on another device)
+    showing = null;
+    replacePage('');
+    return;
+  }
+  const v = list.view();
   const focused = view.contains(document.activeElement) ? document.activeElement.closest('[data-focus]')?.dataset.focus : null;
-  const menu = v.link ? html`<button type="button" class="icon-btn" data-action="ward:menu" aria-label="Logsheet options" data-focus="menu">${icon('more')}</button>` : '';
+  const menu = html`<button type="button" class="icon-btn" data-action="ward:menu" aria-label="Options for ${v.name}" data-focus="menu">${icon('more')}</button>`;
   setHTML(view, html`<div class="ward accent-neuro">
-    ${subHead({ title: 'Ward Patients', back: 'Neurology', accent: 'neuro', actions: menu, eyebrow: v.link ? `${v.link.title || 'Logsheet'} · ${v.link.tab}` : '' })}
-    ${v.link ? linkedBody(v) : setupBody()}
+    ${subHead({ title: v.name, back: 'Neurology', fallback: '', accent: 'neuro', actions: menu, eyebrow: v.link ? `${v.link.title || 'Logsheet'} · ${v.link.tab}` : '' })}
+    ${v.link ? linkedBody(v) : setupBody(v)}
   </div>`);
   measureClamps();
   if (focused) view.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
 }
 
-function setupBody() {
+function setupBody(v) {
   const connected = syncSnapshot().connected;
   const outdated = connected && (syncScriptVersion() ?? 0) < LATEST_SCRIPT_VERSION;
+  const reads = [`${v.headings.name} (column A)`, `${v.headings.hn} (B)`, ...v.columns.map((c) => `${c.label} (${c.col})`)];
   return html`<section class="card ward-intro">
     <span class="ward-intro__icon">${icon('stethoscope')}</span>
-    <h2 class="ward-intro__title">Link your ward logsheet</h2>
-    <p class="ward-intro__text">See your ward patients sorted for rounds (P1, P2, P3 first), tick them off as you go, and edit recommendations — saved straight to your Google Sheet logsheet.</p>
+    <h2 class="ward-intro__title">Link a ward logsheet</h2>
+    <p class="ward-intro__text">See the patients of “${v.name}” sorted for rounds (P1, P2, P3 first), tick them off as you go, and edit their details — saved straight to your Google Sheet logsheet.</p>
     <ul class="ward-intro__list">
-      <li>${icon('sheet')}<span>Reads Name, Hospital Number, Labs and Recommendations (columns A–D, from row 2)</span></li>
-      <li>${icon('checkCircle')}<span>Saves rounds in columns E–G and your edits to labs and recommendations in C–D; never changes names or hospital numbers</span></li>
+      <li>${icon('sheet')}<span>Reads ${reads.slice(0, -1).join(', ')} and ${reads.at(-1)}, from row 2 — change the columns any time (${icon('more')} → Columns)</span></li>
+      <li>${icon('checkCircle')}<span>Saves rounds in columns E–G and your edits in their own columns; never changes names or hospital numbers</span></li>
       <li>${icon('lock')}<span>The link stays on this device only</span></li>
     </ul>
     ${!connected ? html`<p class="note">${icon('cloud')}<span>${LOAD_PROBLEMS['not-connected']}</span></p>
@@ -134,6 +153,9 @@ function banner({ tone = 'neuro', iconName = 'info', title, text = '', actions =
     ${actions ? html`<div class="banner__actions">${actions}</div>` : ''}
   </div>`;
 }
+
+/** What a waiting change is about: "edited Labs" or "rounds tick". */
+const changeWhat = (item) => (item.kind === 'rounds' ? 'rounds tick' : `edited ${item.label || `column ${item.kind}`}`);
 
 function banners(v) {
   const out = [];
@@ -163,11 +185,20 @@ function banners(v) {
       actions: html`<button type="button" class="btn btn--sm" data-action="ward:rounds-here">Keep ticks on this device</button><button type="button" class="btn btn--sm btn--primary" data-action="ward:refresh">Try again</button>`,
     }));
   }
+  const unread = v.cache ? v.columns.filter((c) => !c.readable && !c.loading) : [];
+  if (unread.length) {
+    out.push(banner({
+      iconName: 'sparkles',
+      title: `Update the sync script to see ${unread.map((c) => `“${c.label}”`).join(', ')}`,
+      text: `Your sync script can only read columns C and D. Version ${LATEST_SCRIPT_VERSION} reads the list’s other columns too.`,
+      actions: html`<button type="button" class="btn btn--sm btn--primary" data-action="sync:update">Show me how</button>`,
+    }));
+  }
   if (v.blocked.some((i) => i.problem === 'needs-update')) {
     out.push(banner({
       iconName: 'sparkles',
-      title: 'Lab results are waiting for a script update',
-      text: 'Your edited lab results are saved on this device. They go to the logsheet once the sync script is updated.',
+      title: 'Edits are waiting for a script update',
+      text: 'Your edits are saved on this device. They go to the logsheet once the sync script is updated.',
       actions: html`<button type="button" class="btn btn--sm btn--primary" data-action="sync:update">Show me how</button>`,
     }));
   }
@@ -183,9 +214,9 @@ function banners(v) {
     out.push(html`<div class="card ward-orphans" role="status">
       <p class="ward-orphans__title">${icon('info')}Not saved — no longer in the logsheet</p>
       <ul>${v.orphans.map((item) => html`<li class="ward-orphan">
-        <span class="ward-orphan__text"><strong>${item.name}</strong>${item.hn ? ` (${item.hn})` : ''} · ${EDITABLE[item.kind] ? `edited ${EDITABLE[item.kind].label}` : 'rounds tick'}</span>
+        <span class="ward-orphan__text"><strong>${item.name}</strong>${item.hn ? ` (${item.hn})` : ''} · ${changeWhat(item)}</span>
         <span class="ward-orphan__actions">
-          ${EDITABLE[item.kind] ? html`<button type="button" class="btn btn--sm" data-action="ward:copy" data-key="${item.key}">${icon('copy')}Copy text</button>` : ''}
+          ${item.kind !== 'rounds' ? html`<button type="button" class="btn btn--sm" data-action="ward:copy" data-key="${item.key}">${icon('copy')}Copy text</button>` : ''}
           <button type="button" class="btn btn--sm btn--ghost" data-action="ward:discard" data-key="${item.key}">Discard</button>
         </span>
       </li>`)}</ul>
@@ -195,7 +226,7 @@ function banners(v) {
     out.push(banner({ tone: 'workout', title: 'Repeated hospital numbers', text: `More than one row in the logsheet has ${v.duplicates.length === 1 ? 'the hospital number' : 'these hospital numbers'}: ${v.duplicates.join(', ')}. Those patients can’t be ticked or edited here until it’s fixed in the logsheet.` }));
   }
   if (v.cache?.canEdit === false) {
-    out.push(banner({ tone: 'neutral', iconName: 'lock', title: 'View only', text: 'Your Google account can view this logsheet but not edit it, so ticks and recommendations stay on this device (Not synced). Ask the logsheet’s owner for edit access.' }));
+    out.push(banner({ tone: 'neutral', iconName: 'lock', title: 'View only', text: 'Your Google account can view this logsheet but not edit it, so ticks and edits stay on this device (Not synced). Ask the logsheet’s owner for edit access.' }));
   }
   if (v.link.roundsHere) {
     out.push(html`<p class="ward-foot">${icon('smartphone')}<span>Ticks are kept on this device only (columns E–G of the logsheet are used for something else). <button type="button" class="link-inline" data-action="ward:rounds-sheet">Save ticks to the logsheet again</button></span></p>`);
@@ -248,7 +279,27 @@ function statusLine(v) {
   return html`<div class="ward-status">
     <p class="ward-status__text" aria-live="polite">${loading ? 'Updating…' : v.cache ? `Last updated ${wardStamp(v.cache.fetchedAt)}` : ''}${
       pending > 0 ? html` · <span class="ward-status__pending">${icon('cloud')}${pending} not synced</span>` : ''}</p>
+    <div class="ward-status__tools">
+      <button type="button" class="btn btn--sm btn--ghost" data-action="ward:arrange" data-focus="arrange">${icon('sort')}Arrange rows</button>
+      <button type="button" class="btn btn--sm btn--ghost" data-action="ward:columns" data-focus="columns">${icon('columns')}Columns</button>
+    </div>
     <button type="button" class="btn btn--sm btn--ghost ward-status__btn${loading ? ' is-busy' : ''}" data-action="ward:refresh" data-focus="refresh"${loading ? raw(' disabled') : ''}>${icon('refresh')}Refresh</button>
+  </div>`;
+}
+
+/** The table's column widths (iPad landscape and Mac), for the list's own columns. */
+function tableStyle(count) {
+  const cols = ['4.5rem', 'minmax(9rem, 1.1fr)', 'minmax(6.5rem, .55fr)', ...Array(count).fill(count > 3 ? 'minmax(10rem, 1.6fr)' : 'minmax(0, 1.8fr)')];
+  return `--pt-cols: ${cols.join(' ')};${count > 3 ? ` --pt-min: ${22 + count * 10.5}rem;` : ''}`;
+}
+
+function tableHead(v) {
+  const cell = (id, label) => html`<button type="button" class="pt__hbtn" data-action="ward:rename-col" data-col-id="${id}" title="Rename “${label}” in the app">${label}</button>`;
+  return html`<div class="pt pt--head">
+    <span>${cell('rounded', v.headings.rounded)}</span>
+    <span>${cell('name', v.headings.name)}</span>
+    <span>${cell('hn', v.headings.hn)}</span>
+    ${v.columns.map((c) => html`<span>${cell(c.id, c.label)}</span>`)}
   </div>`;
 }
 
@@ -261,26 +312,28 @@ function patientTable(v) {
     ['todo', 'Not yet rounded', 'circle', v.patients.filter((p) => !p.rounded && !p.priority)],
     ['done', 'Rounded', 'checkCircle', v.patients.filter((p) => p.rounded)],
   ].filter((g) => g[3].length);
-  return html`<div class="ward-table">
-    <div class="pt pt--head" aria-hidden="true"><span>Rounded</span><span>Name</span><span>Hospital No.</span><span>Labs</span><span>Recommendations</span></div>
-    ${groups.map(([id, label, iconName, list]) => html`<section class="ward-group ward-group--${id}" aria-labelledby="wg-${id}">
-      <h2 class="ward-group__title" id="wg-${id}">${icon(iconName)}${label}<span class="ward-group__count">${list.length}</span></h2>
-      <ul class="ward-list">${list.map((p) => patientRow(p, v))}</ul>
-    </section>`)}
+  return html`<div class="ward-table${v.columns.length > 3 ? ' is-wide' : ''}" style="${tableStyle(v.columns.length)}">
+    <div class="ward-table__inner">
+      ${tableHead(v)}
+      ${groups.map(([id, label, iconName, list]) => html`<section class="ward-group ward-group--${id}" aria-labelledby="wg-${id}">
+        <h2 class="ward-group__title" id="wg-${id}">${icon(iconName)}${label}<span class="ward-group__count">${list.length}</span></h2>
+        <ul class="ward-list">${list.map((p) => patientRow(p, v))}</ul>
+      </section>`)}
+    </div>
   </div>`;
 }
 
-function tickButton(p) {
+function tickButton(p, v) {
   if (!p.tickable) {
     const why = p.key ? 'Can’t be ticked: another row has the same hospital number' : 'Can’t be ticked: no hospital number';
     return html`<span class="pt__tick is-disabled" role="img" aria-label="${why}" title="${why}"><span class="pt__box"></span></span>`;
   }
   return html`<button type="button" class="pt__tick" role="checkbox" aria-checked="${p.rounded ? 'true' : 'false'}"
-      aria-label="Rounded: ${p.name}" data-action="ward:tick" data-id="${p.id}" data-focus="tick-${p.id}"><span class="pt__box">${icon('check')}</span></button>`;
+      aria-label="${v.headings.rounded}: ${p.name}" data-action="ward:tick" data-id="${p.id}" data-focus="tick-${p.id}"><span class="pt__box">${icon('check')}</span></button>`;
 }
 
 function changeBadge(p) {
-  const items = [p.labsItem, p.recsItem, p.roundsItem].filter(Boolean);
+  const items = [...Object.values(p.items), p.roundsItem].filter(Boolean);
   const conflict = items.find((i) => i.state === 'conflict');
   if (conflict) return html`<button type="button" class="wbadge wbadge--warn" data-action="ward:conflict" data-key="${conflict.key}">${icon('info')}Needs your choice</button>`;
   const blocked = items.find((i) => i.state === 'blocked');
@@ -313,29 +366,30 @@ function badges(p, v, { detail = false } = {}) {
   return out.some(Boolean) ? html`<p class="pt__badges">${out}</p>` : '';
 }
 
-function clampText(p, field, label, text) {
-  const id = `${p.id}|${field}`;
+function clampText(p, c) {
+  const id = `${p.id}|${c.col}`;
   const open = expanded.has(id);
-  return html`<div class="pt__field pt__field--${field}">
-    <p class="pt__label">${label}</p>
-    ${text
-      ? html`<div class="pt__text${open ? '' : ' is-clamped'}" data-clamp="${id}">${text}</div>
-        <button type="button" class="pt__more" data-action="ward:more" data-clamp-id="${id}" aria-expanded="${open ? 'true' : 'false'}"${open ? '' : raw(' hidden')}>${open ? 'Show less' : 'Show more'}</button>`
-      : html`<p class="pt__text pt__text--empty">None</p>`}
+  const text = p.cells[c.col];
+  return html`<div class="pt__field">
+    <p class="pt__label">${c.label}</p>
+    ${!c.readable ? html`<p class="pt__text pt__text--empty">${c.loading ? 'Loading…' : 'Update the sync script to see this'}</p>`
+      : text
+        ? html`<div class="pt__text${open ? '' : ' is-clamped'}" data-clamp="${id}">${text}</div>
+          <button type="button" class="pt__more" data-action="ward:more" data-clamp-id="${id}" aria-expanded="${open ? 'true' : 'false'}"${open ? '' : raw(' hidden')}>${open ? 'Show less' : 'Show more'}</button>`
+        : html`<p class="pt__text pt__text--empty">None</p>`}
   </div>`;
 }
 
 function patientRow(p, v) {
   return html`<li class="pt${p.rounded ? ' is-rounded' : ''}${p.priority ? ` is-p${p.priority.level}` : ''}" data-id="${p.id}">
-    ${tickButton(p)}
+    ${tickButton(p, v)}
     <div class="pt__who">
       <button type="button" class="pt__name" data-action="ward:open" data-id="${p.id}" data-focus="open-${p.id}">${p.name}${icon('chevronRight', 'pt__chev')}</button>
-      <p class="pt__hn">${p.hn ? html`<span class="pt__label">HN</span> ${p.hn}` : html`<span class="faint">No hospital number</span>`}</p>
+      <p class="pt__hn">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : html`<span class="faint">No hospital number</span>`}</p>
       ${badges(p, v)}
     </div>
     <p class="pt__hn-cell">${p.hn || '—'}</p>
-    ${clampText(p, 'labs', 'Labs', p.labs)}
-    ${clampText(p, 'recs', 'Recommendations', p.recs)}
+    ${v.columns.map((c) => clampText(p, c))}
   </li>`;
 }
 
@@ -350,7 +404,7 @@ function measureClamps() {
 let resizeTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { if (showing === 'ward') measureClamps(); }, 150);
+  resizeTimer = setTimeout(() => { if (showing === 'list') measureClamps(); }, 150);
 });
 
 /* ---------- One patient (a sheet) ---------- */
@@ -391,63 +445,58 @@ function roundsBox(p, v) {
 
 function detailBody(p, v) {
   if (!p) return html`<p class="dlg__msg">This patient is no longer in the logsheet.</p>`;
-  const editable = p.tickable;
   return html`<div class="ptd">
-    <p class="ptd__meta">${p.hn ? html`<span class="pt__label">HN</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet</p>
+    <p class="ptd__meta">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet</p>
     ${badges(p, v, { detail: true })}
     ${roundsBox(p, v)}
-    <section class="ptd__section" aria-labelledby="ptd-labs">
+    ${v.columns.map((c) => html`<section class="ptd__section" aria-labelledby="ptd-${c.col}">
       <div class="ptd__head">
-        <h3 class="ptd__title" id="ptd-labs">Laboratory results</h3>
-        ${editable ? html`<button type="button" class="btn btn--sm" data-dact="edit-labs" aria-label="Edit laboratory results">${icon('edit')}Edit</button>` : ''}
+        <h3 class="ptd__title" id="ptd-${c.col}">${c.label}</h3>
+        ${p.tickable && c.readable ? html`<button type="button" class="btn btn--sm" data-dact="edit" data-col="${c.col}" aria-label="Edit ${c.label}">${icon('edit')}Edit</button>` : ''}
       </div>
-      ${p.labs ? html`<div class="prose ptd__text">${p.labs}</div>` : html`<p class="faint">None in the logsheet.</p>`}
-      ${changeNote(p.labsItem)}
-    </section>
-    <section class="ptd__section" aria-labelledby="ptd-recs">
-      <div class="ptd__head">
-        <h3 class="ptd__title" id="ptd-recs">Recommendations</h3>
-        ${editable ? html`<button type="button" class="btn btn--sm" data-dact="edit-recs" aria-label="Edit recommendations">${icon('edit')}Edit</button>` : ''}
-      </div>
-      ${p.recs ? html`<div class="prose ptd__text">${p.recs}</div>` : html`<p class="faint">None yet.</p>`}
-      ${changeNote(p.recsItem)}
-    </section>
+      ${!c.readable ? html`<p class="faint">${c.loading ? 'Loading this column — it appears once the list refreshes.' : `Update the sync script (Settings → Sync) to see column ${c.col}.`}</p>`
+        : p.cells[c.col] ? html`<div class="prose ptd__text">${p.cells[c.col]}</div>` : html`<p class="faint">Empty in the logsheet.</p>`}
+      ${changeNote(p.items[c.col])}
+    </section>`)}
   </div>`;
 }
 
 async function openPatient(id) {
+  const list = current();
   let p = findPatient(id);
-  if (!p) return;
-  if (p.tickable) await notePatientOpened(p.key); // during rounds, opening a patient starts their timer
+  if (!list || !p) return;
+  if (p.tickable) await list.notePatientOpened(p.key); // during rounds, opening a patient starts their timer
   p = findPatient(id);
   let dialog = null;
   const redraw = () => {
     const body = dialog?.querySelector('.dlg__body');
-    if (body && dialog.open) setHTML(body, detailBody(findPatient(id), wardView()));
+    const v = current()?.view();
+    if (body && dialog.open && v) setHTML(body, detailBody(v.patients.find((x) => x.id === id) ?? null, v));
   };
   const stop = on('ward', redraw);
   await openDialog({
     variant: 'sheet',
     className: 'ward-detail accent-neuro',
     title: p.name,
-    body: detailBody(p, wardView()),
+    body: detailBody(p, list.view()),
     actions: [{ label: 'Close', value: 'close', variant: 'ghost', autofocus: true }], // never an accidental tick
     onOpen(dlg, close) {
       dialog = dlg;
       dlg.addEventListener('click', async (event) => {
-        const act = event.target.closest('[data-dact]')?.dataset.dact;
-        const current = findPatient(id);
-        if (!act || !current) return;
+        const button = event.target.closest('[data-dact]');
+        const act = button?.dataset.dact;
+        const now = findPatient(id);
+        if (!act || !now) return;
         if (act === 'mark') {
           close('rounded');
-          await tick(current, true);
+          await tick(now, true);
         } else if (act === 'untick') {
-          await untick(current);
-        } else if (act === 'edit-labs' || act === 'edit-recs') {
-          await editText(current, act === 'edit-labs' ? 'labs' : 'recs');
+          await untick(now);
+        } else if (act === 'edit') {
+          await editText(now, button.dataset.col);
         } else if (act === 'start') {
-          await startRounds();
-          await notePatientOpened(current.key);
+          await current()?.startRounds();
+          await current()?.notePatientOpened(now.key);
           toast('Rounds started.', { icon: 'timer' });
         }
       });
@@ -459,12 +508,13 @@ async function openPatient(id) {
 /* ---------- Ticking ---------- */
 
 async function tick(p, rounded) {
-  const entry = await setRounded(p.key, rounded);
+  const list = current();
+  const entry = await list?.setRounded(p.key, rounded);
   if (!entry) return;
-  const v = wardView();
+  const v = list.view();
   if (rounded) {
     const message = `${p.name} rounded${entry.durationMs != null ? ` · ${formatSpan(entry.durationMs)}` : ''}`;
-    toast(message, { icon: 'checkCircle', action: { label: 'Undo', onClick: () => setRounded(p.key, false) } });
+    toast(message, { icon: 'checkCircle', action: { label: 'Undo', onClick: () => list.setRounded(p.key, false) } });
     announce(`${message}. ${v.roundedCount} of ${v.total} rounded.`);
   } else {
     announce(`${p.name} is not rounded. ${v.roundedCount} of ${v.total} rounded.`);
@@ -480,36 +530,25 @@ async function untick(p) {
   if (ok) await tick(p, false);
 }
 
-/* ---------- Editing lab results and recommendations ---------- */
+/* ---------- Editing a column ---------- */
 
-const TEXT_FIELDS = {
-  labs: {
-    title: 'Edit lab results',
-    label: 'Laboratory results',
-    hint: 'Saved to column C of the logsheet (line breaks are kept).',
-  },
-  recs: {
-    title: 'Edit recommendations',
-    label: 'Recommendations',
-    hint: 'Saved to column D of the logsheet. Write P1, P2 or P3 to set the priority (P1 is highest; “priority” on its own counts as P1).',
-  },
-};
-
-/** Edit a patient's lab results (field 'labs') or recommendations ('recs'). */
-async function editText(p, field) {
-  const f = TEXT_FIELDS[field];
-  const before = p[field];
+/** Edit one of a patient's columns (col: its letter, e.g. 'C'). */
+async function editText(p, col) {
+  const list = current();
+  const c = list?.columns().find((x) => x.col === col);
+  if (!c) return;
+  const before = p.cells[col] ?? '';
   const result = await openDialog({
     variant: 'sheet',
     className: 'ward-edit accent-neuro',
     dismissible: false,
-    title: f.title,
+    title: `Edit ${c.label}`,
     body: html`<form class="form" data-edit novalidate>
-      <p class="dlg__msg">${p.name}${p.hn ? ` · HN ${p.hn}` : ''}</p>
-      <label class="field"><span class="sr-only">${f.label}</span>
-        <textarea class="input textarea ward-edit__text" name="text" rows="9" maxlength="${MAX_RECS}" autocapitalize="sentences">${before}</textarea>
+      <p class="dlg__msg">${p.name}${p.hn ? ` · ${hnLabel(list.view())} ${p.hn}` : ''}</p>
+      <label class="field"><span class="sr-only">${c.label}</span>
+        <textarea class="input textarea ward-edit__text" name="text" rows="9" maxlength="${MAX_TEXT}" autocapitalize="sentences">${before}</textarea>
       </label>
-      <p class="ward-edit__hint">${f.hint}</p>
+      <p class="ward-edit__hint">Saved to column ${col} of the logsheet (line breaks are kept).${c.priority ? ' Write P1, P2 or P3 to set the priority (P1 is highest; “priority” on its own counts as P1).' : ''}</p>
       <div class="form__actions">
         <button type="button" class="btn btn--ghost" data-cancel>Cancel</button>
         <button type="submit" class="btn btn--primary">Save</button>
@@ -523,7 +562,7 @@ async function editText(p, field) {
         text.setSelectionRange(text.value.length, text.value.length);
       }, 80);
       form.querySelector('[data-cancel]').addEventListener('click', async () => {
-        if (text.value !== before && !(await confirmDialog({ title: 'Discard your changes?', message: `Your edits to ${p.name}’s ${EDITABLE[field].label} will be lost.`, confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return;
+        if (text.value !== before && !(await confirmDialog({ title: 'Discard your changes?', message: `Your edits to ${p.name}’s ${c.label} will be lost.`, confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return;
         close(null);
       });
       form.addEventListener('submit', (event) => {
@@ -535,15 +574,15 @@ async function editText(p, field) {
   if (!result || typeof result !== 'object') return;
   let outcome;
   try {
-    outcome = await saveText(p.key, field, result.text);
+    outcome = await list.saveText(p.key, col, result.text);
   } catch (err) {
     toast(err.message, { icon: 'info', duration: 6000 });
     return;
   }
   if (outcome.saved) toast('Saved to the logsheet.', { icon: 'check' });
-  else if (outcome.state === 'conflict') await openConflict(`${p.key}|${field}`);
+  else if (outcome.state === 'conflict') await openConflict(`${list.id}|${p.key}|${col}`);
   else if (outcome.problem === 'needs-update') {
-    toast('Saved on this device. Update the sync script to save lab results to the logsheet.', {
+    toast('Saved on this device. Update the sync script to save it to the logsheet.', {
       icon: 'sparkles', duration: 8000, action: { label: 'Show me how', onClick: () => runAction('sync:update') },
     });
   } else if (outcome.state === 'blocked') toast(`Not saved: ${WRITE_PROBLEMS[outcome.problem] ?? WRITE_PROBLEMS.invalid}.`, { icon: 'info', duration: 7000 });
@@ -560,15 +599,16 @@ function describeRounds(cells) {
 }
 
 async function openConflict(key) {
-  const item = wardView().conflicts.find((i) => i.key === key);
+  const list = current();
+  const item = list?.view().conflicts.find((i) => i.key === key);
   if (!item) return;
-  const column = EDITABLE[item.kind]?.column; // lab results or recommendations; otherwise rounds
+  const column = item.kind === 'rounds' ? null : item.kind; // a column's text; otherwise rounds
   const theirs = column ? item.current?.[column] ?? '' : describeRounds(item.current);
   const mine = column ? item.set[column] : describeRounds(item.set);
   const choice = await openDialog({
     variant: 'modal',
     className: 'ward-conflict accent-neuro',
-    title: { labs: 'Lab results were changed', recs: 'Recommendations were changed' }[item.kind] ?? 'Rounds were changed',
+    title: column ? `“${item.label || `Column ${column}`}” was changed` : 'Rounds were changed',
     body: html`<p class="dlg__msg"><strong>${item.name}</strong>${item.hn ? ` (${item.hn})` : ''}: someone changed this in the logsheet after the app loaded it. Which version should the logsheet keep?</p>
       <div class="ward-versions">
         <section class="ward-version"><h3 class="ward-version__title">In the logsheet now</h3><div class="prose">${theirs || '(empty)'}</div></section>
@@ -580,7 +620,7 @@ async function openConflict(key) {
     ],
   });
   if (choice !== 'mine' && choice !== 'theirs') return;
-  await resolveConflict(key, choice);
+  await list.resolveConflict(key, choice);
   toast(choice === 'mine' ? 'Your version is being saved to the logsheet.' : 'Kept the logsheet’s version.', { icon: 'check' });
 }
 
@@ -603,7 +643,7 @@ function setupFeedback(state) {
     const seen = c.headers.values.map((val, i) => `${'EFG'[i]}1 ${val ? `“${val}”` : '(empty)'}`).join(' · ');
     notes.push(html`<p class="note ward-note--warn">${icon('info')}<span><strong>Columns E–G are already in use</strong> (${seen}${c.headers.dataBelow ? ', with data below' : ''}). The app won’t overwrite them, so ticks would be kept on this device only. If those columns are unused, clear them in the logsheet and tap Check again.</span></p>`);
   }
-  if (c.canEdit === false) notes.push(html`<p class="note ward-note--warn">${icon('lock')}<span><strong>View only.</strong> Your Google account can see this logsheet but not edit it, so ticks and recommendations couldn’t be saved to it. Ask its owner for edit access.</span></p>`);
+  if (c.canEdit === false) notes.push(html`<p class="note ward-note--warn">${icon('lock')}<span><strong>View only.</strong> Your Google account can see this logsheet but not edit it, so ticks and edits couldn’t be saved to it. Ask its owner for edit access.</span></p>`);
   if (!c.patients) notes.push(html`<p class="note ward-note--warn">${icon('info')}<span>No patients found from row 2 of “${c.tab}”. Is it the right tab?</span></p>`);
   return html`<div class="ward-setup__found">
     <p class="ward-setup__ok">${icon('checkCircle')}<span>Found <strong>${c.title}</strong> · ${c.tab} · ${plural(c.patients, 'patient')}</span></p>
@@ -617,27 +657,30 @@ function setupFeedback(state) {
   </div>`;
 }
 
-async function openSetup() {
+async function openSetup(id = listId) {
+  const list = wardList(id);
+  if (!list) return;
   if (!syncSnapshot().connected) {
     const go = await confirmDialog({ title: 'Set up sync first', message: LOAD_PROBLEMS['not-connected'], confirmLabel: 'Set up sync' });
     if (go) runAction('sync:setup');
     return;
   }
-  const v = wardView();
+  const link = list.link;
   const outdated = (syncScriptVersion() ?? 0) < LATEST_SCRIPT_VERSION;
+  const columns = list.columns().map((c) => `${c.col} ${c.label}`).join(' · ');
   await openDialog({
     variant: 'sheet',
     className: 'setup ward-setup accent-neuro',
-    title: v.link ? 'Change logsheet' : 'Link your ward logsheet',
+    title: link ? `Change logsheet · ${list.name}` : `Link a logsheet · ${list.name}`,
     body: html`
-      <p class="setup__lead">Paste the link to your ward logsheet (a Google Sheet): open it, then copy the address — or use <strong>Share → Copy link</strong>.</p>
+      <p class="setup__lead">Paste the link to the ward logsheet for “${list.name}” (a Google Sheet): open it, then copy the address — or use <strong>Share → Copy link</strong>.</p>
       ${outdated ? html`<p class="note">${icon('sparkles')}<span>${LOAD_PROBLEMS['script-outdated']} <button type="button" class="link-inline" data-action="sync:update">Show me how</button></span></p>` : ''}
       <form class="setup__form" data-link novalidate>
         <label class="field"><span class="field__label">Logsheet link</span>
-          <input class="input" name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…" value="${v.link?.test ? '' : v.link?.url ?? ''}" required>
+          <input class="input" name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…" value="${link?.test ? '' : link?.url ?? ''}" required>
         </label>
         <label class="field"><span class="field__label">Tab name</span>
-          <input class="input" name="tab" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="${v.link?.test ? 'Sheet1' : v.link?.tab ?? 'Sheet1'}" required>
+          <input class="input" name="tab" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="${link?.test ? 'Sheet1' : link?.tab ?? 'Sheet1'}" required>
         </label>
         <div data-feedback></div>
         <div class="setup__actions" data-first-actions>
@@ -645,9 +688,9 @@ async function openSetup() {
           <button type="submit" class="btn btn--primary" data-submit>Check logsheet</button>
         </div>
       </form>
-      <p class="note">${icon('lock')}<span>Saved on this device only — never synced, backed up or written into the app. Patients are read from row 2 (A Name · B Hospital Number · C Laboratory Results · D Recommendations). Rounds go in columns E–G, and labs or recommendations you edit go back to C and D. Names and hospital numbers (A, B) are never changed.</span></p>
-      ${!v.link || v.link.test ? html`<div class="ward-setup__test">
-        <p>${v.link?.test ? 'Practice logsheet in use.' : 'Want to try it first?'} A practice logsheet with made-up patients can be created in your Google Drive.</p>
+      <p class="note">${icon('lock')}<span>Saved on this device only — never synced, backed up or written into the app. Patients are read from row 2: A Name · B Hospital Number${columns ? ` · ${columns}` : ''}. Rounds go in columns E–G, and your edits go back to their own columns. Names and hospital numbers (A, B) are never changed.</span></p>
+      ${!link || link.test ? html`<div class="ward-setup__test">
+        <p>${link?.test ? 'Practice logsheet in use.' : 'Want to try it first?'} A practice logsheet with made-up patients can be created in your Google Drive.</p>
         <button type="button" class="btn btn--sm" data-test>${icon('sparkles')}Create a practice logsheet</button>
       </div>` : ''}`,
     onOpen(dlg, close) {
@@ -694,32 +737,36 @@ async function openSetup() {
         }
         const use = event.target.closest('[data-use]');
         if (use && check) {
-          const current = wardView();
-          const replacing = current.link && (current.link.spreadsheetId !== check.spreadsheetId || current.link.tab !== check.tab);
-          if (replacing && current.unsaved && !(await confirmDialog({
+          const target = wardList(id);
+          if (!target) return;
+          const v = target.view();
+          const replacing = v.link && (v.link.spreadsheetId !== check.spreadsheetId || v.link.tab !== check.tab);
+          if (replacing && v.unsaved && !(await confirmDialog({
             title: 'Discard unsaved changes?',
-            message: `${plural(current.unsaved, 'change')} to the current logsheet ${current.unsaved === 1 ? 'hasn’t' : 'haven’t'} been saved yet. Changing the logsheet discards ${current.unsaved === 1 ? 'it' : 'them'}.`,
+            message: `${plural(v.unsaved, 'change')} to the current logsheet ${v.unsaved === 1 ? 'hasn’t' : 'haven’t'} been saved yet. Changing the logsheet discards ${v.unsaved === 1 ? 'it' : 'them'}.`,
             confirmLabel: 'Change anyway',
             destructive: true,
           }))) return;
           close('linked');
-          await useLogsheet(check, { roundsHere: use.dataset.use === 'here' });
+          await target.useLogsheet(check, { roundsHere: use.dataset.use === 'here' });
           toast(`Linked “${check.title}” · ${plural(check.patients, 'patient')}.`, { icon: 'link' });
           return;
         }
         const test = event.target.closest('[data-test]');
         if (test) {
-          const current = wardView();
-          if (current.unsaved && current.link && !current.link.test && !(await confirmDialog({
+          const target = wardList(id);
+          if (!target) return;
+          const v = target.view();
+          if (v.unsaved && v.link && !v.link.test && !(await confirmDialog({
             title: 'Discard unsaved changes?',
-            message: `${plural(current.unsaved, 'change')} to your logsheet ${current.unsaved === 1 ? 'hasn’t' : 'haven’t'} been saved yet. Switching to a practice logsheet discards ${current.unsaved === 1 ? 'it' : 'them'}.`,
+            message: `${plural(v.unsaved, 'change')} to your logsheet ${v.unsaved === 1 ? 'hasn’t' : 'haven’t'} been saved yet. Switching to a practice logsheet discards ${v.unsaved === 1 ? 'it' : 'them'}.`,
             confirmLabel: 'Switch anyway',
             destructive: true,
           }))) return;
           test.disabled = true;
           test.textContent = 'Creating…';
           try {
-            const made = await createTestLogsheet();
+            const made = await target.createTestLogsheet();
             close('test');
             toast(`Practice logsheet created in your Google Drive · ${plural(made.patients, 'made-up patient')}.`, { icon: 'sparkles', duration: 6000 });
           } catch (err) {
@@ -737,50 +784,65 @@ async function openSetup() {
 /* ---------- The ⋯ menu ---------- */
 
 async function openMenu() {
-  const v = wardView();
-  if (!v.link) return;
+  const list = current();
+  if (!list) return;
+  const link = list.link;
   const choice = await actionSheet({
-    title: v.link.title || 'Logsheet',
-    message: `Tab “${v.link.tab}”${v.link.test ? ' · practice logsheet' : ''}`,
+    title: list.name,
+    message: link ? `${link.title || 'Logsheet'} · tab “${link.tab}”${link.test ? ' · practice logsheet' : ''}` : 'No logsheet linked on this device',
     items: [
-      { label: 'Refresh now', value: 'refresh', icon: 'refresh' },
+      link ? { label: 'Refresh now', value: 'refresh', icon: 'refresh' } : null,
+      { label: 'Rename list', value: 'rename', icon: 'edit' },
+      { label: 'Columns', value: 'columns', icon: 'columns', detail: 'Rename, add, remove' },
+      link ? { label: 'Arrange rows', value: 'arrange', icon: 'sort' } : null,
       { label: 'Rounds history', value: 'history', icon: 'history' },
-      { label: 'Open in Google Sheets', value: 'open', icon: 'external' },
-      v.link.roundsHere ? { label: 'Save ticks to the logsheet again', value: 'rounds-sheet', icon: 'sheet' } : null,
-      { label: 'Change logsheet', value: 'change', icon: 'link' },
-      { label: 'Remove from this device', value: 'remove', icon: 'trash', destructive: true },
+      link ? { label: 'Open in Google Sheets', value: 'open', icon: 'external' } : null,
+      link?.roundsHere ? { label: 'Save ticks to the logsheet again', value: 'rounds-sheet', icon: 'sheet' } : null,
+      { label: link ? 'Change logsheet' : 'Link logsheet', value: 'change', icon: 'link' },
+      link ? { label: 'Remove logsheet from this device', value: 'remove', icon: 'x' } : null,
+      { label: 'Delete list', value: 'delete', icon: 'trash', destructive: true },
     ],
   });
-  if (choice === 'refresh') refreshWard();
-  else if (choice === 'history') openPage('neurology', 'ward/history');
-  else if (choice === 'open') window.open(v.link.url, '_blank', 'noopener');
-  else if (choice === 'rounds-sheet') setRoundsHere(false);
-  else if (choice === 'change') openSetup();
-  else if (choice === 'remove') removeLogsheet();
+  if (choice === 'refresh') list.refresh();
+  else if (choice === 'rename') renameList(list.id);
+  else if (choice === 'columns') openColumns(list.id);
+  else if (choice === 'arrange') openArrange(list.id);
+  else if (choice === 'history') openPage('neurology', `list/${list.id}/history`);
+  else if (choice === 'open') window.open(link.url, '_blank', 'noopener');
+  else if (choice === 'rounds-sheet') list.setRoundsHere(false);
+  else if (choice === 'change') openSetup(list.id);
+  else if (choice === 'remove') removeLogsheet(list.id);
+  else if (choice === 'delete') removeList(list.id);
 }
 
-export async function removeLogsheet() {
-  const v = wardView();
-  if (!v.link) return;
+export async function removeLogsheet(id = listId) {
+  const list = wardList(id);
+  if (!list?.link) return;
+  const v = list.view();
   const ok = await confirmDialog({
     title: 'Remove the logsheet from this device?',
-    message: `The link and the patient list are removed from this device${v.unsaved ? `, along with ${plural(v.unsaved, 'change')} not saved to the logsheet yet` : ''}. The logsheet itself isn’t touched, and the rounds history stays.`,
+    message: `The link and the patients of “${list.name}” are removed from this device${v.unsaved ? `, along with ${plural(v.unsaved, 'change')} not saved to the logsheet yet` : ''}. The logsheet itself isn’t touched, and the list and its rounds history stay.`,
     confirmLabel: 'Remove',
     destructive: true,
   });
   if (!ok) return;
-  await forgetLogsheet();
-  toast('Logsheet removed from this device.', { icon: 'trash' });
+  await list.forgetLogsheet();
+  toast('Logsheet removed from this device.', { icon: 'x' });
 }
 
 /* ---------- Rounds history ---------- */
 
 async function renderHistory() {
-  const [days, names] = [await loadHistory(), namesByKey()];
+  const list = current();
+  if (!list) {
+    replacePage('');
+    return;
+  }
+  const [days, names] = [await list.history(), list.namesByKey()];
   if (showing !== 'history') return;
   const now = Date.now();
   setHTML(view, html`<div class="ward accent-neuro">
-    ${subHead({ title: 'Rounds history', back: 'Ward Patients', fallback: 'ward', accent: 'neuro',
+    ${subHead({ title: 'Rounds history', back: list.name, fallback: `list/${list.id}`, accent: 'neuro', eyebrow: list.name,
       actions: days.length ? html`<button type="button" class="btn btn--sm btn--ghost" data-action="ward:history-delete">Delete</button>` : '' })}
     <p class="ward-foot">${icon('smartphone')}<span>Kept on this device only: dates, times and hospital numbers. Names show while the patient is still in the logsheet.</span></p>
     ${days.length ? days.map((d, i) => {
@@ -801,16 +863,19 @@ async function renderHistory() {
           </tr>`)}</tbody>
         </table>` : html`<p class="ward-day__none">No patients ticked this day.</p>`}
       </details>`;
-    }) : html`<div class="card empty">${icon('history')}<span>No rounds recorded on this device yet.</span></div>`}
+    }) : html`<div class="card empty">${icon('history')}<span>No rounds recorded for this list on this device yet.</span></div>`}
   </div>`);
 }
 
 /* ---------- Actions ---------- */
 
-registerAction('ward:setup', () => openSetup());
-registerAction('ward:remove', () => removeLogsheet());
+registerAction('ward:setup', (el) => openSetup(listFor(el)?.id));
+registerAction('ward:remove', (el) => removeLogsheet(listFor(el)?.id));
 registerAction('ward:menu', () => openMenu());
-registerAction('ward:refresh', () => refreshWard());
+registerAction('ward:refresh', (el) => listFor(el)?.refresh());
+registerAction('ward:columns', () => openColumns(listId));
+registerAction('ward:arrange', () => openArrange(listId));
+registerAction('ward:rename-col', (el) => renameColumn(listId, el.dataset.colId));
 registerAction('ward:open', (el) => openPatient(el.dataset.id));
 registerAction('ward:tick', (el) => {
   const p = findPatient(el.dataset.id);
@@ -829,62 +894,67 @@ registerAction('ward:more', (el) => {
   el.setAttribute('aria-expanded', String(open));
 });
 registerAction('ward:start', async () => {
-  await startRounds();
+  await current()?.startRounds();
   toast('Rounds started. Open each patient as you see them to time the visit.', { icon: 'timer', duration: 5000 });
 });
 registerAction('ward:end', async () => {
-  const v = wardView();
+  const list = current();
+  if (!list) return;
+  const v = list.view();
   if (v.roundedCount < v.total && !(await confirmDialog({ title: 'End rounds?', message: `${v.roundedCount} of ${v.total} patients are rounded.`, confirmLabel: 'End Rounds' }))) return;
-  const session = await endRounds();
+  const session = await list.endRounds();
   if (session) toast(`Rounds ended · ${formatSpan(Date.parse(session.end) - Date.parse(session.start))}.`, { icon: 'checkCircle' });
 });
 registerAction('ward:conflict', (el) => openConflict(el.dataset.key));
 registerAction('ward:rounds-here', async () => {
   const ok = await confirmDialog({
     title: 'Keep ticks on this device?',
-    message: 'Ticks and rounds times will be saved in this device’s rounds history only, not in the logsheet. Recommendations still save to the logsheet. You can change this later from the ⋯ menu.',
+    message: 'Ticks and rounds times will be saved in this device’s rounds history only, not in the logsheet. Your other edits still save to the logsheet. You can change this later from the ⋯ menu.',
     confirmLabel: 'Keep on this device',
   });
-  if (ok) await setRoundsHere(true);
+  if (ok) await current()?.setRoundsHere(true);
 });
-registerAction('ward:rounds-sheet', () => setRoundsHere(false));
+registerAction('ward:rounds-sheet', () => current()?.setRoundsHere(false));
 registerAction('ward:copy', async (el) => {
-  const item = wardView().orphans.find((i) => i.key === el.dataset.key);
+  const item = current()?.view().orphans.find((i) => i.key === el.dataset.key);
   if (!item) return;
   try {
-    await navigator.clipboard.writeText(item.set.C ?? item.set.D ?? '');
+    await navigator.clipboard.writeText(item.set[item.kind] ?? '');
     toast('Copied. Paste it wherever it belongs.', { icon: 'copy' });
   } catch {
     toast('Couldn’t copy on this device.', { icon: 'info' });
   }
 });
 registerAction('ward:discard', async (el) => {
-  const item = wardView().orphans.find((i) => i.key === el.dataset.key);
+  const list = current();
+  const item = list?.view().orphans.find((i) => i.key === el.dataset.key);
   if (!item) return;
   const ok = await confirmDialog({
     title: 'Discard this change?',
-    message: EDITABLE[item.kind] ? `Your edited ${EDITABLE[item.kind].label} for ${item.name} will be deleted from this device.` : `The rounds tick for ${item.name} won’t be saved to the logsheet (it stays in the rounds history).`,
+    message: item.kind !== 'rounds' ? `Your edit to ${item.name}’s ${item.label || `column ${item.kind}`} will be deleted from this device.` : `The rounds tick for ${item.name} won’t be saved to the logsheet (it stays in the rounds history).`,
     confirmLabel: 'Discard',
     destructive: true,
   });
-  if (ok) await dropChange(item.key);
+  if (ok) await list.dropChange(item.key);
 });
 registerAction('ward:history-delete', async () => {
+  const list = current();
+  if (!list) return;
   const ok = await confirmDialog({
     title: 'Delete rounds history?',
-    message: 'This deletes every day’s rounds times and hospital numbers from this device, including today’s rounds in progress. The logsheet isn’t touched.',
+    message: `This deletes every day’s rounds times and hospital numbers for “${list.name}” from this device, including today’s rounds in progress. The logsheet isn’t touched.`,
     confirmLabel: 'Delete',
     destructive: true,
   });
   if (!ok) return;
-  await deleteHistory();
+  await list.deleteHistory();
   toast('Rounds history deleted from this device.', { icon: 'trash' });
   if (showing === 'history') renderHistory();
 });
 
 /** Tapping a card anywhere (not on a button) opens the patient. */
 export function handleCardClick(event) {
-  if (showing !== 'ward') return;
+  if (showing !== 'list') return;
   const card = event.target.closest('.pt[data-id]');
   if (!card || event.target.closest('button, a, input, textarea, select, [data-action]')) return;
   if (window.getSelection()?.toString()) return; // selecting text to copy

@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 6
+SCRIPT_VERSION = 7
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -361,6 +361,109 @@ check('missing script permission is reported', gas('post', {**ward, 'action': 'w
 state = gas('dump')
 state['noAuth'] = False
 save_state(state)
+
+# Version 7: the list's own columns (read and edited as text), adding a column, moving rows
+COLS = '1' + 'K' * 43
+add_logsheet(COLS, [
+    HEAD + ['Rounded', 'Rounds Start', 'Rounds End', 'Diagnosis'],
+    ['Patient M', '7001', 'labs M', 'recs M', False, '', '', 'Stroke'],
+    ['Patient N', '7002', '', 'P2 recs N', False, '', '', ''],
+    ['', '', 'a note under the list (no name)', '', '', '', '', ''],
+    ['Patient O', '', 'no number', '', False, '', '', 'Seizure'],
+    ['Patient P', '7004', '', '', False, '', '', {'__f': '=UPPER("x")', 'v': 'X'}],
+], max_cols=8)
+kw = {**base, 'spreadsheetId': COLS, 'tab': 'Sheet1'}
+
+
+def ksync(**extra):
+    return gas('post', {**kw, 'action': 'wardSync', 'cols': ['C', 'D', 'H'], **extra})
+
+
+res = ksync()
+m = res['rows'][0]
+check('the list\'s columns are read as cells', m.get('cells') == {'C': 'labs M', 'D': 'recs M', 'H': 'Stroke'} and m['labs'] == 'labs M', m)
+check('row 1 comes back as headings', res.get('headings') == HEAD + ['Rounded', 'Rounds Start', 'Rounds End', 'Diagnosis'] and res.get('lastColumn') == 8, res.get('headings'))
+res = gas('post', {**kw, 'action': 'wardSync', 'cols': ['A', 'B', 'E', 'F', 'Z9', 'H']})
+check('A, B and our rounds columns are never read as cells', res['rows'][0].get('cells') == {'H': 'Stroke'}, res['rows'][0].get('cells'))
+check('older apps (no cols) get no cells', 'cells' not in gas('post', {**kw, 'action': 'wardSync'})['rows'][0])
+
+res = ksync(writes=[{'id': 'h1', 'hn': '7001', 'text': True, 'expect': {'H': 'Stroke'}, 'set': {'H': 'Ischaemic stroke'}}])
+check('a column of the list is saved as text', res['results']['h1']['status'] == 'ok' and cell(log_rows(COLS), 2, 8) == 'Ischaemic stroke' and res['rows'][0]['cells']['H'] == 'Ischaemic stroke', res['results'])
+edit_cell(COLS, 2, 8, 'Changed by a co-resident')
+res = ksync(writes=[{'id': 'h2', 'hn': '7001', 'text': True, 'expect': {'H': 'Ischaemic stroke'}, 'set': {'H': 'Mine'}}])
+check('an added column is protected from overwriting too', res['results']['h2']['status'] == 'conflict' and res['results']['h2']['current'] == {'H': 'Changed by a co-resident'}, res['results'])
+res = ksync(writes=[
+    {'id': 'h3', 'hn': '7004', 'text': True, 'expect': {'H': 'X'}, 'set': {'H': 'typed'}},
+    {'id': 'h4', 'hn': '7001', 'text': True, 'expect': {}, 'set': {'A': 'x'}},
+    {'id': 'h5', 'hn': '7001', 'text': True, 'expect': {}, 'set': {'E': 'x'}},
+    {'id': 'h6', 'hn': '7001', 'text': True, 'expect': {'Z': ''}, 'set': {'Z': 'beyond the sheet'}},
+    {'id': 'h7', 'hn': '7002', 'text': True, 'expect': {'C': '', 'D': 'P2 recs N'}, 'set': {'C': 'labs N'}},
+])
+st = {k: v['status'] for k, v in res['results'].items()}
+check('a formula in an added column is never overwritten', st['h3'] == 'formula' and log_rows(COLS)[5][7]['__f'].startswith('=UPPER'), st)
+check('text writes never touch A, B or our rounds columns', st['h4'] == st['h5'] == 'invalid' and cell(log_rows(COLS), 2, 1) == 'Patient M', st)
+check('a column beyond the sheet is refused', st['h6'] == 'invalid', st)
+check('C can be written as a text column too', st['h7'] == 'ok' and cell(log_rows(COLS), 3, 3) == 'labs N', st)
+res = gas('post', {**tw, 'action': 'wardSync', 'cols': ['C', 'D', 'E', 'G'], 'writes': [{'id': 'e1', 'hn': '2001', 'text': True, 'expect': {'E': 'keep this'}, 'set': {'E': 'edited plan'}}]})
+check('E–G used for something else can be shown and edited', res['rows'][0]['cells'] == {'C': '', 'D': 'recs still save', 'E': 'edited plan', 'G': ''} and res['results']['e1']['status'] == 'ok' and log_rows(TAKEN)[1][4] == 'edited plan', res)
+
+res = ksync(addColumn={'heading': '  Bed   number '})
+check('a new column goes after all the others', res['added'] == {'status': 'ok', 'column': 'I'} and log_rows(COLS)[0][8] == 'Bed number' and res['rows'][0]['cells'].get('I') == '', res.get('added'))
+check('the new column is read in the same answer', res['headings'][-1] == 'Bed number' and res['lastColumn'] == 9, res.get('headings'))
+res = ksync(addColumn={'heading': '=SUM(A:A)'})
+check('a heading that looks like a formula stays text', res['added']['column'] == 'J' and log_rows(COLS)[0][9] == '=SUM(A:A)', res.get('added'))
+res = gas('post', {**ward, 'action': 'wardSync', 'cols': ['C', 'D'], 'addColumn': {'heading': 'Plan'}})
+check('on a sheet using only A–G the first added column is H', res['added'] == {'status': 'ok', 'column': 'H'} and cell(log_rows(LOG), 1, 8) == 'Plan', res.get('added'))
+check('an empty heading is refused', ksync(addColumn={'heading': '  '})['added'] == {'status': 'invalid'})
+res = gas('post', {**vw, 'action': 'wardSync', 'addColumn': {'heading': 'Plan'}})
+check('a view-only logsheet gets no new column', res['added']['status'] == 'read-only' and len(log_rows(VIEW)[0]) == 4, res.get('added'))
+WIDE = '1' + 'W' * 43
+add_logsheet(WIDE, [HEAD + [''] * 47 + ['Last'], ['Patient W', '8001']], max_cols=52)
+check('the app stops at column AZ', gas('post', {**base, 'spreadsheetId': WIDE, 'tab': 'Sheet1', 'action': 'wardSync', 'addColumn': {'heading': 'x'}})['added'] == {'status': 'too-wide'})
+
+
+def snapshot(rows):
+    return [{'row': r['row'], 'name': r['name'], 'hn': r['hn']} for r in rows]
+
+
+res = ksync()
+before = snapshot(res['rows'])
+check('rows to arrange: patients only', [r['row'] for r in before] == [2, 3, 5, 6], before)
+res = ksync(move={'expect': before, 'order': [6, 2, 5, 3]})
+lr = log_rows(COLS)
+check('rows move into the new order', res['moved'] == {'status': 'ok'} and [r[0] for r in lr[1:6]] == ['Patient P', 'Patient M', '', 'Patient O', 'Patient N'], [r[0] for r in lr[1:6]])
+check('a row without a name stays where it was', cell(lr, 4, 3) == 'a note under the list (no name)')
+check('whole rows move (every column, formulas too)', lr[1][7]['__f'].startswith('=UPPER') and lr[2][7] == 'Changed by a co-resident' and lr[4][7] == 'Seizure', lr[1:6])
+check('the answer has the new order', [r['name'] for r in res['rows']] == ['Patient P', 'Patient M', 'Patient O', 'Patient N'] and res['rows'][0]['row'] == 2, [r['name'] for r in res['rows']])
+res = ksync(writes=[{'id': 'm1', 'hn': '7002', 'expect': {'D': 'P2 recs N'}, 'set': {'D': 'found after the move'}}])
+check('edits still find patients after a move', res['results']['m1'] == {'status': 'ok', 'row': 6} and cell(log_rows(COLS), 6, 4) == 'found after the move', res['results'])
+after = snapshot(res['rows'])
+check('the same order again changes nothing', ksync(move={'expect': after, 'order': [r['row'] for r in after]})['moved'] == {'status': 'same'})
+check('an order that isn\'t these rows is refused', ksync(move={'expect': after, 'order': [2, 3, 5, 5]})['moved'] == {'status': 'invalid'} and ksync(move={'expect': after, 'order': [2, 3]})['moved'] == {'status': 'invalid'})
+edit_cell(COLS, 3, 1, 'Patient M (renamed)')
+res = ksync(move={'expect': after, 'order': [6, 5, 3, 2]})
+check('nothing moves if a patient row changed since', res['moved'] == {'status': 'changed'} and [r[0] for r in log_rows(COLS)[1:6]] == ['Patient P', 'Patient M (renamed)', '', 'Patient O', 'Patient N'], res.get('moved'))
+state = gas('dump')
+next(s for s in state['files'][COLS]['sheets'] if s['name'] == 'Sheet1')['rows'].append(['Patient Q', '7005'])
+save_state(state)
+fresh = snapshot(ksync()['rows'])
+check('a patient added meanwhile counts as a change', ksync(move={'expect': after, 'order': [r['row'] for r in after]})['moved']['status'] in ('changed', 'same') and len(fresh) == 5)
+res = ksync(move={'expect': fresh, 'order': [7, 6, 5, 3, 2]})
+check('the last row can move to the top', res['moved'] == {'status': 'ok'} and [r[0] for r in log_rows(COLS)[1:7]] == ['Patient Q', 'Patient N', '', 'Patient O', 'Patient M (renamed)', 'Patient P'], [r[0] for r in log_rows(COLS)[1:7]])
+res = gas('post', {**vw, 'action': 'wardSync', 'move': {'expect': [{'row': 2, 'name': 'Patient J', 'hn': '5001'}], 'order': [2]}})
+check('one patient: nothing to move', res['moved'] == {'status': 'same'})
+TWO = '1' + 'U' * 43
+add_logsheet(TWO, [HEAD, ['Patient R', '9001'], ['Patient S', '9002']], access='view')
+res = gas('post', {**base, 'spreadsheetId': TWO, 'tab': 'Sheet1', 'action': 'wardSync', 'move': {'expect': [{'row': 2, 'name': 'Patient R', 'hn': '9001'}, {'row': 3, 'name': 'Patient S', 'hn': '9002'}], 'order': [3, 2]}})
+check('rows of a view-only logsheet don\'t move', res['moved'] == {'status': 'read-only'} and log_rows(TWO)[1][0] == 'Patient R', res.get('moved'))
+PROT2 = '1' + 'R' * 43
+add_logsheet(PROT2, [HEAD, ['Patient T', '9101'], ['Patient U', '9102']], protectedCols=[3])
+res = gas('post', {**base, 'spreadsheetId': PROT2, 'tab': 'Sheet1', 'action': 'wardSync', 'move': {'expect': [{'row': 2, 'name': 'Patient T', 'hn': '9101'}, {'row': 3, 'name': 'Patient U', 'hn': '9102'}], 'order': [3, 2]}})
+check('rows with protected cells don\'t move', res['moved'] == {'status': 'protected'} and log_rows(PROT2)[1][0] == 'Patient T', res.get('moved'))
+
+res = gas('post', {**base, 'action': 'push', 'deviceId': 'Mac-aaaa', 'sinceSeq': 0, 'records': [
+    {'store': 'wardLists', 'record': rec('ward', '2026-09-28T09:00:00.000Z', name='Ward 3', order=0, headings={}, columns=[{'id': 'labs', 'col': 'C', 'label': 'Labs'}])}]})
+check('patient lists (names and columns) sync in their own tab', res['results'] == {'wardLists:ward': 'applied'} and rows_of(gas('dump'), 'Ward lists')[0][0] == 'ward', res)
 
 # ---------------------------------------------------------------------------
 print('\nTo-do tabs (version 5)')

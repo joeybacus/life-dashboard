@@ -27,14 +27,23 @@ export function animateReorder(list, mutate) {
 }
 
 /**
- * makeReorderable(list, { canStart, onReorder })
+ * makeReorderable(list, { canStart, onReorder, scroller })
  *   canStart(): whether dragging is currently allowed
  *   onReorder(ids, movedItem): called after a drop that changed the order (ids from data-id)
+ *   scroller: the element that scrolls, for a list inside one (e.g. a sheet's panel); default the page
  */
-export function makeReorderable(list, { canStart = () => true, onReorder } = {}) {
+export function makeReorderable(list, { canStart = () => true, onReorder, scroller = null } = {}) {
   let drag = null;
 
   const gapOf = () => parseFloat(getComputedStyle(list).rowGap) || 0;
+  const scrollTop = () => (scroller ? scroller.scrollTop : window.scrollY);
+  const scrollBy = (dy) => (scroller ? scroller.scrollBy(0, dy) : window.scrollBy(0, dy));
+  /** Near these edges, dragging scrolls. */
+  const edges = () => {
+    if (!scroller) return { top: 90, bottom: window.innerHeight - 90 - 70 }; // stay clear of the tab bar
+    const box = scroller.getBoundingClientRect();
+    return { top: box.top + 60, bottom: box.bottom - 60 };
+  };
 
   function onPointerDown(event) {
     const handle = event.target.closest('[data-drag-handle]');
@@ -55,7 +64,7 @@ export function makeReorderable(list, { canStart = () => true, onReorder } = {})
       from: items.indexOf(item),
       to: items.indexOf(item),
       startY: event.clientY,
-      startScroll: window.scrollY,
+      startScroll: scrollTop(),
       lastY: event.clientY,
       offset: 0,
       raf: 0,
@@ -87,7 +96,7 @@ export function makeReorderable(list, { canStart = () => true, onReorder } = {})
     const last = items[items.length - 1];
     const minOffset = first.offsetTop - top0;
     const maxOffset = last.offsetTop + last.offsetHeight - (top0 + height);
-    const raw = drag.lastY - drag.startY + (window.scrollY - drag.startScroll);
+    const raw = drag.lastY - drag.startY + (scrollTop() - drag.startScroll);
     const offset = Math.max(minOffset, Math.min(maxOffset, raw));
     drag.offset = offset;
     item.style.transform = `translate3d(0, ${offset}px, 0) scale(1.02)`;
@@ -110,19 +119,17 @@ export function makeReorderable(list, { canStart = () => true, onReorder } = {})
     });
   }
 
-  /** Scroll the page when dragging near the top or bottom edge. */
+  /** Scroll the page (or the scroller) when dragging near the top or bottom edge. */
   function autoScroll() {
     if (!drag) return;
-    const zone = 90;
-    const topEdge = zone;
-    const bottomEdge = window.innerHeight - zone - 70; // stay clear of the tab bar
+    const { top: topEdge, bottom: bottomEdge } = edges();
     let speed = 0;
     if (drag.lastY < topEdge) speed = -Math.ceil((topEdge - drag.lastY) / 6);
     else if (drag.lastY > bottomEdge) speed = Math.ceil((drag.lastY - bottomEdge) / 6);
     if (speed) {
-      const before = window.scrollY;
-      window.scrollBy(0, Math.max(-16, Math.min(16, speed)));
-      if (window.scrollY !== before) layout();
+      const before = scrollTop();
+      scrollBy(Math.max(-16, Math.min(16, speed)));
+      if (scrollTop() !== before) layout();
     }
     drag.raf = requestAnimationFrame(autoScroll);
   }

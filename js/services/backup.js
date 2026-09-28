@@ -10,10 +10,12 @@ import { nowISO } from '../core/dates.js';
 import { emit } from '../core/events.js';
 import { state } from '../core/state.js';
 import { syncSnapshot } from './sync.js';
+import { isWardMeta } from '../modules/ward/store.js';
 
 /** Settings kept on this device only — never written to backup files (the sync token lives here,
-    and the ward logsheet link and patient list). */
-const LOCAL_ONLY_META = new Set(['sync', 'backup', 'ui', 'restTimer', 'ward', 'wardCache']);
+    and each patient list's logsheet link and patients: 'ward', 'wardCache', 'ward:<list>'…). */
+const LOCAL_ONLY_KEYS = new Set(['sync', 'backup', 'ui', 'restTimer']);
+const LOCAL_ONLY_META = { has: (key) => LOCAL_ONLY_KEYS.has(key) || isWardMeta(key) };
 const DATA_STORES = BACKUP_STORES.filter((name) => name !== 'meta');
 const WEEK = 7 * 864e5;
 
