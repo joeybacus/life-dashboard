@@ -4,12 +4,13 @@
    row ("High priority. Finish neurology report. Today, 8:00 PM to 9:00 PM…").
    A subtask with a date gets a row too (in Today, Upcoming and Overdue), with
    its task's name under it ("↳ Finish STRAMA paper"). A bell shows when the
-   next reminder rings. */
+   next reminder rings, and a repeat icon when it repeats. */
 import { html, raw } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { clockOf, formatClock, formatStamp, todayKey } from '../../core/manila.js';
 import { PRIORITIES, categoryStyle, isDone, isOverdue, overdueText, spokenRow, timeCell } from './model.js';
 import { alertTimeText, nextAlertAt, reminderSettings } from './alerts.js';
+import { describeRule } from './repeat.js';
 
 /** When the next reminder rings: "7:30 PM" today, else "Tue, Sep 29, 7:30 PM"; '' when none is coming. */
 export function nextAlertWords(t, m) {
@@ -60,6 +61,7 @@ function metaLine(t, m, cell, alert) {
     const paused = ['paused', 'deleted'].includes(m.links?.get(t.id)?.status);
     bits.push(html`<span class="tmeta tmeta--icon tmeta--cal${paused ? ' is-paused' : ''}" title="${paused ? 'Google Calendar link paused' : 'In Google Calendar'}">${icon('calendar')}</span>`);
   }
+  if (t.recurrence && t.kind !== 'subtask') bits.push(html`<span class="tmeta tmeta--icon" title="Repeats: ${describeRule(t.recurrence)}">${icon('repeat')}</span>`);
   if (t.pinned) bits.push(html`<span class="tmeta tmeta--icon" title="Pinned">${icon('pushpin')}</span>`);
   if (t.links?.length) bits.push(html`<span class="tmeta tmeta--icon" title="Links">${icon('paperclip')}</span>`);
   if (t.tags?.length) bits.push(html`<span class="tmeta tmeta--tags">${t.tags.map((tag) => `@${tag}`).join(' ')}</span>`);

@@ -848,3 +848,76 @@ kbd {
 .cal-line__btn { flex: none; margin-left: auto; }
 .cal-line.is-warn .row__icon { background: linear-gradient(135deg, var(--pri-med), #ff9f43); }
 .cal-line.is-neutral .row__icon { background: var(--surface-3); color: var(--text-2); }
+
+/* ---- Repeat (task sheet) and the Repeat sheet ---- */
+.rpt-field__btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: left;
+}
+.rpt-field__btn .icon { width: 1.1rem; height: 1.1rem; flex: none; }
+.rpt-field__btn.is-on { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 12%, transparent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.rpt-field__text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.rpt-field__chev { color: var(--text-3); }
+
+.rpt-sheet .dlg__panel { width: min(100%, 520px); }
+.rpt { display: flex; flex-direction: column; gap: 14px; }
+.rpt__kinds { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.rpt__opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+.rpt__opt:has(input:checked) { color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.rpt__opt input[type="radio"], .rpt__by input[type="radio"] { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.rpt__more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+.rpt__more--col { flex-direction: column; align-items: stretch; }
+.rpt__line, .rpt__by { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--fs-md); color: var(--text-2); }
+.rpt__by { cursor: pointer; }
+.rpt__n { flex: none; width: 5rem; text-align: center; }
+.rpt__select { flex: 0 1 auto; width: auto; min-width: 0; }
+.rpt__days { display: flex; flex-wrap: wrap; gap: 6px; }
+.rpt__day {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-weight: 700;
+  color: var(--text-2);
+}
+.rpt__day[aria-pressed="true"] { color: #03243a; background: var(--accent); border-color: var(--accent); }
+.rpt__ends { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.rpt__ends .input[type="date"] { width: auto; }
+.rpt__preview { font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); }
+.rpt__preview:empty { display: none; }

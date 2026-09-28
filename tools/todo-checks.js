@@ -8,6 +8,9 @@ import {
 } from '../js/modules/todo/model.js';
 import { parseTask } from '../js/modules/todo/parse.js';
 import {
+  cleanRule, describeRule, firstDate, lastOfCount, nextDate, nextOccurrence, templateChanged, templateOf,
+} from '../js/modules/todo/repeat.js';
+import {
   afterSnooze, afterStop, afterStopFollowUps, calendarRings, dueAlerts, followRules, markRung, nextAlertAt, outOfQuiet, reminderDue,
   reminderLabel, reminderSettings, settleAlerts,
 } from '../js/modules/todo/alerts.js';
@@ -295,6 +298,83 @@ check('…but the app rings when the link is paused, not made yet, or behind a m
   && !calendarRings({ ...timed, addToCalendar: false }, { status: 'linked', reason: '', taskDate: '2026-09-28' }));
 const oldSeen = settleAlerts({ ...timed, alerts: { seen: { 'z@2026-08-01T00:00:00.000Z': '2026-08-01T00:00:00.000Z' } } }, timed, RS, R_NOW);
 check('rung reminders are forgotten after a month', !oldSeen.seen?.['z@2026-08-01T00:00:00.000Z'], oldSeen);
+
+/* ---------- Repeating tasks (repeat.js) ---------- */
+
+// 2026-09-28 is a Monday; weeks start on Monday here
+const W = { weekStart: 1 };
+const nd = (rule, from, today = from, extra = {}) => nextDate(rule, from, { today, ...W, ...extra });
+check('every day → the next day', nd({ kind: 'daily' }, '2026-09-28') === '2026-09-29');
+check('every 3 days', nd({ kind: 'daily', interval: 3 }, '2026-09-28') === '2026-10-01');
+check('every weekday: Friday → Monday', nd({ kind: 'weekdays' }, '2026-10-02') === '2026-10-05');
+check('every week on Mon and Thu: Mon → Thu → Mon', nd({ kind: 'weekly', days: [1, 4] }, '2026-09-28') === '2026-10-01' && nd({ kind: 'weekly', days: [1, 4] }, '2026-10-01') === '2026-10-05');
+check('every 2 weeks on Mon and Thu: Thu → the Monday two weeks on', nd({ kind: 'weekly', interval: 2, days: [1, 4] }, '2026-10-01') === '2026-10-12', nd({ kind: 'weekly', interval: 2, days: [1, 4] }, '2026-10-01'));
+check('every week with no days chosen keeps its weekday', nd({ kind: 'weekly' }, '2026-09-30') === '2026-10-07');
+check('monthly on the 31st falls on the last day of shorter months', nd({ kind: 'monthly', monthDay: 31 }, '2026-01-31') === '2026-02-28'
+  && nd({ kind: 'monthly', monthDay: 31 }, '2026-02-28') === '2026-03-31' && nd({ kind: 'monthly', monthDay: 31 }, '2028-01-31') === '2028-02-29');
+check('monthly on the second Tuesday', nd({ kind: 'monthly', week: 2, weekday: 2 }, '2026-10-13') === '2026-11-10', nd({ kind: 'monthly', week: 2, weekday: 2 }, '2026-10-13'));
+check('monthly on the last Friday', nd({ kind: 'monthly', week: -1, weekday: 5 }, '2026-10-30') === '2026-11-27');
+check('a fifth Monday skips months that have none', nd({ kind: 'monthly', week: 5, weekday: 1 }, '2026-08-31') === '2026-11-30', nd({ kind: 'monthly', week: 5, weekday: 1 }, '2026-08-31'));
+check('every 3 months', nd({ kind: 'monthly', interval: 3, monthDay: 15 }, '2026-11-15') === '2027-02-15');
+check('"3 days after it’s done" counts from the day it was ticked', nd({ kind: 'afterDone', interval: 3 }, '2026-09-20', '2026-10-05', { doneOn: '2026-10-05' }) === '2026-10-08');
+check('ticked late, a daily task jumps to today (no pile of missed ones)', nd({ kind: 'daily' }, '2026-09-20', '2026-09-28') === '2026-09-28');
+check('…and a weekly one to its next day from today on', nd({ kind: 'weekly', days: [1] }, '2026-09-07', '2026-10-01') === '2026-10-05');
+check('it ends after its last date', nd({ kind: 'daily', until: '2026-09-29' }, '2026-09-29') === null && nd({ kind: 'daily', until: '2026-09-29' }, '2026-09-28') === '2026-09-29');
+check('it ends after its number of times', lastOfCount({ recurrence: { kind: 'daily', count: 3 }, seriesIndex: 3 }) && !lastOfCount({ recurrence: { kind: 'daily', count: 3 }, seriesIndex: 2 })
+  && nextOccurrence({ id: 'x', date: '2026-09-28', recurrence: { kind: 'daily', count: 3 }, seriesIndex: 3 }, { today: '2026-09-28', ...W }) === null);
+check('a new repeating task starts on the first day on its schedule', firstDate({ kind: 'weekly', days: [1] }, '2026-09-30') === '2026-10-05'
+  && firstDate({ kind: 'weekdays' }, '2026-10-03') === '2026-10-05' && firstDate({ kind: 'monthly', monthDay: 15 }, '2026-09-28') === '2026-10-15'
+  && firstDate({ kind: 'monthly', monthDay: 30 }, '2026-09-28') === '2026-09-30' && firstDate({ kind: 'daily' }, '2026-09-28') === '2026-09-28');
+check('rules are cleaned before saving', cleanRule({ kind: 'yearly' }) === null && cleanRule({ kind: 'weekdays', interval: 3 }).interval === 1
+  && same(cleanRule({ kind: 'weekly', days: [4, 1, 4, 9], count: 5, until: '2026-12-31' }), { kind: 'weekly', interval: 1, days: [1, 4], until: '2026-12-31' }), cleanRule({ kind: 'weekly', days: [4, 1, 4, 9], count: 5, until: '2026-12-31' }));
+check('rule words', describeRule({ kind: 'weekly', days: [1] }) === 'Every Monday' && describeRule({ kind: 'weekly', interval: 2, days: [1, 4] }) === 'Every 2 weeks on Mon, Thu'
+  && describeRule({ kind: 'monthly', week: 2, weekday: 2 }) === 'Every month on the second Tuesday' && describeRule({ kind: 'monthly', monthDay: 31 }) === 'Every month on day 31'
+  && describeRule({ kind: 'afterDone', interval: 3 }) === '3 days after it’s done' && describeRule({ kind: 'weekdays' }) === 'Every weekday (Mon–Fri)'
+  && describeRule({ kind: 'daily', count: 10 }) === 'Every day, 10 times' && describeRule({ kind: 'monthly', interval: 12, monthDay: 5 }) === 'Every year on day 5',
+  [describeRule({ kind: 'weekly', interval: 2, days: [1, 4] }), describeRule({ kind: 'monthly', week: 2, weekday: 2 })]);
+
+const series = T({
+  id: 'series-1', title: 'Weekly review', priority: 'high', date: '2026-09-28', startTime: '09:00', categoryId: 'cat-mba', pinned: true, status: 'done',
+  recurrence: { kind: 'weekly', days: [1] }, seriesId: 'series-1', seriesIndex: 1, addToCalendar: true,
+  reminders: [{ id: 'r-a', kind: 'before', minutes: 30 }, { id: 'r-b', kind: 'at', at: '2026-09-27T12:00:00.000Z' }],
+  alerts: { seen: { 'r-a@x': 'y' } },
+});
+const seriesSubs = [
+  { id: 'sub-a', taskId: 'series-1', title: 'Collect notes', done: true, order: 0 },
+  { id: 'sub-b', taskId: 'series-1', title: 'Send summary', done: false, order: 1, date: '2026-09-29', reminders: [{ id: 'r-c', kind: 'at', at: '2026-09-29T01:00:00.000Z' }] },
+  { id: 'sub-gone', taskId: 'series-1', title: 'Deleted', done: false, order: 2, deletedAt: '2026-09-27T00:00:00.000Z' },
+];
+const made = nextOccurrence(series, { subtasks: seriesSubs, today: '2026-09-28', ...W });
+const nt = made?.task;
+check('the next one has the series’ id and its date', nt?.id === 'series-1~2026-10-05' && nt.date === '2026-10-05' && nt.seriesId === 'series-1' && nt.seriesIndex === 2, nt);
+check('…is open, not pinned, with nothing rung yet', nt?.status === 'open' && nt.completedAt === null && nt.pinned === false && same(nt.alerts, {}));
+check('…copies the name, time, priority, category and the Calendar switch', nt?.title === 'Weekly review' && nt.startTime === '09:00' && nt.priority === 'high' && nt.categoryId === 'cat-mba' && nt.addToCalendar === true);
+check('…keeps "before" reminders and moves "at" ones by the same days', nt?.reminders[0].minutes === 30 && nt.reminders[1].at === '2026-10-04T12:00:00.000Z' && nt.reminders[0].id === 'series-1~2026-10-05~r0', nt?.reminders);
+check('…and copies the subtasks unticked, their own dates moved too (not deleted ones)', made?.subtasks.length === 2 && made.subtasks.every((x) => !x.done && x.taskId === 'series-1~2026-10-05')
+  && made.subtasks[1].date === '2026-10-06' && made.subtasks[1].reminders[0].at === '2026-10-06T01:00:00.000Z', made?.subtasks);
+check('subtask ids stay the same length however many times it repeats', (() => {
+  const second = nextOccurrence({ ...nt, status: 'done' }, { subtasks: made.subtasks, today: '2026-10-05', ...W });
+  return second.subtasks[0].id === 'series-1~2026-10-12~sub-a' && second.subtasks[0].seriesKey === 'sub-a';
+})());
+check('two devices ticking the same task make the same next one', JSON.stringify(nextOccurrence(series, { subtasks: seriesSubs, today: '2026-09-28', ...W })) === JSON.stringify(made));
+const onlyThis = nextOccurrence({ ...series, title: 'Weekly review (in room 3 this time)', seriesBase: templateOf(series) }, { today: '2026-09-28', ...W });
+check('"This task only": the next one is made from how the series was', onlyThis.task.title === 'Weekly review' && onlyThis.task.seriesBase === null);
+check('what the next ones copy: reminder ids and Manual order don’t count as changes', !templateChanged(templateOf(series), templateOf({ ...series, manualOrder: 99, reminders: series.reminders.map((r) => ({ ...r, id: `${r.id}-new` })) }))
+  && templateChanged(templateOf(series), templateOf({ ...series, startTime: '10:00' })));
+
+// Words (Sunday 27 September 2026, 10:00 AM)
+phrase('Standup every weekday 9am', { title: 'Standup', date: '2026-09-28', startTime: '09:00', recurrence: { kind: 'weekdays', interval: 1 } }, { note: 'its time has passed today' });
+phrase('Gym every Mon and Thu', { title: 'Gym', date: '2026-09-28', recurrence: { kind: 'weekly', interval: 1, days: [1, 4] } });
+phrase('Pay rent every 15th', { title: 'Pay rent', date: '2026-10-15', recurrence: { kind: 'monthly', interval: 1, monthDay: 15 } });
+phrase('Team meeting every other Friday 3pm', { title: 'Team meeting', date: '2026-10-02', startTime: '15:00', recurrence: { kind: 'weekly', interval: 2, days: [5] } });
+phrase('Water plants every 3 days', { title: 'Water plants', date: '2026-09-27', recurrence: { kind: 'daily', interval: 3 } });
+phrase('Take vitamins every day 8pm', { title: 'Take vitamins', date: '2026-09-27', startTime: '20:00', recurrence: { kind: 'daily', interval: 1 } });
+phrase('Grand rounds every first Monday', { title: 'Grand rounds', date: '2026-10-05', recurrence: { kind: 'monthly', interval: 1, week: 1, weekday: 1 } });
+phrase('Submit report every month Oct 3', { title: 'Submit report', date: '2026-10-03', recurrence: { kind: 'monthly', interval: 1, monthDay: 3 } });
+phrase('Review the plan weekly', { title: 'Review the plan', date: '2026-09-27', recurrence: { kind: 'weekly', interval: 1, days: [0] } });
+phrase('Weekly review', { title: 'Weekly review' }, { note: 'a first word stays in the name' });
+phrase('Journal club every 2 weeks', { title: 'Journal club', date: '2026-09-27', recurrence: { kind: 'weekly', interval: 2, days: [0] } });
+check('a repeat shows as a chip in words', read('Gym every Mon and Thu').parts.find((x) => x.kind === 'repeat')?.label === 'Every week on Mon, Thu', read('Gym every Mon and Thu').parts);
 
 /* ---------- Show the results ---------- */
 

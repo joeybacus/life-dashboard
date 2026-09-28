@@ -8,13 +8,14 @@
      allDay (it has a date but no time), status ('open' | 'done'), completedAt,
      pinned, manualOrder (for Manual sorting), links [{ id, title, url }],
      reminders [] and followUp (see alerts.js), alerts (what has rung), addToCalendar,
-     recurrence, seriesId (used by later releases),
+     recurrence, seriesId, seriesIndex, seriesBase, nextId (a repeating task — see repeat.js),
      createdAt, updatedAt, deletedAt (deleting only marks it; Recently deleted shows it for 30 days)
    A subtask (store "subtasks"): id, taskId, title, done, completedAt, order, and — like a
      task — its own date, startTime, endTime, reminders, followUp, alerts, addToCalendar.
      A subtask with a date also shows as its own row in Today, Upcoming and Overdue.
    A category (store "taskCategories"): id, name, color, icon, order. */
 import { addDays, at, daysFrom, formatClock, formatClockRange, formatStamp, relativeDay, sheetTime, todayKey } from '../../core/manila.js';
+import { describeRule } from './repeat.js';
 
 export const PRIORITIES = {
   high: { label: 'High', short: 'High', rank: 0 },
@@ -158,6 +159,9 @@ export function newTask(fields = {}) {
     addToCalendar: false,
     recurrence: null,
     seriesId: null,
+    seriesIndex: null,
+    seriesBase: null,
+    nextId: null,
     ...fields,
   };
 }
@@ -435,7 +439,7 @@ export function spokenRow(t, { category = null, subtasks = null, now = Date.now(
   if (alertText) parts.push(`Reminder ${alertText}`);
   else if (t.reminders?.length) parts.push('Reminder on');
   if (t.addToCalendar) parts.push('In Google Calendar');
-  if (t.recurrence) parts.push('Repeats');
+  if (t.recurrence) parts.push(`Repeats: ${describeRule(t.recurrence)}`);
   if (t.links?.length) parts.push(`${t.links.length} ${t.links.length === 1 ? 'link' : 'links'}`);
   parts.push(isDone(t) ? `Done${t.completedAt ? ` ${formatStamp(t.completedAt, now)}` : ''}` : 'Not done');
   return `${parts.join('. ')}.`;
@@ -504,7 +508,7 @@ function csvField(value) {
 
 /** Tasks as CSV (opens in Excel, Numbers and Google Sheets). Times are Manila time. */
 export function tasksToCsv(tasks, { categories = new Map(), progress = new Map() } = {}) {
-  const header = ['Title', 'Status', 'Priority', 'Date', 'Start', 'End', 'Category', 'Tags', 'Pinned', 'Subtasks',
+  const header = ['Title', 'Status', 'Priority', 'Date', 'Start', 'End', 'Category', 'Tags', 'Pinned', 'Repeats', 'Subtasks',
     'Links', 'Notes', 'Created', 'Completed'];
   const lines = [header.map(csvField).join(',')];
   const sorted = [...tasks].sort((a, b) => cmp(timeKey(a), timeKey(b)) || cmp(a.createdAt ?? '', b.createdAt ?? ''));
@@ -513,7 +517,7 @@ export function tasksToCsv(tasks, { categories = new Map(), progress = new Map()
     lines.push([
       t.title, isDone(t) ? 'Done' : 'Open', PRIORITIES[t.priority]?.label ?? 'None', t.date ?? '', t.startTime ?? '', t.endTime ?? '',
       categories.get(t.categoryId)?.name ?? '', (t.tags ?? []).join(', '), t.pinned ? 'Yes' : '',
-      p ? `${p.done}/${p.total}` : '', (t.links ?? []).map((l) => l.url).join(' '), t.notes ?? '',
+      t.recurrence ? describeRule(t.recurrence) : '', p ? `${p.done}/${p.total}` : '', (t.links ?? []).map((l) => l.url).join(' '), t.notes ?? '',
       sheetTime(t.createdAt), isDone(t) ? sheetTime(t.completedAt) : '',
     ].map(csvField).join(','));
   }

@@ -18,9 +18,11 @@ import {
 import {
   addSubtask, createTask, deleteSub, loadTodo, moveToTomorrow, putBack, reorderSubs, saveSub, saveTask, setDone, softDelete, subtaskToTask,
 } from './store.js';
-import { checkDuplicate } from './task-actions.js';
+import { askDelete, checkDuplicate, completeWithUndo, removeTask } from './task-actions.js';
 import { newReminder } from './alerts.js';
 import { bindReminderField, reminderFieldMarkup } from './reminder-ui.js';
+import { bindRepeatField, repeatFieldMarkup } from './repeat-ui.js';
+import { firstDate, templateChanged, templateOf } from './repeat.js';
 import { autoCalendar, bindCalendarField, calendarFieldMarkup } from './calendar-link.js';
 import { subtaskSheet } from './subtask-sheet.js';
 
@@ -107,6 +109,8 @@ function sheetBody(task, { isNew, categories, today }) {
       </div>
       <p class="tform__hint">${task.date ? 'Optional. Tasks without a time are fine.' : 'Pick a date to add a time.'}</p>
     </div>
+
+    ${repeatFieldMarkup(task, { id: 'tf-rep' })}
 
     ${reminderFieldMarkup(task, { id: 'tf-rem' })}
 
@@ -247,6 +251,10 @@ async function taskSheet({ task: start, data, isNew }) {
   let created = null; // the new task, once added
   let reminderField = null;
   let calendarField = null;
+  let repeatField = null;
+  // A repeating task: what the next ones copy, as it was when the sheet opened (see askScope)
+  const startTemplate = templateOf(start);
+  let scopeAsked = false;
   let calTouched = false; // you switched Google Calendar yourself: "Always add" leaves it alone
   const pendingTitles = new Map(); // subtask id → title being typed
   let titlesTimer = null;
@@ -328,6 +336,7 @@ async function taskSheet({ task: start, data, isNew }) {
   };
 
   const refreshDates = () => {
+    if (draft.recurrence && !draft.date) draft.date = firstDate(draft.recurrence, today); // a repeating task always has a date
     const quickDates = { today, tomorrow: addDays(today, 1) };
     form.querySelectorAll('[data-date]').forEach((b) => {
       if (b.dataset.date in quickDates) b.setAttribute('aria-pressed', String(draft.date === quickDates[b.dataset.date]));
@@ -342,6 +351,31 @@ async function taskSheet({ task: start, data, isNew }) {
       draft.endTime = null;
     }
     refreshTimes();
+    repeatField?.refresh(); // "After this one: …" follows the date
+  };
+
+  /**
+   * You changed a repeating task (its name, time, priority, reminders…): ask once,
+   * as the sheet closes, whether the next ones get the changes too. This task
+   * only: the series keeps how it was (seriesBase). This and future: the next
+   * ones copy this one as it is now.
+   */
+  const askScope = async () => {
+    if (isNew || finished || scopeAsked || !start.recurrence || !draft.recurrence) return;
+    if (!templateChanged(startTemplate, templateOf(draft))) return;
+    scopeAsked = true;
+    const choice = await openDialog({
+      variant: 'alert',
+      dismissible: false,
+      title: 'Change the next ones too?',
+      body: html`<p class="dlg__msg">“${draft.title}” repeats. Should the next ones get the changes you just made?</p>`,
+      actions: [
+        { label: 'This task only', value: 'only', variant: 'ghost' },
+        { label: 'This and future', value: 'future', variant: 'primary', autofocus: true },
+      ],
+    });
+    draft.seriesBase = choice === 'only' ? (draft.seriesBase ?? startTemplate) : null;
+    await persist();
   };
 
   const refreshTimes = () => {
@@ -358,16 +392,21 @@ async function taskSheet({ task: start, data, isNew }) {
     calendarField?.refresh();
   };
 
+  /** Tick the task and close (a repeating one makes its next occurrence; the message has Undo). */
+  const completeAndClose = async () => {
+    await persist();
+    await askScope();
+    finished = true;
+    closeSheet?.('completed');
+    await completeWithUndo(draft);
+  };
+
   /** Ticking the last subtask offers to complete the task too (never automatically). */
   const offerComplete = async () => {
     if (isNew || isDone(draft) || !subs.length || subs.some((s) => !s.done)) return;
     const yes = await confirmDialog({ title: 'All subtasks are done', message: `Mark “${draft.title}” as done too?`, confirmLabel: 'Complete task', cancelLabel: 'Not yet' });
     if (!yes) return;
-    await persist();
-    const before = { ...draft };
-    adopt(await setDone(draft, true));
-    closeSheet?.('completed');
-    toast(`Done: ${draft.title}`, { icon: 'checkCircle', action: { label: 'Undo', onClick: () => putBack(before) } });
+    await completeAndClose();
   };
 
   const onInput = (event) => {
@@ -481,16 +520,14 @@ async function taskSheet({ task: start, data, isNew }) {
     } else if ('linkMenu' in t.dataset) {
       await linkMenu(t.closest('[data-id]').dataset.id);
     } else if ('complete' in t.dataset) {
-      await persist();
-      const before = { ...draft };
-      adopt(await setDone(draft, !isDone(draft)));
-      if (isDone(draft)) {
-        closeSheet('completed');
-        toast(`Done: ${draft.title}`, { icon: 'checkCircle', action: { label: 'Undo', onClick: () => putBack(before) } });
-      } else {
-        t.innerHTML = `${icon('checkCircle')}Complete`;
-        announce(`${draft.title} is not done.`);
+      if (!isDone(draft)) {
+        await completeAndClose();
+        return;
       }
+      await persist();
+      adopt(await setDone(draft, false));
+      t.innerHTML = `${icon('checkCircle')}Complete`;
+      announce(`${draft.title} is not done.`);
     } else if ('tomorrow' in t.dataset) {
       await persist();
       const before = { ...draft };
@@ -508,14 +545,13 @@ async function taskSheet({ task: start, data, isNew }) {
         },
       });
     } else if ('delete' in t.dataset) {
-      const ok = await confirmDialog({ title: 'Delete this task?', message: `“${draft.title}” goes to Recently deleted, where you can restore it for 30 days.`, confirmLabel: 'Delete', destructive: true });
-      if (!ok) return;
+      // A repeating task: skip this one, or delete it and stop repeating
+      const choice = await askDelete(draft);
+      if (!choice) return;
       await persist();
-      const before = { ...draft };
       finished = true;
-      await softDelete(draft);
       closeSheet('deleted');
-      toast(`Deleted: ${draft.title}`, { icon: 'trash', action: { label: 'Undo', onClick: () => putBack(before) } });
+      await removeTask({ ...draft }, choice);
     } else if ('cancel' in t.dataset) {
       await tryClose();
     }
@@ -638,6 +674,14 @@ async function taskSheet({ task: start, data, isNew }) {
           if (!isNew) persist();
         },
       });
+      repeatField = bindRepeatField(form, {
+        get: () => draft,
+        set: (patch) => {
+          draft = { ...draft, ...patch };
+          refreshDates();
+          if (!isNew) persist();
+        },
+      });
       calendarField = bindCalendarField(form, {
         get: () => draft,
         kind: 'task',
@@ -658,6 +702,7 @@ async function taskSheet({ task: start, data, isNew }) {
         if (isNew) await add();
         else {
           await persist();
+          await askScope();
           close('done');
         }
       });

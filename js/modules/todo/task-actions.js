@@ -5,43 +5,94 @@ import { html } from '../../core/html.js';
 import { db } from '../../core/db.js';
 import { emit } from '../../core/events.js';
 import { actionSheet, announce, confirmDialog, openDialog, promptDialog, toast } from '../../core/ui.js';
+import { relativeDay, todayKey } from '../../core/manila.js';
 import { PRIORITIES, PRIORITY_KEYS, isDone, possibleDuplicate } from './model.js';
+import { describeRule, lastOfCount, nextDate } from './repeat.js';
 import {
-  addSubtask, deleteSub, getSub, getTask, loadTodo, mergeTasks, moveSubToTomorrow, moveToTomorrow, putBack, saveSub, saveTask,
-  setDone, setSubDone, softDelete,
+  addSubtask, completeTask, deleteSub, getSub, getTask, loadTodo, mergeTasks, moveSubToTomorrow, moveToTomorrow, putBack, saveSub, saveTask,
+  setDone, setSubDone, skipTask, softDelete, undoNext,
 } from './store.js';
 
 /** Ask the To Do list to put the keyboard focus back on a task once it has redrawn. */
 export const focusTaskLater = (id) => emit('todo-focus', { id });
 
+/** " · Next: Mon, Oct 5" / " · That was the last one" — after ticking or skipping a repeating task. */
+export function nextWords(result) {
+  if (!result) return '';
+  if (result.ended) return result.task.recurrence ? ' · That was the last one' : '';
+  return result.next ? ` · Next: ${relativeDay(result.next.date, todayKey())}` : '';
+}
+
+/** Tick a task (a repeating one makes its next occurrence) with Undo. Returns what was saved. */
+export async function completeWithUndo(task, { quiet = false } = {}) {
+  const before = { ...task };
+  const result = await completeTask(task);
+  const words = nextWords(result);
+  if (!quiet) {
+    toast(`Done: ${task.title}${words}`, { icon: 'checkCircle', action: { label: 'Undo', onClick: () => undoNext(before, result) } });
+    announce(`${task.title} done.${words ? `${words.replace(' · ', ' ')}.` : ''}`);
+  }
+  return result;
+}
+
 export async function toggleDone(id, { refocus = false } = {}) {
   const task = await getTask(id);
   if (!task || task.deletedAt) return;
   const before = { ...task };
-  const done = !isDone(task);
   if (refocus) focusTaskLater(id);
-  await setDone(task, done);
-  if (done) {
-    toast(`Done: ${task.title}`, { icon: 'checkCircle', action: { label: 'Undo', onClick: () => putBack(before) } });
-    announce(`${task.title} done.`);
-  } else {
-    toast(`Not done: ${task.title}`, { icon: 'refresh', action: { label: 'Undo', onClick: () => putBack(before) } });
-    announce(`${task.title} is not done.`);
+  if (!isDone(task)) {
+    await completeWithUndo(task);
+    return;
+  }
+  await setDone(task, false);
+  toast(`Not done: ${task.title}`, { icon: 'refresh', action: { label: 'Undo', onClick: () => putBack(before) } });
+  announce(`${task.title} is not done.`);
+}
+
+/**
+ * Deleting a repeating task: skip just this one (the next one comes), or delete
+ * it and stop repeating. Resolves 'skip', 'stop' or null. Other tasks: 'stop'
+ * after the usual confirmation.
+ */
+export async function askDelete(task) {
+  const repeating = Boolean(task.recurrence) && !isDone(task) && !lastOfCount(task);
+  const next = repeating ? nextDate(task.recurrence, task.date, { today: todayKey() }) : null;
+  if (!repeating || !next) {
+    const ok = await confirmDialog({
+      title: 'Delete this task?',
+      message: `“${task.title}” goes to Recently deleted, where you can restore it for 30 days.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    return ok ? 'stop' : null;
+  }
+  return actionSheet({
+    title: `Delete “${task.title}”?`,
+    message: `Repeats: ${describeRule(task.recurrence)}. Deleted tasks stay in Recently deleted for 30 days.`,
+    items: [
+      { label: 'Skip this one', value: 'skip', icon: 'arrowRight', detail: `Next: ${relativeDay(next, todayKey())}` },
+      { label: 'Delete and stop repeating', value: 'stop', icon: 'trash', destructive: true },
+    ],
+  });
+}
+
+/** Skip or delete (after askDelete), with Undo. */
+export async function removeTask(task, choice) {
+  if (choice === 'skip') {
+    const before = { ...task };
+    const result = await skipTask(task);
+    toast(`Skipped: ${task.title}${nextWords(result)}`, { icon: 'arrowRight', action: { label: 'Undo', onClick: () => undoNext(before, result) } });
+    announce(`${task.title} skipped.`);
+  } else if (choice === 'stop') {
+    await softDelete(task);
+    toast(`Deleted: ${task.title}`, { icon: 'trash', action: { label: 'Undo', onClick: () => putBack(task) } });
   }
 }
 
 export async function deleteTask(id) {
   const task = await getTask(id);
   if (!task || task.deletedAt) return;
-  const ok = await confirmDialog({
-    title: 'Delete this task?',
-    message: `“${task.title}” goes to Recently deleted, where you can restore it for 30 days.`,
-    confirmLabel: 'Delete',
-    destructive: true,
-  });
-  if (!ok) return;
-  await softDelete(task);
-  toast(`Deleted: ${task.title}`, { icon: 'trash', action: { label: 'Undo', onClick: () => putBack(task) } });
+  await removeTask(task, await askDelete(task));
 }
 
 /** "Move to tomorrow" changes the task's date — never a reminder. */

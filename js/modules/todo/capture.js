@@ -42,7 +42,7 @@ export function captureMarkup({ placeholder = 'Add a task…', label = 'New task
   </form>`;
 }
 
-const KIND_ICON = { date: 'calendar', time: 'clock', tag: 'link', reminder: 'bell', calendar: 'calendarCheck' };
+const KIND_ICON = { date: 'calendar', time: 'clock', tag: 'link', reminder: 'bell', calendar: 'calendarCheck', repeat: 'repeat' };
 
 function chip({ key, kind, label, value, isDefault, ask, fresh, categories }) {
   const words = isDefault ? `${label} (a default). Remove` : ask ? `${label}: needs a choice. Keep it as words instead` : `${label}. Remove — keep these words in the name`;
@@ -263,8 +263,8 @@ const EXAMPLES = [
   ['Tags', '@paper @home'],
   ['Reminders', 'remind me 30 min before · remind me an hour before · remind me 1 day before · “Remind me to call mom 7pm” → “Call mom” at 7:00 PM, with a reminder then.'],
   ['Calendar', 'add to calendar · cal — puts it in Google Calendar, so its reminders ring even on a locked phone.'],
+  ['Repeats', 'every day · every other day · every 3 days · every weekday · every Monday · every Mon and Thu · every other Friday · every 2 weeks · every month · every 15th · every first Monday · every year. Without a day it starts on the first day it’s due.'],
   ['It asks', 'when something could mean two things — “3/10” (March 10 or October 3?) or “at 8” (morning or evening?).'],
-  ['Coming next', '“every Monday” with repeating tasks (0.4.4).'],
 ];
 const KEYS = [
   ['N', 'New task (the box at the top of To Do; the + sheet elsewhere)'],

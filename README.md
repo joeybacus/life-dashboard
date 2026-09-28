@@ -4,12 +4,11 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 3 — Tasks and productivity (v0.4.3.1: the fourth of seven small releases, plus
-patient lists).** A real
+**Current status: Phase 3 — Tasks and productivity (v0.4.4: the fifth of seven small releases).** A real
 to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting,
 fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes —
 reminders for tasks and subtasks (subtasks can have their own date and time), with "Still not done" follow-ups,
-and the Google Calendar link, so reminders ring even on a locked phone —
+the Google Calendar link, so reminders ring even on a locked phone, and repeating tasks —
 on top of Phase 2 (workouts, and ward rounds from your logsheets in **patient lists** like Ward Patients,
 Neurology tab — with your own columns and row order since v0.4.3.1) and
 Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on each device and, once sync is
@@ -112,8 +111,8 @@ Good to know about the Wi-Fi preview:
 
 ## To Do (Phase 3)
 
-The To Do tab is a full task list (v0.4.0) with fast capture (v0.4.1), reminders (v0.4.2) and the Google Calendar
-link (v0.4.3). Repeating tasks, the focus timer and habits arrive in the next small updates (0.4.4 – 0.4.6).
+The To Do tab is a full task list (v0.4.0) with fast capture (v0.4.1), reminders (v0.4.2), the Google Calendar
+link (v0.4.3) and repeating tasks (v0.4.4). The focus timer and habits arrive in the next small updates (0.4.5, 0.4.6).
 
 - **Type a task the way you'd say it** in the box at the top of To Do, or after tapping **+** (bottom right, on every
   tab): *Finish STRAMA paper tomorrow 8pm #MBA !!!* becomes "Finish STRAMA paper", tomorrow at 8:00 PM, MBA, High.
@@ -154,6 +153,15 @@ link (v0.4.3). Repeating tasks, the focus timer and habits arrive in the next sm
   Google Calendar shows whether the link works (with Check / Try again), which calendar to use, and **Always add
   timed tasks**. If the link can't work (no permission, calendar deleted, old script), the task shows "paused" and
   the app rings for it instead. Needs sync (script version 5; 6 for subtasks). Sample tasks never go to Calendar.
+- **Repeating tasks:** in a task's sheet, **Repeat** → every day (or every few days), every weekday, every week on the
+  days you choose, every month (on a date, or like "the second Tuesday"), or some days after you tick it — ending
+  never, on a date or after a number of times. A preview shows the next dates. Or type it: "every Monday", "every
+  weekday", "every Mon and Thu", "every 2 weeks", "every 15th", "every first Monday". Only the next one exists at a
+  time: ticking it brings the next (with the same name, time, reminders and subtasks, unticked); an overdue one jumps
+  ahead to today rather than piling up missed days. A monthly task on the 31st falls on the last day of shorter months.
+  Changing a repeating task asks, when you close it, **This task only** or **This and future**. Deleting one offers
+  **Skip this one** or **Delete and stop repeating**. Ticking the same task on two devices, even offline, makes one next
+  task, not two. The row shows a repeat icon; the Sheet's Repeats column reads like "Every Monday".
 - **Subtasks with their own time:** the clock button on a subtask gives it its own date, time and reminders. A subtask
   with a date also shows as its own row in Today, Upcoming and Overdue, with its task's name under it — tap it for its
   menu, tick it, or swipe it like a task.
@@ -296,7 +304,8 @@ js/modules/todo/      To Do: model (views, sorting, search, CSV), store (saving)
                       alerts (when reminders ring; snooze and follow-ups), reminders (the banner and
                       the missed list), reminder-ui (choosing reminders), subtask-sheet (a subtask's
                       own date, time and reminders), calendar-link (the Google Calendar link: who rings,
-                      updating events after sync, Settings → Google Calendar)
+                      updating events after sync, Settings → Google Calendar), repeat (repeating tasks:
+                      the rules and the next occurrence), repeat-ui (the Repeat field and sheet)
 js/core/quick-add.js  The + button on every tab and the Quick Add sheet
 js/modules/ward/      Patient lists (Neurology): model (Manila time, sorting, columns), engine (the lists;
                       each one's patients, rounds, changes waiting to be saved), page (a list's screen,
@@ -354,6 +363,11 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
   and is changed only by `saveAlerts()` (store.js); every other save keeps the saved copy's `alerts`
   (`settleAlerts()` in alerts.js), so a sheet that was open while a reminder rang can't make it ring again. The
   engine is `js/modules/todo/reminders.js`; the rules (and their checks in todo-checks.html) are in `alerts.js`.
+- **Repeating tasks** (`repeat.js`, checked in todo-checks.html): the rule lives in `recurrence` in the shape the sync
+  script's Repeats column reads. Only the next occurrence exists; its id is `<seriesId>~<date>` (its subtasks'
+  `<occurrence id>~<first subtask id>`), so two devices ticking the same task make one next task. `seriesIndex` counts
+  occurrences (for "N times"); `seriesBase` keeps the series' fields after a "This task only" edit; `nextId` points to
+  the occurrence ticking this one made (Undo puts it away again).
 - **Ward Patients data** is device-only: the `wardDays` and `wardQueue` stores and the `ward` / `wardCache`
   (first list) and `ward:<list>` / `wardCache:<list>` meta keys are never synced or backed up. Only the lists
   themselves (`wardLists`: name, order, headings, columns) sync. The first list has the fixed id `ward` and a

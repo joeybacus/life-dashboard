@@ -12,7 +12,7 @@ import { addDays as addDayKeys, todayKey } from '../core/manila.js';
 const DEFAULT_CATEGORIES = ['Hospital', 'Residency', 'MBA', 'NU', 'Research', 'Business', 'Personal'];
 
 /** Bump when the shape of sample records changes, so today's samples are rebuilt. */
-const SAMPLE_VERSION = 4;
+const SAMPLE_VERSION = 5; // 5: a repeating task (0.4.4)
 
 /* Sample workouts: [exercise id, name, { warmup kg, sets, kg, reps, weekly step kg, durationSec }] */
 const SAMPLE_EXERCISES = {
@@ -125,6 +125,9 @@ export function buildSampleRecords(now = new Date()) {
       reminders: [{ id: 'sample-rem-2', kind: 'before', minutes: 60, createdAt: hoursAgo(12) }] }, 12),
     task(9, { title: 'Renew medical license', priority: 'none', date: null, pinned: true, categoryId: 'cat-personal', notes: 'Online renewal — have the receipt ready.' }, 70),
     task(10, { title: 'Outline the business plan', priority: 'low', date: null, categoryId: 'cat-business', tags: ['idea'] }, 90),
+    // Repeats every day: ticking it brings tomorrow's (sample repeats are reset each day too)
+    task(11, { title: 'Review overnight admissions', priority: 'medium', startTime: '06:30', categoryId: 'cat-hospital',
+      recurrence: { kind: 'daily', interval: 1 }, seriesId: 'sample-task-11', seriesIndex: 1 }, 30),
   ];
 
   // A subtask can have its own date, time and reminders (then it also shows as a row in Today and Upcoming)

@@ -16,6 +16,7 @@ import { addDays, isClock, isDateKey, todayKey } from '../../core/manila.js';
 import { state } from '../../core/state.js';
 import { DELETED_DAYS, MAX_NOTES, MAX_TITLE, PRIORITIES, isDone, newTask, normalizeSub, normalizeTask } from './model.js';
 import { reminderSettings, settleAlerts, sortReminders } from './alerts.js';
+import { cleanRule, firstDate, nextOccurrence } from './repeat.js';
 
 const MAX_REMINDERS = 10;
 const alertSettings = () => reminderSettings(state.settings?.tasks);
@@ -89,10 +90,17 @@ function clean(task, now = nowISO()) {
   t.title = String(t.title ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE);
   t.notes = String(t.notes ?? '').slice(0, MAX_NOTES);
   if (!PRIORITIES[t.priority]) t.priority = 'none';
-  t.allDay = Boolean(t.date && !t.startTime);
   if (!isDone(t)) t.completedAt = null;
   t.reminders = cleanReminders(t.reminders, now);
   t.followUp = cleanFollowUp(t.followUp);
+  // A repeating task has a date (the first on its schedule, when it had none) and belongs to a series
+  t.recurrence = cleanRule(t.recurrence);
+  if (t.recurrence) {
+    if (!t.date) t.date = firstDate(t.recurrence, todayKey(Date.parse(now)));
+    t.seriesId = t.seriesId || t.id || null;
+    t.seriesIndex = Number.isInteger(t.seriesIndex) && t.seriesIndex > 0 ? t.seriesIndex : 1;
+  }
+  t.allDay = Boolean(t.date && !t.startTime);
   return t;
 }
 
@@ -126,6 +134,7 @@ const autoCalendar = (x) => Boolean(state.settings?.tasks?.calendar?.always && x
 export async function createTask(fields, { subtasks = [] } = {}) {
   const now = nowISO();
   const task = stamp(clean(newTask(fields), now), now);
+  if (task.recurrence && !task.seriesId) task.seriesId = task.id; // the first of a repeating series
   if (fields.addToCalendar === undefined) task.addToCalendar = autoCalendar(task);
   task.alerts = settleAlerts(null, task, alertSettings());
   const items = [{ store: 'tasks', record: task }];
@@ -155,6 +164,75 @@ export async function saveAlerts(store, id, mutate) {
 
 export function setDone(task, done) {
   return saveTask({ ...task, status: done ? 'done' : 'open', completedAt: done ? nowISO() : null });
+}
+
+/* ---------- Repeating tasks ---------- */
+
+/**
+ * Save a repeating task's next occurrence (with copies of its subtasks) along
+ * with `changed` (this one, done or skipped). Its id is the same on every
+ * device: if it's already there it's left alone, and one Undo put away comes
+ * back. Returns { task, next, created, ended } — next is null when the series
+ * has ended (its count or end date).
+ */
+async function saveWithNext(changed, original) {
+  const now = nowISO();
+  const today = todayKey();
+  const allSubs = (await db.all('subtasks')).map(normalizeSub);
+  const made = nextOccurrence(original, { subtasks: allSubs, today, doneOn: today });
+  const task = stamp(clean({ ...changed, nextId: made?.task.id ?? null }, now), now);
+  const prev = await db.get('tasks', task.id);
+  task.alerts = settleAlerts(prev ? normalizeTask(prev) : null, task, alertSettings());
+  const items = [{ store: 'tasks', record: task }];
+  let next = null;
+  let created = false;
+  if (made) {
+    const existing = await db.get('tasks', made.task.id);
+    if (existing && !existing.deletedAt) {
+      next = normalizeTask(existing); // made already (on another device, or ticked twice)
+    } else {
+      next = stamp(clean(newTask(made.task), now), now);
+      next.alerts = settleAlerts(null, next, alertSettings());
+      if (next.addToCalendar && next.sample) next.addToCalendar = false;
+      items.push({ store: 'tasks', record: next });
+      made.subtasks.forEach((sub) => {
+        const record = stamp(cleanSub(sub, now), now);
+        record.alerts = settleAlerts(null, asItem(record), alertSettings());
+        items.push({ store: 'subtasks', record });
+      });
+      created = true;
+    }
+  }
+  await saveRecords(items);
+  todoChanged();
+  return { task, next, created, ended: !made };
+}
+
+/** Tick a task. A repeating one makes its next occurrence. */
+export function completeTask(task) {
+  return saveWithNext({ ...task, status: 'done', completedAt: nowISO() }, task);
+}
+
+/** Skip this occurrence of a repeating task: it goes to Recently deleted and the next one comes. */
+export function skipTask(task) {
+  return saveWithNext({ ...task, deletedAt: nowISO() }, task);
+}
+
+/**
+ * Undo ticking or skipping a repeating task: it goes back as it was, and the
+ * next occurrence made for it (if this made it) is put away again.
+ */
+export async function undoNext(before, result) {
+  await putBack({ ...before, nextId: null });
+  if (!result?.created || !result.next) return;
+  const now = nowISO();
+  const [next, subs] = await Promise.all([db.get('tasks', result.next.id), db.all('subtasks')]);
+  const items = [];
+  if (next && !next.deletedAt) items.push({ store: 'tasks', record: { ...next, deletedAt: now, updatedAt: now } });
+  subs.filter((x) => x.taskId === result.next.id && !x.deletedAt).forEach((x) => items.push({ store: 'subtasks', record: { ...x, deletedAt: now, updatedAt: now } }));
+  if (!items.length) return;
+  await saveRecords(items);
+  todoChanged();
 }
 
 /** "Move to tomorrow" always changes the task's date (never a reminder). */

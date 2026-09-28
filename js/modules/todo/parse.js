@@ -14,6 +14,11 @@
                remind me (at the time) · "Remind me to call mom 7pm" → "Call mom", reminder at 7 PM
      calendar  add to calendar · add to Google Calendar · in my calendar · cal (lower case, so
                "Cal" the person stays a name) → Google Calendar on
+     repeats   every day · every other day · every 3 days · every weekday · every Monday ·
+               every Mon and Thu · every other Friday · every week · every 2 weeks · every month ·
+               every 15th · every first Monday · every year · … daily / weekly / monthly (not as
+               the first word, so "Weekly review" stays a name). Without a date it starts on the
+               first day on its schedule.
 
    What's left is the task's name. Every part it recognised keeps where it was in
    the text, so the box can show it as a chip — and removing a chip turns those
@@ -25,6 +30,7 @@ import {
 } from '../../core/manila.js';
 import { PRIORITIES } from './model.js';
 import { minutesText } from './alerts.js';
+import { describeRule, firstDate } from './repeat.js';
 
 const B = '(?<![\\p{L}\\p{N}])'; // word start (works for any language, unlike \b)
 const E = '(?![\\p{L}\\p{N}])';  // word end
@@ -38,6 +44,17 @@ const WEEKDAYS = {
   thursday: 4, thurs: 4, thur: 4, thu: 4, friday: 5, fri: 5, saturday: 6, sat: 6,
 };
 const COUNTS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+const EVERY_COUNTS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12 };
+const ORDINALS = { first: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3, fourth: 4, '4th': 4, last: -1 };
+const REPEAT_WORDS = {
+  daily: { kind: 'daily', interval: 1 },
+  weekly: { kind: 'weekly', interval: 1 },
+  biweekly: { kind: 'weekly', interval: 2 },
+  fortnightly: { kind: 'weekly', interval: 2 },
+  monthly: { kind: 'monthly', interval: 1 },
+  yearly: { kind: 'monthly', interval: 12 },
+  annually: { kind: 'monthly', interval: 12 },
+};
 const PRIORITY_WORDS = { high: 'high', medium: 'medium', med: 'medium', low: 'low' };
 const alternation = (words) => Object.keys(words).sort((a, b) => b.length - a.length).join('|');
 
@@ -138,7 +155,60 @@ function amOrPm(h, m, evening) {
 
 /* ---------- Rules ---------- */
 
+const DAY_LIST = `(?:${alternation(WEEKDAYS)})(?:\\s*(?:,|and|&|\\+)\\s*(?:${alternation(WEEKDAYS)}))*`;
+const EVERY = '(?:every|each)\\s+';
+
 const RULES = [
+  // Repeats: every day · every other day · every 3 days · every week · every 2 weeks · every month · every year
+  {
+    kind: 'repeat',
+    re: new RegExp(`${B}${EVERY}(?:(other)\\s+|(\\d{1,3}|${alternation(EVERY_COUNTS)})\\s+)?(day|week|month|year)s?${E}`, 'giu'),
+    read(m) {
+      const n = m[1] ? 2 : m[2] ? (/^\d/.test(m[2]) ? Number(m[2]) : EVERY_COUNTS[m[2].toLowerCase()]) : 1;
+      if (!(n >= 1 && n <= 365)) return null;
+      const unit = m[3].toLowerCase();
+      if (unit === 'day') return { value: { kind: 'daily', interval: n } };
+      if (unit === 'week') return n <= 52 ? { value: { kind: 'weekly', interval: n } } : null;
+      if (unit === 'month') return n <= 24 ? { value: { kind: 'monthly', interval: n } } : null;
+      return n <= 2 ? { value: { kind: 'monthly', interval: 12 * n } } : null;
+    },
+  },
+  // every weekday · every workday · on weekdays
+  {
+    kind: 'repeat',
+    re: new RegExp(`${B}(?:${EVERY}(?:week\\s?day|work\\s?day)s?|on\\s+weekdays)${E}`, 'giu'),
+    read: () => ({ value: { kind: 'weekdays', interval: 1 } }),
+  },
+  // every Monday · every Mon and Thu · every other Friday
+  {
+    kind: 'repeat',
+    re: new RegExp(`${B}${EVERY}(other\\s+)?(${DAY_LIST})${E}`, 'giu'),
+    read(m) {
+      const days = [...new Set((m[2].toLowerCase().match(new RegExp(alternation(WEEKDAYS), 'g')) ?? []).map((w) => WEEKDAYS[w]))].sort();
+      return days.length ? { value: { kind: 'weekly', interval: m[1] ? 2 : 1, days } } : null;
+    },
+  },
+  // every first Monday · every last Friday of the month
+  {
+    kind: 'repeat',
+    re: new RegExp(`${B}${EVERY}(${alternation(ORDINALS)})\\s+(${alternation(WEEKDAYS)})(?:\\s+of\\s+(?:the|each|every)\\s+month)?${E}`, 'giu'),
+    read: (m) => ({ value: { kind: 'monthly', interval: 1, week: ORDINALS[m[1].toLowerCase()], weekday: WEEKDAYS[m[2].toLowerCase()] } }),
+  },
+  // every 15th · every 1st of the month
+  {
+    kind: 'repeat',
+    re: new RegExp(`${B}${EVERY}(\\d{1,2})(?:st|nd|rd|th)(?:\\s+(?:of\\s+(?:the|each|every)\\s+)?month)?${E}`, 'giu'),
+    read(m) {
+      const day = Number(m[1]);
+      return day >= 1 && day <= 31 ? { value: { kind: 'monthly', interval: 1, monthDay: day } } : null;
+    },
+  },
+  // … daily · weekly · monthly (never as the first word: "Weekly review" stays a name)
+  {
+    kind: 'repeat',
+    re: new RegExp(`(?<=\\S\\s+)(${alternation(REPEAT_WORDS)})${E}`, 'giu'),
+    read: (m) => ({ value: { ...REPEAT_WORDS[m[1].toLowerCase()] } }),
+  },
   // Time ranges: 8-9pm · 8 – 9 PM · 8pm-10 · 8:30-9:15 pm · 20:00-21:00 · from 8 to 9 pm
   {
     kind: 'time',
@@ -352,7 +422,7 @@ const RULES = [
  *   ignore     part keys to leave as words (chips you removed)
  *   choices    { partKey: value } — answers to "3/10 is…?" questions
  * Returns { title, parts, fields, unanswered }: fields holds only what was found
- * (date, startTime, endTime, priority, categoryId, tags, reminders, addToCalendar); unanswered lists the
+ * (date, startTime, endTime, priority, categoryId, tags, reminders, addToCalendar, recurrence); unanswered lists the
  * parts that could mean two things and still need a choice.
  */
 export function parseTask(text, {
@@ -422,6 +492,21 @@ export function parseTask(text, {
       time.impliedDate = fields.date;
     }
   }
+  // A repeating task starts on the first day on its schedule (after today when its time has passed)
+  const repeat = part('repeat');
+  if (repeat) {
+    const rule = { ...repeat.value };
+    if (!date && !parts.some((p) => p.kind === 'date')) {
+      let first = firstDate(rule, ctx.today);
+      if (time && first === ctx.today && fields.startTime <= clockOf(now)) first = firstDate(rule, addDays(ctx.today, 1));
+      fields.date = first;
+      if (time) time.impliedDate = null;
+    }
+    if (rule.kind === 'weekly' && !rule.days) rule.days = [weekdayOf(fields.date)];
+    if (rule.kind === 'monthly' && !rule.week && !rule.monthDay) rule.monthDay = Number(fields.date.slice(8));
+    fields.recurrence = rule;
+    repeat.rule = rule;
+  }
   const priority = part('priority');
   if (priority) fields.priority = priority.value;
   const category = part('category');
@@ -443,6 +528,7 @@ export function parseTask(text, {
     else if (p.kind === 'category') p.label = categories.find((c) => c.id === p.value)?.name ?? p.text;
     else if (p.kind === 'reminder') p.label = p.value ? `${minutesText(p.value)} before` : 'Remind at the time';
     else if (p.kind === 'calendar') p.label = 'Google Calendar';
+    else if (p.kind === 'repeat') p.label = describeRule(p.rule ?? p.value, { today: ctx.today });
     else p.label = `@${p.value}`;
   });
 
