@@ -256,6 +256,10 @@
 .wbadge--sync { color: var(--todo-ink); background: color-mix(in srgb, var(--todo) 12%, transparent); border-color: color-mix(in srgb, var(--todo) 30%, transparent); }
 .wbadge--warn { color: var(--workout-ink); background: color-mix(in srgb, var(--workout) 14%, transparent); border-color: color-mix(in srgb, var(--workout) 38%, transparent); }
 button.wbadge { cursor: pointer; }
+/* Location: a tag on cards; in the Mac and iPad table it's a column instead */
+.wbadge--loc { color: var(--text); } /* neutral, so it isn't mistaken for Rounded (green) */
+.pt__field--loc { display: none; }
+.pt__field--loc .pt__text { font-weight: 650; }
 
 .pt__field { grid-column: 1 / -1; min-width: 0; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); }
 .pt__field .pt__label { display: block; margin-bottom: 3px; }
@@ -309,6 +313,8 @@ button.wbadge { cursor: pointer; }
   .pt__badges { margin-top: 6px; }
   .pt__field { margin: 0; padding: 4px 0 0; border: 0; }
   .pt__field .pt__label { display: none; }
+  .pt__field--loc { display: block; }
+  .pt__badges .wbadge--loc { display: none; }
   .pt__text { font-size: var(--fs-sm); }
   .pt__text.is-clamped { -webkit-line-clamp: 3; }
 }
@@ -429,6 +435,18 @@ button.wbadge { cursor: pointer; }
   .ward-col .btn--sm { padding-inline: 10px; }
 }
 .ward-cols__add { margin-top: 14px; }
+.ward-cols__loc { display: flex; align-items: center; gap: 10px; min-height: 58px; margin-top: 14px; padding: 8px 8px 8px 12px; }
+.ward-cols__loc .ward-col__tag .icon { width: 1rem; height: 1rem; }
+
+/* Arrange by: Priority | Location */
+.ward-arrange-by { display: flex; align-items: center; gap: 10px; margin: 12px 4px 0; }
+.ward-arrange-by__label { flex: none; font-size: var(--fs-sm); font-weight: 650; color: var(--text-2); }
+.ward-arrange-by .segmented { flex: 1 1 auto; max-width: 22rem; }
+
+/* Editing a location */
+.ward-loc__pick-label { margin-top: 14px; }
+.ward-loc__chips { margin-top: 6px; }
+.ward-loc__chips .chip-toggle .icon { width: .9rem; height: .9rem; }
 .ward-cols__none { margin-top: 12px; font-size: var(--fs-sm); color: var(--text-3); }
 .ward-cols__foot { margin-top: 12px; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-3); }
 .ward-cols__foot .icon, .ward-arrange .dlg__msg .icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -3px; }

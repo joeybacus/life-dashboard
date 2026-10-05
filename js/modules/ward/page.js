@@ -14,11 +14,12 @@ import { liveElapsed, subHead } from '../../core/components.js';
 import { actionSheet, announce, confirmDialog, openDialog, toast } from '../../core/ui.js';
 import { openPage, replacePage } from '../../core/router.js';
 import { LATEST_SCRIPT_VERSION, syncScriptVersion, syncSnapshot } from '../../services/sync.js';
-import { checkLogsheet, wardList } from './engine.js';
+import { checkLogsheet, updateList, wardList } from './engine.js';
 import {
-  FIXED_HEADINGS, LOAD_PROBLEMS, MAX_TEXT, PRIORITY_LEVELS, WRITE_PROBLEMS, formatSpan, fromSheetTime, wardDayLong, wardStamp, wardTime,
+  FIXED_HEADINGS, LOAD_PROBLEMS, MAX_LOCATION, MAX_TEXT, PRIORITY_LEVELS, WRITE_PROBLEMS, cleanLocation, formatSpan, fromSheetTime,
+  locationKey, sortPatients, wardDayLong, wardStamp, wardTime,
 } from './model.js';
-import { openColumns, renameColumn } from './columns.js';
+import { openColumns, renameColumn, setupLocation } from './columns.js';
 import { openArrange } from './arrange.js';
 import { removeList, renameList } from './manage.js';
 
@@ -142,6 +143,7 @@ function linkedBody(v) {
   return html`${banners(v)}
     ${roundsCard(v)}
     ${statusLine(v)}
+    ${v.cache && v.patients.length ? arrangeBar(v) : ''}
     ${v.cache ? patientTable(v) : html`<div class="card empty">${icon(v.phase === 'loading' ? 'refresh' : 'sheet')}<span>${v.phase === 'loading' ? 'Loading your logsheet…' : 'The list will appear here once the logsheet loads.'}</span></div>`}
     ${v.link.test ? html`<p class="ward-foot">${icon('sparkles')}<span>This is the practice logsheet with made-up patients (it’s in your Google Drive). When you’re ready, choose ${icon('more')} → <strong>Change logsheet</strong> and paste your real one.</span></p>` : ''}`;
 }
@@ -287,6 +289,18 @@ function statusLine(v) {
   </div>`;
 }
 
+/** Arrange by: Priority (rounds order) or Location (one group per place). */
+function arrangeBar(v) {
+  const opt = (value, label, iconName) => html`<label class="segmented__opt"><input type="radio" name="ward-arrange" value="${value}" data-focus="arrange-${value}"${raw(v.arrange === value ? ' checked' : '')}><span>${icon(iconName)}${label}</span></label>`;
+  return html`<div class="ward-arrange-by">
+    <span class="ward-arrange-by__label" id="ward-arrange-label">Arrange by</span>
+    <div class="segmented" role="radiogroup" aria-labelledby="ward-arrange-label">
+      ${opt('rounds', 'Priority', 'flag')}
+      ${opt('location', 'Location', 'pin')}
+    </div>
+  </div>`;
+}
+
 /** The table's column widths (iPad landscape and Mac), for the list's own columns. */
 function tableStyle(count) {
   const cols = ['4.5rem', 'minmax(9rem, 1.1fr)', 'minmax(6.5rem, .55fr)', ...Array(count).fill(count > 3 ? 'minmax(10rem, 1.6fr)' : 'minmax(0, 1.8fr)')];
@@ -307,7 +321,7 @@ function patientTable(v) {
   if (!v.patients.length) {
     return html`<div class="card empty">${icon('sheet')}<span>No patients in “${v.link.tab}” yet. The app reads patients from row 2, with the name in column A.</span></div>`;
   }
-  const groups = [
+  const groups = v.arrange === 'location' ? locationGroups(v) : [
     ...[1, 2, 3].map((level) => [`p${level}`, PRIORITY_LEVELS[level].group, 'flag', v.patients.filter((p) => !p.rounded && p.priority?.level === level)]),
     ['todo', 'Not yet rounded', 'circle', v.patients.filter((p) => !p.rounded && !p.priority)],
     ['done', 'Rounded', 'checkCircle', v.patients.filter((p) => p.rounded)],
@@ -316,11 +330,25 @@ function patientTable(v) {
     <div class="ward-table__inner">
       ${tableHead(v)}
       ${groups.map(([id, label, iconName, list]) => html`<section class="ward-group ward-group--${id}" aria-labelledby="wg-${id}">
-        <h2 class="ward-group__title" id="wg-${id}">${icon(iconName)}${label}<span class="ward-group__count">${list.length}</span></h2>
+        <h2 class="ward-group__title" id="wg-${id}">${icon(iconName)}${label}<span class="ward-group__count">${groupCount(v, list)}</span></h2>
         <ul class="ward-list">${list.map((p) => patientRow(p, v))}</ul>
       </section>`)}
     </div>
   </div>`;
+}
+
+/** One group per location (A to Z), then patients without one; each sorted for rounds (P1 first, rounded last). */
+function locationGroups(v) {
+  const groups = v.locations.map((loc, i) => [`loc${i}`, loc.name, 'pin', v.patients.filter((p) => p.location && locationKey(p.location) === loc.key)]);
+  groups.push(['loc-none', 'No location', 'circle', v.patients.filter((p) => !p.location)]);
+  return groups.filter((g) => g[3].length).map((g) => [g[0], g[1], g[2], sortPatients(g[3])]);
+}
+
+/** "4" on the rounds groups; "1 of 4 rounded" by location (rounded patients stay in their place). */
+function groupCount(v, list) {
+  if (v.arrange !== 'location') return String(list.length);
+  const done = list.filter((p) => p.rounded).length;
+  return done ? `${done} of ${list.length} rounded` : String(list.length);
 }
 
 function tickButton(p, v) {
@@ -352,6 +380,7 @@ function priorityBadge({ level, tag }) {
 function badges(p, v, { detail = false } = {}) {
   const out = [];
   if (p.priority) out.push(priorityBadge(p.priority));
+  if (p.location && !detail) out.push(html`<span class="wbadge wbadge--loc">${icon('pin')}<span class="sr-only">Location: </span>${p.location}</span>`);
   if (!detail) {
     if (p.rounded) {
       out.push(html`<span class="wbadge wbadge--done">${icon('check')}${p.end ? `Rounded ${wardTime(p.end)}` : 'Rounded'}${p.durationMs != null ? ` · ${formatSpan(p.durationMs)}` : ''}</span>`);
@@ -366,7 +395,13 @@ function badges(p, v, { detail = false } = {}) {
   return out.some(Boolean) ? html`<p class="pt__badges">${out}</p>` : '';
 }
 
-function clampText(p, c) {
+function clampText(p, c, v) {
+  if (c.col === v.locationCol) {
+    return html`<div class="pt__field pt__field--loc">
+      <p class="pt__label">${c.label}</p>
+      <p class="pt__text${p.location ? '' : ' pt__text--empty'}">${p.location || 'None'}</p>
+    </div>`;
+  }
   const id = `${p.id}|${c.col}`;
   const open = expanded.has(id);
   const text = p.cells[c.col];
@@ -389,7 +424,7 @@ function patientRow(p, v) {
       ${badges(p, v)}
     </div>
     <p class="pt__hn-cell">${p.hn || '—'}</p>
-    ${v.columns.map((c) => clampText(p, c))}
+    ${v.columns.map((c) => clampText(p, c, v))}
   </li>`;
 }
 
@@ -493,7 +528,8 @@ async function openPatient(id) {
         } else if (act === 'untick') {
           await untick(now);
         } else if (act === 'edit') {
-          await editText(now, button.dataset.col);
+          if (button.dataset.col === current()?.view().locationCol) await editLocation(now, button.dataset.col);
+        else await editText(now, button.dataset.col);
         } else if (act === 'start') {
           await current()?.startRounds();
           await current()?.notePatientOpened(now.key);
@@ -572,9 +608,14 @@ async function editText(p, col) {
     },
   });
   if (!result || typeof result !== 'object') return;
+  await saveCell(list, p, col, result.text);
+}
+
+/** Save a patient's cell and say how it went. */
+async function saveCell(list, p, col, text) {
   let outcome;
   try {
-    outcome = await list.saveText(p.key, col, result.text);
+    outcome = await list.saveText(p.key, col, text);
   } catch (err) {
     toast(err.message, { icon: 'info', duration: 6000 });
     return;
@@ -587,6 +628,60 @@ async function editText(p, col) {
     });
   } else if (outcome.state === 'blocked') toast(`Not saved: ${WRITE_PROBLEMS[outcome.problem] ?? WRITE_PROBLEMS.invalid}.`, { icon: 'info', duration: 7000 });
   else toast('Saved on this device. It goes to the logsheet as soon as Google can be reached.', { icon: 'cloud', duration: 6000 });
+}
+
+/** Edit where a patient is: one line, with the locations already in use to pick from. */
+async function editLocation(p, col) {
+  const list = current();
+  const c = list?.columns().find((x) => x.col === col);
+  if (!c) return;
+  const before = p.cells[col] ?? '';
+  const known = list.view().locations;
+  const result = await openDialog({
+    variant: 'sheet',
+    className: 'ward-edit ward-loc accent-neuro',
+    dismissible: false,
+    title: `Edit ${c.label}`,
+    body: html`<form class="form" data-edit novalidate>
+      <p class="dlg__msg">${p.name}${p.hn ? ` · ${hnLabel(list.view())} ${p.hn}` : ''}</p>
+      <label class="field"><span class="field__label">Where they are</span>
+        <input class="input" name="text" maxlength="${MAX_LOCATION}" value="${cleanLocation(before)}" placeholder="For example: ICU – Bed 4" autocomplete="off" autocapitalize="words" enterkeyhint="done">
+      </label>
+      ${known.length ? html`<p class="field__label ward-loc__pick-label">Or pick one already in use</p>
+        <div class="chips chips--sm ward-loc__chips">${known.map((loc) => html`<button type="button" class="chip-toggle" data-loc="${loc.name}" aria-pressed="${locationKey(before) === loc.key ? 'true' : 'false'}">${icon('pin')}${loc.name}</button>`)}</div>` : ''}
+      <p class="ward-edit__hint">Saved to column ${col} of the logsheet. Leave it empty if they have no location.</p>
+      <div class="form__actions">
+        <button type="button" class="btn btn--ghost" data-cancel>Cancel</button>
+        <button type="submit" class="btn btn--primary">Save</button>
+      </div>
+    </form>`,
+    onOpen(dlg, close) {
+      const form = dlg.querySelector('[data-edit]');
+      const text = form.elements.text;
+      const start = text.value;
+      const mark = () => form.querySelectorAll('[data-loc]').forEach((b) => b.setAttribute('aria-pressed', String(locationKey(b.dataset.loc) === locationKey(text.value) && Boolean(text.value.trim()))));
+      // Focus only with a mouse and keyboard, after the sheet has slid in (on iPhone it shifts the sheet)
+      if (matchMedia('(hover: hover) and (pointer: fine)').matches) setTimeout(() => text.focus({ preventScroll: true }), 320);
+      text.addEventListener('input', mark);
+      form.addEventListener('click', (event) => {
+        const chip = event.target.closest('[data-loc]');
+        if (!chip) return;
+        text.value = chip.dataset.loc;
+        mark();
+      });
+      form.querySelector('[data-cancel]').addEventListener('click', async () => {
+        if (text.value !== start && !(await confirmDialog({ title: 'Discard your change?', message: `${p.name}’s ${c.label} won’t be changed.`, confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return;
+        close(null);
+      });
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        close({ text: cleanLocation(text.value) });
+      });
+    },
+  });
+  if (!result || typeof result !== 'object') return;
+  if (result.text === cleanLocation(before) && !before.includes('\n')) return; // nothing changed
+  await saveCell(list, p, col, result.text);
 }
 
 /* ---------- Conflicts ---------- */
@@ -876,6 +971,24 @@ registerAction('ward:refresh', (el) => listFor(el)?.refresh());
 registerAction('ward:columns', () => openColumns(listId));
 registerAction('ward:arrange', () => openArrange(listId));
 registerAction('ward:rename-col', (el) => renameColumn(listId, el.dataset.colId));
+
+/** Arrange the list by priority or by location (the first time, choose which column holds locations). */
+async function arrangeBy(value) {
+  const list = current();
+  if (!list) return;
+  if (value === 'location' && !list.def.columns.some((c) => c.location)) {
+    const done = await setupLocation(list.id);
+    if (!done) {
+      render(); // back to Priority
+      return;
+    }
+  }
+  await updateList(list.id, (def) => { def.arrange = value === 'location' ? 'location' : undefined; });
+  announce(value === 'location' ? 'Arranged by location.' : 'Arranged by priority.');
+}
+document.addEventListener('change', (event) => {
+  if (showing === 'list' && event.target.name === 'ward-arrange' && view?.contains(event.target)) arrangeBy(event.target.value);
+});
 registerAction('ward:open', (el) => openPatient(el.dataset.id));
 registerAction('ward:tick', (el) => {
   const p = findPatient(el.dataset.id);

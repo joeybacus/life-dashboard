@@ -200,6 +200,36 @@ export function sortPatients(patients) {
   return [...patients].sort((a, b) => group(a) - group(b) || a.row - b.row);
 }
 
+/* ---------- Locations ----------
+   Where a patient is (a ward, unit or bed) comes from the list's column
+   marked location. The list can be arranged by it: one group per location,
+   A to Z ("Bed 2" before "Bed 10"), patients without one last. */
+
+export const MAX_LOCATION = 60; // characters in a location
+
+/** A location as shown and saved: its first line, single spaces. */
+export const cleanLocation = (text) => String(text ?? '').split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, MAX_LOCATION);
+
+/** Locations match ignoring capitals and extra spaces. */
+export const locationKey = (text) => cleanLocation(text).toUpperCase();
+
+const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+/** The locations in use, A to Z, each spelled as most patients have it. */
+export function locationsOf(patients) {
+  const seen = new Map(); // key → Map(spelling → count)
+  patients.forEach((p) => {
+    if (!p.location) return;
+    const key = locationKey(p.location);
+    const spellings = seen.get(key) ?? new Map();
+    spellings.set(p.location, (spellings.get(p.location) ?? 0) + 1);
+    seen.set(key, spellings);
+  });
+  return [...seen.entries()]
+    .map(([key, spellings]) => ({ key, name: [...spellings.entries()].sort((a, b) => b[1] - a[1])[0][0] }))
+    .sort((a, b) => byName.compare(a.name, b.name));
+}
+
 /* ---------- Messages ---------- */
 
 /** Why a change couldn't be saved to the logsheet (from the sync script). */

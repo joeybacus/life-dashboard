@@ -22,9 +22,9 @@ import { nowISO } from '../../core/dates.js';
 import { uid } from '../../core/ids.js';
 import { SyncError, callSyncScript, syncScriptVersion, syncSnapshot } from '../../services/sync.js';
 import {
-  DEFAULT_LIST_ID, DEFAULT_LIST_NAME, FIXED_HEADINGS, LOAD_PROBLEMS, MAX_TEXT, cleanName, cleanText, defaultColumns,
+  DEFAULT_LIST_ID, DEFAULT_LIST_NAME, FIXED_HEADINGS, LOAD_PROBLEMS, MAX_TEXT, cleanLocation, cleanName, cleanText, defaultColumns,
   fromSheetTime, hnKey, manilaDateKey, msUntilManilaMidnight, parseSheetLink, previousDateKey, priorityOf,
-  scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
+  locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
 } from './model.js';
 import * as store from './store.js';
 
@@ -176,6 +176,7 @@ class WardList {
     const timing = active?.session ?? part.sessions.at(-1) ?? null; // the session whose opened cards count
     const columns = this.columns();
     const priorityCol = columns.find((c) => c.priority)?.col ?? null;
+    const locationCol = columns.find((c) => c.location && c.readable)?.col ?? null;
     const rows = this.cache?.rows ?? [];
     const counts = new Map();
     rows.forEach((r) => { if (r.key) counts.set(r.key, (counts.get(r.key) ?? 0) + 1); });
@@ -205,6 +206,7 @@ class WardList {
         duplicate: counts.get(r.key) > 1,
         tickable: Boolean(r.key) && counts.get(r.key) === 1,
         priority: priorityCol ? priorityOf(cells[priorityCol]) : null, // { level, tag } or null
+        location: locationCol ? cleanLocation(cells[locationCol]) : '',
         rounded,
         start: entry?.start ?? opened,
         end: rounded ? entry.end ?? null : null,
@@ -222,6 +224,10 @@ class WardList {
       name: this.def.name,
       headings: this.headings(),
       columns,
+      locationCol,
+      locations: locationsOf(patients),
+      // 'location' groups the list by where patients are (once a column is marked location)
+      arrange: this.def.arrange === 'location' && columns.some((c) => c.location) ? 'location' : 'rounds',
       date,
       link: this.link,
       cache: this.cache,

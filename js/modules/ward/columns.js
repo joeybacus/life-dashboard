@@ -2,7 +2,8 @@
    (in the app only — the logsheet's row 1 stays as it is), add a column
    (a new one at the end of the logsheet, or one the logsheet already has),
    remove one (from the app only: the logsheet keeps it), and change their
-   order. Adding and removing each ask first. */
+   order. Adding and removing each ask first. One column can say where
+   patients are (Location): the list can then be arranged by it. */
 import { html, raw, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { uid } from '../../core/ids.js';
@@ -48,7 +49,7 @@ function columnsBody(list) {
         <span class="ward-col__handle" data-drag-handle title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>
         <span class="ward-col__tag">${c.col}</span>
         <span class="ward-col__text"><span class="ward-col__label">${c.label}</span>
-          <span class="ward-col__sub">Column ${c.col}${inSheet ? ` · “${inSheet}” in the logsheet` : ''}${c.priority ? ' · sets P1–P3' : ''}${c.readable || c.loading ? '' : ' · needs a sync script update'}</span></span>
+          <span class="ward-col__sub">Column ${c.col}${inSheet ? ` · “${inSheet}” in the logsheet` : ''}${c.priority ? ' · sets P1–P3' : ''}${c.location ? ' · location' : ''}${c.readable || c.loading ? '' : ' · needs a sync script update'}</span></span>
         <span class="ward-col__actions">
           <button type="button" class="btn btn--sm btn--ghost" data-col-rename="${c.id}" aria-label="Rename ${c.label}">${icon('edit')}<span class="ward-col__btn-text">Rename</span></button>
           <button type="button" class="btn btn--sm btn--ghost ward-col__remove" data-col-remove="${c.id}" aria-label="Remove ${c.label}">${icon('trash')}<span class="ward-col__btn-text">Remove</span></button>
@@ -58,6 +59,7 @@ function columnsBody(list) {
       </li>`;
     })}</ol>` : html`<p class="ward-cols__none">No other columns — only names and hospital numbers show.</p>`}
     <button type="button" class="btn btn--block ward-cols__add" data-col-add>${icon('plus')}Add column</button>
+    ${locationRow(list)}
     <p class="ward-cols__foot">Rounded, ${headings.name} and ${headings.hn} are needed for rounds, so they can be renamed but not removed. Drag ${icon('grip')} to change the order of the others.</p>`;
 }
 
@@ -117,6 +119,7 @@ export async function openColumns(listId) {
           return;
         }
         if (event.target.closest('[data-col-add]')) await addColumn(listId);
+        if (event.target.closest('[data-col-location]')) await setupLocation(listId);
       });
     },
   });
@@ -160,7 +163,7 @@ async function removeColumn(listId, id) {
   const waiting = [...list.queue.values()].filter((item) => item.kind === col.col).length;
   const ok = await confirmDialog({
     title: `Remove “${col.label}”?`,
-    message: `It’s removed from “${list.name}” in the app only. Column ${col.col} of your logsheet and everything in it stay exactly as they are, and you can add it back later.${col.priority ? ' Priorities (P1, P2, P3) are read from this column, so the list won’t be sorted by priority without it.' : ''}${waiting ? ` ${waiting === 1 ? 'An edit' : `${waiting} edits`} to it not saved yet will still be saved to the logsheet.` : ''}`,
+    message: `It’s removed from “${list.name}” in the app only. Column ${col.col} of your logsheet and everything in it stay exactly as they are, and you can add it back later.${col.priority ? ' Priorities (P1, P2, P3) are read from this column, so the list won’t be sorted by priority without it.' : ''}${col.location ? ' Locations are read from this column, so the list can’t be arranged by location without it.' : ''}${waiting ? ` ${waiting === 1 ? 'An edit' : `${waiting} edits`} to it not saved yet will still be saved to the logsheet.` : ''}`,
     confirmLabel: 'Remove column',
     destructive: true,
   });
@@ -299,3 +302,166 @@ async function addColumnForm(list) {
   return result && typeof result === 'object' ? result : null;
 }
 
+
+
+/* ---------- Location ---------- */
+
+function locationRow(list) {
+  const col = list.def.columns.find((c) => c.location);
+  return html`<div class="card ward-cols__loc">
+    <span class="ward-col__tag">${icon('pin')}</span>
+    <span class="ward-col__text"><span class="ward-col__label">Location</span>
+      <span class="ward-col__sub">${col ? `From “${col.label}” (column ${col.col}) · arrange the list by it` : 'Choose the column that says where each patient is'}</span></span>
+    <button type="button" class="btn btn--sm btn--ghost" data-col-location>${icon(col ? 'edit' : 'plus')}${col ? 'Change' : 'Choose'}</button>
+  </div>`;
+}
+
+/**
+ * Choose the column that says where patients are: one the list shows, one
+ * the logsheet already has, or a new "Location" column. Adding a column asks
+ * first, as in Add column. Resolves true once the list has a location column.
+ */
+export async function setupLocation(listId) {
+  const list = wardList(listId);
+  if (!list) return false;
+  const blocked = addBlocker(list); // only stops columns the list doesn't show yet
+  const shown = list.def.columns;
+  if (blocked && !shown.length) {
+    const go = await confirmDialog({ title: blocked.title, message: blocked.message, confirmLabel: blocked.action[0] });
+    if (go) {
+      const el = document.createElement('span');
+      el.dataset.list = listId;
+      runAction(blocked.action[1], el);
+    }
+    return false;
+  }
+  const choice = await locationForm(list, blocked);
+  if (!choice) return false;
+  const fresh = wardList(listId);
+  if (!fresh) return false;
+  const mark = (letter, extra) => updateList(listId, (def) => {
+    if (extra && !def.columns.some((c) => c.col === letter)) def.columns = [...def.columns, extra];
+    def.columns = def.columns.map(({ location, ...c }) => (c.col === letter ? { ...c, location: true } : c));
+  });
+
+  if (choice.where === 'none') {
+    await updateList(listId, (def) => {
+      def.columns = def.columns.map(({ location, ...c }) => c);
+      def.arrange = undefined;
+    });
+    toast('The list no longer shows locations. The logsheet isn’t changed.', { icon: 'pin' });
+    return false;
+  }
+
+  const existing = fresh.def.columns.find((c) => c.col === choice.where);
+  if (existing) {
+    await mark(existing.col);
+    toast(`Locations come from “${existing.label}” (column ${existing.col}).`, { icon: 'pin' });
+    return true;
+  }
+
+  if (choice.where === 'new') {
+    const letter = nextNewColumn(fresh.cache?.lastColumn);
+    const ok = await confirmDialog({
+      title: 'Add a Location column?',
+      message: `“${choice.heading}” will be added to ${where(fresh)} as a new column (${letter}, after all the others), with this heading in row 1. Everyone who shares the logsheet will see it. You can then fill in each patient’s location from the app.`,
+      confirmLabel: 'Add column',
+    });
+    if (!ok) return false;
+    toast('Adding the column…', { icon: 'columns', duration: 10000 });
+    const result = await fresh.addLogsheetColumn(choice.heading);
+    if (result.status !== 'ok' || !result.column) {
+      toast(`Not added: ${STRUCTURE_PROBLEMS[result.status] ?? STRUCTURE_PROBLEMS.invalid}`, { icon: 'info', duration: 8000 });
+      return false;
+    }
+    await mark(result.column, { id: uid(), col: result.column, label: choice.heading });
+    toast(`Column ${result.column} “${choice.heading}” added to your logsheet. Open a patient to set their location.`, { icon: 'checkCircle', duration: 6000 });
+    return true;
+  }
+
+  const inSheet = String(fresh.cache?.headings?.[colIndex(choice.where) - 1] ?? '').trim();
+  const ok = await confirmDialog({
+    title: `Add column ${choice.where}?`,
+    message: `Column ${choice.where}${inSheet ? ` (“${inSheet}”)` : ''} of your logsheet will show in “${fresh.name}” as “${choice.heading}”, and say where each patient is. Changes you make are saved to column ${choice.where}. The logsheet itself isn’t changed now.`,
+    confirmLabel: 'Add column',
+  });
+  if (!ok) return false;
+  await mark(choice.where, { id: uid(), col: choice.where, label: choice.heading });
+  toast(`Locations come from “${choice.heading}” (column ${choice.where}).`, { icon: 'pin' });
+  fresh.refresh();
+  return true;
+}
+
+/** The "Where patients are" form. Resolves { where: 'new' | 'none' | column letter, heading } or null. */
+async function locationForm(list, blocked) {
+  const current = list.def.columns.find((c) => c.location);
+  const shown = list.def.columns.filter((c) => !c.priority || c.location);
+  const others = blocked ? [] : otherColumns(list.def, list.cache.headings, list.cache.headers?.state);
+  const letter = blocked ? '' : nextNewColumn(list.cache.lastColumn);
+  const option = (value, title, sub, { checked = false, heading = '' } = {}) => html`<label class="ward-where__opt"><input type="radio" name="where" value="${value}" data-heading="${heading}"${raw(checked ? ' checked' : '')}>
+    <span class="ward-where__text"><strong>${title}</strong><small>${sub}</small></span></label>`;
+  const result = await openDialog({
+    variant: 'sheet',
+    className: 'ward-addcol accent-neuro',
+    dismissible: false,
+    title: 'Where patients are',
+    body: html`<form class="form" data-locform novalidate>
+      <p class="dlg__msg">Choose the column of ${where(list)} that says where each patient is — a ward, unit or bed. The list can then be arranged by location.</p>
+      <fieldset class="ward-where">
+        <legend class="field__label">Locations come from</legend>
+        ${blocked ? '' : option('new', `A new column (${letter})`, 'Added after all the other columns, with its heading in row 1', { checked: !current, heading: 'Location' })}
+        ${shown.map((c) => option(c.col, `${c.label} (column ${c.col})`, c.location ? 'Used for location now' : 'Already in this list', { checked: c.location, heading: c.label }))}
+        ${others.map((o) => option(o.col, `Column ${o.col}`, o.heading ? `In the logsheet: “${o.heading}”` : 'In the logsheet (no heading)', { heading: o.heading || 'Location' }))}
+        ${current ? option('none', 'Don’t show locations', 'The column stays in the list and the logsheet') : ''}
+      </fieldset>
+      <label class="field" data-heading-field${raw(current || blocked ? ' hidden' : '')}><span class="field__label">Heading</span>
+        <input class="input" name="heading" maxlength="40" value="Location" autocomplete="off" enterkeyhint="done">
+      </label>
+      ${blocked ? html`<p class="note">${icon('info')}<span>${blocked.message} Until then, you can use a column this list already shows.</span></p>` : ''}
+      <p class="form-error" data-error hidden></p>
+      <div class="form__actions">
+        <button type="button" class="btn btn--ghost" data-cancel>Cancel</button>
+        <button type="submit" class="btn btn--primary">Next</button>
+      </div>
+    </form>`,
+    onOpen(dlg, close) {
+      const form = dlg.querySelector('[data-locform]');
+      const field = form.elements.heading;
+      const headingField = form.querySelector('[data-heading-field]');
+      const error = form.querySelector('[data-error]');
+      // A heading is asked for only for a column the list doesn't show yet
+      form.addEventListener('change', (event) => {
+        if (event.target.name !== 'where') return;
+        const value = event.target.value;
+        const isNew = value !== 'none' && !list.def.columns.some((c) => c.col === value);
+        headingField.hidden = !isNew;
+        if (isNew) field.value = event.target.dataset.heading || 'Location';
+        error.hidden = true;
+      });
+      form.querySelector('[data-cancel]').addEventListener('click', async () => {
+        const offered = form.querySelector('input[name="where"]:checked')?.dataset.heading || 'Location';
+        const typed = !headingField.hidden && field.value.trim() && field.value !== offered;
+        if (typed && !(await confirmDialog({ title: 'Discard this heading?', message: 'What you typed will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return;
+        close(null);
+      });
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const chosen = form.querySelector('input[name="where"]:checked')?.value ?? '';
+        if (!chosen) {
+          setHTML(error, html`Choose where locations come from.`);
+          error.hidden = false;
+          return;
+        }
+        const heading = cleanName(field.value);
+        if (!headingField.hidden && !heading) {
+          setHTML(error, html`Type a heading for the column.`);
+          error.hidden = false;
+          field.focus();
+          return;
+        }
+        close({ where: chosen, heading });
+      });
+    },
+  });
+  return result && typeof result === 'object' ? result : null;
+}
