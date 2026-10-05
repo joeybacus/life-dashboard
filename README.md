@@ -59,9 +59,8 @@ and workout templates get their own tabs), v0.3.2 needs version 3 (Ward Patients
 version 4 (editing lab results), v0.4 needs version 5 (your tasks get readable tabs, and tasks can go
 into Google Calendar), v0.4.2 needs version 6 (each subtask's own date, time and reminders show in the
 Subtasks tab, and subtasks can go into Google Calendar too) , v0.4.3.1 needs version 7 (patient lists
-sync between your devices, show your own logsheet columns, add columns and move rows) and v0.4.4.2 brings
-**version 8** (a Referrals tab, and patient lists can read names, hospital numbers and rounds from the columns
-you choose). Each version includes
+sync between your devices, show your own logsheet columns, add columns and move rows) v0.4.4.2 needs version 8 (a Referrals tab, and patient lists can read names, hospital numbers and rounds from the
+columns you choose) and v0.4.4.3 brings **version 9** (Referrals linked to your referral census, with dates). Each version includes
 everything before it, so
 one update is enough however old yours is. Until it's updated, everything else keeps syncing and anything new
 stays safely on your devices; the app shows **Update sync** on the dashboard and **Update the sync script** in
@@ -69,7 +68,7 @@ Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-   Near the top, a line should now read `const SCRIPT_VERSION = 8;`.
+   Near the top, a line should now read `const SCRIPT_VERSION = 9;`.
 3. **Once, after pasting:** in the toolbar choose **setup** and click **Run** (it keeps your token, so your devices
    stay connected). If Google asks for permission (coming from version 4 or older it will, now including Google
    Calendar): **Review permissions** → your account → **Advanced** → **Go to … (unsafe)** → **Allow**. This also
@@ -77,7 +76,7 @@ Settings → Sync (tap it for these steps):
 4. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
    (Don't make a *new deployment* — that would change the Web app URL.)
 5. Back in the app, tap **Check now**. To double-check, open the Web app URL in Safari: it should end with
-   `"version":8`.
+   `"version":9`.
 
 ## Backups
 
@@ -219,19 +218,25 @@ link (v0.4.3) and repeating tasks (v0.4.4). The focus timer and habits arrive in
   this app choose **Import Hevy** (Workout tab) or Settings → Hevy. You'll see a preview first; workouts you
   already have are skipped, so importing again later is safe. **Export workouts (CSV)** writes the same format.
 
-## Referrals (Neurology tab, 0.4.4.2)
+## Referrals (Neurology tab, 0.4.4.3)
 
-**Neurology → Referrals** is for patients referred to your service, which you add yourself (they don't come
-from a logsheet). Each has a name, hospital number, location, the day you'll see them next (pick Today,
-Tomorrow, In 2 or 3 days, Next week or any date — change it any time), a **Waiting for** checklist (MRI, repeat
-Na…: add, tick off when it arrives, remove) and notes.
+**Neurology → Referrals** shows the patients referred to your service, from your **referral census** (a Google
+Sheet), two-way. Link it once on each device (**Link referral census**), then tick which column holds each thing
+in **Census columns** — at first B Status, E Location, I Name, J Hospital number, K Last rounds, L Next rounds,
+M Diagnosis (Waiting for and Notes are optional). Needs sync script version 9.
 
-- **Patients:** grouped by next rounds day (overdue first, then today, tomorrow, later days, no day set) or by
-  location. Sign a patient off when you're done (kept under **Signed off**), or delete them.
-- **Calendar:** this week and next, each patient's name on the day you plan to see them (◀ ▶ for other weeks),
-  plus overdue patients and those with no day set. Tap a name to open the patient.
-- Syncs between your devices through the **Referrals** tab of your Life Dashboard sheet (script version 8),
-  with readable columns. Not in backup files.
+- **Patients (the deck):** active patients, grouped by next rounds day (overdue first) or by location, each with
+  status, location, diagnosis and last rounds. **Inactive** patients (status "Inactive") are in a table below:
+  change a status to Active or For rounds — there, in a patient's sheet, or in the census — and they're back in
+  the deck.
+- **Calendar:** this week and next, names on their next rounds day. **Drag a name to another day** (on iPhone:
+  touch and hold, then drag) — the new day is saved to the census as a date; drop on **No day set** to clear it.
+- **A patient's sheet:** status, next rounds (Today, Tomorrow, In 2 or 3 days, Next week or a date), **Seen
+  today** (Last rounds), location, diagnosis, and Waiting for / Notes if the census has columns for them.
+- Changes go straight to the census; if someone changed the same cell meanwhile you choose which version to keep.
+  The app never writes to the name or hospital number columns, or to columns it doesn't use.
+- **Add** keeps a patient who isn't in the census in the app (synced to your devices through the Referrals tab of
+  your Life Dashboard sheet, never in backups).
 
 ## Ward census: patient lists (Neurology tab, Phase 2)
 

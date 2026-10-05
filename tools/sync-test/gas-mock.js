@@ -255,6 +255,7 @@ MockSpreadsheet.prototype.getName = function () { return this.file ? this.file.n
 MockSpreadsheet.prototype.getId = function () { return this.id || 'SCRIPT-SPREADSHEET'; };
 MockSpreadsheet.prototype.getUrl = function () { return 'https://docs.google.com/spreadsheets/d/' + this.getId() + '/edit'; };
 MockSpreadsheet.prototype.setSpreadsheetTimeZone = function (tz) { if (this.file) this.file.tz = tz; };
+MockSpreadsheet.prototype.getSpreadsheetTimeZone = function () { return (this.file && this.file.tz) || 'Asia/Manila'; };
 
 var __spreadsheet = new MockSpreadsheet(function () { return __state.sheets; }, null, null);
 

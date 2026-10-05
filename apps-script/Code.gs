@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 8;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose
+const SCRIPT_VERSION = 9;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -293,7 +293,11 @@ function pull_(ss, props, req) {
  * Where things are (version 8): each request can say which columns hold the
  * name, the hospital number and the three rounds columns —
  *   layout: { name: 'B', hn: 'C', rounds: 'F' }  (rounds in F, G, H)
- * Without it: name A, hospital number B, rounds E–G, as before. Below, "A",
+ * Without it: name A, hospital number B, rounds E–G, as before. rounds: '' means
+ * the sheet has no rounds columns (a referral census, version 9): nothing is
+ * ever written for rounds.
+ *   dates: ['K', 'L']  (version 9) — columns holding a day: read as
+ *   "YYYY-MM-DD" when the cell is a date, and a day written there becomes a date. Below, "A",
  * "B" and "E–G" mean those columns, wherever they are. In writes, the rounds
  * cells are still called E, F and G (Rounded, Rounds Start, Rounds End).
  *
@@ -326,7 +330,10 @@ function wardLayout_(req) {
   const given = req && req.layout && typeof req.layout === 'object' ? req.layout : {};
   const pick = function (key) { return key in given ? wardColIndex_(String(given[key])) : WARD_DEFAULT_LAYOUT[key]; };
   const L = { name: pick('name'), hn: pick('hn'), rounds: pick('rounds') };
-  if (!L.name || !L.hn || !L.rounds || L.name === L.hn || L.rounds + 2 > WARD_MAX_COLS) return null;
+  if (given.rounds === '') L.rounds = 0; // no rounds columns
+  else if (!L.rounds || L.rounds + 2 > WARD_MAX_COLS) return null;
+  if (!L.name || !L.hn || L.name === L.hn) return null;
+  if (!L.rounds) return L;
   const inRounds = function (n) { return n >= L.rounds && n <= L.rounds + 2; };
   if (inRounds(L.name) || inRounds(L.hn)) return null;
   return L;
@@ -383,6 +390,7 @@ function wardSync_(req) {
   const addColumn = req.addColumn && typeof req.addColumn === 'object' ? req.addColumn : null;
   const move = req.move && typeof req.move === 'object' ? req.move : null;
   const cols = Array.isArray(req.cols) ? req.cols.slice(0, WARD_MAX_COLS).map(String) : null;
+  const dates = wardDates_(req, opened.ss);
   const out = { ok: true, version: SCRIPT_VERSION, title: opened.ss.getName(), tab: sheet.getName(), results: {}, reset: [], claimed: false };
 
   let headers = wardHeaders_(sheet, L);
@@ -409,7 +417,7 @@ function wardSync_(req) {
         out.added = wardAddColumn_(sheet, addColumn.heading, L);
         if (out.added.column && cols) cols.push(out.added.column);
       }
-      if (writes.length) out.results = wardApplyWrites_(sheet, writes, headers, claimError, L);
+      if (writes.length) out.results = wardApplyWrites_(sheet, writes, headers, claimError, L, dates);
       if (move) out.moved = wardMoveRows_(sheet, move, L);
       if (resetBefore && headers.state === 'ours') out.reset = wardResetStale_(sheet, resetBefore, L);
       SpreadsheetApp.flush();
@@ -418,7 +426,7 @@ function wardSync_(req) {
     }
   }
 
-  const read = wardRead_(sheet, headers, cols ? wardTextCols_(cols, headers, L) : null, L);
+  const read = wardRead_(sheet, headers, cols ? wardTextCols_(cols, headers, L) : null, L, dates);
   out.headers = headers;
   out.canEdit = wardCanEdit_(sheet);
   out.headings = wardHeadings_(sheet);
@@ -500,6 +508,7 @@ function wardAccessError_(err) {
  * rest empty) or "taken" (other headings, or data under empty headings).
  */
 function wardHeaders_(sheet, L) {
+  if (!L.rounds) return { state: 'none', values: [], dataBelow: false, cols: [] };
   const width = Math.max(0, Math.min(3, sheet.getMaxColumns() - L.rounds + 1));
   const shown = width ? sheet.getRange(1, L.rounds, 1, width).getDisplayValues()[0] : [];
   const values = [0, 1, 2].map(function (i) { return String(shown[i] == null ? '' : shown[i]).trim(); });
@@ -545,7 +554,7 @@ function wardClaimHeaders_(sheet, L) {
  * Patients from row 2 on. E–G are only read when they hold our headings.
  * cols: the list's columns to send as cells (null: only labs and recommendations, for older apps).
  */
-function wardRead_(sheet, headers, cols, L) {
+function wardRead_(sheet, headers, cols, L, dates) {
   const lastRow = sheet.getLastRow();
   const count = Math.min(Math.max(0, lastRow - 1), WARD_MAX_ROWS);
   const rows = [];
@@ -554,13 +563,17 @@ function wardRead_(sheet, headers, cols, L) {
     const width = Math.min(widest, sheet.getMaxColumns());
     const shown = sheet.getRange(2, 1, count, width).getDisplayValues();
     const raw = headers.state === 'ours' ? sheet.getRange(2, L.rounds, count, 3).getValues() : null;
+    const values = dates && dates.cols.length ? sheet.getRange(2, 1, count, width).getValues() : null;
     for (let i = 0; i < count; i++) {
       const name = String(shown[i][L.name - 1] == null ? '' : shown[i][L.name - 1]).trim();
       if (!name) continue;
       const item = { row: i + 2, name: name, hn: String(shown[i][L.hn - 1] == null ? '' : shown[i][L.hn - 1]).trim(), labs: wardText_(shown[i][2]), recs: wardText_(shown[i][3]) };
       if (cols) {
         item.cells = {};
-        cols.forEach(function (c) { item.cells[c] = wardText_(shown[i][wardColIndex_(c) - 1]); });
+        cols.forEach(function (c) {
+          const at = wardColIndex_(c) - 1;
+          item.cells[c] = values && dates.cols.indexOf(c) >= 0 ? wardDay_(values[i][at], shown[i][at], dates.tz) : wardText_(shown[i][at]);
+        });
       }
       if (raw) {
         item.rounded = wardBool_(raw[i][0]);
@@ -586,7 +599,7 @@ function wardTextCols_(cols, headers, L) {
   cols.forEach(function (c) {
     const n = wardColIndex_(c);
     if (!n || n === L.name || n === L.hn || out.indexOf(c) >= 0) return;
-    if (n >= L.rounds && n <= L.rounds + 2 && headers.state !== 'taken') return;
+    if (L.rounds && n >= L.rounds && n <= L.rounds + 2 && headers.state !== 'taken') return;
     out.push(c);
   });
   return out;
@@ -596,7 +609,7 @@ function wardTextCols_(cols, headers, L) {
 function wardAddColumn_(sheet, heading, L) {
   const text = String(heading == null ? '' : heading).replace(/\s+/g, ' ').trim();
   if (!text || text.length > 100) return { status: 'invalid' };
-  const n = Math.max(WARD_NEW_COL_MIN, L.rounds + 3, sheet.getLastColumn() + 1);
+  const n = Math.max(L.rounds ? Math.max(WARD_NEW_COL_MIN, L.rounds + 3) : 1, sheet.getLastColumn() + 1);
   if (n > WARD_MAX_COLS) return { status: 'too-wide' };
   try {
     const cols = sheet.getMaxColumns();
@@ -671,7 +684,7 @@ function wardMoveRows_(sheet, move, L) {
   return { status: 'ok' };
 }
 
-function wardApplyWrites_(sheet, writes, headers, claimError, L) {
+function wardApplyWrites_(sheet, writes, headers, claimError, L, dates) {
   const last = sheet.getLastRow();
   const width = Math.min(Math.max(L.name, L.hn), sheet.getMaxColumns());
   const keys = last >= 2
@@ -683,18 +696,19 @@ function wardApplyWrites_(sheet, writes, headers, claimError, L) {
   writes.forEach(function (w) {
     const id = String((w && w.id) || '');
     if (!id || results[id]) return;
-    results[id] = wardWriteOne_(sheet, w, keys, headers, claimError, L);
+    results[id] = wardWriteOne_(sheet, w, keys, headers, claimError, L, dates);
   });
   return results;
 }
 
-function wardWriteOne_(sheet, w, keys, headers, claimError, L) {
+function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
   const text = Boolean(w && w.text); // one of the list's columns, as text (else: C, D or the rounds columns)
   const set = text ? wardTextCells_(w.set, headers, L) : wardCells_(w.set, true, headers, L);
   const expect = text ? wardTextCells_(w.expect, headers, L) : wardCells_(w.expect, false, headers, L);
   const cols = set ? Object.keys(set) : [];
   const key = wardKey_(w && w.hn);
   if (!set || !expect || !cols.length || !key) return { status: 'invalid' };
+  if (!text && wardTouchesRounds_(set) && !L.rounds) return { status: 'invalid' };
   if (!text && wardTouchesRounds_(set) && headers.state !== 'ours') {
     return { status: headers.state === 'taken' ? 'headers-taken' : claimError || 'headers-taken' };
   }
@@ -708,6 +722,7 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L) {
 
   const all = cols.concat(Object.keys(expect).filter(function (c) { return cols.indexOf(c) < 0; }));
   const isRounds = function (c) { return !text && (c === 'E' || c === 'F' || c === 'G'); };
+  const isDay = function (c) { return text && Boolean(dates) && dates.cols.indexOf(c) >= 0; };
   const real = function (c) { return isRounds(c) ? wardRoundsCol_(L, c) : wardColIndex_(c); }; // the column it's in
   const widest = all.reduce(function (most, c) { return Math.max(most, real(c)); }, 1);
   const first = all.reduce(function (least, c) { return Math.min(least, real(c)); }, widest);
@@ -721,6 +736,7 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L) {
   const current = {};
   all.forEach(function (c) {
     if (isRounds(c)) current[c] = c === 'E' ? wardBool_(raw[at(c)]) : wardTime_(raw[at(c)], shown[at(c)]);
+    else if (isDay(c)) current[c] = wardDay_(raw[at(c)], shown[at(c)], dates.tz);
     else current[c] = wardText_(shown[at(c)]);
   });
   const same = function (c, a, b) { return isRounds(c) && c === 'E' ? Boolean(a) === Boolean(b) : String(a == null ? '' : a) === String(b == null ? '' : b); };
@@ -737,6 +753,7 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L) {
     cols.forEach(function (c) {
       const cell = sheet.getRange(row, real(c));
       if (isRounds(c) && c === 'E') cell.setValue(set.E);
+      else if (isDay(c) && /^\d{4}-\d{2}-\d{2}$/.test(set[c])) cell.setValue(set[c]); // a day: Sheets keeps it as a date (in the cell's own format)
       else cell.setNumberFormat('@').setValue(set[c]); // text, so Sheets never turns it into a date or formula
     });
   } catch (err) {
@@ -846,6 +863,20 @@ function wardKey_(value) {
 /** Free text as shown in the sheet: line breaks kept, trailing blank space dropped. */
 function wardText_(value) {
   return String(value == null ? '' : value).replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+}
+
+/** The columns of a request that hold days, and the logsheet's time zone (for reading dates). */
+function wardDates_(req, ss) {
+  const cols = Array.isArray(req.dates) ? req.dates.slice(0, WARD_MAX_COLS).map(String).filter(function (c) { return wardColIndex_(c) > 0; }) : [];
+  let tz = WARD_TZ;
+  try { tz = ss.getSpreadsheetTimeZone() || WARD_TZ; } catch (err) { /* keep Manila */ }
+  return { cols: cols, tz: tz };
+}
+
+/** A day as the app reads it: "YYYY-MM-DD" when the cell is a date, otherwise its text. */
+function wardDay_(value, shown, tz) {
+  if (value instanceof Date) return Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+  return wardText_(shown).trim();
 }
 
 function wardBool_(value) {

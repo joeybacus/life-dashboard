@@ -766,7 +766,7 @@ function setupFeedback(state) {
   </div>`;
 }
 
-async function openSetup(id = listId) {
+export async function openSetup(id = listId) {
   const list = wardList(id);
   if (!list) return;
   if (!syncSnapshot().connected) {
@@ -782,7 +782,7 @@ async function openSetup(id = listId) {
     className: 'setup ward-setup accent-neuro',
     title: link ? `Change logsheet · ${list.name}` : `Link a logsheet · ${list.name}`,
     body: html`
-      <p class="setup__lead">Paste the link to the ward logsheet for “${list.name}” (a Google Sheet): open it, then copy the address — or use <strong>Share → Copy link</strong>.</p>
+      <p class="setup__lead">Paste the link to the ${list.isCensus ? 'referral census' : `ward logsheet for “${list.name}”`} (a Google Sheet): open it, then copy the address — or use <strong>Share → Copy link</strong>.</p>
       ${outdated ? html`<p class="note">${icon('sparkles')}<span>${LOAD_PROBLEMS['script-outdated']} <button type="button" class="link-inline" data-action="sync:update">Show me how</button></span></p>` : ''}
       <form class="setup__form" data-link novalidate>
         <label class="field"><span class="field__label">Logsheet link</span>
@@ -797,8 +797,8 @@ async function openSetup(id = listId) {
           <button type="submit" class="btn btn--primary" data-submit>Check logsheet</button>
         </div>
       </form>
-      <p class="note">${icon('lock')}<span>Saved on this device only — never synced, backed up or written into the app. Patients are read from row 2: ${list.layout().name} Name · ${list.layout().hn} Hospital Number${columns ? ` · ${columns}` : ''}. Rounds go in columns ${roundsSpan(list.layout())}, and your edits go back to their own columns. Names and hospital numbers are never changed. (Different columns? Link it, then choose them in Columns → Where things are.)</span></p>
-      ${!link || link.test ? html`<div class="ward-setup__test">
+      <p class="note">${icon('lock')}<span>Saved on this device only — never synced, backed up or written into the app. Patients are read from row 2: ${list.layout().name} Name · ${list.layout().hn} Hospital Number${columns ? ` · ${columns}` : ''}${list.layout().rounds ? `. Rounds go in columns ${roundsSpan(list.layout())}` : ''}, and your edits go back to their own columns. Names and hospital numbers are never changed. ${list.isCensus ? '(You can choose the columns next.)' : '(Different columns? Link it, then choose them in Columns → Where things are.)'}</span></p>
+      ${(!link || link.test) && !list.isCensus ? html`<div class="ward-setup__test">
         <p>${link?.test ? 'Practice logsheet in use.' : 'Want to try it first?'} A practice logsheet with made-up patients can be created in your Google Drive.</p>
         <button type="button" class="btn btn--sm" data-test>${icon('sparkles')}Create a practice logsheet</button>
       </div>` : ''}`,

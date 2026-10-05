@@ -11,14 +11,14 @@
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
 import { on } from '../core/events.js';
-import { html, setHTML } from '../core/html.js';
+import { html, raw, setHTML } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { pageHead } from '../core/components.js';
 import { wardSummaries } from './ward/engine.js';
 import { handleCardClick, historyPage, listPage } from './ward/page.js';
 import './ward/manage.js'; // New list, and each list's ⋯ menu
 import { handleReferralClick, referralsPage } from './referrals/page.js';
-import { referralSummary } from './referrals/store.js';
+import { referralSummary } from './referrals/patients.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -44,7 +44,7 @@ function entrySub(s) {
 
 /** "2 to see today · 1 overdue · 3 waiting" */
 function referralsSub(r = referralSummary()) {
-  if (!r.active) return 'Add patients referred to your service';
+  if (!r.active) return r.linked ? 'No active referrals' : 'Link your referral census';
   const parts = [`${r.active} active`];
   if (r.today) parts.push(`${r.today} to see today`);
   if (r.overdue) parts.push(`${r.overdue} overdue`);
@@ -53,11 +53,14 @@ function referralsSub(r = referralSummary()) {
 }
 
 function referralsLink({ compact = false } = {}) {
-  return html`<a class="${compact ? 'ward-entry ward-entry--compact' : 'card ward-entry ward-entry__link ward-entry--solo'}" href="#/neurology/referrals" data-action="nav" data-route="neurology" data-sub="referrals">
-    <span class="ward-entry__icon">${icon('clipboard')}</span>
+  const inner = html`<span class="ward-entry__icon">${icon('clipboard')}</span>
     <span class="ward-entry__text"><span class="ward-entry__title">Referrals</span><span class="ward-entry__sub">${referralsSub()}</span></span>
-    ${icon('chevronRight', 'ward-entry__chev')}
-  </a>`;
+    ${icon('chevronRight', 'ward-entry__chev')}`;
+  const attrs = 'href="#/neurology/referrals" data-action="nav" data-route="neurology" data-sub="referrals"';
+  // Built like a list's card (without the ⋯ menu), so they all line up
+  return compact
+    ? html`<a class="ward-entry ward-entry--compact" ${raw(attrs)}>${inner}</a>`
+    : html`<div class="card ward-entry ward-entry--solo"><a class="ward-entry__link" ${raw(attrs)}>${inner}</a></div>`;
 }
 
 /** A list's button on the Neurology tab, with its ⋯ menu (rename, move, delete). */
@@ -119,11 +122,15 @@ function showHome(el) {
   const all = wardSummaries();
   setHTML(el, html`
     ${pageHead({ title: 'Neurology', iconName: 'brain', accent: 'neuro', eyebrow: 'Module' })}
-    <section class="ward-lists accent-neuro" aria-label="Patient lists">
+    <section class="ward-lists accent-neuro" aria-labelledby="neuro-lists-title">
+      <h2 class="ward-lists__title" id="neuro-lists-title">Patient lists</h2>
       ${all.map(listCard)}
       <button type="button" class="btn ward-lists__new" data-action="ward:new-list">${icon('plus')}New list</button>
     </section>
-    <section class="ward-lists accent-neuro" aria-label="Referrals">${referralsLink()}</section>
+    <section class="ward-lists ward-lists--refs accent-neuro" aria-labelledby="neuro-refs-title">
+      <h2 class="ward-lists__title" id="neuro-refs-title">Referrals</h2>
+      ${referralsLink()}
+    </section>
     <section class="card placeholder accent-neuro" aria-label="Coming soon">
       <div class="placeholder__orb">${icon('brain')}</div>
       <h2 class="placeholder__title">More coming in a future update</h2>

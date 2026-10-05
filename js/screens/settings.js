@@ -1159,7 +1159,7 @@ async function openScriptUpdate() {
     className: 'setup',
     title: 'Update the sync script',
     body: html`
-      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script adds a Referrals tab (your referrals sync between your devices) and lets a patient list read names, hospital numbers and rounds from the columns you choose. It includes everything before it too: your patient lists’ own columns, readable tabs for your tasks and subtasks, Google Calendar for them, and Ward Patients. Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
+      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script links Referrals to your referral census (two-way, with Last and Next Rounds as dates), syncs referrals you add by hand, and lets a patient list read names, hospital numbers and rounds from the columns you choose. It includes everything before it too: your patient lists’ own columns, readable tabs for your tasks and subtasks, Google Calendar for them, and Ward Patients. Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
       <ol class="setup__steps">
         <li><strong>Copy the new code.</strong>
           <span class="setup__buttons">

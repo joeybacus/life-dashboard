@@ -127,15 +127,16 @@ export const DEFAULT_LAYOUT = Object.freeze({ name: 'A', hn: 'B', rounds: 'E' })
 /** A list's layout (letters), or the usual one when it has none or it doesn't make sense. */
 export function layoutOf(def) {
   const own = def?.layout ?? {};
-  const L = { ...DEFAULT_LAYOUT, ...Object.fromEntries(Object.entries(own).filter(([k, v]) => k in DEFAULT_LAYOUT && colIndex(v))) };
+  const L = { ...DEFAULT_LAYOUT, ...Object.fromEntries(Object.entries(own).filter(([k, v]) => k in DEFAULT_LAYOUT && (colIndex(v) || (k === 'rounds' && v === '')))) };
   return layoutProblem(L) ? { ...DEFAULT_LAYOUT } : L;
 }
 
 /** Why a layout can't be used ('' when it can). */
 export function layoutProblem(L) {
   const n = { name: colIndex(L.name), hn: colIndex(L.hn), rounds: colIndex(L.rounds) };
-  if (!n.name || !n.hn || !n.rounds) return 'Choose a column for each.';
+  if (!n.name || !n.hn || (!n.rounds && L.rounds !== '')) return 'Choose a column for each.';
   if (n.name === n.hn) return 'The name and the hospital number need different columns.';
+  if (L.rounds === '') return ''; // no rounds columns (a referral census)
   if (n.rounds + 2 > MAX_COLS) return 'The rounds columns would go past column AZ.';
   const inRounds = (x) => x >= n.rounds && x <= n.rounds + 2;
   if (inRounds(n.name) || inRounds(n.hn)) return 'The rounds columns can’t include the name or the hospital number.';
@@ -144,11 +145,14 @@ export function layoutProblem(L) {
 
 export const isDefaultLayout = (L) => L.name === 'A' && L.hn === 'B' && L.rounds === 'E';
 
-/** The three rounds columns: ['E', 'F', 'G'] at first. */
-export const roundsCols = (L) => [0, 1, 2].map((i) => colLetter(colIndex(L.rounds) + i));
+/** The three rounds columns: ['E', 'F', 'G'] at first; none for a referral census. */
+export const roundsCols = (L) => (L.rounds ? [0, 1, 2].map((i) => colLetter(colIndex(L.rounds) + i)) : []);
+
+/** A referral census (no rounds columns, days in its Last / Next rounds columns) needs sync script 9. */
+export const CENSUS_SCRIPT_VERSION = 9;
 
 /** The sync script version that can save edits to a column: D since 3, C since 4, any other since 7 — and 8 for any when the layout isn't the usual one. */
-export const scriptForColumn = (col, L = DEFAULT_LAYOUT) => (!isDefaultLayout(L) ? LAYOUT_SCRIPT_VERSION : col === 'D' ? 3 : col === 'C' ? 4 : LISTS_SCRIPT_VERSION);
+export const scriptForColumn = (col, L = DEFAULT_LAYOUT) => (!L.rounds ? CENSUS_SCRIPT_VERSION : !isDefaultLayout(L) ? LAYOUT_SCRIPT_VERSION : col === 'D' ? 3 : col === 'C' ? 4 : LISTS_SCRIPT_VERSION);
 
 /** 'A' → 1 … 'AZ' → 52; 0 when it isn't a column letter. */
 export function colIndex(letter) {
@@ -187,7 +191,7 @@ export function otherColumns(list, headings, headersState) {
 }
 
 /** The letter a new column would get: after all the others (and the rounds columns), H at the earliest. */
-export const nextNewColumn = (lastColumn, L = DEFAULT_LAYOUT) => colLetter(Math.max(NEW_COL_MIN, colIndex(L.rounds) + 3, (Number(lastColumn) || 0) + 1));
+export const nextNewColumn = (lastColumn, L = DEFAULT_LAYOUT) => colLetter(Math.max(L.rounds ? Math.max(NEW_COL_MIN, colIndex(L.rounds) + 3) : 1, (Number(lastColumn) || 0) + 1));
 
 /* ---------- Patients ---------- */
 

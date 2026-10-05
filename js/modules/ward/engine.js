@@ -24,7 +24,7 @@ import { SyncError, callSyncScript, syncScriptVersion, syncSnapshot } from '../.
 import {
   DEFAULT_LIST_ID, DEFAULT_LIST_NAME, FIXED_HEADINGS, LOAD_PROBLEMS, MAX_TEXT, cleanLocation, cleanName, cleanText, defaultColumns,
   fromSheetTime, hnKey, manilaDateKey, msUntilManilaMidnight, parseSheetLink, previousDateKey, priorityOf,
-  LAYOUT_SCRIPT_VERSION, isDefaultLayout, layoutOf, locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
+  CENSUS_SCRIPT_VERSION, LAYOUT_SCRIPT_VERSION, isDefaultLayout, layoutOf, locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
 } from './model.js';
 import * as store from './store.js';
 
@@ -34,6 +34,21 @@ const SESSION_MAX_MS = 12 * 3600e3;      // an unfinished rounds session older t
 const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response']);
 // The first list is the same on every device (a fixed, old date, so a renamed copy always wins)
 const SEEDED_AT = '2020-01-01T00:00:00.000Z';
+export const CENSUS_ID = 'census';
+
+/** The referral census's columns at first (B Status, E Location, M Diagnosis, K Last rounds, L Next rounds); you can change them. */
+export const CENSUS_ROLES = [
+  { role: 'status', label: 'Status', col: 'B' },
+  { role: 'location', label: 'Location', col: 'E' },
+  { role: 'diagnosis', label: 'Diagnosis', col: 'M' },
+  { role: 'last', label: 'Last rounds', col: 'K' },
+  { role: 'next', label: 'Next rounds', col: 'L' },
+  { role: 'waiting', label: 'Waiting for', col: '' },
+  { role: 'notes', label: 'Notes', col: '' },
+];
+export const censusColumns = (roles) => roles.filter((r) => r.col).map((r) => ({
+  id: r.role, col: r.col, label: r.label, role: r.role, ...(r.role === 'location' ? { location: true } : {}),
+}));
 
 const lists = new Map();  // list id → WardList, for every list not deleted
 let order = [];           // those ids in the order you chose
@@ -134,7 +149,15 @@ class WardList {
   /** Rounded, Name and Hospital No. hidden in the app: { rounded, name, hn }. One of Name and Hospital No. always shows. */
   hidden() {
     const h = this.def.hidden ?? {};
-    return { rounded: Boolean(h.rounded), name: Boolean(h.name) && !h.hn, hn: Boolean(h.hn) };
+    return { rounded: Boolean(h.rounded) || this.isCensus, name: Boolean(h.name) && !h.hn, hn: Boolean(h.hn) };
+  }
+
+  /** The referral census (Referrals): no rounds columns, days in its Last / Next rounds columns. */
+  get isCensus() { return this.def.kind === 'referrals'; }
+
+  /** Columns holding days (Last rounds, Next rounds): sent as dates. */
+  dateCols() {
+    return (this.def.columns ?? []).filter((c) => c.role === 'last' || c.role === 'next').map((c) => c.col);
   }
 
   /** Headings of Rounded, Name and Hospital No. (yours, or the usual ones). */
@@ -335,7 +358,7 @@ class WardList {
     if (!syncSnapshot().connected) return stop(new WardError('not-connected'));
     const version = syncScriptVersion() ?? 0;
     const layout = this.layout();
-    if (!isDefaultLayout(layout) && version < LAYOUT_SCRIPT_VERSION) return stop(new WardError('script-outdated')); // it would read the wrong columns
+    if (!isDefaultLayout(layout) && version < (layout.rounds ? LAYOUT_SCRIPT_VERSION : CENSUS_SCRIPT_VERSION)) return stop(new WardError('script-outdated')); // it would read the wrong columns
     const waiting = this.outgoing();
     const held = waiting.filter((i) => i.kind !== 'rounds' && version < scriptForColumn(i.kind, layout));
     for (const item of held) {
@@ -363,6 +386,7 @@ class WardList {
         claim: toSheet,
         resetBefore: reset ? date : undefined,
         cols,
+        ...(this.dateCols().length ? { dates: this.dateCols() } : {}),
         ...(op?.addColumn ? { addColumn: op.addColumn } : {}),
         ...(op?.move ? { move: op.move } : {}),
       });
@@ -770,8 +794,10 @@ function upgradeCache(cache) {
 
 const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0) || String(a.createdAt).localeCompare(String(b.createdAt));
 
-/** The lists (not deleted), in order. */
-export const wardLists = () => order.map((id) => lists.get(id)).filter(Boolean);
+/** The patient lists (not deleted), in order — not the referral census, which has its own page. */
+export const wardLists = () => order.map((id) => lists.get(id)).filter((l) => l && !l.isCensus);
+/** The referral census behind Referrals. */
+export const censusList = () => lists.get(CENSUS_ID) ?? null;
 /** One list, or null. */
 export const wardList = (id) => lists.get(id) ?? null;
 /** Summaries of every list, in order. */
@@ -843,7 +869,7 @@ export async function updateList(id, mutate) {
 
 /** Move a list up (dir -1) or down (1) on the Neurology tab. */
 export async function moveList(id, dir) {
-  const ids = [...order];
+  const ids = wardLists().map((l) => l.id);
   const from = ids.indexOf(id);
   const to = from + dir;
   if (from < 0 || to < 0 || to >= ids.length) return;
@@ -869,7 +895,7 @@ export async function deleteList(id) {
 export async function checkLogsheet({ url, tab, layout = null }) {
   const parsed = parseSheetLink(url);
   if (parsed.error) throw new WardError({ empty: 'link-empty', published: 'link-published' }[parsed.error] ?? 'ward-bad-id');
-  if (layout && !isDefaultLayout(layout) && (syncScriptVersion() ?? 0) < LAYOUT_SCRIPT_VERSION) throw new WardError('script-outdated');
+  if (layout && !isDefaultLayout(layout) && (syncScriptVersion() ?? 0) < (layout.rounds ? LAYOUT_SCRIPT_VERSION : CENSUS_SCRIPT_VERSION)) throw new WardError('script-outdated');
   try {
     const res = await callSyncScript('wardCheck', { spreadsheetId: parsed.id, tab: String(tab ?? '').trim() || 'Sheet1', ...(layout && !isDefaultLayout(layout) ? { layout } : {}) });
     return {
@@ -909,6 +935,12 @@ export async function initWard() {
     id: DEFAULT_LIST_ID, name: DEFAULT_LIST_NAME, order: 0, headings: {}, columns: defaultColumns(),
     createdAt: SEEDED_AT, updatedAt: SEEDED_AT, deletedAt: null,
   });
+  // Referrals: the link to your referral census (each device links it itself; its columns sync)
+  await store.seedList({
+    id: CENSUS_ID, kind: 'referrals', name: 'Referral census', order: 999, headings: {},
+    layout: { name: 'I', hn: 'J', rounds: '' }, columns: censusColumns(CENSUS_ROLES), hidden: { rounded: true },
+    createdAt: SEEDED_AT, updatedAt: SEEDED_AT, deletedAt: null,
+  });
   await store.upgradeQueue();
   today = manilaDateKey();
   await Promise.all([dayRecord(today), dayRecord(previousDateKey(today))]);
@@ -917,7 +949,7 @@ export async function initWard() {
   const deleted = (await store.loadLists()).filter((d) => d.deletedAt);
   for (const d of deleted) if (await store.loadLink(d.id)) await forgetList(d.id);
 
-  const sendWaiting = (delay) => wardLists().forEach((list) => { if (list.link && list.outgoing().length) list.sendSoon(delay); });
+  const sendWaiting = (delay) => [...lists.values()].forEach((list) => { if (list.link && list.outgoing().length) list.sendSoon(delay); });
   window.addEventListener('online', () => {
     publish();
     sendWaiting(1000);
@@ -925,7 +957,7 @@ export async function initWard() {
   window.addEventListener('offline', () => publish());
   on('sync', (s) => {
     if (s.scriptOutdated) return;
-    wardLists().forEach((list) => {
+    [...lists.values()].forEach((list) => {
       if (list.link && [...list.queue.values()].some((i) => i.problem === 'needs-update')) list.sendSoon(800);
     });
   });

@@ -6,8 +6,12 @@
    Synced between your devices like tasks (the Referrals tab of your LIFE
    DASHBOARD sheet, sync script 8), but never in backup files.
 
-   Record: { id, name, hn, location, next: "YYYY-MM-DD" | "", notes,
-             waiting: [{ id, text, done }], status: 'active' | 'done',
+   Since 0.4.4.3 Referrals mostly come from your referral census (a Google
+   Sheet, see ward/engine.js — censusList); these are the ones you add in the
+   app, shown alongside.
+
+   Record: { id, name, hn, location, diagnosis, last, next: "YYYY-MM-DD" | "", notes,
+             waiting: [{ id, text, done }], status: 'active' | 'for-rounds' | 'done',
              doneAt, createdAt, updatedAt, deletedAt }
    Days are Manila dates, like the ward rounds. */
 import { db } from '../../core/db.js';
@@ -56,6 +60,8 @@ export async function addReferral(fields) {
     name: oneLine(fields.name, MAX_FIELD) || 'Patient',
     hn: oneLine(fields.hn, MAX_FIELD),
     location: cleanLocation(fields.location),
+    diagnosis: oneLine(fields.diagnosis, MAX_WAIT),
+    last: validDay(fields.last),
     next: validDay(fields.next),
     notes: cleanNotes(fields.notes),
     waiting: (fields.waiting ?? []).map((w) => ({ id: uid(), text: oneLine(w, MAX_WAIT), done: false })).filter((w) => w.text),
@@ -80,6 +86,8 @@ export async function updateReferral(id, mutate) {
   next.hn = oneLine(next.hn, MAX_FIELD);
   next.location = cleanLocation(next.location);
   next.next = validDay(next.next);
+  next.last = validDay(next.last);
+  next.diagnosis = oneLine(next.diagnosis, MAX_WAIT);
   next.notes = cleanNotes(next.notes);
   next.waiting = (next.waiting ?? []).map((w) => ({ id: w.id || uid(), text: oneLine(w.text, MAX_WAIT), done: Boolean(w.done) })).filter((w) => w.text);
   next.updatedAt = nowISO();
@@ -114,20 +122,9 @@ export function dayState(next, today = manilaDateKey()) {
 }
 
 /** The locations in use (A to Z), for picking one. */
-export function referralLocations() {
+export function referralLocations(extra = []) {
   const seen = new Map();
-  all.forEach((r) => { if (r.location && !seen.has(locationKey(r.location))) seen.set(locationKey(r.location), r.location); });
+  [...all, ...extra].forEach((r) => { if (r.location && !seen.has(locationKey(r.location))) seen.set(locationKey(r.location), r.location); });
   return [...seen.entries()].map(([key, name]) => ({ key, name }))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-}
-
-/** For the Neurology tab and the dashboard card. */
-export function referralSummary(today = manilaDateKey()) {
-  const active = all.filter((r) => r.status !== 'done');
-  return {
-    active: active.length,
-    today: active.filter((r) => r.next === today).length,
-    overdue: active.filter((r) => r.next && r.next < today).length,
-    waiting: active.reduce((n, r) => n + r.waiting.filter((w) => !w.done).length, 0),
-  };
 }

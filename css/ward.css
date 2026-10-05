@@ -518,7 +518,6 @@ button.wbadge { cursor: pointer; }
 /* ==========================================================================
    Referrals (#/neurology/referrals): patients referred to the service
    ========================================================================== */
-.ward-entry--solo { padding: 14px 16px; }
 .refs__tabs { margin: 14px 0 0; max-width: 26rem; }
 .refs .ward-arrange-by { margin-top: 14px; }
 
@@ -612,3 +611,51 @@ button.wbadge { cursor: pointer; }
 }
 .ward-col.is-hidden .ward-col__label { color: var(--text-3); text-decoration: line-through; }
 .ward-cols__layout { margin: 4px 0 14px; }
+
+/* Neurology tab: headings over the patient lists and Referrals */
+.ward-lists__title { margin: 0 4px -2px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.ward-lists--refs { margin-top: 28px; }
+.ward-entry--solo .ward-entry__link { padding-right: 16px; }
+
+/* Referrals: census details on a card */
+.rf .pt__hn { min-height: 0; }
+.rf__dx { margin-top: 8px; font-size: var(--fs-sm); line-height: 1.4; overflow-wrap: anywhere; }
+.rf__dx .pt__label { margin-right: 4px; }
+.rf__last { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: var(--fs-sm); color: var(--text-2); }
+.rf__last .icon { width: 1rem; height: 1rem; color: var(--text-3); }
+.rfd__hint { margin-top: 8px; font-size: var(--fs-sm); }
+.refs-intro .btn + .btn { margin-top: 8px; }
+
+/* Inactive patients: a table below the deck */
+.refs-inactive { margin-top: 24px; padding: 6px 14px 12px; }
+.refs-inactive .ward-group__title { margin: 8px 0 4px; padding: 0; border: 0; background: none; }
+.refs-inactive__hint { margin-bottom: 8px; font-size: var(--fs-sm); color: var(--text-3); }
+.refs-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.refs-table th { padding: 6px 8px 6px 0; font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); text-align: left; }
+.refs-table td { padding: 8px 8px 8px 0; border-top: 1px solid var(--border); vertical-align: middle; overflow-wrap: anywhere; }
+.refs-table td small { display: block; color: var(--text-3); }
+.refs-table__name { font-weight: 650; text-align: left; }
+.refs-table__status { min-height: 36px; padding: 4px 8px; font-size: var(--fs-sm); width: auto; max-width: 9.5rem; }
+@media (max-width: 640px) {
+  .refs-table thead { display: none; }
+  .refs-table, .refs-table tbody, .refs-table tr, .refs-table td { display: block; }
+  .refs-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .refs-table td { padding: 0; border: 0; }
+  .refs-table td:nth-child(2), .refs-table td:nth-child(3) { grid-column: 1; color: var(--text-2); }
+  .refs-table td:nth-child(2):has(.faint), .refs-table td:nth-child(3):has(.faint) { display: none; }
+  .refs-table td:nth-child(4) { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
+}
+
+/* Calendar: dragging a name */
+.rcal__hint { display: flex; align-items: center; gap: 6px; margin: 2px 4px 0; font-size: var(--fs-xs); color: var(--text-3); }
+.rcal__hint .icon { width: .9rem; height: .9rem; }
+.rcal__chip[data-drag] { cursor: grab; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.rcal__chip.is-dragging { opacity: .35; }
+.rcal__chip.is-unsynced { border-style: dashed; }
+.rcal__sync { display: inline-flex; color: var(--todo-ink); }
+.rcal__sync .icon { width: .85rem; height: .85rem; }
+.rcal__ghost { position: fixed; top: 0; left: 0; z-index: 1000; pointer-events: none; box-shadow: var(--shadow-2, 0 10px 30px rgba(0, 0, 0, .45)); border-color: var(--accent); transform-origin: 0 0; opacity: .95; }
+.is-ref-dragging, .is-ref-dragging * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
+.rcal [data-drop-day].is-over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card-bg)); box-shadow: inset 0 0 0 1px var(--accent); }
+.rcal__drop-none .rcal__none-hint { font-size: var(--fs-sm); color: var(--text-3); padding-bottom: 4px; }
+.rfd .ptd__section > p > .icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -3px; margin-right: 2px; }

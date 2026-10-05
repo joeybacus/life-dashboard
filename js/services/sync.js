@@ -54,8 +54,9 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    and can put them in Google Calendar (version 5 already syncs them); 7 syncs
    your patient lists (Ward lists tab) and lets them show your own logsheet
    columns, add columns and move rows; 8 adds the Referrals tab and reads a
-   logsheet's names, hospital numbers and rounds from the columns you choose. */
-export const LATEST_SCRIPT_VERSION = 8;
+   logsheet's names, hospital numbers and rounds from the columns you choose;
+   9 reads a referral census (no rounds columns, days as dates). */
+export const LATEST_SCRIPT_VERSION = 9;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 /* A device that synced with an older app skipped the kinds of data that app

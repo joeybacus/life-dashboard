@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 8
+SCRIPT_VERSION = 9
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -519,6 +519,35 @@ res = gas('post', {**base, 'action': 'push', 'deviceId': 'Mac-aaaa', 'sinceSeq':
      status='active', waiting=[{'id': 'w1', 'text': 'MRI', 'done': False}, {'id': 'w2', 'text': 'Na', 'done': True}])}]})
 ref = rows_of(gas('dump'), 'Referrals')
 check('referrals sync in their own tab, with readable columns', res['results'] == {'referrals:r1': 'applied'} and ref[0][0] == 'r1' and 'Referral Z' in ref[0] and 'MRI' in ref[0] and 'Na' not in ref[0], ref)
+
+# Version 9: a referral census — no rounds columns, days in K and L
+CEN = '1' + 'C' * 43
+add_logsheet(CEN, [
+    ['#', 'Status', 'Service', 'Ward', 'Location', 'F', 'G', 'H', 'Name', 'HRN', 'Last rounds', 'Next rounds', 'Diagnosis'],
+    [1, 'Active', 'IM', '3B', 'Ward 3B – Bed 2', '', '', '', 'Census Patient 1', 'CEN-001', {'__date': '2026-10-04T16:00:00.000Z'}, {'__date': '2026-10-06T16:00:00.000Z'}, 'Seizure'],
+    [2, 'Inactive', 'Surg', 'ICU', 'ICU – Bed 1', '', '', '', 'Census Patient 2', 'CEN-002', '', 'next week?', 'Stroke'],
+], max_cols=13)
+cw = {**base, 'spreadsheetId': CEN, 'tab': 'Sheet1', 'layout': {'name': 'I', 'hn': 'J', 'rounds': ''}, 'dates': ['K', 'L']}
+res = gas('post', {**cw, 'action': 'wardCheck'})
+check('v9 census check: no rounds columns', res.get('headers', {}).get('state') == 'none' and res.get('patients') == 2, res)
+res = gas('post', {**cw, 'action': 'wardSync', 'claim': True, 'cols': ['B', 'E', 'K', 'L', 'M', 'F', 'G']})
+c1, c2 = res['rows']
+check('v9: dates are read as days, other text as shown', c1['cells']['K'] == '2026-10-05' and c1['cells']['L'] == '2026-10-07' and c2['cells']['L'] == 'next week?' and c1['cells']['B'] == 'Active', c1['cells'])
+check('v9: F–H are ordinary columns when there are no rounds columns', 'F' in c1['cells'] and not res.get('claimed') and 'rounded' not in c1 and log_rows(CEN)[0][5] == 'F', (res.get('claimed'), c1))
+res = gas('post', {**cw, 'action': 'wardSync', 'cols': ['B', 'L'], 'writes': [
+    {'id': 'n1', 'hn': 'CEN-001', 'text': True, 'expect': {'L': '2026-10-07'}, 'set': {'L': '2026-10-09'}},
+    {'id': 'n2', 'hn': 'CEN-002', 'text': True, 'expect': {'B': 'Inactive'}, 'set': {'B': 'For rounds'}},
+    {'id': 'n3', 'hn': 'CEN-002', 'text': True, 'expect': {'L': 'next week?'}, 'set': {'L': '2026-10-12'}},
+    {'id': 'n4', 'hn': 'CEN-001', 'expect': {'E': False, 'F': '', 'G': ''}, 'set': {'E': True, 'F': '', 'G': ''}},
+    {'id': 'n5', 'hn': 'CEN-001', 'text': True, 'expect': {'K': '2026-10-01'}, 'set': {'K': '2026-10-06'}},
+]})
+st = {k: v['status'] for k, v in res['results'].items()}
+lr = log_rows(CEN)
+check('v9: a new day is saved as a date', st['n1'] == 'ok' and isinstance(lr[1][11], dict) and lr[1][11].get('__date', '').startswith('2026-10-08T16'), (st, lr[1][11]))
+check('v9: a status is saved as text, and a text day becomes a date', st['n2'] == st['n3'] == 'ok' and lr[2][1] == 'For rounds' and isinstance(lr[2][11], dict), (st, lr[2]))
+check('v9: rounds writes are refused without rounds columns', st['n4'] == 'invalid' and lr[1][4] == 'Ward 3B – Bed 2', st)
+check('v9: a day changed by someone else is a conflict', st['n5'] == 'conflict' and res['results']['n5']['current'] == {'K': '2026-10-05'} and res['rows'][0]['cells']['L'] == '2026-10-09', res['results']['n5'])
+check('v9: names and numbers come from I and J', [(r['name'], r['hn']) for r in res['rows']] == [('Census Patient 1', 'CEN-001'), ('Census Patient 2', 'CEN-002')])
 
 # ---------------------------------------------------------------------------
 print('\nTo-do tabs (version 5)')
