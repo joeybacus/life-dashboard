@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 7
+SCRIPT_VERSION = 8
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -312,7 +312,7 @@ TAKEN = '1' + 'T' * 43
 add_logsheet(TAKEN, [HEAD + ['Plan', '', 'Notes'], ['Patient F', '2001', '', '', 'keep this', '', '']])
 tw = {**base, 'spreadsheetId': TAKEN, 'tab': 'Sheet1'}
 res = gas('post', {**tw, 'action': 'wardCheck'})
-check('other headings in E1:G1 are detected', res['headers'] == {'state': 'taken', 'values': ['Plan', '', 'Notes'], 'dataBelow': False}, res['headers'])
+check('other headings in E1:G1 are detected', res['headers'] == {'state': 'taken', 'values': ['Plan', '', 'Notes'], 'dataBelow': False, 'cols': ['E', 'F', 'G']}, res['headers'])
 res = gas('post', {**tw, 'action': 'wardSync', 'claim': True, 'writes': [
     {'id': 'x1', 'hn': '2001', 'expect': {'E': False, 'F': '', 'G': ''}, 'set': tick},
     {'id': 'x2', 'hn': '2001', 'expect': {'D': ''}, 'set': {'D': 'recs still save'}}]})
@@ -464,6 +464,61 @@ check('rows with protected cells don\'t move', res['moved'] == {'status': 'prote
 res = gas('post', {**base, 'action': 'push', 'deviceId': 'Mac-aaaa', 'sinceSeq': 0, 'records': [
     {'store': 'wardLists', 'record': rec('ward', '2026-09-28T09:00:00.000Z', name='Ward 3', order=0, headings={}, columns=[{'id': 'labs', 'col': 'C', 'label': 'Labs'}])}]})
 check('patient lists (names and columns) sync in their own tab', res['results'] == {'wardLists:ward': 'applied'} and rows_of(gas('dump'), 'Ward lists')[0][0] == 'ward', res)
+
+# Version 8: the name, hospital number and rounds in the columns a list chooses
+# (like a logsheet with a checkbox for another script in A, the name in B, the number in C,
+# labs in D, recommendations in E and the rounds in F–H)
+LAY = '1' + 'Y' * 43
+add_logsheet(LAY, [
+    ['Run', 'Name', 'HRN', 'Labs', 'Notes', 'Rounded', 'Rounds Start', 'Rounds End'],
+    [True, 'Patient Y1', '8101', 'Na 130', 'P1 recheck Na', False, '', ''],
+    [False, 'Patient Y2', '8102', '', 'for EEG', True, '2026-09-26 08:00', '2026-09-26 08:20'],
+    [True, '', '8199', 'no name: ignored', '', '', '', ''],
+], max_cols=8)
+lw = {**base, 'spreadsheetId': LAY, 'tab': 'Sheet1', 'layout': {'name': 'B', 'hn': 'C', 'rounds': 'F'}}
+res = gas('post', {**lw, 'action': 'wardCheck'})
+check('v8 check: rounds headings found in F–H', res.get('headers', {}).get('state') == 'ours' and res['headers']['cols'] == ['F', 'G', 'H'] and res.get('patients') == 2, res)
+res = gas('post', {**lw, 'action': 'wardSync', 'cols': ['A', 'B', 'C', 'D', 'E', 'F']})
+y1, y2 = res['rows']
+check('v8: names and numbers come from the chosen columns', [(r['name'], r['hn']) for r in res['rows']] == [('Patient Y1', '8101'), ('Patient Y2', '8102')], res['rows'])
+check('v8: rounds are read from F–H', y1['rounded'] is False and y2['rounded'] is True and y2['start'] == '2026-09-26 08:00' and y2['end'] == '2026-09-26 08:20', y2)
+check('v8: the name, number and rounds columns are never cells; A can be', y1['cells'] == {'A': 'TRUE', 'D': 'Na 130', 'E': 'P1 recheck Na'}, y1['cells'])
+res = gas('post', {**lw, 'action': 'wardSync', 'cols': ['D', 'E'], 'writes': [
+    {'id': 'y1', 'hn': '8101', 'expect': {'E': False, 'F': '', 'G': ''}, 'set': {'E': True, 'F': '2026-09-27 08:00', 'G': '2026-09-27 08:15'}},
+    {'id': 'y2', 'hn': '8102', 'text': True, 'expect': {'E': 'for EEG'}, 'set': {'E': 'for EEG tomorrow'}},
+    {'id': 'y3', 'hn': '8101', 'text': True, 'expect': {}, 'set': {'C': 'x'}},
+    {'id': 'y4', 'hn': '8101', 'text': True, 'expect': {}, 'set': {'F': 'x'}},
+    {'id': 'y5', 'hn': '8102', 'expect': {'D': ''}, 'set': {'D': 'K 3.1'}},
+]})
+st = {k: v['status'] for k, v in res['results'].items()}
+lr = log_rows(LAY)
+check('v8: a tick goes to F–H, never A', st['y1'] == 'ok' and lr[1][5] is True and lr[1][6] == '2026-09-27 08:00' and lr[1][7] == '2026-09-27 08:15' and lr[1][0] is True, (st, lr[1]))
+check('v8: E is a text column here (recommendations)', st['y2'] == 'ok' and lr[2][4] == 'for EEG tomorrow', st)
+check('v8: the number and rounds columns are never written as text', st['y3'] == st['y4'] == 'invalid' and lr[1][2] == '8101', st)
+check('v8: an older-style edit of D still works', st['y5'] == 'ok' and lr[2][3] == 'K 3.1', st)
+res = gas('post', {**lw, 'action': 'wardSync', 'resetBefore': '2026-09-28'})
+lr = log_rows(LAY)
+check('v8: the midnight reset unticks F, keeps the times and A', lr[1][5] is False and lr[2][5] is False and lr[1][7] == '2026-09-27 08:15' and lr[1][0] is True and {r['hn'] for r in res['reset']} == {'8101', '8102'}, (lr[1], res['reset']))
+moved = gas('post', {**lw, 'action': 'wardSync', 'move': {'expect': [{'row': 2, 'name': 'Patient Y1', 'hn': '8101'}, {'row': 3, 'name': 'Patient Y2', 'hn': '8102'}], 'order': [3, 2]}})
+lr = log_rows(LAY)
+check('v8: rows move by the chosen name and number columns', moved['moved'] == {'status': 'ok'} and lr[1][1] == 'Patient Y2' and lr[1][0] is False and lr[2][0] is True, (moved.get('moved'), lr[1:3]))
+res = gas('post', {**lw, 'action': 'wardSync', 'addColumn': {'heading': 'Location'}})
+check('v8: a new column goes after the rounds columns', res['added'] == {'status': 'ok', 'column': 'I'}, res.get('added'))
+EMPTY = '1' + 'Q' * 43
+add_logsheet(EMPTY, [['Run', 'Name', 'HRN', 'Labs', 'Notes'], [True, 'Patient Q1', '8201', '', '']], max_cols=5)
+qw = {**base, 'spreadsheetId': EMPTY, 'tab': 'Sheet1', 'layout': {'name': 'B', 'hn': 'C', 'rounds': 'F'}}
+res = gas('post', {**qw, 'action': 'wardSync', 'claim': True})
+check('v8: rounds headings are added in F–H (sheet widened)', res['claimed'] and log_rows(EMPTY)[0][5:8] == ['Rounded', 'Rounds Start', 'Rounds End'] and log_rows(EMPTY)[0][4] == 'Notes', log_rows(EMPTY)[0])
+bad = [{'name': 'B', 'hn': 'B'}, {'name': 'B', 'hn': 'C', 'rounds': 'C'}, {'name': 'F', 'hn': 'C', 'rounds': 'E'}, {'name': 'B', 'hn': 'C', 'rounds': 'AY'}]
+check('v8: a layout that doesn\'t make sense is refused', all(gas('post', {**lw, 'layout': b, 'action': 'wardSync'}).get('error') == 'ward-bad-layout' for b in bad))
+res = gas('post', {**ward, 'action': 'wardSync'})
+check('v8: without a layout, A and B are the name and number as before', ('Patient A', '1001') in [(r['name'], r['hn']) for r in res['rows']], res['rows'])
+
+res = gas('post', {**base, 'action': 'push', 'deviceId': 'Mac-aaaa', 'sinceSeq': 0, 'records': [
+    {'store': 'referrals', 'record': rec('r1', '2026-10-05T09:00:00.000Z', name='Referral Z', hn='9901', location='ER', next='2026-10-06', notes='Seen for stroke',
+     status='active', waiting=[{'id': 'w1', 'text': 'MRI', 'done': False}, {'id': 'w2', 'text': 'Na', 'done': True}])}]})
+ref = rows_of(gas('dump'), 'Referrals')
+check('referrals sync in their own tab, with readable columns', res['results'] == {'referrals:r1': 'applied'} and ref[0][0] == 'r1' and 'Referral Z' in ref[0] and 'MRI' in ref[0] and 'Na' not in ref[0], ref)
 
 # ---------------------------------------------------------------------------
 print('\nTo-do tabs (version 5)')

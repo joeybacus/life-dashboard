@@ -77,6 +77,13 @@ const MIGRATIONS = [
     const wardLists = db.createObjectStore('wardLists', { keyPath: 'id' });
     wardLists.createIndex('updatedAt', 'updatedAt');
   },
+  // v8 — Referrals (0.4.4.2): patients referred to your service, added by hand ({ id, name, hn,
+  // location, next, waiting: [{ id, text, done }], notes, status }). Synced (the Referrals tab,
+  // sync script 8) but never in backup files, like the rest of the patient data.
+  (db) => {
+    const referrals = db.createObjectStore('referrals', { keyPath: 'id' });
+    referrals.createIndex('updatedAt', 'updatedAt');
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
@@ -91,10 +98,10 @@ export const WARD_STORES = ['wardDays', 'wardQueue'];
 export const SCRIPT_STORES = ['calendarLinks'];
 
 /** Every store (used when deleting all data). */
-export const STORE_NAMES = [...BACKUP_STORES, 'outbox', ...WARD_STORES, ...SCRIPT_STORES];
+export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'outbox', ...WARD_STORES, ...SCRIPT_STORES];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
-export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists'];
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists', 'referrals'];
 
 /** Stores that may contain generated sample records. */
 export const SAMPLE_STORES = ['tasks', 'subtasks', 'workouts', 'bodyMeasurements'];

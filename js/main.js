@@ -18,6 +18,7 @@ import { requestPersistentStorage } from './services/storage.js';
 import './modules/index.js'; // registers Workout, To Do and Neurology
 import { initWorkout } from './modules/workout.js';
 import { initWard } from './modules/ward/engine.js';
+import { initReferrals } from './modules/referrals/store.js';
 import { initReminders } from './modules/todo/reminders.js';
 import { initCalendarLink } from './modules/todo/calendar-link.js';
 import { initDashboard } from './screens/dashboard.js';
@@ -76,6 +77,7 @@ async function boot() {
   await ensureSampleData();
   await initSync(); // reads the sync connection; the first sync starts shortly after
   await initWard(); // Ward Patients: this device's logsheet, rounds and unsaved changes
+  await initReferrals(); // Referrals: patients referred to your service
 
   initActions();
   await initWorkout(); // the workout in progress, rest timer and workout bar

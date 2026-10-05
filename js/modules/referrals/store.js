@@ -1,0 +1,133 @@
+/* Referrals — patients referred to your service, added by hand (they don't
+   come from a logsheet). Each one has a name, hospital number, location, the
+   day you plan to see them next (any day, changed any time), what you're
+   waiting for, and notes.
+
+   Synced between your devices like tasks (the Referrals tab of your LIFE
+   DASHBOARD sheet, sync script 8), but never in backup files.
+
+   Record: { id, name, hn, location, next: "YYYY-MM-DD" | "", notes,
+             waiting: [{ id, text, done }], status: 'active' | 'done',
+             doneAt, createdAt, updatedAt, deletedAt }
+   Days are Manila dates, like the ward rounds. */
+import { db } from '../../core/db.js';
+import { saveRecord } from '../../core/records.js';
+import { emit, on } from '../../core/events.js';
+import { nowISO } from '../../core/dates.js';
+import { uid } from '../../core/ids.js';
+import { cleanLocation, locationKey, manilaDateKey } from '../ward/model.js';
+
+export const MAX_FIELD = 80;     // characters in a name or hospital number
+export const MAX_WAIT = 120;     // characters in one thing you're waiting for
+export const MAX_NOTES = 20000;
+
+let all = [];
+
+/** Every referral not deleted. */
+export const referrals = () => all;
+export const referral = (id) => all.find((r) => r.id === id) ?? null;
+
+export async function loadReferrals() {
+  all = (await db.all('referrals')).filter((r) => !r.deletedAt);
+  emit('referrals');
+}
+
+export async function initReferrals() {
+  on('data', ({ reason }) => { if (reason === 'sync' || reason === 'restore' || reason === 'reset') loadReferrals(); });
+  await loadReferrals();
+  // A new day (Manila): "Today" and "Overdue" move on
+  let today = manilaDateKey();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || manilaDateKey() === today) return;
+    today = manilaDateKey();
+    emit('referrals');
+  });
+}
+
+const oneLine = (text, max) => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+const cleanNotes = (text) => String(text ?? '').replace(/\r\n?/g, '\n').replace(/\s+$/, '').slice(0, MAX_NOTES);
+const validDay = (key) => (/^\d{4}-\d{2}-\d{2}$/.test(String(key ?? '')) ? key : '');
+
+/** Add a referral. fields: { name, hn, location, next, notes }. Resolves with it. */
+export async function addReferral(fields) {
+  const now = nowISO();
+  const record = {
+    id: uid(),
+    name: oneLine(fields.name, MAX_FIELD) || 'Patient',
+    hn: oneLine(fields.hn, MAX_FIELD),
+    location: cleanLocation(fields.location),
+    next: validDay(fields.next),
+    notes: cleanNotes(fields.notes),
+    waiting: (fields.waiting ?? []).map((w) => ({ id: uid(), text: oneLine(w, MAX_WAIT), done: false })).filter((w) => w.text),
+    status: 'active',
+    doneAt: null,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  };
+  await saveRecord('referrals', record);
+  await loadReferrals();
+  return record;
+}
+
+/** Change a referral: mutate(copy) edits a copy, which is cleaned and saved. */
+export async function updateReferral(id, mutate) {
+  const found = referral(id);
+  if (!found) return null;
+  const next = structuredClone(found);
+  mutate(next);
+  next.name = oneLine(next.name, MAX_FIELD) || found.name;
+  next.hn = oneLine(next.hn, MAX_FIELD);
+  next.location = cleanLocation(next.location);
+  next.next = validDay(next.next);
+  next.notes = cleanNotes(next.notes);
+  next.waiting = (next.waiting ?? []).map((w) => ({ id: w.id || uid(), text: oneLine(w.text, MAX_WAIT), done: Boolean(w.done) })).filter((w) => w.text);
+  next.updatedAt = nowISO();
+  await saveRecord('referrals', next);
+  await loadReferrals();
+  return next;
+}
+
+/** Delete on every device (kept as a deleted record so the deletion syncs; the details are cleared). */
+export async function deleteReferral(id) {
+  const found = referral(id);
+  if (!found) return;
+  const now = nowISO();
+  await saveRecord('referrals', { id, createdAt: found.createdAt, updatedAt: now, deletedAt: now });
+  await loadReferrals();
+}
+
+/* ---------- Days ---------- */
+
+const DAY_MS = 864e5;
+/** A Manila day n days after "YYYY-MM-DD". */
+export const addDayKey = (key, n) => new Date(Date.parse(`${key}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+/** 0 = Sunday … 6 = Saturday, for a "YYYY-MM-DD" key. */
+export const weekdayOf = (key) => new Date(`${key}T00:00:00Z`).getUTCDay();
+
+/** Where a day is from today: 'overdue' | 'today' | 'tomorrow' | 'later' | 'none'. */
+export function dayState(next, today = manilaDateKey()) {
+  if (!next) return 'none';
+  if (next < today) return 'overdue';
+  if (next === today) return 'today';
+  return next === addDayKey(today, 1) ? 'tomorrow' : 'later';
+}
+
+/** The locations in use (A to Z), for picking one. */
+export function referralLocations() {
+  const seen = new Map();
+  all.forEach((r) => { if (r.location && !seen.has(locationKey(r.location))) seen.set(locationKey(r.location), r.location); });
+  return [...seen.entries()].map(([key, name]) => ({ key, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+/** For the Neurology tab and the dashboard card. */
+export function referralSummary(today = manilaDateKey()) {
+  const active = all.filter((r) => r.status !== 'done');
+  return {
+    active: active.length,
+    today: active.filter((r) => r.next === today).length,
+    overdue: active.filter((r) => r.next && r.next < today).length,
+    waiting: active.reduce((n, r) => n + r.waiting.filter((w) => !w.done).length, 0),
+  };
+}

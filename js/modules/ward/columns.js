@@ -14,13 +14,25 @@ import { announce, confirmDialog, openDialog, toast } from '../../core/ui.js';
 import { syncScriptVersion, syncSnapshot } from '../../services/sync.js';
 import { updateList, wardList } from './engine.js';
 import { askName } from './manage.js';
-import { FIXED_HEADINGS, LISTS_SCRIPT_VERSION, STRUCTURE_PROBLEMS, cleanName, colIndex, nextNewColumn, otherColumns } from './model.js';
+import {
+  FIXED_HEADINGS, LAYOUT_SCRIPT_VERSION, LISTS_SCRIPT_VERSION, MAX_COLS, STRUCTURE_PROBLEMS, cleanName, colIndex, colLetter,
+  isDefaultLayout, layoutProblem, nextNewColumn, otherColumns, roundsCols,
+} from './model.js';
 
 const FIXED = [
-  { id: 'rounded', what: 'Tick box', icon: 'checkCircle' },
-  { id: 'name', what: 'Column A', col: 'A' },
-  { id: 'hn', what: 'Column B', col: 'B' },
+  { id: 'rounded', icon: 'checkCircle' },
+  { id: 'name' },
+  { id: 'hn' },
 ];
+/** Where a fixed column is in this list's logsheet. */
+function fixedCol(list, id) {
+  const L = list.layout();
+  if (id === 'rounded') {
+    const r = roundsCols(L);
+    return { what: `Tick box · rounds in columns ${r[0]}–${r[2]}`, col: null };
+  }
+  return { what: `Column ${L[id]}`, col: L[id] };
+}
 
 const where = (list) => (list.link ? `“${list.link.title || 'your logsheet'}” · ${list.link.tab}` : 'your logsheet');
 /** The logsheet's own heading for a column, when it differs from the app's. */
@@ -33,14 +45,29 @@ function sheetHeading(list, col, label) {
 function columnsBody(list) {
   const headings = list.headings();
   const cols = list.columns();
+  const hidden = list.hidden();
+  const L = list.layout();
   return html`<p class="dlg__msg">How “${list.name}” shows ${where(list)}. Headings you change here are used in the app only — the logsheet’s own headings stay as they are.</p>
+    <div class="card ward-cols__loc ward-cols__layout">
+      <span class="ward-col__tag">${icon('sheet')}</span>
+      <span class="ward-col__text"><span class="ward-col__label">Where things are</span>
+        <span class="ward-col__sub">Name ${L.name} · Hospital No. ${L.hn} · rounds ${roundsCols(L)[0]}–${roundsCols(L)[2]}${isDefaultLayout(L) ? '' : ' · your own columns'}</span></span>
+      <button type="button" class="btn btn--sm btn--ghost" data-col-layout>${icon('edit')}Change</button>
+    </div>
     <ul class="card ward-cols">${FIXED.map((f) => {
-      const inSheet = sheetHeading(list, f.col, headings[f.id]);
-      return html`<li class="ward-col is-fixed">
-        <span class="ward-col__tag">${f.col ?? icon(f.icon)}</span>
+      const { what, col } = fixedCol(list, f.id);
+      const inSheet = sheetHeading(list, col, headings[f.id]);
+      const off = hidden[f.id];
+      const needed = (f.id === 'name' && hidden.hn) || (f.id === 'hn' && hidden.name); // one of them always shows
+      return html`<li class="ward-col is-fixed${off ? ' is-hidden' : ''}">
+        <span class="ward-col__tag">${col ?? icon(f.icon)}</span>
         <span class="ward-col__text"><span class="ward-col__label">${headings[f.id]}</span>
-          <span class="ward-col__sub">${f.what}${inSheet ? ` · “${inSheet}” in the logsheet` : ''}</span></span>
-        <button type="button" class="btn btn--sm btn--ghost" data-col-rename="${f.id}" aria-label="Rename ${headings[f.id]}">${icon('edit')}Rename</button>
+          <span class="ward-col__sub">${off ? 'Hidden in the app · ' : ''}${what}${inSheet ? ` · “${inSheet}” in the logsheet` : ''}</span></span>
+        <span class="ward-col__actions">
+          <button type="button" class="btn btn--sm btn--ghost" data-col-rename="${f.id}" aria-label="Rename ${headings[f.id]}">${icon('edit')}<span class="ward-col__btn-text">Rename</span></button>
+          ${off ? html`<button type="button" class="btn btn--sm btn--ghost" data-col-show="${f.id}" aria-label="Show ${headings[f.id]}">${icon('plus')}<span class="ward-col__btn-text">Show</span></button>`
+            : html`<button type="button" class="btn btn--sm btn--ghost ward-col__remove" data-col-hide="${f.id}" aria-label="Remove ${headings[f.id]}"${needed ? raw(' disabled title="Name or Hospital No. must show"') : ''}>${icon('trash')}<span class="ward-col__btn-text">Remove</span></button>`}
+        </span>
       </li>`;
     })}</ul>
     ${cols.length ? html`<ol class="card ward-cols" data-cols-list>${cols.map((c, i) => {
@@ -60,7 +87,7 @@ function columnsBody(list) {
     })}</ol>` : html`<p class="ward-cols__none">No other columns — only names and hospital numbers show.</p>`}
     <button type="button" class="btn btn--block ward-cols__add" data-col-add>${icon('plus')}Add column</button>
     ${locationRow(list)}
-    <p class="ward-cols__foot">Rounded, ${headings.name} and ${headings.hn} are needed for rounds, so they can be renamed but not removed. Drag ${icon('grip')} to change the order of the others.</p>`;
+    <p class="ward-cols__foot">Removing ${headings.rounded}, ${headings.name} or ${headings.hn} hides it in the app only (one of ${headings.name} and ${headings.hn} always shows). Drag ${icon('grip')} to change the order of the other columns.</p>`;
 }
 
 /** The Columns sheet. */
@@ -97,6 +124,21 @@ export async function openColumns(listId) {
         const rename = event.target.closest('[data-col-rename]');
         if (rename) {
           await renameColumn(listId, rename.dataset.colRename);
+          return;
+        }
+        const hide = event.target.closest('[data-col-hide]');
+        if (hide) {
+          await hideFixed(listId, hide.dataset.colHide);
+          return;
+        }
+        const show = event.target.closest('[data-col-show]');
+        if (show) {
+          await updateList(listId, (def) => { def.hidden = { ...def.hidden, [show.dataset.colShow]: undefined }; });
+          toast(`“${wardList(listId)?.headings()[show.dataset.colShow]}” shows again.`, { icon: 'check' });
+          return;
+        }
+        if (event.target.closest('[data-col-layout]')) {
+          await openLayout(listId);
           return;
         }
         const remove = event.target.closest('[data-col-remove]');
@@ -140,7 +182,7 @@ export async function renameColumn(listId, id) {
   const col = fixed ? null : list.def.columns.find((c) => c.id === id);
   if (!fixed && !col) return;
   const current = fixed ? list.headings()[id] : col.label;
-  const letter = fixed ? FIXED.find((f) => f.id === id).col : col.col;
+  const letter = fixed ? fixedCol(list, id).col : col.col;
   const name = await askName({
     title: 'Rename column',
     label: 'Heading in the app',
@@ -203,7 +245,7 @@ async function addColumn(listId) {
   if (!fresh) return;
 
   if (choice.where === 'new') {
-    const letter = nextNewColumn(fresh.cache?.lastColumn);
+    const letter = nextNewColumn(fresh.cache?.lastColumn, fresh.layout());
     const ok = await confirmDialog({
       title: 'Add a new column?',
       message: `“${choice.heading}” will be added to ${where(fresh)} as a new column (${letter}, after all the others), with this heading in row 1. Everyone who shares the logsheet will see it.`,
@@ -243,7 +285,7 @@ async function addColumn(listId) {
 /** The Add a column form. Resolves { heading, where: 'new' | column letter, index } or null. */
 async function addColumnForm(list) {
   const others = otherColumns(list.def, list.cache.headings, list.cache.headers?.state);
-  const letter = nextNewColumn(list.cache.lastColumn);
+  const letter = nextNewColumn(list.cache.lastColumn, list.layout());
   const result = await openDialog({
     variant: 'sheet',
     className: 'ward-addcol accent-neuro',
@@ -361,7 +403,7 @@ export async function setupLocation(listId) {
   }
 
   if (choice.where === 'new') {
-    const letter = nextNewColumn(fresh.cache?.lastColumn);
+    const letter = nextNewColumn(fresh.cache?.lastColumn, fresh.layout());
     const ok = await confirmDialog({
       title: 'Add a Location column?',
       message: `“${choice.heading}” will be added to ${where(fresh)} as a new column (${letter}, after all the others), with this heading in row 1. Everyone who shares the logsheet will see it. You can then fill in each patient’s location from the app.`,
@@ -397,7 +439,7 @@ async function locationForm(list, blocked) {
   const current = list.def.columns.find((c) => c.location);
   const shown = list.def.columns.filter((c) => !c.priority || c.location);
   const others = blocked ? [] : otherColumns(list.def, list.cache.headings, list.cache.headers?.state);
-  const letter = blocked ? '' : nextNewColumn(list.cache.lastColumn);
+  const letter = blocked ? '' : nextNewColumn(list.cache.lastColumn, list.layout());
   const option = (value, title, sub, { checked = false, heading = '' } = {}) => html`<label class="ward-where__opt"><input type="radio" name="where" value="${value}" data-heading="${heading}"${raw(checked ? ' checked' : '')}>
     <span class="ward-where__text"><strong>${title}</strong><small>${sub}</small></span></label>`;
   const result = await openDialog({
@@ -464,4 +506,118 @@ async function locationForm(list, blocked) {
     },
   });
   return result && typeof result === 'object' ? result : null;
+}
+
+
+/* ---------- Hiding Rounded, Name or Hospital No. (in the app only) ---------- */
+
+async function hideFixed(listId, id) {
+  const list = wardList(listId);
+  if (!list || !(id in FIXED_HEADINGS)) return;
+  const heading = list.headings()[id];
+  const r = roundsCols(list.layout());
+  const message = {
+    rounded: `The tick box, Start / End Rounds and the rounds count are hidden on “${list.name}”, and nothing is written to columns ${r[0]}–${r[2]} any more. The logsheet keeps those columns and everything in them.`,
+    name: `Names are hidden on “${list.name}”: patients show by ${list.headings().hn}. Column ${list.layout().name} of the logsheet isn’t changed.`,
+    hn: `${heading} is hidden on “${list.name}”. The app still uses it to find each patient’s row, and column ${list.layout().hn} of the logsheet isn’t changed.`,
+  }[id];
+  const ok = await confirmDialog({ title: `Remove “${heading}”?`, message: `${message} You can show it again here any time.`, confirmLabel: 'Remove', destructive: true });
+  if (!ok) return;
+  await updateList(listId, (def) => { def.hidden = { ...def.hidden, [id]: true }; });
+  toast(`“${heading}” removed from the app. The logsheet isn’t changed.`, { icon: 'trash' });
+}
+
+/* ---------- Where things are in the logsheet ---------- */
+
+/**
+ * Choose the columns of the logsheet that hold the name, the hospital number
+ * and the rounds (three in a row), and the one priorities come from. Needs
+ * sync script 8 when they aren't the usual A, B and E–G.
+ */
+export async function openLayout(listId) {
+  const list = wardList(listId);
+  if (!list) return;
+  const L = list.layout();
+  const headings = list.cache?.headings ?? [];
+  const width = Math.min(MAX_COLS, Math.max(12, headings.length + 3));
+  const letters = Array.from({ length: width }, (_, i) => colLetter(i + 1));
+  const label = (col) => {
+    const h = String(headings[colIndex(col) - 1] ?? '').trim();
+    return h ? `${col} · “${h}”` : col;
+  };
+  const priority = list.def.columns.find((c) => c.priority)?.col ?? '';
+  const select = (name, value, options) => html`<select class="input" name="${name}">${options.map(([v, text]) => html`<option value="${v}"${raw(v === value ? ' selected' : '')}>${text}</option>`)}</select>`;
+  const outdated = (syncScriptVersion() ?? 0) < LAYOUT_SCRIPT_VERSION;
+  const result = await openDialog({
+    variant: 'sheet',
+    className: 'ward-addcol ward-layout accent-neuro',
+    dismissible: false,
+    title: 'Where things are',
+    body: html`<form class="form" data-layout novalidate>
+      <p class="dlg__msg">Which columns of ${where(list)} hold each patient’s name, hospital number and rounds. The app never writes to the name or hospital number columns, or to any column it doesn’t show.</p>
+      <label class="field"><span class="field__label">Name</span>${select('name', L.name, letters.map((c) => [c, label(c)]))}</label>
+      <label class="field"><span class="field__label">Hospital number</span>${select('hn', L.hn, letters.map((c) => [c, label(c)]))}</label>
+      <label class="field"><span class="field__label">Rounds (Rounded, Rounds Start, Rounds End — three columns in a row)</span>
+        ${select('rounds', L.rounds, letters.slice(0, width - 2).map((c, i) => [c, `${c}, ${letters[i + 1]}, ${letters[i + 2]}${headings[i] ? ` · from “${String(headings[i]).trim()}”` : ''}`]))}</label>
+      <label class="field"><span class="field__label">Priorities (P1, P2, P3) are read from</span>
+        ${select('priority', priority, [['', 'No column (don’t sort by priority)'], ...letters.map((c) => [c, label(c)])])}</label>
+      ${outdated ? html`<p class="note">${icon('sparkles')}<span>Columns other than A, B and E–G need version ${LAYOUT_SCRIPT_VERSION} of the sync script. Until it’s updated, the list waits instead of reading the wrong columns.</span></p>` : ''}
+      <p class="form-error" data-error hidden></p>
+      <div class="form__actions">
+        <button type="button" class="btn btn--ghost" data-cancel>Cancel</button>
+        <button type="submit" class="btn btn--primary">Next</button>
+      </div>
+    </form>`,
+    onOpen(dlg, close) {
+      const form = dlg.querySelector('[data-layout]');
+      const error = form.querySelector('[data-error]');
+      const values = () => ({ name: form.elements.name.value, hn: form.elements.hn.value, rounds: form.elements.rounds.value, priority: form.elements.priority.value });
+      const start = JSON.stringify(values());
+      form.addEventListener('change', () => { error.hidden = true; });
+      form.querySelector('[data-cancel]').addEventListener('click', async () => {
+        if (JSON.stringify(values()) !== start && !(await confirmDialog({ title: 'Discard these changes?', message: 'The columns stay as they were.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return;
+        close(null);
+      });
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const v = values();
+        const r = roundsCols(v);
+        const problem = layoutProblem(v) || ([v.name, v.hn, ...r].includes(v.priority) ? 'Priorities can’t come from the name, hospital number or rounds columns.' : '');
+        if (problem) {
+          setHTML(error, html`${problem}`);
+          error.hidden = false;
+          return;
+        }
+        close(v);
+      });
+    },
+  });
+  if (!result || typeof result !== 'object') return;
+  const fresh = wardList(listId);
+  if (!fresh) return;
+  const next = { name: result.name, hn: result.hn, rounds: result.rounds };
+  const r = roundsCols(next);
+  const taken = new Set([next.name, next.hn, ...r]);
+  const dropped = fresh.def.columns.filter((c) => taken.has(c.col));
+  const ok = await confirmDialog({
+    title: 'Use these columns?',
+    message: `Names from ${next.name}, hospital numbers from ${next.hn}, rounds in ${r[0]}–${r[2]}${result.priority ? `, priorities from ${result.priority}` : ''}.${dropped.length ? ` ${dropped.map((c) => `“${c.label}” (${c.col})`).join(', ')} ${dropped.length === 1 ? 'is' : 'are'} now one of these, so ${dropped.length === 1 ? 'it leaves' : 'they leave'} the list’s own columns.` : ''} The logsheet isn’t changed now; if columns ${r[0]}–${r[2]} have no headings yet, the app adds “Rounded”, “Rounds Start” and “Rounds End” the next time it loads.`,
+    confirmLabel: 'Use these columns',
+  });
+  if (!ok) return;
+  const sheetHead = (col) => String(fresh.cache?.headings?.[colIndex(col) - 1] ?? '').trim();
+  const defaults = { labs: 'Labs', recs: 'Recommendations' };
+  await updateList(listId, (def) => {
+    def.layout = isDefaultLayout(next) ? undefined : next;
+    def.columns = def.columns
+      .filter((c) => !taken.has(c.col))
+      // The columns the list started with take the logsheet's heading when they still have the app's
+      .map(({ priority: _p, ...c }) => (defaults[c.id] === c.label && sheetHead(c.col) ? { ...c, label: cleanName(sheetHead(c.col)) } : c));
+    if (result.priority) {
+      if (!def.columns.some((c) => c.col === result.priority)) def.columns.push({ id: uid(), col: result.priority, label: cleanName(sheetHead(result.priority)) || 'Recommendations' });
+      def.columns = def.columns.map((c) => (c.col === result.priority ? { ...c, priority: true } : c));
+    }
+  });
+  toast('Columns updated. Reloading the list…', { icon: 'sheet' });
+  wardList(listId)?.refresh();
 }

@@ -6,6 +6,7 @@
      (none)                 your patient lists, then what's planned
      list/<id>              a patient list (Ward Patients is list/ward)
      list/<id>/history      its rounds history
+     referrals              patients referred to your service (with a calendar)
      ward, ward/history     older addresses of Ward Patients (they still work) */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
@@ -16,6 +17,8 @@ import { pageHead } from '../core/components.js';
 import { wardSummaries } from './ward/engine.js';
 import { handleCardClick, historyPage, listPage } from './ward/page.js';
 import './ward/manage.js'; // New list, and each list's ⋯ menu
+import { handleReferralClick, referralsPage } from './referrals/page.js';
+import { referralSummary } from './referrals/store.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -35,7 +38,26 @@ const PLANNED_TOOLS = [
 function entrySub(s) {
   if (!s.linked) return 'Link a logsheet to get started';
   if (!s.loaded) return 'Open to load the logsheet';
+  if (s.noRounds) return `${s.total} ${s.total === 1 ? 'patient' : 'patients'}${s.unsaved ? ` · ${s.unsaved} not synced` : ''}`;
   return `${s.rounded} of ${s.total} rounded today${s.active ? ' · rounds in progress' : ''}${s.unsaved ? ` · ${s.unsaved} not synced` : ''}`;
+}
+
+/** "2 to see today · 1 overdue · 3 waiting" */
+function referralsSub(r = referralSummary()) {
+  if (!r.active) return 'Add patients referred to your service';
+  const parts = [`${r.active} active`];
+  if (r.today) parts.push(`${r.today} to see today`);
+  if (r.overdue) parts.push(`${r.overdue} overdue`);
+  if (r.waiting) parts.push(`waiting for ${r.waiting} ${r.waiting === 1 ? 'thing' : 'things'}`);
+  return parts.join(' · ');
+}
+
+function referralsLink({ compact = false } = {}) {
+  return html`<a class="${compact ? 'ward-entry ward-entry--compact' : 'card ward-entry ward-entry__link ward-entry--solo'}" href="#/neurology/referrals" data-action="nav" data-route="neurology" data-sub="referrals">
+    <span class="ward-entry__icon">${icon('clipboard')}</span>
+    <span class="ward-entry__text"><span class="ward-entry__title">Referrals</span><span class="ward-entry__sub">${referralsSub()}</span></span>
+    ${icon('chevronRight', 'ward-entry__chev')}
+  </a>`;
 }
 
 /** A list's button on the Neurology tab, with its ⋯ menu (rename, move, delete). */
@@ -68,6 +90,8 @@ registerModule({
   load: async () => wardSummaries(),
   summary(all) {
     const loaded = all.filter((s) => s.linked && s.loaded);
+    const refs = referralSummary();
+    if (!loaded.length && refs.active) return { text: `Referrals: ${referralsSub(refs)}`, progress: null, ringText: String(refs.today), ringLabel: `${refs.today} referrals to see today`, idleIcon: 'clipboard' };
     if (!loaded.length) return { text: 'Coming in a future update.', progress: null, ringLabel: 'No patient list linked yet', idleIcon: 'lock' };
     const total = loaded.reduce((n, s) => n + s.total, 0);
     const rounded = loaded.reduce((n, s) => n + s.rounded, 0);
@@ -83,6 +107,7 @@ registerModule({
   },
   body: (all) => html`
     ${all.map(listLink)}
+    ${referralsLink({ compact: true })}
     <p class="neuro-note">${MESSAGE}</p>
     <div class="tag-cloud">${PLANNED_TOOLS.slice(0, 6).map((t) => html`<span class="tag">${t.name}</span>`)}</div>
     <div class="card-foot"><button type="button" class="link-btn" data-action="nav" data-route="neurology" data-sub="">Open Neurology ${icon('arrowRight')}</button></div>`,
@@ -98,6 +123,7 @@ function showHome(el) {
       ${all.map(listCard)}
       <button type="button" class="btn ward-lists__new" data-action="ward:new-list">${icon('plus')}New list</button>
     </section>
+    <section class="ward-lists accent-neuro" aria-label="Referrals">${referralsLink()}</section>
     <section class="card placeholder accent-neuro" aria-label="Coming soon">
       <div class="placeholder__orb">${icon('brain')}</div>
       <h2 class="placeholder__title">More coming in a future update</h2>
@@ -117,6 +143,7 @@ const ROUTES = [
   [/^$/, HOME],
   [/^list\/([\w-]+)$/, listPage],
   [/^list\/([\w-]+)\/history$/, historyPage],
+  [/^referrals$/, referralsPage],
 ];
 const OLD_ROUTES = { ward: 'list/ward', 'ward/history': 'list/ward/history' };
 
@@ -147,6 +174,7 @@ registerScreen('neurology', {
   mount(el) {
     view = el;
     el.addEventListener('click', handleCardClick);
+    el.addEventListener('click', handleReferralClick);
   },
   onShow(el, sub) {
     visible = true;
@@ -164,3 +192,4 @@ registerScreen('neurology', {
 
 // Keep the lists' summaries current
 on('ward', () => { if (visible && page === HOME) showHome(view); });
+on('referrals', () => { if (visible && page === HOME) showHome(view); });

@@ -24,7 +24,7 @@ import { SyncError, callSyncScript, syncScriptVersion, syncSnapshot } from '../.
 import {
   DEFAULT_LIST_ID, DEFAULT_LIST_NAME, FIXED_HEADINGS, LOAD_PROBLEMS, MAX_TEXT, cleanLocation, cleanName, cleanText, defaultColumns,
   fromSheetTime, hnKey, manilaDateKey, msUntilManilaMidnight, parseSheetLink, previousDateKey, priorityOf,
-  locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
+  LAYOUT_SCRIPT_VERSION, isDefaultLayout, layoutOf, locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
 } from './model.js';
 import * as store from './store.js';
 
@@ -119,6 +119,23 @@ class WardList {
   }
 
   get name() { return this.def.name; }
+
+  /** Where the name, hospital number and rounds are in the logsheet (letters). */
+  layout() {
+    return layoutOf(this.def);
+  }
+
+  /** What to send the sync script about the layout: nothing for the usual one (older scripts don't know it). */
+  layoutField() {
+    const L = this.layout();
+    return isDefaultLayout(L) ? {} : { layout: L };
+  }
+
+  /** Rounded, Name and Hospital No. hidden in the app: { rounded, name, hn }. One of Name and Hospital No. always shows. */
+  hidden() {
+    const h = this.def.hidden ?? {};
+    return { rounded: Boolean(h.rounded), name: Boolean(h.name) && !h.hn, hn: Boolean(h.hn) };
+  }
 
   /** Headings of Rounded, Name and Hospital No. (yours, or the usual ones). */
   headings() {
@@ -223,6 +240,8 @@ class WardList {
       id: this.id,
       name: this.def.name,
       headings: this.headings(),
+      hidden: this.hidden(),
+      layout: this.layout(),
       columns,
       locationCol,
       locations: locationsOf(patients),
@@ -254,7 +273,7 @@ class WardList {
     const base = { id: this.id, name: this.def.name, linked: Boolean(this.link) };
     if (!this.link) return base;
     const v = this.view();
-    return { ...base, total: v.total, rounded: v.roundedCount, loaded: Boolean(this.cache), active: Boolean(v.active), unsaved: v.unsaved };
+    return { ...base, total: v.total, rounded: v.roundedCount, loaded: Boolean(this.cache), active: Boolean(v.active), unsaved: v.unsaved, noRounds: v.hidden.rounded };
   }
 
   /* ---------- Talking to the logsheet ---------- */
@@ -315,15 +334,17 @@ class WardList {
     if (!navigator.onLine) return stop(new WardError('offline', { message: 'You’re offline.' }));
     if (!syncSnapshot().connected) return stop(new WardError('not-connected'));
     const version = syncScriptVersion() ?? 0;
+    const layout = this.layout();
+    if (!isDefaultLayout(layout) && version < LAYOUT_SCRIPT_VERSION) return stop(new WardError('script-outdated')); // it would read the wrong columns
     const waiting = this.outgoing();
-    const held = waiting.filter((i) => i.kind !== 'rounds' && version < scriptForColumn(i.kind));
+    const held = waiting.filter((i) => i.kind !== 'rounds' && version < scriptForColumn(i.kind, layout));
     for (const item of held) {
       if (item.problem === 'needs-update') continue;
       Object.assign(item, { state: 'blocked', problem: 'needs-update' });
       await store.saveQueueItem(item);
     }
     const sent = waiting.filter((i) => !held.includes(i));
-    const toSheet = !link.roundsHere;
+    const toSheet = !link.roundsHere && !this.hidden().rounded; // rounds hidden: never add the rounds headings
     const reset = toSheet && (this.cache?.resetDay !== date || sent.some((i) => i.kind === 'rounds' && i.day < date));
     const cols = this.textCols();
     this.phase = 'loading';
@@ -333,10 +354,11 @@ class WardList {
       res = await callSyncScript('wardSync', {
         spreadsheetId: link.spreadsheetId,
         tab: link.tab,
+        ...this.layoutField(),
         writes: sent.map((i) => ({
           id: `${i.key}#${i.rev}`, hn: i.hn, expect: i.expect, set: i.set, quiet: i.day < date,
-          // Columns other than C and D need sync script 7, which reads them as plain text
-          ...(i.kind === 'rounds' || i.kind === 'C' || i.kind === 'D' ? {} : { text: true }),
+          // Columns other than C and D need sync script 7, which reads them as plain text (always, with your own layout)
+          ...(i.kind === 'rounds' || ((i.kind === 'C' || i.kind === 'D') && isDefaultLayout(layout)) ? {} : { text: true }),
         })),
         claim: toSheet,
         resetBefore: reset ? date : undefined,
@@ -697,7 +719,7 @@ class WardList {
     } catch (err) {
       throw toWardError(err);
     }
-    const check = await checkLogsheet({ url: res.url, tab: res.tab });
+    const check = await checkLogsheet({ url: res.url, tab: res.tab, layout: this.layout() });
     await this.useLogsheet(check, { test: true });
     return check;
   }
@@ -844,11 +866,12 @@ export async function deleteList(id) {
 /* ---------- The logsheet link (any list) ---------- */
 
 /** Check a pasted link and tab before using them. Throws WardError. */
-export async function checkLogsheet({ url, tab }) {
+export async function checkLogsheet({ url, tab, layout = null }) {
   const parsed = parseSheetLink(url);
   if (parsed.error) throw new WardError({ empty: 'link-empty', published: 'link-published' }[parsed.error] ?? 'ward-bad-id');
+  if (layout && !isDefaultLayout(layout) && (syncScriptVersion() ?? 0) < LAYOUT_SCRIPT_VERSION) throw new WardError('script-outdated');
   try {
-    const res = await callSyncScript('wardCheck', { spreadsheetId: parsed.id, tab: String(tab ?? '').trim() || 'Sheet1' });
+    const res = await callSyncScript('wardCheck', { spreadsheetId: parsed.id, tab: String(tab ?? '').trim() || 'Sheet1', ...(layout && !isDefaultLayout(layout) ? { layout } : {}) });
     return {
       url: String(url).trim(),
       spreadsheetId: parsed.id,

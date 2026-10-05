@@ -92,8 +92,9 @@ export function parseSheetLink(input) {
 }
 
 /* ---------- Lists and their columns ----------
-   Every list shows Rounded (the tick), Name (column A) and Hospital No. (B) —
-   they can be renamed in the app but not removed — then its own columns, in
+   Every list has Rounded (the tick), Name (column A) and Hospital No. (B) —
+   they can be renamed, or hidden in the app (one of Name and Hospital No.
+   always shows) — then its own columns, in
    its own order: at first C Labs and D Recommendations. Headings you change
    are used in the app only; the logsheet's row 1 stays as it is. */
 
@@ -111,12 +112,43 @@ export const defaultColumns = () => [
 ];
 
 export const MAX_COLS = 52;            // columns A to AZ (as in the sync script)
-export const ROUNDS_COLS = ['E', 'F', 'G'];
 export const NEW_COL_MIN = 8;          // a column added from the app goes after all the others, H at the earliest
 export const LISTS_SCRIPT_VERSION = 7; // your own columns, adding columns and moving rows need sync script 7
+export const LAYOUT_SCRIPT_VERSION = 8; // the name, number and rounds in other columns need sync script 8
 
-/** The sync script version that can save edits to a column: D since 3, C since 4, any other since 7. */
-export const scriptForColumn = (col) => (col === 'D' ? 3 : col === 'C' ? 4 : LISTS_SCRIPT_VERSION);
+/* ---------- Where things are in the logsheet ----------
+   At first: name in A, hospital number in B, rounds in E–G (Rounded, Rounds
+   Start, Rounds End). A list can choose other columns (sync script 8) — for
+   example a logsheet whose column A is a checkbox for another script:
+   name B, number C, rounds F–H. */
+
+export const DEFAULT_LAYOUT = Object.freeze({ name: 'A', hn: 'B', rounds: 'E' });
+
+/** A list's layout (letters), or the usual one when it has none or it doesn't make sense. */
+export function layoutOf(def) {
+  const own = def?.layout ?? {};
+  const L = { ...DEFAULT_LAYOUT, ...Object.fromEntries(Object.entries(own).filter(([k, v]) => k in DEFAULT_LAYOUT && colIndex(v))) };
+  return layoutProblem(L) ? { ...DEFAULT_LAYOUT } : L;
+}
+
+/** Why a layout can't be used ('' when it can). */
+export function layoutProblem(L) {
+  const n = { name: colIndex(L.name), hn: colIndex(L.hn), rounds: colIndex(L.rounds) };
+  if (!n.name || !n.hn || !n.rounds) return 'Choose a column for each.';
+  if (n.name === n.hn) return 'The name and the hospital number need different columns.';
+  if (n.rounds + 2 > MAX_COLS) return 'The rounds columns would go past column AZ.';
+  const inRounds = (x) => x >= n.rounds && x <= n.rounds + 2;
+  if (inRounds(n.name) || inRounds(n.hn)) return 'The rounds columns can’t include the name or the hospital number.';
+  return '';
+}
+
+export const isDefaultLayout = (L) => L.name === 'A' && L.hn === 'B' && L.rounds === 'E';
+
+/** The three rounds columns: ['E', 'F', 'G'] at first. */
+export const roundsCols = (L) => [0, 1, 2].map((i) => colLetter(colIndex(L.rounds) + i));
+
+/** The sync script version that can save edits to a column: D since 3, C since 4, any other since 7 — and 8 for any when the layout isn't the usual one. */
+export const scriptForColumn = (col, L = DEFAULT_LAYOUT) => (!isDefaultLayout(L) ? LAYOUT_SCRIPT_VERSION : col === 'D' ? 3 : col === 'C' ? 4 : LISTS_SCRIPT_VERSION);
 
 /** 'A' → 1 … 'AZ' → 52; 0 when it isn't a column letter. */
 export function colIndex(letter) {
@@ -137,23 +169,25 @@ export function colLetter(n) {
 export const cleanName = (text) => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_NAME);
 
 /**
- * Columns of the logsheet a list could show besides its own: C onwards, not
- * already shown, and not the rounds columns E–G (unless they hold something
- * else). headings: the logsheet's row 1, as last loaded.
+ * Columns of the logsheet a list could show besides its own: not the name or
+ * hospital number, not already shown, and not the rounds columns (unless they
+ * hold something else). headings: the logsheet's row 1, as last loaded.
  */
 export function otherColumns(list, headings, headersState) {
-  const shown = new Set(list.columns.map((c) => c.col));
+  const L = layoutOf(list);
+  const shown = new Set([...list.columns.map((c) => c.col), L.name, L.hn]);
+  const rounds = roundsCols(L);
   const out = [];
-  for (let n = 3; n <= Math.min(headings.length, MAX_COLS); n++) {
+  for (let n = 1; n <= Math.min(headings.length, MAX_COLS); n++) {
     const col = colLetter(n);
-    if (shown.has(col) || (ROUNDS_COLS.includes(col) && headersState !== 'taken')) continue;
+    if (shown.has(col) || (rounds.includes(col) && headersState !== 'taken')) continue;
     out.push({ col, heading: String(headings[n - 1] ?? '').trim() });
   }
   return out;
 }
 
-/** The letter a new column would get: after all the others, H at the earliest. */
-export const nextNewColumn = (lastColumn) => colLetter(Math.max(NEW_COL_MIN, (Number(lastColumn) || 0) + 1));
+/** The letter a new column would get: after all the others (and the rounds columns), H at the earliest. */
+export const nextNewColumn = (lastColumn, L = DEFAULT_LAYOUT) => colLetter(Math.max(NEW_COL_MIN, colIndex(L.rounds) + 3, (Number(lastColumn) || 0) + 1));
 
 /* ---------- Patients ---------- */
 
@@ -237,7 +271,7 @@ export const WRITE_PROBLEMS = {
   'not-found': 'Not in the logsheet any more',
   duplicate: 'Two rows in the logsheet have this hospital number',
   formula: 'This cell in the logsheet is a formula, so it can’t be changed here',
-  'headers-taken': 'Columns E–G of the logsheet are used for something else',
+  'headers-taken': 'The rounds columns of the logsheet are used for something else',
   'read-only': 'You can view this logsheet but not edit it',
   protected: 'This part of the logsheet is protected',
   'write-failed': 'Google couldn’t save it — it will try again',
@@ -269,5 +303,6 @@ export const LOAD_PROBLEMS = {
   'link-empty': 'Paste the link to your logsheet.',
   'ward-no-access': 'Couldn’t open this spreadsheet. Check the link, and that the logsheet is shared (with edit access) with the Google account that owns your LIFE DASHBOARD sheet — that’s the account your sync script runs as.',
   'ward-no-tab': 'This spreadsheet has no tab with that name.',
+  'ward-bad-layout': 'The columns chosen for the name, hospital number and rounds don’t fit together. Check them in Columns → Where things are.',
   'ward-needs-auth': 'Your sync script needs permission to open other spreadsheets: in Apps Script, choose “setup”, click Run and allow access, then deploy a new version.',
 };

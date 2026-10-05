@@ -213,6 +213,9 @@
 .pt__tick.is-disabled .pt__box { border-style: dashed; opacity: .45; }
 
 .pt__who { grid-column: 2; grid-row: 1; min-width: 0; }
+/* Rounded hidden (Columns → Remove): no tick, the name takes the whole width */
+.pt--notick { grid-template-columns: minmax(0, 1fr); padding-left: 14px; }
+.pt--notick .pt__who { grid-column: 1; }
 .pt__name {
   display: block;
   max-width: 100%;
@@ -511,3 +514,101 @@ button.wbadge { cursor: pointer; }
 .ward-day__table td small { display: block; color: var(--text-3); }
 .ward-day__table :is(th, td):not(:first-child) { padding-left: 4px; text-align: right; white-space: nowrap; }
 .ward-day__none { padding: 0 16px 14px; font-size: var(--fs-sm); color: var(--text-3); }
+
+/* ==========================================================================
+   Referrals (#/neurology/referrals): patients referred to the service
+   ========================================================================== */
+.ward-entry--solo { padding: 14px 16px; }
+.refs__tabs { margin: 14px 0 0; max-width: 26rem; }
+.refs .ward-arrange-by { margin-top: 14px; }
+
+/* A referral's card */
+.rf { padding: 12px 14px; cursor: pointer; }
+.rf--overdue { border-color: color-mix(in srgb, var(--workout) 45%, var(--border)); box-shadow: inset 3px 0 0 var(--workout), var(--shadow-1); }
+.rf--today { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: inset 3px 0 0 var(--accent), var(--shadow-1); }
+.rf--done .pt__name { color: var(--text-2); }
+.rf__body { min-width: 0; }
+.rf__wait { display: flex; gap: 6px; margin-top: 8px; font-size: var(--fs-sm); line-height: 1.4; color: var(--text-2); }
+.rf__wait .icon { flex: none; width: 1rem; height: 1rem; margin-top: 2px; color: var(--workout-ink); }
+.rf__wait strong { color: var(--text); font-weight: 650; }
+.rf__notes {
+  margin-top: 8px; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.refs-done { margin-top: 18px; padding: 4px 14px 12px; }
+.refs-done__sum { display: flex; align-items: center; gap: 8px; padding: 10px 0; font-weight: 650; cursor: pointer; color: var(--text-2); }
+.refs-done__sum .icon { width: 1.1rem; height: 1.1rem; }
+.refs-done .rf { box-shadow: none; }
+@media (min-width: 1024px) {
+  .refs .ward-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 12px; }
+}
+
+/* A referral's sheet */
+.rfd .ptd__meta .icon { display: inline-block; width: .95rem; height: .95rem; vertical-align: -2px; }
+.rfd__day { display: flex; align-items: flex-start; gap: 8px; font-size: var(--fs-md); line-height: 1.4; }
+.rfd__day .icon { flex: none; width: 1.1rem; height: 1.1rem; margin-top: 2px; color: var(--accent-ink); }
+.rfd__day.is-overdue .icon, .rfd__day.is-overdue strong { color: var(--workout-ink); }
+.rf-days { margin-top: 10px; }
+.rfd__pick { margin-top: 10px; max-width: 16rem; }
+.rfd__waits { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; }
+.rfd__wait { display: flex; align-items: center; gap: 6px; min-height: 44px; }
+.rfd__wait .pt__tick { margin: 0; flex: none; }
+.rfd__wait-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.rfd__wait.is-done .rfd__wait-text { color: var(--text-3); text-decoration: line-through; }
+.rfd__add { display: flex; gap: 8px; margin-top: 6px; }
+.rfd__add .input { flex: 1 1 auto; min-width: 0; }
+.rfd__add .btn { flex: none; }
+.rfd__foot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.refs-form .ward-loc__chips { margin-top: -4px; }
+
+/* The calendar: this week and next */
+.rcal { margin-top: 14px; }
+.rcal__nav { display: flex; align-items: center; gap: 8px; margin: 0 2px 6px; }
+.rcal__range { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; font-weight: 700; text-align: center; }
+.rcal__range small { font-size: var(--fs-xs); font-weight: 500; color: var(--text-3); }
+.rcal__week { margin-top: 12px; }
+.rcal__week-title { margin: 0 4px 8px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.rcal__grid { display: flex; flex-direction: column; gap: 6px; }
+.rcal__day { display: grid; grid-template-columns: 4.6rem minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border-radius: var(--r-md); background: var(--card-bg); border: 1px solid var(--border); }
+.rcal__day.is-empty { padding-top: 7px; padding-bottom: 7px; background: transparent; }
+.rcal__day.is-today { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: inset 3px 0 0 var(--accent); }
+.rcal__day.is-past { opacity: .6; }
+.rcal__date { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding-top: 4px; font-size: var(--fs-sm); line-height: 1.2; }
+.rcal__wd { font-weight: 700; }
+.is-today .rcal__wd { color: var(--accent-ink); }
+.rcal__dn { color: var(--text-3); }
+.rcal__date .ward-group__count { display: none; }
+.rcal__none { padding-top: 4px; color: var(--text-3); }
+.rcal__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rcal__chip {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; max-width: 100%; min-height: 36px; padding: 6px 10px;
+  border-radius: var(--r-md); text-align: left; background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+}
+@media (hover: hover) { .rcal__chip:hover { border-color: var(--border-2); } }
+.rcal__chip--overdue { border-color: color-mix(in srgb, var(--workout) 45%, var(--border)); }
+.rcal__name { font-weight: 650; overflow-wrap: anywhere; }
+.rcal__loc { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-xs); color: var(--text-2); }
+.rcal__loc .icon, .rcal__wait .icon { width: .85rem; height: .85rem; }
+.rcal__wait { display: inline-flex; color: var(--workout-ink); }
+.rcal__extra { margin-top: 14px; padding: 4px 12px 12px; }
+.rcal__extra .ward-group__title { margin: 6px 0 8px; padding: 0; }
+@media (min-width: 900px) {
+  .rcal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+  .rcal__day, .rcal__day.is-empty { display: flex; flex-direction: column; gap: 8px; min-height: 8.5rem; padding: 10px; background: var(--card-bg); }
+  .rcal__date { padding-top: 0; }
+  .rcal__chips { flex-direction: column; flex-wrap: nowrap; }
+  .rcal__chip { width: 100%; }
+  .rcal__none { display: none; }
+}
+@media (min-width: 1024px) {
+  /* Referrals aren't a table: keep the headings as on iPhone */
+  .refs .ward-group { margin-top: 18px; }
+  .refs .ward-group__title, .rcal__extra .ward-group__title { padding: 0 4px; border-top: 0; background: none; margin-bottom: 8px; }
+  .rcal__extra .ward-group__title { margin: 8px 0; padding: 0; }
+}
+@media (min-width: 1024px) {
+  .ward-table.no-tick .pt { padding-left: 16px; }
+  .ward-table.no-tick .pt--head > :first-child { text-align: left; }
+}
+.ward-col.is-hidden .ward-col__label { color: var(--text-3); text-decoration: line-through; }
+.ward-cols__layout { margin: 4px 0 14px; }

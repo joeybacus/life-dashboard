@@ -17,7 +17,7 @@ import { LATEST_SCRIPT_VERSION, syncScriptVersion, syncSnapshot } from '../../se
 import { checkLogsheet, updateList, wardList } from './engine.js';
 import {
   FIXED_HEADINGS, LOAD_PROBLEMS, MAX_LOCATION, MAX_TEXT, PRIORITY_LEVELS, WRITE_PROBLEMS, cleanLocation, formatSpan, fromSheetTime,
-  locationKey, sortPatients, wardDayLong, wardStamp, wardTime,
+  locationKey, roundsCols, sortPatients, wardDayLong, wardStamp, wardTime,
 } from './model.js';
 import { openColumns, renameColumn, setupLocation } from './columns.js';
 import { openArrange } from './arrange.js';
@@ -121,14 +121,14 @@ function render() {
 function setupBody(v) {
   const connected = syncSnapshot().connected;
   const outdated = connected && (syncScriptVersion() ?? 0) < LATEST_SCRIPT_VERSION;
-  const reads = [`${v.headings.name} (column A)`, `${v.headings.hn} (B)`, ...v.columns.map((c) => `${c.label} (${c.col})`)];
+  const reads = [`${v.headings.name} (column ${v.layout.name})`, `${v.headings.hn} (${v.layout.hn})`, ...v.columns.map((c) => `${c.label} (${c.col})`)];
   return html`<section class="card ward-intro">
     <span class="ward-intro__icon">${icon('stethoscope')}</span>
     <h2 class="ward-intro__title">Link a ward logsheet</h2>
     <p class="ward-intro__text">See the patients of “${v.name}” sorted for rounds (P1, P2, P3 first), tick them off as you go, and edit their details — saved straight to your Google Sheet logsheet.</p>
     <ul class="ward-intro__list">
       <li>${icon('sheet')}<span>Reads ${reads.slice(0, -1).join(', ')} and ${reads.at(-1)}, from row 2 — change the columns any time (${icon('more')} → Columns)</span></li>
-      <li>${icon('checkCircle')}<span>Saves rounds in columns E–G and your edits in their own columns; never changes names or hospital numbers</span></li>
+      <li>${icon('checkCircle')}<span>Saves rounds in columns ${roundsSpan(v.layout)} and your edits in their own columns; never changes names or hospital numbers</span></li>
       <li>${icon('lock')}<span>The link stays on this device only</span></li>
     </ul>
     ${!connected ? html`<p class="note">${icon('cloud')}<span>${LOAD_PROBLEMS['not-connected']}</span></p>
@@ -139,9 +139,12 @@ function setupBody(v) {
   </section>`;
 }
 
+/** "E–G" (or wherever this list keeps its rounds). */
+const roundsSpan = (L) => `${roundsCols(L)[0]}–${roundsCols(L)[2]}`;
+
 function linkedBody(v) {
   return html`${banners(v)}
-    ${roundsCard(v)}
+    ${v.hidden.rounded ? '' : roundsCard(v)}
     ${statusLine(v)}
     ${v.cache && v.patients.length ? arrangeBar(v) : ''}
     ${v.cache ? patientTable(v) : html`<div class="card empty">${icon(v.phase === 'loading' ? 'refresh' : 'sheet')}<span>${v.phase === 'loading' ? 'Loading your logsheet…' : 'The list will appear here once the logsheet loads.'}</span></div>`}
@@ -178,13 +181,14 @@ function banners(v) {
 
   if (v.headersTaken) {
     const h = v.cache.headers;
-    const seen = h.values.map((val, i) => `${'EFG'[i]}1 ${val ? `“${val}”` : '(empty)'}`).join(' · ');
+    const cols = h.cols ?? roundsCols(v.layout);
+    const seen = h.values.map((val, i) => `${cols[i]}1 ${val ? `“${val}”` : '(empty)'}`).join(' · ');
     out.push(banner({
       tone: 'workout',
       iconName: 'info',
-      title: 'Columns E–G are already in use',
-      text: html`The app saves rounds in columns E–G, but ${h.dataBelow ? 'they already hold data' : 'they already have other headings'} (${seen}). Nothing was overwritten, so your ticks aren’t in the logsheet yet. If those columns are unused, clear them in the logsheet and tap Try again — or keep ticks on this device only.`,
-      actions: html`<button type="button" class="btn btn--sm" data-action="ward:rounds-here">Keep ticks on this device</button><button type="button" class="btn btn--sm btn--primary" data-action="ward:refresh">Try again</button>`,
+      title: `Columns ${roundsSpan(v.layout)} are already in use`,
+      text: html`The app saves rounds in columns ${roundsSpan(v.layout)}, but ${h.dataBelow ? 'they already hold data' : 'they already have other headings'} (${seen}). Nothing was overwritten, so your ticks aren’t in the logsheet yet. If those columns are unused, clear them in the logsheet and tap Try again — keep ticks on this device only — or, if your rounds are in other columns, choose them in Columns → Where things are.`,
+      actions: html`<button type="button" class="btn btn--sm" data-action="ward:columns">Columns</button><button type="button" class="btn btn--sm" data-action="ward:rounds-here">Keep ticks on this device</button><button type="button" class="btn btn--sm btn--primary" data-action="ward:refresh">Try again</button>`,
     }));
   }
   const unread = v.cache ? v.columns.filter((c) => !c.readable && !c.loading) : [];
@@ -231,7 +235,7 @@ function banners(v) {
     out.push(banner({ tone: 'neutral', iconName: 'lock', title: 'View only', text: 'Your Google account can view this logsheet but not edit it, so ticks and edits stay on this device (Not synced). Ask the logsheet’s owner for edit access.' }));
   }
   if (v.link.roundsHere) {
-    out.push(html`<p class="ward-foot">${icon('smartphone')}<span>Ticks are kept on this device only (columns E–G of the logsheet are used for something else). <button type="button" class="link-inline" data-action="ward:rounds-sheet">Save ticks to the logsheet again</button></span></p>`);
+    out.push(html`<p class="ward-foot">${icon('smartphone')}<span>Ticks are kept on this device only (columns ${roundsSpan(v.layout)} of the logsheet are used for something else). <button type="button" class="link-inline" data-action="ward:rounds-sheet">Save ticks to the logsheet again</button></span></p>`);
   }
   if (v.cache?.truncated) {
     out.push(html`<p class="ward-foot">${icon('info')}<span>Only the first 2,000 rows of the logsheet are shown.</span></p>`);
@@ -301,32 +305,39 @@ function arrangeBar(v) {
   </div>`;
 }
 
-/** The table's column widths (iPad landscape and Mac), for the list's own columns. */
-function tableStyle(count) {
-  const cols = ['4.5rem', 'minmax(9rem, 1.1fr)', 'minmax(6.5rem, .55fr)', ...Array(count).fill(count > 3 ? 'minmax(10rem, 1.6fr)' : 'minmax(0, 1.8fr)')];
+/** The table's column widths (iPad landscape and Mac), for the columns shown. */
+function tableStyle(count, hidden) {
+  const cols = [
+    ...(hidden.rounded ? [] : ['4.5rem']),
+    'minmax(9rem, 1.1fr)',
+    ...(hidden.name || hidden.hn ? [] : ['minmax(6.5rem, .55fr)']),
+    ...Array(count).fill(count > 3 ? 'minmax(10rem, 1.6fr)' : 'minmax(0, 1.8fr)'),
+  ];
   return `--pt-cols: ${cols.join(' ')};${count > 3 ? ` --pt-min: ${22 + count * 10.5}rem;` : ''}`;
 }
 
 function tableHead(v) {
   const cell = (id, label) => html`<button type="button" class="pt__hbtn" data-action="ward:rename-col" data-col-id="${id}" title="Rename “${label}” in the app">${label}</button>`;
+  const h = v.hidden;
   return html`<div class="pt pt--head">
-    <span>${cell('rounded', v.headings.rounded)}</span>
-    <span>${cell('name', v.headings.name)}</span>
-    <span>${cell('hn', v.headings.hn)}</span>
+    ${h.rounded ? '' : html`<span>${cell('rounded', v.headings.rounded)}</span>`}
+    ${h.name ? html`<span>${cell('hn', v.headings.hn)}</span>` : html`<span>${cell('name', v.headings.name)}</span>`}
+    ${h.name || h.hn ? '' : html`<span>${cell('hn', v.headings.hn)}</span>`}
     ${v.columns.map((c) => html`<span>${cell(c.id, c.label)}</span>`)}
   </div>`;
 }
 
 function patientTable(v) {
   if (!v.patients.length) {
-    return html`<div class="card empty">${icon('sheet')}<span>No patients in “${v.link.tab}” yet. The app reads patients from row 2, with the name in column A.</span></div>`;
+    return html`<div class="card empty">${icon('sheet')}<span>No patients in “${v.link.tab}” yet. The app reads patients from row 2, with the name in column ${v.layout.name}.</span></div>`;
   }
+  const done = (p) => p.rounded && !v.hidden.rounded; // without the tick box, nobody is set apart as rounded
   const groups = v.arrange === 'location' ? locationGroups(v) : [
-    ...[1, 2, 3].map((level) => [`p${level}`, PRIORITY_LEVELS[level].group, 'flag', v.patients.filter((p) => !p.rounded && p.priority?.level === level)]),
-    ['todo', 'Not yet rounded', 'circle', v.patients.filter((p) => !p.rounded && !p.priority)],
-    ['done', 'Rounded', 'checkCircle', v.patients.filter((p) => p.rounded)],
+    ...[1, 2, 3].map((level) => [`p${level}`, PRIORITY_LEVELS[level].group, 'flag', v.patients.filter((p) => !done(p) && p.priority?.level === level)]),
+    ['todo', v.hidden.rounded ? 'Other patients' : 'Not yet rounded', 'circle', v.patients.filter((p) => !done(p) && !p.priority)],
+    ['done', 'Rounded', 'checkCircle', v.patients.filter(done)],
   ].filter((g) => g[3].length);
-  return html`<div class="ward-table${v.columns.length > 3 ? ' is-wide' : ''}" style="${tableStyle(v.columns.length)}">
+  return html`<div class="ward-table${v.columns.length > 3 ? ' is-wide' : ''}${v.hidden.rounded ? ' no-tick' : ''}" style="${tableStyle(v.columns.length, v.hidden)}">
     <div class="ward-table__inner">
       ${tableHead(v)}
       ${groups.map(([id, label, iconName, list]) => html`<section class="ward-group ward-group--${id}" aria-labelledby="wg-${id}">
@@ -341,12 +352,13 @@ function patientTable(v) {
 function locationGroups(v) {
   const groups = v.locations.map((loc, i) => [`loc${i}`, loc.name, 'pin', v.patients.filter((p) => p.location && locationKey(p.location) === loc.key)]);
   groups.push(['loc-none', 'No location', 'circle', v.patients.filter((p) => !p.location)]);
-  return groups.filter((g) => g[3].length).map((g) => [g[0], g[1], g[2], sortPatients(g[3])]);
+  const order = v.hidden.rounded ? (list) => sortPatients(list.map((p) => ({ ...p, rounded: false }))).map((x) => list.find((p) => p.id === x.id)) : sortPatients;
+  return groups.filter((g) => g[3].length).map((g) => [g[0], g[1], g[2], order(g[3])]);
 }
 
 /** "4" on the rounds groups; "1 of 4 rounded" by location (rounded patients stay in their place). */
 function groupCount(v, list) {
-  if (v.arrange !== 'location') return String(list.length);
+  if (v.arrange !== 'location' || v.hidden.rounded) return String(list.length);
   const done = list.filter((p) => p.rounded).length;
   return done ? `${done} of ${list.length} rounded` : String(list.length);
 }
@@ -381,7 +393,7 @@ function badges(p, v, { detail = false } = {}) {
   const out = [];
   if (p.priority) out.push(priorityBadge(p.priority));
   if (p.location && !detail) out.push(html`<span class="wbadge wbadge--loc">${icon('pin')}<span class="sr-only">Location: </span>${p.location}</span>`);
-  if (!detail) {
+  if (!detail && !v.hidden.rounded) {
     if (p.rounded) {
       out.push(html`<span class="wbadge wbadge--done">${icon('check')}${p.end ? `Rounded ${wardTime(p.end)}` : 'Rounded'}${p.durationMs != null ? ` · ${formatSpan(p.durationMs)}` : ''}</span>`);
     } else if (p.opened && v.active) {
@@ -416,14 +428,15 @@ function clampText(p, c, v) {
 }
 
 function patientRow(p, v) {
-  return html`<li class="pt${p.rounded ? ' is-rounded' : ''}${p.priority ? ` is-p${p.priority.level}` : ''}" data-id="${p.id}">
-    ${tickButton(p, v)}
+  const h = v.hidden;
+  return html`<li class="pt${p.rounded ? ' is-rounded' : ''}${p.priority ? ` is-p${p.priority.level}` : ''}${h.rounded ? ' pt--notick' : ''}" data-id="${p.id}">
+    ${h.rounded ? '' : tickButton(p, v)}
     <div class="pt__who">
-      <button type="button" class="pt__name" data-action="ward:open" data-id="${p.id}" data-focus="open-${p.id}">${p.name}${icon('chevronRight', 'pt__chev')}</button>
-      <p class="pt__hn">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : html`<span class="faint">No hospital number</span>`}</p>
+      <button type="button" class="pt__name" data-action="ward:open" data-id="${p.id}" data-focus="open-${p.id}">${h.name ? p.hn || p.name : p.name}${icon('chevronRight', 'pt__chev')}</button>
+      ${h.name || h.hn ? '' : html`<p class="pt__hn">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : html`<span class="faint">No hospital number</span>`}</p>`}
       ${badges(p, v)}
     </div>
-    <p class="pt__hn-cell">${p.hn || '—'}</p>
+    ${h.name || h.hn ? '' : html`<p class="pt__hn-cell">${p.hn || '—'}</p>`}
     ${v.columns.map((c) => clampText(p, c, v))}
   </li>`;
 }
@@ -483,7 +496,7 @@ function detailBody(p, v) {
   return html`<div class="ptd">
     <p class="ptd__meta">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet</p>
     ${badges(p, v, { detail: true })}
-    ${roundsBox(p, v)}
+    ${v.hidden.rounded ? '' : roundsBox(p, v)}
     ${v.columns.map((c) => html`<section class="ptd__section" aria-labelledby="ptd-${c.col}">
       <div class="ptd__head">
         <h3 class="ptd__title" id="ptd-${c.col}">${c.label}</h3>
@@ -735,8 +748,9 @@ function setupFeedback(state) {
   const c = state.check;
   const notes = [];
   if (c.headers?.state === 'taken') {
-    const seen = c.headers.values.map((val, i) => `${'EFG'[i]}1 ${val ? `“${val}”` : '(empty)'}`).join(' · ');
-    notes.push(html`<p class="note ward-note--warn">${icon('info')}<span><strong>Columns E–G are already in use</strong> (${seen}${c.headers.dataBelow ? ', with data below' : ''}). The app won’t overwrite them, so ticks would be kept on this device only. If those columns are unused, clear them in the logsheet and tap Check again.</span></p>`);
+    const cols = c.headers.cols ?? ['E', 'F', 'G'];
+    const seen = c.headers.values.map((val, i) => `${cols[i]}1 ${val ? `“${val}”` : '(empty)'}`).join(' · ');
+    notes.push(html`<p class="note ward-note--warn">${icon('info')}<span><strong>Columns ${cols[0]}–${cols[2]} are already in use</strong> (${seen}${c.headers.dataBelow ? ', with data below' : ''}). The app won’t overwrite them, so ticks would be kept on this device only. If those columns are unused, clear them in the logsheet and tap Check again.</span></p>`);
   }
   if (c.canEdit === false) notes.push(html`<p class="note ward-note--warn">${icon('lock')}<span><strong>View only.</strong> Your Google account can see this logsheet but not edit it, so ticks and edits couldn’t be saved to it. Ask its owner for edit access.</span></p>`);
   if (!c.patients) notes.push(html`<p class="note ward-note--warn">${icon('info')}<span>No patients found from row 2 of “${c.tab}”. Is it the right tab?</span></p>`);
@@ -783,7 +797,7 @@ async function openSetup(id = listId) {
           <button type="submit" class="btn btn--primary" data-submit>Check logsheet</button>
         </div>
       </form>
-      <p class="note">${icon('lock')}<span>Saved on this device only — never synced, backed up or written into the app. Patients are read from row 2: A Name · B Hospital Number${columns ? ` · ${columns}` : ''}. Rounds go in columns E–G, and your edits go back to their own columns. Names and hospital numbers (A, B) are never changed.</span></p>
+      <p class="note">${icon('lock')}<span>Saved on this device only — never synced, backed up or written into the app. Patients are read from row 2: ${list.layout().name} Name · ${list.layout().hn} Hospital Number${columns ? ` · ${columns}` : ''}. Rounds go in columns ${roundsSpan(list.layout())}, and your edits go back to their own columns. Names and hospital numbers are never changed. (Different columns? Link it, then choose them in Columns → Where things are.)</span></p>
       ${!link || link.test ? html`<div class="ward-setup__test">
         <p>${link?.test ? 'Practice logsheet in use.' : 'Want to try it first?'} A practice logsheet with made-up patients can be created in your Google Drive.</p>
         <button type="button" class="btn btn--sm" data-test>${icon('sparkles')}Create a practice logsheet</button>
@@ -805,7 +819,7 @@ async function openSetup(id = listId) {
         submit.disabled = true;
         submit.textContent = 'Checking…';
         try {
-          check = await checkLogsheet({ url: form.url.value, tab: form.tab.value });
+          check = await checkLogsheet({ url: form.url.value, tab: form.tab.value, layout: wardList(id)?.layout() });
           show({ check });
         } catch (err) {
           show({ error: err });

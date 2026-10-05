@@ -57,6 +57,7 @@ export function initDashboard() {
   on('backup', () => refreshIfVisible());
   on('sync', () => { if (visible && snapshot) renderHero(); });
   on('ward', () => refreshIfVisible());
+  on('referrals', () => refreshIfVisible());
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refreshIfVisible();
   });
