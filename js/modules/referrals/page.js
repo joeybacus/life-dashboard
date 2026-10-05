@@ -280,7 +280,7 @@ function calendarView(patients) {
   const range = `${wardDay(start)} – ${wardDay(weeks[1][6])}`;
   const overdue = active.filter((p) => p.next && p.next < today).sort(byNext);
   const none = active.filter((p) => !p.next).sort(byName);
-  const chip = (p) => html`<button type="button" class="rcal__chip rcal__chip--${dayState(p.next, today)}${p.unsynced ? ' is-unsynced' : ''}" data-action="ref:open" data-id="${p.id}" data-focus="cal-${p.id}"${p.can.next ? raw(' data-drag="1"') : ''} aria-description="${p.can.next ? 'Drag to another day to change Next rounds' : ''}">
+  const chip = (p) => html`<button type="button" class="rcal__chip rcal__chip--${dayState(p.next, today)}${p.unsynced ? ' is-unsynced' : ''}" data-action="ref:open" data-id="${p.id}" data-focus="cal-${p.id}" title="${p.name}${p.location ? ` · ${p.location}` : ''}"${p.can.next ? raw(' data-drag="1"') : ''} aria-description="${p.can.next ? 'Drag to another day to change Next rounds' : ''}">
     <span class="rcal__name">${p.name}</span>${p.location ? html`<span class="rcal__loc">${icon('pin')}${p.location}</span>` : ''}${(p.waiting ?? []).some((w) => !w.done) ? html`<span class="rcal__wait" title="Waiting for something">${icon('hourglass')}<span class="sr-only">Waiting for something</span></span>` : ''}${p.unsynced ? html`<span class="rcal__sync" title="Not synced yet">${icon('cloud')}<span class="sr-only">Not synced yet</span></span>` : ''}
   </button>`;
   return html`<div class="rcal" data-rcal>

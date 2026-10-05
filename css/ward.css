@@ -659,3 +659,22 @@ button.wbadge { cursor: pointer; }
 .rcal [data-drop-day].is-over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card-bg)); box-shadow: inset 0 0 0 1px var(--accent); }
 .rcal__drop-none .rcal__none-hint { font-size: var(--fs-sm); color: var(--text-3); padding-bottom: 4px; }
 .rfd .ptd__section > p > .icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -3px; margin-right: 2px; }
+
+/* Calendar names: two lines per box — the name (one line), then the location */
+.rcal__chip {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1px 6px;
+  min-height: 0; padding: 5px 8px; border-radius: var(--r-sm, 8px); line-height: 1.25;
+}
+.rcal__name { grid-column: 1; grid-row: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+.rcal__loc { grid-column: 1 / -1; grid-row: 2; min-width: 0; font-size: var(--fs-2xs, .7rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcal__loc .icon { flex: none; width: .75rem; height: .75rem; }
+.rcal__wait, .rcal__sync { grid-row: 1; }
+.rcal__wait .icon, .rcal__sync .icon { width: .75rem; height: .75rem; }
+.rcal__chips { gap: 4px; }
+@media (min-width: 900px) {
+  .rcal__day, .rcal__day.is-empty { gap: 6px; padding: 8px; }
+  .rcal__chips { gap: 4px; }
+}
+.rcal__loc { display: block; color: var(--text-2); }
+.rcal__loc .icon { display: inline-block; margin-right: 3px; vertical-align: -1px; }
+@media (min-width: 900px) { .rcal__day, .rcal__day.is-empty { align-items: stretch; } }
