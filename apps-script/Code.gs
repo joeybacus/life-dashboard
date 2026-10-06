@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 10;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change)
+const SCRIPT_VERSION = 11;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -297,7 +297,9 @@ function pull_(ss, props, req) {
  * the sheet has no rounds columns (a referral census, version 9): nothing is
  * ever written for rounds.
  *   dates: ['K', 'L']  (version 9) — columns holding a day: read as
- *   "YYYY-MM-DD" when the cell is a date, and a day written there becomes a date. Below, "A",
+ *   "YYYY-MM-DD" when the cell is a date, and a day written there becomes a date.
+ *   checks: ['A']  (version 11) — tick-box columns: read as "TRUE" / "FALSE", and
+ *   "TRUE" / "FALSE" written there tick or untick the checkbox (never as text). Below, "A",
  * "B" and "E–G" mean those columns, wherever they are. In writes, the rounds
  * cells are still called E, F and G (Rounded, Rounds Start, Rounds End).
  *
@@ -564,7 +566,7 @@ function wardRead_(sheet, headers, cols, L, dates) {
     const width = Math.min(widest, sheet.getMaxColumns());
     const shown = sheet.getRange(2, 1, count, width).getDisplayValues();
     const raw = headers.state === 'ours' ? sheet.getRange(2, L.rounds, count, 3).getValues() : null;
-    const values = dates && dates.cols.length ? sheet.getRange(2, 1, count, width).getValues() : null;
+    const values = dates && (dates.cols.length || dates.checks.length) ? sheet.getRange(2, 1, count, width).getValues() : null;
     for (let i = 0; i < count; i++) {
       const name = String(shown[i][L.name - 1] == null ? '' : shown[i][L.name - 1]).trim();
       if (!name) continue;
@@ -573,7 +575,8 @@ function wardRead_(sheet, headers, cols, L, dates) {
         item.cells = {};
         cols.forEach(function (c) {
           const at = wardColIndex_(c) - 1;
-          item.cells[c] = values && dates.cols.indexOf(c) >= 0 ? wardDay_(values[i][at], shown[i][at], dates.tz) : wardText_(shown[i][at]);
+          if (values && dates.checks.indexOf(c) >= 0) item.cells[c] = wardBool_(values[i][at]) ? 'TRUE' : 'FALSE';
+          else item.cells[c] = values && dates.cols.indexOf(c) >= 0 ? wardDay_(values[i][at], shown[i][at], dates.tz) : wardText_(shown[i][at]);
         });
       }
       if (raw) {
@@ -724,6 +727,8 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
   const all = cols.concat(Object.keys(expect).filter(function (c) { return cols.indexOf(c) < 0; }));
   const isRounds = function (c) { return !text && (c === 'E' || c === 'F' || c === 'G'); };
   const isDay = function (c) { return text && Boolean(dates) && dates.cols.indexOf(c) >= 0; };
+  const isCheck = function (c) { return text && Boolean(dates) && dates.checks.indexOf(c) >= 0; };
+  if (cols.some(function (c) { return isCheck(c) && !/^(TRUE|FALSE)$/.test(String(set[c])); })) return { status: 'invalid' };
   const real = function (c) { return isRounds(c) ? wardRoundsCol_(L, c) : wardColIndex_(c); }; // the column it's in
   const widest = all.reduce(function (most, c) { return Math.max(most, real(c)); }, 1);
   const first = all.reduce(function (least, c) { return Math.min(least, real(c)); }, widest);
@@ -738,6 +743,7 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
   all.forEach(function (c) {
     if (isRounds(c)) current[c] = c === 'E' ? wardBool_(raw[at(c)]) : wardTime_(raw[at(c)], shown[at(c)]);
     else if (isDay(c)) current[c] = wardDay_(raw[at(c)], shown[at(c)], dates.tz);
+    else if (isCheck(c)) current[c] = wardBool_(raw[at(c)]) ? 'TRUE' : 'FALSE';
     else current[c] = wardText_(shown[at(c)]);
   });
   const same = function (c, a, b) { return isRounds(c) && c === 'E' ? Boolean(a) === Boolean(b) : String(a == null ? '' : a) === String(b == null ? '' : b); };
@@ -753,7 +759,7 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
   // A dropdown column takes only its own values: write the dropdown's own spelling ("Inactive" → "INACTIVE")
   for (let i = 0; i < cols.length; i++) {
     const c = cols[i];
-    if (isRounds(c) || isDay(c) || set[c] === '') continue;
+    if (isRounds(c) || isDay(c) || isCheck(c) || set[c] === '') continue;
     const choices = wardChoices_(sheet.getRange(row, real(c)));
     if (!choices) continue;
     const want = String(set[c]).trim().toLowerCase();
@@ -766,6 +772,7 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
     cols.forEach(function (c) {
       const cell = sheet.getRange(row, real(c));
       if (isRounds(c) && c === 'E') cell.setValue(set.E);
+      else if (isCheck(c)) cell.setValue(set[c] === 'TRUE'); // a real tick (the cell keeps its checkbox)
       else if (isDay(c) && /^\d{4}-\d{2}-\d{2}$/.test(set[c])) cell.setValue(set[c]); // a day: Sheets keeps it as a date (in the cell's own format)
       else cell.setNumberFormat('@').setValue(set[c]); // text, so Sheets never turns it into a date or formula
     });
@@ -915,10 +922,10 @@ function wardChoicesOf_(sheet, cols) {
 
 /** The columns of a request that hold days, and the logsheet's time zone (for reading dates). */
 function wardDates_(req, ss) {
-  const cols = Array.isArray(req.dates) ? req.dates.slice(0, WARD_MAX_COLS).map(String).filter(function (c) { return wardColIndex_(c) > 0; }) : [];
+  const letters = function (list) { return Array.isArray(list) ? list.slice(0, WARD_MAX_COLS).map(String).filter(function (c) { return wardColIndex_(c) > 0; }) : []; };
   let tz = WARD_TZ;
   try { tz = ss.getSpreadsheetTimeZone() || WARD_TZ; } catch (err) { /* keep Manila */ }
-  return { cols: cols, tz: tz };
+  return { cols: letters(req.dates), checks: letters(req.checks), tz: tz };
 }
 
 /** A day as the app reads it: "YYYY-MM-DD" when the cell is a date, otherwise its text. */

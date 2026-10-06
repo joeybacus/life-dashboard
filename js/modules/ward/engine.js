@@ -24,7 +24,7 @@ import { SyncError, callSyncScript, syncScriptVersion, syncSnapshot } from '../.
 import {
   DEFAULT_LIST_ID, DEFAULT_LIST_NAME, FIXED_HEADINGS, LOAD_PROBLEMS, MAX_TEXT, cleanLocation, cleanName, cleanText, defaultColumns,
   fromSheetTime, hnKey, manilaDateKey, msUntilManilaMidnight, parseSheetLink, previousDateKey, priorityOf,
-  CENSUS_SCRIPT_VERSION, LAYOUT_SCRIPT_VERSION, isDefaultLayout, layoutOf, locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
+  CENSUS_SCRIPT_VERSION, CHECK_SCRIPT_VERSION, LAYOUT_SCRIPT_VERSION, isDefaultLayout, layoutOf, locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
 } from './model.js';
 import * as store from './store.js';
 
@@ -174,6 +174,11 @@ class WardList {
     if (!this.cache?.choices?.[col] && !status) return value;
     const want = value.trim().toLowerCase();
     return this.choicesFor(col).values.find((v) => v.toLowerCase() === want) ?? value;
+  }
+
+  /** Tick-box columns (type 'check'): read and written as real checkboxes (sync script 11). */
+  checkCols() {
+    return (this.def.columns ?? []).filter((c) => c.type === 'check').map((c) => c.col);
   }
 
   /** Columns holding days (Last rounds, Next rounds): sent as dates. */
@@ -392,7 +397,8 @@ class WardList {
       }
     }
     const waiting = this.outgoing();
-    const held = waiting.filter((i) => i.kind !== 'rounds' && version < scriptForColumn(i.kind, layout));
+    const checks = this.checkCols();
+    const held = waiting.filter((i) => i.kind !== 'rounds' && version < (checks.includes(i.kind) ? CHECK_SCRIPT_VERSION : scriptForColumn(i.kind, layout)));
     for (const item of held) {
       if (item.problem === 'needs-update') continue;
       Object.assign(item, { state: 'blocked', problem: 'needs-update' });
@@ -412,14 +418,16 @@ class WardList {
         ...this.layoutField(),
         writes: sent.map((i) => ({
           // The census never asks: with nothing expected, the app's text replaces whatever the cell holds
-          id: `${i.key}#${i.rev}`, hn: i.hn, expect: this.isCensus ? {} : i.expect, set: i.set, quiet: !this.isCensus && i.day < date,
-          // Columns other than C and D need sync script 7, which reads them as plain text (always, with your own layout)
-          ...(i.kind === 'rounds' || ((i.kind === 'C' || i.kind === 'D') && isDefaultLayout(layout)) ? {} : { text: true }),
+          // A tick-box column never asks either: your tick is what you meant
+          id: `${i.key}#${i.rev}`, hn: i.hn, expect: this.isCensus || checks.includes(i.kind) ? {} : i.expect, set: i.set, quiet: !this.isCensus && i.day < date,
+          // Columns other than C and D need sync script 7, which reads them as plain text (always, with your own layout or a tick-box column)
+          ...(i.kind === 'rounds' || ((i.kind === 'C' || i.kind === 'D') && isDefaultLayout(layout) && !checks.length) ? {} : { text: true }),
         })),
         claim: toSheet,
         resetBefore: reset ? date : undefined,
         cols,
         ...(this.dateCols().length ? { dates: this.dateCols() } : {}),
+        ...(checks.length ? { checks } : {}),
         ...(op?.addColumn ? { addColumn: op.addColumn } : {}),
         ...(op?.move ? { move: op.move } : {}),
       });
@@ -677,6 +685,17 @@ class WardList {
     publish(this.id);
     this.sendSoon();
     return entry;
+  }
+
+  /** Tick (true) or untick a patient's tick-box column (e.g. column A). Shows straight away; saved in the background. */
+  async setCheck(key, col, on) {
+    const r = this.rowByKey(key);
+    if (!r) return null;
+    const label = this.def.columns.find((c) => c.col === col)?.label ?? `column ${col}`;
+    await this.queueChange(r, col, { [col]: on ? 'TRUE' : 'FALSE' }, label);
+    publish(this.id);
+    this.sendSoon();
+    return true;
   }
 
   /** Save an edited column (e.g. 'C' lab results). Resolves with the change's state afterwards. */

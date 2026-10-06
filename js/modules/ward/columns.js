@@ -76,7 +76,7 @@ function columnsBody(list) {
         <span class="ward-col__handle" data-drag-handle title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>
         <span class="ward-col__tag">${c.col}</span>
         <span class="ward-col__text"><span class="ward-col__label">${c.label}</span>
-          <span class="ward-col__sub">Column ${c.col}${inSheet ? ` · “${inSheet}” in the logsheet` : ''}${c.priority ? ' · sets P1–P3' : ''}${c.location ? ' · location' : ''}${c.readable || c.loading ? '' : ' · needs a sync script update'}</span></span>
+          <span class="ward-col__sub">Column ${c.col}${inSheet ? ` · “${inSheet}” in the logsheet` : ''}${c.priority ? ' · sets P1–P3' : ''}${c.location ? ' · location' : ''}${c.type === 'check' ? ' · tick box' : ''}${c.readable || c.loading ? '' : ' · needs a sync script update'}</span></span>
         <span class="ward-col__actions">
           <button type="button" class="btn btn--sm btn--ghost" data-col-rename="${c.id}" aria-label="Rename ${c.label}">${icon('edit')}<span class="ward-col__btn-text">Rename</span></button>
           <button type="button" class="btn btn--sm btn--ghost ward-col__remove" data-col-remove="${c.id}" aria-label="Remove ${c.label}">${icon('trash')}<span class="ward-col__btn-text">Remove</span></button>
@@ -86,6 +86,7 @@ function columnsBody(list) {
       </li>`;
     })}</ol>` : html`<p class="ward-cols__none">No other columns — only names and hospital numbers show.</p>`}
     <button type="button" class="btn btn--block ward-cols__add" data-col-add>${icon('plus')}Add column</button>
+    <button type="button" class="btn btn--block ward-cols__add ward-cols__add-tick" data-col-add-tick>${icon('checkCircle')}Add tick column</button>
     ${locationRow(list)}
     <p class="ward-cols__foot">Removing ${headings.rounded}, ${headings.name} or ${headings.hn} hides it in the app only (one of ${headings.name} and ${headings.hn} always shows). Drag ${icon('grip')} to change the order of the other columns.</p>`;
 }
@@ -161,6 +162,7 @@ export async function openColumns(listId) {
           return;
         }
         if (event.target.closest('[data-col-add]')) await addColumn(listId);
+        if (event.target.closest('[data-col-add-tick]')) await addTickColumn(listId);
         if (event.target.closest('[data-col-location]')) await setupLocation(listId);
       });
     },
@@ -620,4 +622,98 @@ export async function openLayout(listId) {
   });
   toast('Columns updated. Reloading the list…', { icon: 'sheet' });
   wardList(listId)?.refresh();
+}
+
+
+/* ---------- A tick column (a checkbox column of the logsheet, e.g. A for another script) ---------- */
+
+/**
+ * Show one of the logsheet's checkbox columns as a tick circle: ticking it in
+ * the app ticks the checkbox in the logsheet (and the other way round). Needs
+ * sync script 11 to tick the logsheet; until then ticks wait on this device.
+ */
+async function addTickColumn(listId) {
+  const list = wardList(listId);
+  if (!list) return;
+  const blocked = addBlocker(list);
+  if (blocked) {
+    const go = await confirmDialog({ title: blocked.title, message: blocked.message, confirmLabel: blocked.action[0] });
+    if (go) {
+      const el = document.createElement('span');
+      el.dataset.list = listId;
+      runAction(blocked.action[1], el);
+    }
+    return;
+  }
+  const others = otherColumns(list.def, list.cache.headings, list.cache.headers?.state);
+  if (!others.length) {
+    await confirmDialog({ title: 'No column to use', message: 'Every column of the logsheet is already shown (or holds the name, hospital number or rounds). Add a checkbox column in Google Sheets first, then try again.', confirmLabel: 'OK', cancelLabel: 'Close' });
+    return;
+  }
+  const first = others.find((o) => o.col === 'A') ?? others[0];
+  const result = await openDialog({
+    variant: 'sheet',
+    className: 'ward-addcol accent-neuro',
+    dismissible: false,
+    title: 'Add a tick column',
+    body: html`<form class="form" data-addtick novalidate>
+      <p class="dlg__msg">Shows a checkbox column of ${where(list)} as a tick circle at the end of each row. Ticking it here ticks the checkbox in the logsheet, and unticking unticks it — handy for another script that works on the ticked rows.</p>
+      <fieldset class="ward-where">
+        <legend class="field__label">Which column holds the checkboxes</legend>
+        ${others.map((o) => html`<label class="ward-where__opt"><input type="radio" name="where" value="${o.col}" data-heading="${o.heading}"${raw(o === first ? ' checked' : '')}>
+          <span class="ward-where__text"><strong>Column ${o.col}</strong><small>${o.heading ? `“${o.heading}”` : 'No heading'}</small></span></label>`)}
+      </fieldset>
+      <label class="field"><span class="field__label">Heading in the app</span>
+        <input class="input" name="heading" maxlength="40" value="${first.heading || 'Check labs'}" autocomplete="off" enterkeyhint="done">
+      </label>
+      ${(syncScriptVersion() ?? 0) < 11 ? html`<p class="note">${icon('sparkles')}<span>Ticking the logsheet needs version 11 of the sync script. Until it’s updated, ticks are kept on this device.</span></p>` : ''}
+      <p class="form-error" data-error hidden></p>
+      <div class="form__actions">
+        <button type="button" class="btn btn--ghost" data-cancel>Cancel</button>
+        <button type="submit" class="btn btn--primary">Next</button>
+      </div>
+    </form>`,
+    onOpen(dlg, close) {
+      const form = dlg.querySelector('[data-addtick]');
+      const field = form.elements.heading;
+      const error = form.querySelector('[data-error]');
+      let filled = field.value;
+      form.addEventListener('change', (event) => {
+        if (event.target.name !== 'where') return;
+        if (field.value === filled) {
+          field.value = event.target.dataset.heading || 'Check labs';
+          filled = field.value;
+        }
+      });
+      form.querySelector('[data-cancel]').addEventListener('click', async () => {
+        if (field.value !== filled && !(await confirmDialog({ title: 'Discard this column?', message: 'What you typed will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return;
+        close(null);
+      });
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const heading = cleanName(field.value);
+        if (!heading) {
+          setHTML(error, html`Type a heading for the column.`);
+          error.hidden = false;
+          return;
+        }
+        close({ col: form.querySelector('input[name="where"]:checked')?.value ?? first.col, heading });
+      });
+    },
+  });
+  if (!result || typeof result !== 'object') return;
+  const fresh = wardList(listId);
+  if (!fresh) return;
+  const ok = await confirmDialog({
+    title: `Add column ${result.col} as a tick column?`,
+    message: `“${result.heading}” shows as a tick circle at the end of each row. Ticking or unticking it changes the checkbox in column ${result.col} of the logsheet for that patient — nothing else. The logsheet itself isn’t changed now.`,
+    confirmLabel: 'Add tick column',
+  });
+  if (!ok) return;
+  await updateList(listId, (def) => {
+    if (def.columns.some((c) => c.col === result.col)) return;
+    def.columns = [...def.columns, { id: uid(), col: result.col, label: result.heading, type: 'check' }];
+  });
+  toast(`“${result.heading}” (column ${result.col}) added as a tick column.`, { icon: 'checkCircle' });
+  fresh.refresh();
 }

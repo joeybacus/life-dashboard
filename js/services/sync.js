@@ -56,8 +56,9 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    columns, add columns and move rows; 8 adds the Referrals tab and reads a
    logsheet's names, hospital numbers and rounds from the columns you choose;
    9 reads a referral census (no rounds columns, days as dates); 10 knows dropdown
-   columns (writes their own values; a value they refuse fails only that change). */
-export const LATEST_SCRIPT_VERSION = 10;
+   columns (writes their own values; a value they refuse fails only that change);
+   11 ticks and unticks real checkboxes (a list's tick columns, e.g. column A). */
+export const LATEST_SCRIPT_VERSION = 11;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 /* A device that synced with an older app skipped the kinds of data that app

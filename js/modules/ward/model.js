@@ -151,6 +151,9 @@ export const roundsCols = (L) => (L.rounds ? [0, 1, 2].map((i) => colLetter(colI
 /** A referral census (no rounds columns, days in its Last / Next rounds columns) needs sync script 9. */
 export const CENSUS_SCRIPT_VERSION = 9;
 
+/** A tick-box column (a list column with type 'check', e.g. column A for another script) needs sync script 11. */
+export const CHECK_SCRIPT_VERSION = 11;
+
 /** The sync script version that can save edits to a column: D since 3, C since 4, any other since 7 — and 8 for any when the layout isn't the usual one. */
 export const scriptForColumn = (col, L = DEFAULT_LAYOUT) => (!L.rounds ? CENSUS_SCRIPT_VERSION : !isDefaultLayout(L) ? LAYOUT_SCRIPT_VERSION : col === 'D' ? 3 : col === 'C' ? 4 : LISTS_SCRIPT_VERSION);
 

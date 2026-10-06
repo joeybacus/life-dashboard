@@ -743,3 +743,18 @@ button.wbadge { cursor: pointer; }
 .neuro-today__loc .icon { display: inline-block; width: .75rem; height: .75rem; margin-right: 3px; vertical-align: -1px; }
 .neuro-today__none { font-size: var(--fs-sm); color: var(--text-3); }
 .neuro-today__more { margin-top: 6px; }
+
+/* Tick columns (a checkbox column of the logsheet, e.g. A) */
+.pt__field--check { display: flex; align-items: center; gap: 10px; }
+.pt__field--check .pt__label { margin: 0; }
+.pt__tick--col { grid-column: auto; grid-row: auto; margin: 0; }
+.pt__tick--col.is-unsynced .pt__box { border-style: dashed; }
+.pt__tick--col[aria-checked="true"] .pt__box, .ptd__check .pt__tick[aria-checked="true"] .pt__box { background: var(--accent); border-color: var(--accent); color: #062015; }
+.pt__tick--col.is-disabled .pt__box { opacity: .5; }
+.ptd__check { display: flex; align-items: center; gap: 10px; }
+.ptd__check .pt__tick { margin: 0; }
+.ward-cols__add-tick { margin-top: 8px; }
+@media (min-width: 1024px) {
+  .pt__field--check { display: block; }
+  .pt__field--check .pt__label { display: none; }
+}

@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 10
+SCRIPT_VERSION = 11
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -573,6 +573,27 @@ lr = log_rows(DD)
 check('v10: a status is written in the dropdown\'s own spelling', st['d1'] == 'ok' and lr[1][1] == 'INACTIVE', (st, lr[1][1]))
 check('v10: a value the dropdown doesn\'t have fails only that change', st['d2'] == 'not-a-choice' and res['results']['d2'].get('choices') == STATUSES and st['d3'] == 'ok' and lr[2][12] == 'Stroke, left MCA', st)
 check('v10: and the rest of the request still answers', res.get('ok') and len(res['rows']) == 2 and st['d4'] == 'ok' and lr[2][1] == 'FOR ROUNDS', (res.get('ok'), st))
+
+# Version 11: a tick-box column (column A, for another script that checks the labs of ticked patients)
+TB = '1' + 'T' * 43
+add_logsheet(TB, [
+    ['Run', 'Name', 'HRN', 'Labs', 'Notes', 'Rounded', 'Rounds Start', 'Rounds End'],
+    [True, 'Tick Patient 1', 'TB-001', 'Na 130', 'P1', False, '', ''],
+    [False, 'Tick Patient 2', 'TB-002', '', 'P3', False, '', ''],
+], max_cols=8)
+tw = {**base, 'spreadsheetId': TB, 'tab': 'Sheet1', 'layout': {'name': 'B', 'hn': 'C', 'rounds': 'F'}, 'checks': ['A']}
+res = gas('post', {**tw, 'action': 'wardSync', 'cols': ['A', 'D', 'E']})
+check('v11: a tick-box column is read as TRUE / FALSE', [r['cells']['A'] for r in res['rows']] == ['TRUE', 'FALSE'], [r['cells'] for r in res['rows']])
+res = gas('post', {**tw, 'action': 'wardSync', 'cols': ['A', 'D'], 'writes': [
+    {'id': 't1', 'hn': 'TB-001', 'text': True, 'expect': {}, 'set': {'A': 'FALSE'}},
+    {'id': 't2', 'hn': 'TB-002', 'text': True, 'expect': {}, 'set': {'A': 'TRUE'}},
+    {'id': 't3', 'hn': 'TB-002', 'text': True, 'expect': {}, 'set': {'A': 'yes please'}},
+]})
+st = {k: v['status'] for k, v in res['results'].items()}
+lr = log_rows(TB)
+check('v11: ticking and unticking write real checkbox values (not text)', st['t1'] == st['t2'] == 'ok' and lr[1][0] is False and lr[2][0] is True, (st, lr[1][0], lr[2][0]))
+check('v11: only TRUE or FALSE can go in a tick-box column', st['t3'] == 'invalid', st)
+check('v11: the answer shows the new ticks', [r['cells']['A'] for r in res['rows']] == ['FALSE', 'TRUE'], [r['cells'] for r in res['rows']])
 
 # ---------------------------------------------------------------------------
 print('\nTo-do tabs (version 5)')

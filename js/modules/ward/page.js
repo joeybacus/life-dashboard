@@ -418,7 +418,25 @@ function badges(p, v, { detail = false } = {}) {
   return out.some(Boolean) ? html`<p class="pt__badges">${out}</p>` : '';
 }
 
+/** A tick-box cell (TRUE / FALSE in the logsheet). */
+const isTicked = (text) => /^(true|yes|y|1|✓|✔|x)$/i.test(String(text ?? '').trim());
+
+/** A tick-box column's cell: a tick circle that ticks or unticks the logsheet's checkbox. */
+function checkCell(p, c) {
+  const on = isTicked(p.cells[c.col]);
+  const item = p.items[c.col];
+  const can = p.tickable && c.readable;
+  return html`<div class="pt__field pt__field--check">
+    <p class="pt__label">${c.label}</p>
+    ${can ? html`<button type="button" class="pt__tick pt__tick--col${item ? ' is-unsynced' : ''}" role="checkbox" aria-checked="${on ? 'true' : 'false'}"
+        aria-label="${c.label}: ${p.name}" data-action="ward:check" data-id="${p.id}" data-col="${c.col}" data-focus="check-${p.id}-${c.col}"
+        title="${on ? 'Ticked' : 'Not ticked'} in column ${c.col}${item ? ' · not synced yet' : ''}"><span class="pt__box">${icon('check')}</span></button>`
+      : html`<span class="pt__tick pt__tick--col is-disabled" role="img" aria-label="${c.label}: ${on ? 'ticked' : 'not ticked'}"><span class="pt__box">${on ? icon('check') : ''}</span></span>`}
+  </div>`;
+}
+
 function clampText(p, c, v) {
+  if (c.type === 'check') return checkCell(p, c);
   if (c.col === v.locationCol) {
     return html`<div class="pt__field pt__field--loc">
       <p class="pt__label">${c.label}</p>
@@ -514,9 +532,12 @@ function detailBody(p, v) {
     ${v.columns.map((c) => html`<section class="ptd__section" aria-labelledby="ptd-${c.col}">
       <div class="ptd__head">
         <h3 class="ptd__title" id="ptd-${c.col}">${c.label}</h3>
-        ${p.tickable && c.readable ? html`<button type="button" class="btn btn--sm" data-dact="edit" data-col="${c.col}" aria-label="Edit ${c.label}">${icon('edit')}Edit</button>` : ''}
+        ${p.tickable && c.readable && c.type !== 'check' ? html`<button type="button" class="btn btn--sm" data-dact="edit" data-col="${c.col}" aria-label="Edit ${c.label}">${icon('edit')}Edit</button>` : ''}
       </div>
       ${!c.readable ? html`<p class="faint">${c.loading ? 'Loading this column — it appears once the list refreshes.' : `Update the sync script (Settings → Sync) to see column ${c.col}.`}</p>`
+        : c.type === 'check' ? html`<div class="ptd__check">${p.tickable
+          ? html`<button type="button" class="pt__tick" role="checkbox" aria-checked="${isTicked(p.cells[c.col]) ? 'true' : 'false'}" aria-label="${c.label}" data-action="ward:check" data-id="${p.id}" data-col="${c.col}"><span class="pt__box">${icon('check')}</span></button>`
+          : ''}<span>${isTicked(p.cells[c.col]) ? `Ticked in column ${c.col} of the logsheet` : `Not ticked in column ${c.col}`}</span></div>`
         : p.cells[c.col] ? html`<div class="prose ptd__text">${p.cells[c.col]}</div>` : html`<p class="faint">Empty in the logsheet.</p>`}
       ${changeNote(p.items[c.col])}
     </section>`)}
@@ -1023,6 +1044,18 @@ registerAction('ward:tick', (el) => {
   if (!p?.tickable) return;
   if (p.rounded) untick(p);
   else tick(p, true);
+});
+registerAction('ward:check', async (el) => {
+  const list = current();
+  const p = findPatient(el.dataset.id);
+  const c = list?.columns().find((x) => x.col === el.dataset.col);
+  if (!p?.tickable || !c) return;
+  const on = !isTicked(p.cells[c.col]);
+  await list.setCheck(p.key, c.col, on);
+  announce(`${p.name}: ${c.label} ${on ? 'ticked' : 'unticked'}.`);
+  if ((syncScriptVersion() ?? 0) < 11) {
+    toast('Saved on this device. Update the sync script to tick the logsheet too.', { icon: 'sparkles', duration: 7000, action: { label: 'Show me how', onClick: () => runAction('sync:update') } });
+  }
 });
 registerAction('ward:more', (el) => {
   const id = el.dataset.clampId;
