@@ -725,3 +725,21 @@ button.wbadge { cursor: pointer; }
 .refs-leg__color[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface-solid) inset; }
 .refs-legend-sheet .form__actions { margin-top: 16px; }
 .refs-legend-sheet .dlg__msg .icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -3px; }
+
+/* Main dashboard: referrals to see today */
+.neuro-today { margin-top: 12px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); }
+.neuro-today__title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.neuro-today__list { display: flex; flex-direction: column; gap: 4px; }
+.neuro-today__item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; align-items: center; width: 100%;
+  padding: 6px 10px; border-radius: var(--r-sm); text-align: left; background: var(--surface-2); border: 1px solid var(--border);
+}
+.neuro-today__item.has-label { border-left: 4px solid var(--lc); padding-left: 8px; }
+@media (hover: hover) { .neuro-today__item:hover { border-color: var(--border-2); } .neuro-today__item.has-label:hover { border-left-color: var(--lc); } }
+.neuro-today__name { min-width: 0; font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.neuro-today__labels { display: inline-flex; gap: 3px; }
+.neuro-today__labels .rf__dot { width: .5rem; height: .5rem; }
+.neuro-today__loc { grid-column: 1 / -1; min-width: 0; font-size: var(--fs-2xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.neuro-today__loc .icon { display: inline-block; width: .75rem; height: .75rem; margin-right: 3px; vertical-align: -1px; }
+.neuro-today__none { font-size: var(--fs-sm); color: var(--text-3); }
+.neuro-today__more { margin-top: 6px; }

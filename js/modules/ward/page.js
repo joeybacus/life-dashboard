@@ -208,6 +208,17 @@ function banners(v) {
       actions: html`<button type="button" class="btn btn--sm btn--primary" data-action="sync:update">Show me how</button>`,
     }));
   }
+  for (const item of v.blocked.filter((i) => i.problem === 'stuck' || i.problem === 'not-a-choice')) {
+    const yours = item.kind === 'rounds' ? (item.set.E ? 'rounded' : 'not rounded') : String(item.set[item.kind] ?? '') || '(empty)';
+    out.push(banner({
+      tone: 'workout',
+      title: `Not saved: ${item.name}’s ${changeWhat(item)}`,
+      text: item.problem === 'not-a-choice'
+        ? html`That column of the logsheet only takes the values in its dropdown, and “${yours}” isn’t one of them.${item.choices?.length ? html`<br><span class="refs-error-detail">It takes: ${item.choices.join(', ')}</span>` : ''} Discard it and pick one of those.`
+        : html`Google failed twice while saving this change, so the list was loaded without it. Your change: “${yours}”.${item.detail ? html`<br><span class="refs-error-detail">Google said: “${item.detail}”</span>` : ''}`,
+      actions: html`<button type="button" class="btn btn--sm" data-action="ward:discard-change" data-key="${item.key}">Discard</button><button type="button" class="btn btn--sm btn--primary" data-action="ward:retry-change" data-key="${item.key}">Retry</button>`,
+    }));
+  }
   if (v.conflicts.length) {
     out.push(banner({
       tone: 'workout',
@@ -462,7 +473,10 @@ function changeNote(item) {
   if (item.state === 'conflict') {
     return html`<p class="note ward-note--warn">${icon('info')}<span>Someone changed this in the logsheet after the app loaded it. <button type="button" class="link-inline" data-action="ward:conflict" data-key="${item.key}">Choose a version</button></span></p>`;
   }
-  if (item.state === 'blocked') return html`<p class="note ward-note--warn">${icon('info')}<span>Not saved: ${WRITE_PROBLEMS[item.problem] ?? WRITE_PROBLEMS.invalid}.</span></p>`;
+  if (item.state === 'blocked') {
+    const setAside = item.problem === 'stuck' || item.problem === 'not-a-choice';
+    return html`<p class="note ward-note--warn">${icon('info')}<span>Not saved: ${WRITE_PROBLEMS[item.problem] ?? WRITE_PROBLEMS.invalid}.${item.problem === 'not-a-choice' && item.choices?.length ? ` It takes: ${item.choices.join(', ')}.` : ''}${setAside ? html` <button type="button" class="link-inline" data-action="ward:retry-change" data-key="${item.key}">Retry</button> · <button type="button" class="link-inline" data-action="ward:discard-change" data-key="${item.key}">Discard</button>` : ''}</span></p>`;
+  }
   return html`<p class="note">${icon('cloud')}<span>Not synced yet — it’s saved on this device and goes to the logsheet automatically.</span></p>`;
 }
 
@@ -1059,6 +1073,24 @@ registerAction('ward:discard', async (el) => {
   const ok = await confirmDialog({
     title: 'Discard this change?',
     message: item.kind !== 'rounds' ? `Your edit to ${item.name}’s ${item.label || `column ${item.kind}`} will be deleted from this device.` : `The rounds tick for ${item.name} won’t be saved to the logsheet (it stays in the rounds history).`,
+    confirmLabel: 'Discard',
+    destructive: true,
+  });
+  if (ok) await list.dropChange(item.key);
+});
+registerAction('ward:retry-change', async (el) => {
+  toast('Trying again…', { icon: 'refresh' });
+  await current()?.retryChange(el.dataset.key);
+});
+registerAction('ward:discard-change', async (el) => {
+  const list = current();
+  const item = list?.queue.get(el.dataset.key);
+  if (!item) return;
+  const ok = await confirmDialog({
+    title: 'Discard this change?',
+    message: item.kind === 'rounds'
+      ? `The rounds tick for ${item.name} won’t be saved to the logsheet (it stays in the rounds history).`
+      : `${item.name}’s ${item.label || `column ${item.kind}`} stays as it is in the logsheet. Your change is deleted from this device.`,
     confirmLabel: 'Discard',
     destructive: true,
   });

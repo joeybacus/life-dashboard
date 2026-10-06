@@ -14,11 +14,13 @@ import { on } from '../core/events.js';
 import { html, raw, setHTML } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { pageHead } from '../core/components.js';
-import { wardSummaries } from './ward/engine.js';
+import { censusList, wardSummaries } from './ward/engine.js';
+import { manilaDateKey } from './ward/model.js';
+import { colorOf, labelRank, labelsOf } from './referrals/labels.js';
 import { handleCardClick, historyPage, listPage } from './ward/page.js';
 import './ward/manage.js'; // New list, and each list's ⋯ menu
 import { handleReferralClick, referralsPage } from './referrals/page.js';
-import { referralSummary } from './referrals/patients.js';
+import { referralPatients, referralSummary } from './referrals/patients.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -63,6 +65,32 @@ function referralsLink({ compact = false } = {}) {
     : html`<div class="card ward-entry ward-entry--solo"><a class="ward-entry__link" ${raw(attrs)}>${inner}</a></div>`;
 }
 
+const TODAY_SHOWN = 8;
+let lastCensusTry = 0;
+
+/** The dashboard card: referrals to see today, labelled ones first (tap a name to open the patient). */
+function todaysReferrals() {
+  const today = manilaDateKey();
+  const active = referralPatients().filter((p) => p.active);
+  const due = active.filter((p) => p.next === today)
+    .sort((a, b) => labelRank(a.labels) - labelRank(b.labels) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  const overdue = active.filter((p) => p.next && p.next < today).length;
+  if (!due.length && !overdue) return '';
+  const more = due.length - TODAY_SHOWN;
+  return html`<section class="neuro-today" aria-labelledby="neuro-today-title">
+    <h3 class="neuro-today__title" id="neuro-today-title">Referrals to see today<span class="ward-group__count">${due.length}</span></h3>
+    ${due.length ? html`<ul class="neuro-today__list">${due.slice(0, TODAY_SHOWN).map((p) => {
+      const labels = labelsOf(p.labels);
+      return html`<li><button type="button" class="neuro-today__item${labels.length ? ' has-label' : ''}" data-action="ref:open" data-id="${p.id}" style="${labels.length ? `--lc: ${colorOf(labels[0].color).hex}` : ''}">
+        <span class="neuro-today__name">${p.name}</span>
+        ${labels.length ? html`<span class="neuro-today__labels">${labels.map((l) => html`<span class="rf__dot" style="--lc: ${colorOf(l.color).hex}" aria-hidden="true"></span>`)}<span class="sr-only">${labels.map((l) => l.name).join(', ')}</span></span>` : ''}
+        ${p.location ? html`<span class="neuro-today__loc">${icon('pin')}${p.location}</span>` : ''}
+      </button></li>`;
+    })}</ul>` : html`<p class="neuro-today__none">Nobody planned for today.</p>`}
+    ${more > 0 || overdue ? html`<button type="button" class="link-btn neuro-today__more" data-action="nav" data-route="neurology" data-sub="referrals">${[more > 0 ? `${more} more today` : '', overdue ? `${overdue} overdue` : ''].filter(Boolean).join(' · ')} ${icon('arrowRight')}</button>` : ''}
+  </section>`;
+}
+
 /** A list's button on the Neurology tab, with its ⋯ menu (rename, move, delete). */
 function listCard(s) {
   return html`<div class="card ward-entry">
@@ -90,7 +118,16 @@ registerModule({
   icon: 'brain',
   accent: 'neuro',
   status: 'planned',
-  load: async () => wardSummaries(),
+  load: async () => {
+    // The dashboard shows today's referrals: bring the census up to date when it's a few minutes old
+    const census = censusList();
+    const stale = (at) => !(Date.now() - at < 3 * 60e3);
+    if (census?.link && census.phase !== 'loading' && stale(Date.parse(census.cache?.fetchedAt ?? '')) && stale(lastCensusTry)) {
+      lastCensusTry = Date.now(); // at most every 3 minutes, even when it fails
+      census.refresh();
+    }
+    return wardSummaries();
+  },
   summary(all) {
     const loaded = all.filter((s) => s.linked && s.loaded);
     const refs = referralSummary();
@@ -99,10 +136,11 @@ registerModule({
     const total = loaded.reduce((n, s) => n + s.total, 0);
     const rounded = loaded.reduce((n, s) => n + s.rounded, 0);
     const active = loaded.some((s) => s.active) ? ' · rounds in progress' : '';
+    const refsToday = refs.today ? `${refs.today} ${refs.today === 1 ? 'referral' : 'referrals'} to see today · ` : '';
     return {
-      text: loaded.length === 1
+      text: refsToday + (loaded.length === 1
         ? `${loaded[0].name}: ${rounded} of ${total} rounded${active}`
-        : `${loaded.map((s) => `${s.name} ${s.rounded}/${s.total}`).join(' · ')} rounded${active}`,
+        : `${loaded.map((s) => `${s.name} ${s.rounded}/${s.total}`).join(' · ')} rounded${active}`),
       progress: total ? rounded / total : null,
       ringText: `${rounded}/${total}`,
       ringLabel: `${rounded} of ${total} patients rounded`,
@@ -111,6 +149,7 @@ registerModule({
   body: (all) => html`
     ${all.map(listLink)}
     ${referralsLink({ compact: true })}
+    ${todaysReferrals()}
     <p class="neuro-note">${MESSAGE}</p>
     <div class="tag-cloud">${PLANNED_TOOLS.slice(0, 6).map((t) => html`<span class="tag">${t.name}</span>`)}</div>
     <div class="card-foot"><button type="button" class="link-btn" data-action="nav" data-route="neurology" data-sub="">Open Neurology ${icon('arrowRight')}</button></div>`,
