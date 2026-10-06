@@ -547,6 +547,8 @@ check('v9: a new day is saved as a date', st['n1'] == 'ok' and isinstance(lr[1][
 check('v9: a status is saved as text, and a text day becomes a date', st['n2'] == st['n3'] == 'ok' and lr[2][1] == 'For rounds' and isinstance(lr[2][11], dict), (st, lr[2]))
 check('v9: rounds writes are refused without rounds columns', st['n4'] == 'invalid' and lr[1][4] == 'Ward 3B – Bed 2', st)
 check('v9: a day changed by someone else is a conflict', st['n5'] == 'conflict' and res['results']['n5']['current'] == {'K': '2026-10-05'} and res['rows'][0]['cells']['L'] == '2026-10-09', res['results']['n5'])
+res = gas('post', {**cw, 'action': 'wardSync', 'cols': ['M'], 'writes': [{'id': 'n6', 'hn': 'CEN-001', 'text': True, 'expect': {}, 'set': {'M': 'App wins'}}]})
+check('v9: a referral change with nothing expected replaces the cell', res['results']['n6']['status'] == 'ok' and log_rows(CEN)[1][12] == 'App wins', res['results'])
 check('v9: names and numbers come from I and J', [(r['name'], r['hn']) for r in res['rows']] == [('Census Patient 1', 'CEN-001'), ('Census Patient 2', 'CEN-002')])
 
 # ---------------------------------------------------------------------------

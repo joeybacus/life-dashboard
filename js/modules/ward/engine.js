@@ -363,6 +363,14 @@ class WardList {
     const version = syncScriptVersion() ?? 0;
     const layout = this.layout();
     if (!isDefaultLayout(layout) && version < (layout.rounds ? LAYOUT_SCRIPT_VERSION : CENSUS_SCRIPT_VERSION)) return stop(new WardError('script-outdated')); // it would read the wrong columns
+    if (this.isCensus) {
+      // Referrals: what you enter in the app wins — a change waiting for your choice is simply saved
+      for (const item of this.queue.values()) {
+        if (item.state !== 'conflict') continue;
+        Object.assign(item, { state: 'pending', current: null, rev: item.rev + 1 });
+        await store.saveQueueItem(item);
+      }
+    }
     const waiting = this.outgoing();
     const held = waiting.filter((i) => i.kind !== 'rounds' && version < scriptForColumn(i.kind, layout));
     for (const item of held) {
@@ -383,7 +391,8 @@ class WardList {
         tab: link.tab,
         ...this.layoutField(),
         writes: sent.map((i) => ({
-          id: `${i.key}#${i.rev}`, hn: i.hn, expect: i.expect, set: i.set, quiet: i.day < date,
+          // The census never asks: with nothing expected, the app's text replaces whatever the cell holds
+          id: `${i.key}#${i.rev}`, hn: i.hn, expect: this.isCensus ? {} : i.expect, set: i.set, quiet: !this.isCensus && i.day < date,
           // Columns other than C and D need sync script 7, which reads them as plain text (always, with your own layout)
           ...(i.kind === 'rounds' || ((i.kind === 'C' || i.kind === 'D') && isDefaultLayout(layout)) ? {} : { text: true }),
         })),
