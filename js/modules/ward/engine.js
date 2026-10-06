@@ -32,6 +32,8 @@ const SEND_DELAY_MS = 700;               // quick taps go out together
 const RETRY_MS = [15, 30, 60, 120, 300].map((s) => s * 1000);
 const SESSION_MAX_MS = 12 * 3600e3;      // an unfinished rounds session older than this was forgotten
 const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response']);
+// Errors that can come from a change Google can't save (an error page, a timeout)
+const STUCK_CODES = new Set(['bad-response', 'server', 'timeout']);
 // The first list is the same on every device (a fixed, old date, so a renamed copy always wins)
 const SEEDED_AT = '2020-01-01T00:00:00.000Z';
 export const CENSUS_ID = 'census';
@@ -190,8 +192,9 @@ class WardList {
     return key ? this.cache?.rows.find((r) => r.key === key) ?? null : null;
   }
 
+  /** Changes to send: not those waiting for your choice, nor ones Google kept failing on (you retry or discard those). */
   outgoing() {
-    return [...this.queue.values()].filter((item) => item.state !== 'conflict');
+    return [...this.queue.values()].filter((item) => item.state !== 'conflict' && item.problem !== 'stuck');
   }
 
   roundsToSheet() {
@@ -344,7 +347,7 @@ class WardList {
     return this.refresh();
   }
 
-  async request() {
+  async request(skipWrites = false) {
     const link = this.link;
     const date = manilaDateKey();
     const op = this.op; // adding a column or moving rows rides on this request (never retried later)
@@ -367,7 +370,7 @@ class WardList {
       Object.assign(item, { state: 'blocked', problem: 'needs-update' });
       await store.saveQueueItem(item);
     }
-    const sent = waiting.filter((i) => !held.includes(i));
+    const sent = skipWrites ? [] : waiting.filter((i) => !held.includes(i));
     const toSheet = !link.roundsHere && !this.hidden().rounded; // rounds hidden: never add the rounds headings
     const reset = toSheet && (this.cache?.resetDay !== date || sent.some((i) => i.kind === 'rounds' && i.day < date));
     const cols = this.textCols();
@@ -399,6 +402,19 @@ class WardList {
       }
       this.error = toWardError(err);
       if (op) op.result = { status: this.error.code };
+      // Failed while sending changes? One of them may be what Google can't handle: load the list
+      // without them, and after two failures set the change aside for you to retry or discard
+      if (sent.length && !op && STUCK_CODES.has(this.error.code)) {
+        for (const item of sent) {
+          const now = this.queue.get(item.key);
+          if (!now || now.rev !== item.rev) continue;
+          now.failures = (now.failures ?? 0) + 1;
+          if (now.failures >= 2) Object.assign(now, { state: 'blocked', problem: 'stuck', detail: this.error.detail || this.error.message });
+          await store.saveQueueItem(now);
+        }
+        publish(this.id);
+        return this.request(true);
+      }
       if (RETRYABLE.has(this.error.code) && this.outgoing().length) this.scheduleRetry();
       publish(this.id);
       return false;
@@ -415,8 +431,19 @@ class WardList {
     this.error = null;
     this.retryStep = 0;
     clearTimeout(this.retryTimer);
+    if (skipWrites && this.outgoing().length) this.scheduleRetry(); // the list loaded; try the changes again later
     publish(this.id);
     return true;
+  }
+
+  /** Try a change Google kept failing on again. */
+  async retryChange(key) {
+    const item = this.queue.get(key);
+    if (!item) return;
+    Object.assign(item, { state: 'pending', problem: null, detail: null, failures: 0, rev: item.rev + 1, updatedAt: nowISO() });
+    await store.saveQueueItem(item);
+    publish(this.id);
+    await this.flush();
   }
 
   async applyResponse(res, sent, date, didReset, cols) {

@@ -134,6 +134,17 @@ export function checkUrl(input) {
 
 /* ---------- Talking to the Apps Script web app ---------- */
 
+/** What Google's own error page says (e.g. "Exceeded maximum execution time"), in a line. */
+function googleWords(page) {
+  const text = String(page ?? '')
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, '’').replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.slice(0, 300);
+}
+
 async function call(action, payload = {}, config = sync.config) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -153,8 +164,10 @@ async function call(action, payload = {}, config = sync.config) {
     } catch (err) {
       throw new SyncError(err?.name === 'AbortError' ? 'timeout' : 'network');
     }
+    let text = '';
+    try { text = await response.text(); } catch { /* nothing came back */ }
     let data;
-    try { data = await response.json(); } catch { throw new SyncError('bad-response'); }
+    try { data = JSON.parse(text); } catch { throw new SyncError('bad-response', googleWords(text)); }
     if (!data || data.ok !== true) throw new SyncError(data?.error ?? 'server', data?.message, data);
     config.scriptVersion = Number(data.version) || 1;
     return data;

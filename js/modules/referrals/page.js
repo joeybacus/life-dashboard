@@ -166,6 +166,11 @@ function censusStatus(v) {
   if (v.conflicts.length) {
     out.push(banner('workout', 'info', `${plural(v.conflicts.length, 'change')} ${v.conflicts.length === 1 ? 'needs' : 'need'} your choice`, 'Someone changed the census after the app loaded it.', html`<button type="button" class="btn btn--sm btn--primary" data-action="ref:conflict" data-key="${v.conflicts[0].key}">Review</button>`));
   }
+  for (const item of v.blocked.filter((i) => i.problem === 'stuck')) {
+    out.push(banner('workout', 'info', `Not saved: ${item.name}’s ${item.label || `column ${item.kind}`}`,
+      html`Google failed twice while saving this change, so the list was loaded without it. Your change: “${String(item.set[item.kind] ?? '') || '(empty)'}”.${item.detail ? html`<br><span class="refs-error-detail">Google said: “${item.detail}”</span>` : ''}`,
+      html`<button type="button" class="btn btn--sm" data-action="ref:discard" data-key="${item.key}">Discard</button><button type="button" class="btn btn--sm btn--primary" data-action="ref:retry" data-key="${item.key}">Retry</button>`));
+  }
   if (v.cache?.canEdit === false) out.push(banner('neutral', 'lock', 'View only', 'Your Google account can view the census but not edit it, so changes stay on this device (Not synced).'));
   if (v.duplicates.length) out.push(banner('workout', 'info', 'Repeated hospital numbers', `More than one row has ${v.duplicates.join(', ')}. Those patients can’t be changed here until it’s fixed in the census.`));
   const loading = v.phase === 'loading';
@@ -483,7 +488,7 @@ function detailBody(p) {
   const item = p.conflict ?? p.blocked;
   return html`<div class="ptd rfd">
     <p class="ptd__meta">${p.hn ? html`<span class="pt__label">HN</span> ${p.hn}` : 'No hospital number'}${p.source === 'census' ? ` · row ${p.row} of the census` : ' · added in the app'}</p>
-    ${item ? html`<p class="note ward-note--warn">${icon('info')}<span>${p.conflict ? html`Someone changed this in the census after the app loaded it. <button type="button" class="link-inline" data-action="ref:conflict" data-key="${p.conflict.key}">Choose a version</button>` : `Not saved: ${WRITE_PROBLEMS[p.blocked.problem] ?? WRITE_PROBLEMS.invalid}.`}</span></p>`
+    ${item ? html`<p class="note ward-note--warn">${icon('info')}<span>${p.conflict ? html`Someone changed this in the census after the app loaded it. <button type="button" class="link-inline" data-action="ref:conflict" data-key="${p.conflict.key}">Choose a version</button>` : html`Not saved: ${WRITE_PROBLEMS[p.blocked.problem] ?? WRITE_PROBLEMS.invalid}.${p.blocked.problem === 'stuck' ? html` <button type="button" class="link-inline" data-action="ref:retry" data-key="${p.blocked.key}">Retry</button> · <button type="button" class="link-inline" data-action="ref:discard" data-key="${p.blocked.key}">Discard</button>` : ''}`}</span></p>`
       : p.unsynced ? html`<p class="note">${icon('cloud')}<span>Not synced yet — it’s saved on this device and goes to the census automatically.</span></p>` : ''}
     ${!p.editable ? html`<p class="note ward-note--warn">${icon('info')}<span>${p.hn ? 'Another row of the census has the same hospital number' : 'This row has no hospital number'}, so it can’t be changed here until that’s fixed in the census.</span></p>` : ''}
 
@@ -880,6 +885,22 @@ registerAction('ref:menu', () => openMenu());
 registerAction('ref:columns', () => openCensusColumns());
 registerAction('ref:refresh', () => censusList()?.refresh());
 registerAction('ref:conflict', (el) => openConflict(el.dataset.key));
+registerAction('ref:retry', async (el) => {
+  toast('Trying again…', { icon: 'refresh' });
+  await censusList()?.retryChange(el.dataset.key);
+});
+registerAction('ref:discard', async (el) => {
+  const list = censusList();
+  const item = list?.queue.get(el.dataset.key);
+  if (!item) return;
+  const ok = await confirmDialog({
+    title: 'Discard this change?',
+    message: `${item.name}’s ${item.label || `column ${item.kind}`} stays as it is in the census. Your change (“${String(item.set[item.kind] ?? '') || 'empty'}”) is deleted from this device.`,
+    confirmLabel: 'Discard',
+    destructive: true,
+  });
+  if (ok) await list.dropChange(item.key);
+});
 registerAction('ref:week', (el) => {
   const dir = Number(el.dataset.dir);
   weekOffset = dir === 0 ? 0 : weekOffset + dir * 2;

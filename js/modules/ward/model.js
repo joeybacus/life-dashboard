@@ -279,6 +279,7 @@ export const WRITE_PROBLEMS = {
   'read-only': 'You can view this logsheet but not edit it',
   protected: 'This part of the logsheet is protected',
   'write-failed': 'Google couldn’t save it — it will try again',
+  stuck: 'Google failed twice while saving this change, so it’s set aside — retry it or discard it',
   invalid: 'This change couldn’t be saved',
   'needs-update': 'Update the sync script (Settings → Sync) to save this column — it’s kept on this device until then',
 };
