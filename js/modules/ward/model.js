@@ -280,6 +280,7 @@ export const WRITE_PROBLEMS = {
   protected: 'This part of the logsheet is protected',
   'write-failed': 'Google couldn’t save it — it will try again',
   stuck: 'Google failed twice while saving this change, so it’s set aside — retry it or discard it',
+  'not-a-choice': 'That cell only takes the values in its dropdown',
   invalid: 'This change couldn’t be saved',
   'needs-update': 'Update the sync script (Settings → Sync) to save this column — it’s kept on this device until then',
 };

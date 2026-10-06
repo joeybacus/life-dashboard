@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 9
+SCRIPT_VERSION = 10
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -550,6 +550,29 @@ check('v9: a day changed by someone else is a conflict', st['n5'] == 'conflict' 
 res = gas('post', {**cw, 'action': 'wardSync', 'cols': ['M'], 'writes': [{'id': 'n6', 'hn': 'CEN-001', 'text': True, 'expect': {}, 'set': {'M': 'App wins'}}]})
 check('v9: a referral change with nothing expected replaces the cell', res['results']['n6']['status'] == 'ok' and log_rows(CEN)[1][12] == 'App wins', res['results'])
 check('v9: names and numbers come from I and J', [(r['name'], r['hn']) for r in res['rows']] == [('Census Patient 1', 'CEN-001'), ('Census Patient 2', 'CEN-002')])
+
+# Version 10: dropdown columns (data validation), like the census's Status column
+DD = '1' + 'D' * 43
+STATUSES = ['NEW', 'ACTIVE', 'INACTIVE', 'SIGNED OUT', 'FOR ROUNDS']
+add_logsheet(DD, [
+    ['#', 'Status', 'C', 'D', 'Location', 'F', 'G', 'H', 'Name', 'HRN', 'Last', 'Next', 'Dx'],
+    [1, 'ACTIVE', '', '', 'ER', '', '', '', 'Dropdown Patient 1', 'DD-001', '', '', 'Seizure'],
+    [2, 'NEW', '', '', 'ICU', '', '', '', 'Dropdown Patient 2', 'DD-002', '', '', 'Stroke'],
+], max_cols=13, validation={'2': STATUSES})
+dw = {**base, 'spreadsheetId': DD, 'tab': 'Sheet1', 'layout': {'name': 'I', 'hn': 'J', 'rounds': ''}, 'dates': ['K', 'L']}
+res = gas('post', {**dw, 'action': 'wardSync', 'cols': ['B', 'E', 'M']})
+check('v10: dropdown values come back for the app to offer', res.get('choices') == {'B': STATUSES}, res.get('choices'))
+res = gas('post', {**dw, 'action': 'wardSync', 'cols': ['B', 'M'], 'writes': [
+    {'id': 'd1', 'hn': 'DD-001', 'text': True, 'expect': {}, 'set': {'B': 'Inactive'}},
+    {'id': 'd2', 'hn': 'DD-002', 'text': True, 'expect': {}, 'set': {'B': 'Maybe later'}},
+    {'id': 'd3', 'hn': 'DD-002', 'text': True, 'expect': {}, 'set': {'M': 'Stroke, left MCA'}},
+    {'id': 'd4', 'hn': 'DD-002', 'text': True, 'expect': {}, 'set': {'B': 'for rounds'}},
+]})
+st = {k: v['status'] for k, v in res['results'].items()}
+lr = log_rows(DD)
+check('v10: a status is written in the dropdown\'s own spelling', st['d1'] == 'ok' and lr[1][1] == 'INACTIVE', (st, lr[1][1]))
+check('v10: a value the dropdown doesn\'t have fails only that change', st['d2'] == 'not-a-choice' and res['results']['d2'].get('choices') == STATUSES and st['d3'] == 'ok' and lr[2][12] == 'Stroke, left MCA', st)
+check('v10: and the rest of the request still answers', res.get('ok') and len(res['rows']) == 2 and st['d4'] == 'ok' and lr[2][1] == 'FOR ROUNDS', (res.get('ok'), st))
 
 # ---------------------------------------------------------------------------
 print('\nTo-do tabs (version 5)')

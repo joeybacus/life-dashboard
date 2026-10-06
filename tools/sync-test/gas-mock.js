@@ -6,7 +6,9 @@
 
    Besides the script's own spreadsheet (__state.sheets), other spreadsheets —
    like a ward logsheet — live in __state.files[id]:
-     { name, tz, access: 'edit' | 'view' | 'none', sheets: [{ name, rows, maxRows, maxCols, fmt, protectedCols }] }
+     { name, tz, access: 'edit' | 'view' | 'none', sheets: [{ name, rows, maxRows, maxCols, fmt, protectedCols, validation }] }
+   validation: { <column number>: [allowed values] } — a dropdown that rejects anything else (case matters, like
+   "Reject input" in Sheets); like Sheets, the rejection only surfaces when the changes are flushed.
    Cell values are strings, numbers or booleans, { __date: ISO } for dates and
    { __f: '=formula', v: value } for formulas. Text typed into a cell that isn't
    formatted as plain text ('@') is turned into a boolean, number or date, like
@@ -95,6 +97,11 @@ MockRange.prototype.__checkEdit = function () {
     if (cols.indexOf(c) >= 0) __fail('You are trying to edit a protected cell or object. Please contact the spreadsheet owner to remove protection if you need to edit.');
   }
 };
+MockRange.prototype.getDataValidation = function () {
+  var allowed = this.s.validation && this.s.validation[this.c];
+  if (!allowed || this.r < 2) return null;
+  return { getCriteriaType: function () { return 'VALUE_IN_LIST'; }, getCriteriaValues: function () { return [allowed.slice(), true]; } };
+};
 MockRange.prototype.getValues = function () { return this.__cells(function (v) { return __plain(v); }); };
 MockRange.prototype.getValue = function () { return this.getValues()[0][0]; };
 MockRange.prototype.getDisplayValues = function () {
@@ -118,6 +125,11 @@ MockRange.prototype.setValues = function (values) {
       var v = values[i][j];
       if (v instanceof Date) v = { __date: v.toISOString() };
       else if (fmt[__cellKey(this.r + i, this.c + j)] !== '@') v = __parseInput(v, tz);
+      var allowed = this.s.validation && this.s.validation[this.c + j];
+      if (allowed && this.r + i > 1 && v !== '' && allowed.indexOf(String(v)) < 0) {
+        __state.__violation = 'The data you entered in cell ' + String.fromCharCode(64 + this.c + j) + (this.r + i) + ' violates the data validation rules set on this cell. Please enter one of the following values: ' + allowed.join(', ') + '.';
+        continue; // not written (Sheets rejects it)
+      }
       target[this.c - 1 + j] = v;
     }
   }
@@ -281,7 +293,14 @@ var SpreadsheetApp = {
     __state.files[id] = { name: name, tz: 'America/New_York', access: 'edit', sheets: [{ name: 'Sheet1', rows: [], maxRows: 1000, maxCols: 26 }] };
     return SpreadsheetApp.openById(id);
   },
-  flush: function () {},
+  flush: function () {
+    if (__state.__violation) {
+      var message = __state.__violation;
+      delete __state.__violation;
+      __fail(message);
+    }
+  },
+  DataValidationCriteria: { VALUE_IN_LIST: 'VALUE_IN_LIST', VALUE_IN_RANGE: 'VALUE_IN_RANGE' },
   getUi: function () {
     var menu = { addItem: function () { return menu; }, addToUi: function () { return menu; } };
     return {

@@ -14,9 +14,21 @@ import { cleanLocation, manilaDateKey } from '../ward/model.js';
 import { censusLabels, referrals, setCensusLabels, updateReferral } from './store.js';
 
 /** Inactive, discharged or signed off: in the Inactive table, not the deck. */
-export const isInactive = (status) => /\binactive\b|discharg|signed\s*off/i.test(String(status ?? ''));
+export const isInactive = (status) => /\binactive\b|discharg|signed\s*(off|out)/i.test(String(status ?? ''));
 
 export const STATUS_CHOICES = ['Active', 'For rounds', 'Inactive'];
+
+/** The statuses to offer for a patient: the census's dropdown (or the ones it already uses), else Active / For rounds / Inactive. */
+export function statusChoices(p) {
+  if (p?.source !== 'census') return STATUS_CHOICES;
+  const list = censusList();
+  const col = p.cols.status;
+  const found = col ? list?.choicesFor(col) : null;
+  if (found?.dropdown) return found.values;
+  // No dropdown: the usual three in the census's own spelling, plus any others it uses
+  const seen = found?.values ?? [];
+  return [...new Set([...STATUS_CHOICES.map((s) => seen.find((v) => v.toLowerCase() === s.toLowerCase()) ?? s), ...seen])];
+}
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const pad = (n) => String(n).padStart(2, '0');
@@ -139,7 +151,7 @@ export async function setField(p, role, value) {
   const list = censusList();
   const col = p.cols[role];
   if (!list || !col || !p.editable) return null;
-  const text = role === 'waiting' ? formatWaiting(value) : String(value ?? '');
+  const text = role === 'waiting' ? formatWaiting(value) : role === 'status' ? list.choiceSpelling(col, String(value ?? '')) : String(value ?? '');
   return list.saveText(p.key, col, text);
 }
 

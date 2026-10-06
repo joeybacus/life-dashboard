@@ -60,7 +60,7 @@ version 4 (editing lab results), v0.4 needs version 5 (your tasks get readable t
 into Google Calendar), v0.4.2 needs version 6 (each subtask's own date, time and reminders show in the
 Subtasks tab, and subtasks can go into Google Calendar too) , v0.4.3.1 needs version 7 (patient lists
 sync between your devices, show your own logsheet columns, add columns and move rows) v0.4.4.2 needs version 8 (a Referrals tab, and patient lists can read names, hospital numbers and rounds from the
-columns you choose) and v0.4.4.3 brings **version 9** (Referrals linked to your referral census, with dates). Each version includes
+columns you choose) v0.4.4.3 needs version 9 (Referrals linked to your referral census, with dates) and v0.4.4.9 brings **version 10** (dropdown columns such as Status are written in their own values). Each version includes
 everything before it, so
 one update is enough however old yours is. Until it's updated, everything else keeps syncing and anything new
 stays safely on your devices; the app shows **Update sync** on the dashboard and **Update the sync script** in
@@ -68,7 +68,7 @@ Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-   Near the top, a line should now read `const SCRIPT_VERSION = 9;`.
+   Near the top, a line should now read `const SCRIPT_VERSION = 10;`.
 3. **Once, after pasting:** in the toolbar choose **setup** and click **Run** (it keeps your token, so your devices
    stay connected). If Google asks for permission (coming from version 4 or older it will, now including Google
    Calendar): **Review permissions** → your account → **Advanced** → **Go to … (unsafe)** → **Allow**. This also
@@ -76,7 +76,7 @@ Settings → Sync (tap it for these steps):
 4. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
    (Don't make a *new deployment* — that would change the Web app URL.)
 5. Back in the app, tap **Check now**. To double-check, open the Web app URL in Safari: it should end with
-   `"version":9`.
+   `"version":10`.
 
 ## Backups
 

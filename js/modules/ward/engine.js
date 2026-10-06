@@ -158,6 +158,24 @@ class WardList {
   /** The referral census (Referrals): no rounds columns, days in its Last / Next rounds columns. */
   get isCensus() { return this.def.kind === 'referrals'; }
 
+  /** The values a column takes: its dropdown (sync script 10), else the ones already in it. */
+  choicesFor(col) {
+    const own = this.cache?.choices?.[col];
+    if (Array.isArray(own) && own.length) return { values: own, dropdown: true };
+    const seen = [...new Set((this.cache?.rows ?? []).map((r) => String(r.cells?.[col] ?? '').trim()).filter(Boolean))];
+    return { values: seen, dropdown: false };
+  }
+
+  /** A value in the spelling the column already uses ("Inactive" → "INACTIVE" when that's what it holds). */
+  choiceSpelling(col, value) {
+    if (typeof value !== 'string' || !value.trim()) return value;
+    // Only a dropdown column, or Referrals' Status — never free text like a diagnosis
+    const status = (this.def.columns ?? []).some((c) => c.role === 'status' && c.col === col);
+    if (!this.cache?.choices?.[col] && !status) return value;
+    const want = value.trim().toLowerCase();
+    return this.choicesFor(col).values.find((v) => v.toLowerCase() === want) ?? value;
+  }
+
   /** Columns holding days (Last rounds, Next rounds): sent as dates. */
   dateCols() {
     return (this.def.columns ?? []).filter((c) => c.role === 'last' || c.role === 'next').map((c) => c.col);
@@ -194,7 +212,7 @@ class WardList {
 
   /** Changes to send: not those waiting for your choice, nor ones Google kept failing on (you retry or discard those). */
   outgoing() {
-    return [...this.queue.values()].filter((item) => item.state !== 'conflict' && item.problem !== 'stuck');
+    return [...this.queue.values()].filter((item) => item.state !== 'conflict' && item.problem !== 'stuck' && item.problem !== 'not-a-choice');
   }
 
   roundsToSheet() {
@@ -366,8 +384,10 @@ class WardList {
     if (this.isCensus) {
       // Referrals: what you enter in the app wins — a change waiting for your choice is simply saved
       for (const item of this.queue.values()) {
-        if (item.state !== 'conflict') continue;
-        Object.assign(item, { state: 'pending', current: null, rev: item.rev + 1 });
+        const spelled = this.choiceSpelling(item.kind, item.set?.[item.kind]);
+        if (item.state !== 'conflict' && spelled === item.set?.[item.kind]) continue;
+        if (spelled !== item.set?.[item.kind]) item.set = { ...item.set, [item.kind]: spelled }; // "Inactive" → "INACTIVE"
+        Object.assign(item, { state: item.state === 'conflict' ? 'pending' : item.state, current: null, rev: item.rev + 1 });
         await store.saveQueueItem(item);
       }
     }
@@ -487,6 +507,7 @@ class WardList {
       truncated: Boolean(res.truncated),
       resetDay: didReset ? date : this.cache?.resetDay ?? null,
       cols: v7 ? (res.rows?.[0]?.cells ? Object.keys(res.rows[0].cells) : cols) : ['C', 'D'],
+      choices: res.choices && typeof res.choices === 'object' ? res.choices : this.cache?.choices ?? null, // dropdown values per column (sync script 10)
       headings: v7 ? res.headings.map((h) => String(h ?? '')) : null,
       lastColumn: v7 ? Number(res.lastColumn) || 0 : null,
       rows,
@@ -515,6 +536,7 @@ class WardList {
         now.state = result.status === 'conflict' ? 'conflict' : 'blocked';
         now.problem = result.status === 'conflict' ? null : result.status;
         now.current = result.current ?? null;
+        now.choices = Array.isArray(result.choices) ? result.choices.map(String).slice(0, 60) : null;
         await store.saveQueueItem(now);
       }
     }

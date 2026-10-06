@@ -22,7 +22,7 @@ import {
 } from '../ward/model.js';
 import { openSetup, removeLogsheet } from '../ward/page.js';
 import { MAX_FIELD, MAX_NOTES, MAX_WAIT, addDayKey, addReferral, dayState, deleteReferral, referralLocations, weekdayOf } from './store.js';
-import { STATUS_CHOICES, findPatient, isInactive, referralPatients, setField } from './patients.js';
+import { findPatient, isInactive, referralPatients, setField, statusChoices } from './patients.js';
 import { COLORS, MAX_LABELS, MAX_LABEL_NAME, cleanLabelName, colorOf, labelRank, labelsOf, legend, newLabelId, saveLegend } from './labels.js';
 import { makeReorderable } from '../../core/reorder.js';
 
@@ -201,9 +201,12 @@ function censusStatus(v) {
   if (v.conflicts.length) {
     out.push(banner('workout', 'info', `${plural(v.conflicts.length, 'change')} ${v.conflicts.length === 1 ? 'needs' : 'need'} your choice`, 'Someone changed the census after the app loaded it.', html`<button type="button" class="btn btn--sm btn--primary" data-action="ref:conflict" data-key="${v.conflicts[0].key}">Review</button>`));
   }
-  for (const item of v.blocked.filter((i) => i.problem === 'stuck')) {
+  for (const item of v.blocked.filter((i) => i.problem === 'stuck' || i.problem === 'not-a-choice')) {
+    const yours = String(item.set[item.kind] ?? '') || '(empty)';
     out.push(banner('workout', 'info', `Not saved: ${item.name}’s ${item.label || `column ${item.kind}`}`,
-      html`Google failed twice while saving this change, so the list was loaded without it. Your change: “${String(item.set[item.kind] ?? '') || '(empty)'}”.${item.detail ? html`<br><span class="refs-error-detail">Google said: “${item.detail}”</span>` : ''}`,
+      item.problem === 'not-a-choice'
+        ? html`Column ${item.kind} of the census only takes the values in its dropdown, and “${yours}” isn’t one of them.${item.choices?.length ? html`<br><span class="refs-error-detail">It takes: ${item.choices.join(', ')}</span>` : ''} Discard it and pick one of those.`
+        : html`Google failed twice while saving this change, so the list was loaded without it. Your change: “${yours}”.${item.detail ? html`<br><span class="refs-error-detail">Google said: “${item.detail}”</span>` : ''}`,
       html`<button type="button" class="btn btn--sm" data-action="ref:discard" data-key="${item.key}">Discard</button><button type="button" class="btn btn--sm btn--primary" data-action="ref:retry" data-key="${item.key}">Retry</button>`));
   }
   if (v.cache?.canEdit === false) out.push(banner('neutral', 'lock', 'View only', 'Your Google account can view the census but not edit it, so changes stay on this device (Not synced).'));
@@ -304,7 +307,7 @@ function inactiveTable(list) {
         <td>${p.location || html`<span class="faint">—</span>`}</td>
         <td>${p.diagnosis || html`<span class="faint">—</span>`}</td>
         <td>${p.can.status ? html`<select class="input refs-table__status" data-status-for="${p.id}" aria-label="Status of ${p.name}">
-            ${[...new Set([p.status || 'Inactive', ...STATUS_CHOICES])].map((s) => html`<option value="${s}"${raw(s === (p.status || 'Inactive') ? ' selected' : '')}>${s}</option>`)}
+            ${[...new Set([p.status || 'Inactive', ...statusChoices(p)])].map((s) => html`<option value="${s}"${raw(s === (p.status || 'Inactive') ? ' selected' : '')}>${s}</option>`)}
           </select>` : p.status}${syncBadge(p)}</td>
       </tr>`)}</tbody>
     </table>
@@ -529,7 +532,7 @@ function detailBody(p) {
       : p.unsynced ? html`<p class="note">${icon('cloud')}<span>Not synced yet — it’s saved on this device and goes to the census automatically.</span></p>` : ''}
     ${!p.editable ? html`<p class="note ward-note--warn">${icon('info')}<span>${p.hn ? 'Another row of the census has the same hospital number' : 'This row has no hospital number'}, so it can’t be changed here until that’s fixed in the census.</span></p>` : ''}
 
-    ${p.can.status || p.status ? section('status', 'Status', p.can.status ? html`<div class="chips chips--sm">${[...new Set([...STATUS_CHOICES, ...(p.status && !STATUS_CHOICES.includes(p.status) ? [p.status] : [])])].map((s) => html`<button type="button" class="chip-toggle" data-ract="status" data-value="${s}" aria-pressed="${s.toLowerCase() === (p.status || '').toLowerCase() ? 'true' : 'false'}">${s}</button>`)}</div>
+    ${p.can.status || p.status ? section('status', 'Status', p.can.status ? html`<div class="chips chips--sm">${[...new Set([...statusChoices(p), ...(p.status && !statusChoices(p).some((x) => x.toLowerCase() === p.status.toLowerCase()) ? [p.status] : [])])].map((s) => html`<button type="button" class="chip-toggle" data-ract="status" data-value="${s}" aria-pressed="${s.toLowerCase() === (p.status || '').toLowerCase() ? 'true' : 'false'}">${s}</button>`)}</div>
       <p class="faint rfd__hint">${p.active ? 'In the deck.' : 'In the Inactive table.'} Inactive patients leave the deck; Active or For rounds bring them back.</p>` : html`<p>${p.status}</p>`) : ''}
 
     ${p.can.labels ? section('labels', 'Labels', html`${legend().length ? html`<div class="chips chips--sm rfd__labels">${legend().map((l) => html`<button type="button" class="chip-toggle rfd__label" style="--lc: ${colorOf(l.color).hex}" data-ract="label" data-label="${l.id}" aria-pressed="${p.labels.includes(l.id) ? 'true' : 'false'}"><span class="rf__dot" aria-hidden="true"></span>${l.name}</button>`)}</div>` : html`<p class="faint">No labels in the legend yet.</p>`}`,

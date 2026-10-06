@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 9;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose)
+const SCRIPT_VERSION = 10;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -420,7 +420,7 @@ function wardSync_(req) {
       if (writes.length) out.results = wardApplyWrites_(sheet, writes, headers, claimError, L, dates);
       if (move) out.moved = wardMoveRows_(sheet, move, L);
       if (resetBefore && headers.state === 'ours') out.reset = wardResetStale_(sheet, resetBefore, L);
-      SpreadsheetApp.flush();
+      try { SpreadsheetApp.flush(); } catch (err) { out.flushError = String((err && err.message) || err); } // each write already flushed its own
     } finally {
       lock.releaseLock();
     }
@@ -430,6 +430,7 @@ function wardSync_(req) {
   out.headers = headers;
   out.canEdit = wardCanEdit_(sheet);
   out.headings = wardHeadings_(sheet);
+  out.choices = cols ? wardChoicesOf_(sheet, wardTextCols_(cols, headers, L)) : {};
   out.lastColumn = sheet.getLastColumn();
   out.rows = read.rows;
   out.truncated = read.truncated;
@@ -749,6 +750,18 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
     all.forEach(function (c) { shownNow[c] = current[c]; });
     return { status: 'conflict', row: row, current: shownNow };
   }
+  // A dropdown column takes only its own values: write the dropdown's own spelling ("Inactive" → "INACTIVE")
+  for (let i = 0; i < cols.length; i++) {
+    const c = cols[i];
+    if (isRounds(c) || isDay(c) || set[c] === '') continue;
+    const choices = wardChoices_(sheet.getRange(row, real(c)));
+    if (!choices) continue;
+    const want = String(set[c]).trim().toLowerCase();
+    const match = choices.filter(function (x) { return String(x).trim().toLowerCase() === want; })[0];
+    if (match == null) return { status: 'not-a-choice', row: row, choices: choices };
+    set[c] = String(match);
+  }
+  if (cols.every(function (c) { return same(c, current[c], set[c]); })) return { status: 'same', row: row };
   try {
     cols.forEach(function (c) {
       const cell = sheet.getRange(row, real(c));
@@ -756,7 +769,10 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
       else if (isDay(c) && /^\d{4}-\d{2}-\d{2}$/.test(set[c])) cell.setValue(set[c]); // a day: Sheets keeps it as a date (in the cell's own format)
       else cell.setNumberFormat('@').setValue(set[c]); // text, so Sheets never turns it into a date or formula
     });
+    SpreadsheetApp.flush(); // Sheets checks dropdowns only now: a refusal fails this change, not the whole request
   } catch (err) {
+    const message = String((err && err.message) || err);
+    if (/data validation/i.test(message)) return { status: 'not-a-choice', row: row, message: message.slice(0, 300) };
     return { status: wardWriteError_(err), row: row };
   }
   return { status: 'ok', row: row };
@@ -863,6 +879,38 @@ function wardKey_(value) {
 /** Free text as shown in the sheet: line breaks kept, trailing blank space dropped. */
 function wardText_(value) {
   return String(value == null ? '' : value).replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+}
+
+/** A cell's dropdown values (list or range validation), or null when it has none. */
+function wardChoices_(range) {
+  try {
+    const dv = range.getDataValidation();
+    if (!dv) return null;
+    const type = dv.getCriteriaType();
+    const values = dv.getCriteriaValues();
+    const C = SpreadsheetApp.DataValidationCriteria;
+    let list = null;
+    if (type === C.VALUE_IN_LIST) list = values[0];
+    else if (type === C.VALUE_IN_RANGE && values[0] && values[0].getDisplayValues) list = [].concat.apply([], values[0].getDisplayValues());
+    if (!list) return null;
+    const out = list.map(function (v) { return String(v == null ? '' : v).trim(); }).filter(Boolean);
+    return out.length ? out.slice(0, 60) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/** Each column's dropdown values (from row 2), for the app to offer: { B: ['NEW', 'ACTIVE', …] }. */
+function wardChoicesOf_(sheet, cols) {
+  const out = {};
+  if (sheet.getLastRow() < 2) return out;
+  cols.forEach(function (c) {
+    const n = wardColIndex_(c);
+    if (!n || n > sheet.getMaxColumns()) return;
+    const list = wardChoices_(sheet.getRange(2, n));
+    if (list) out[c] = list;
+  });
+  return out;
 }
 
 /** The columns of a request that hold days, and the logsheet's time zone (for reading dates). */
