@@ -5,12 +5,13 @@
 
    A patient: { id, source: 'census' | 'app', name, hn, status, active,
      location, diagnosis, last, lastText, next, nextText, waiting, notes,
-     can: { status, location, diagnosis, last, next, waiting, notes },
+     labels: [label id] (colour labels, see labels.js),
+     can: { status, location, diagnosis, last, next, waiting, notes, labels },
      editable, unsynced, conflict } — days are "YYYY-MM-DD" (Manila); waiting
      and notes are null when the census has no column for them. */
 import { censusList } from '../ward/engine.js';
 import { cleanLocation, manilaDateKey } from '../ward/model.js';
-import { referrals, updateReferral } from './store.js';
+import { censusLabels, referrals, setCensusLabels, updateReferral } from './store.js';
 
 /** Inactive, discharged or signed off: in the Inactive table, not the deck. */
 export const isInactive = (status) => /\binactive\b|discharg|signed\s*off/i.test(String(status ?? ''));
@@ -71,7 +72,8 @@ function fromCensus(list) {
       waiting: col.waiting ? parseWaiting(cell('waiting')) : null,
       notes: col.notes ? cell('notes') : null,
       cols: col,
-      can: Object.fromEntries(['status', 'location', 'diagnosis', 'last', 'next', 'waiting', 'notes'].map((r) => [r, Boolean(col[r]) && p.tickable])),
+      labels: p.key ? censusLabels(p.key) : [],
+      can: { ...Object.fromEntries(['status', 'location', 'diagnosis', 'last', 'next', 'waiting', 'notes'].map((r) => [r, Boolean(col[r]) && p.tickable])), labels: Boolean(p.key) },
       editable: p.tickable,
       unsynced: items.length > 0,
       conflict: items.find((i) => i.state === 'conflict') ?? null,
@@ -100,7 +102,8 @@ function fromApp(r) {
     nextText: r.next,
     waiting: r.waiting,
     notes: r.notes,
-    can: { status: true, location: true, diagnosis: true, last: true, next: true, waiting: true, notes: true },
+    labels: r.labels ?? [],
+    can: { status: true, location: true, diagnosis: true, last: true, next: true, waiting: true, notes: true, labels: true },
     editable: true,
     unsynced: false,
     conflict: null,
@@ -122,6 +125,10 @@ export const findPatient = (id) => referralPatients().find((p) => p.id === id) ?
  * the census straight away (and kept on this device until it is).
  */
 export async function setField(p, role, value) {
+  if (role === 'labels') {
+    if (p.source === 'app') return updateReferral(p.refId, (x) => { x.labels = value; });
+    return setCensusLabels(p.key, p.hn, value);
+  }
   if (p.source === 'app') {
     return updateReferral(p.refId, (x) => {
       if (role === 'status') x.status = isInactive(value) ? 'done' : /rounds/i.test(value) ? 'for-rounds' : 'active';

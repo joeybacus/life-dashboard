@@ -12,8 +12,13 @@
 
    Record: { id, name, hn, location, diagnosis, last, next: "YYYY-MM-DD" | "", notes,
              waiting: [{ id, text, done }], status: 'active' | 'for-rounds' | 'done',
-             doneAt, createdAt, updatedAt, deletedAt }
-   Days are Manila dates, like the ward rounds. */
+             labels: [label id], doneAt, createdAt, updatedAt, deletedAt }
+   Days are Manila dates, like the ward rounds.
+
+   The same store keeps the colour labels of census patients (0.4.4.7), one
+   record per hospital number: { id: "labels:<HN key>", type: 'labels', hn,
+   labels: [label id], createdAt, updatedAt, deletedAt }. The legend itself
+   (each label's name and colour) is part of the census's settings. */
 import { db } from '../../core/db.js';
 import { saveRecord } from '../../core/records.js';
 import { emit, on } from '../../core/events.js';
@@ -26,14 +31,30 @@ export const MAX_WAIT = 120;     // characters in one thing you're waiting for
 export const MAX_NOTES = 20000;
 
 let all = [];
+let labelled = new Map(); // HN key → label ids (census patients)
 
-/** Every referral not deleted. */
+/** Every referral added in the app (not deleted). */
 export const referrals = () => all;
 export const referral = (id) => all.find((r) => r.id === id) ?? null;
+/** A census patient's labels, by HN key. */
+export const censusLabels = (key) => labelled.get(key) ?? [];
 
 export async function loadReferrals() {
-  all = (await db.all('referrals')).filter((r) => !r.deletedAt);
+  const records = (await db.all('referrals')).filter((r) => !r.deletedAt);
+  all = records.filter((r) => r.type !== 'labels');
+  labelled = new Map(records.filter((r) => r.type === 'labels' && r.key).map((r) => [r.key, r.labels ?? []]));
   emit('referrals');
+}
+
+/** Set a census patient's labels (key: the hospital number in capitals). */
+export async function setCensusLabels(key, hn, labels) {
+  if (!key) return;
+  const id = `labels:${key}`;
+  const now = nowISO();
+  const existing = await db.get('referrals', id);
+  const clean = [...new Set(labels.map(String))].slice(0, 12);
+  await saveRecord('referrals', { id, type: 'labels', key, hn: String(hn ?? ''), labels: clean, createdAt: existing?.createdAt ?? now, updatedAt: now, deletedAt: null });
+  await loadReferrals();
 }
 
 export async function initReferrals() {
@@ -87,6 +108,7 @@ export async function updateReferral(id, mutate) {
   next.location = cleanLocation(next.location);
   next.next = validDay(next.next);
   next.last = validDay(next.last);
+  next.labels = [...new Set((next.labels ?? []).map(String))].slice(0, 12);
   next.diagnosis = oneLine(next.diagnosis, MAX_WAIT);
   next.notes = cleanNotes(next.notes);
   next.waiting = (next.waiting ?? []).map((w) => ({ id: w.id || uid(), text: oneLine(w.text, MAX_WAIT), done: Boolean(w.done) })).filter((w) => w.text);

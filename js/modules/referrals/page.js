@@ -23,6 +23,8 @@ import {
 import { openSetup, removeLogsheet } from '../ward/page.js';
 import { MAX_FIELD, MAX_NOTES, MAX_WAIT, addDayKey, addReferral, dayState, deleteReferral, referralLocations, weekdayOf } from './store.js';
 import { STATUS_CHOICES, findPatient, isInactive, referralPatients, setField } from './patients.js';
+import { COLORS, MAX_LABELS, MAX_LABEL_NAME, cleanLabelName, colorOf, labelRank, labelsOf, legend, newLabelId, saveLegend } from './labels.js';
+import { makeReorderable } from '../../core/reorder.js';
 
 const PREFS_KEY = 'referrals:view';
 const AUTO_REFRESH_MS = 3 * 60 * 1000;
@@ -48,7 +50,18 @@ function savePrefs() {
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-const byNext = (a, b) => (a.next || '9999').localeCompare(b.next || '9999') || byName(a, b);
+/** Labels higher in the legend first (VIP, See first…), then by name. */
+const byLabel = (a, b) => labelRank(a.labels) - labelRank(b.labels) || byName(a, b);
+const byNext = (a, b) => (a.next || '9999').localeCompare(b.next || '9999') || byLabel(a, b);
+let filterLabel = null; // show only patients with this label
+
+/** The colour of a patient's first label (style for --lc), or ''. */
+function labelStyle(p) {
+  const first = labelsOf(p.labels)[0];
+  return first ? `--lc: ${colorOf(first.color).hex}` : '';
+}
+/** A label as words with its colour (never colour alone). */
+const labelChip = (l, extra = '') => html`<span class="wbadge rf__label${extra}" style="--lc: ${colorOf(l.color).hex}"><span class="rf__dot" aria-hidden="true"></span>${l.name}</span>`;
 
 /** "Today", "Tomorrow", "Yesterday", "Tue, Oct 7". */
 function dayLabel(key, today = manilaDateKey()) {
@@ -107,20 +120,42 @@ function render() {
   const focused = view.contains(document.activeElement) ? document.activeElement.closest('[data-focus]')?.dataset.focus : null;
   const list = censusList();
   const v = list?.view();
-  const patients = referralPatients();
+  const everyone = referralPatients();
+  if (filterLabel && !legend().some((l) => l.id === filterLabel)) filterLabel = null;
+  const patients = filterLabel ? everyone.filter((p) => p.labels.includes(filterLabel)) : everyone;
   const actions = html`<button type="button" class="btn btn--sm btn--accent" data-action="ref:add" data-focus="add">${icon('plus')}Add</button>
     <button type="button" class="icon-btn" data-action="ref:menu" aria-label="Referral census options" data-focus="menu">${icon('more')}</button>`;
   const seg = (name, value, label, iconName, current) => html`<label class="segmented__opt"><input type="radio" name="${name}" value="${value}" data-focus="${name}-${value}"${raw(current === value ? ' checked' : '')}><span>${icon(iconName)}${label}</span></label>`;
   setHTML(view, html`<div class="ward refs accent-neuro">
     ${subHead({ title: 'Referrals', back: 'Neurology', fallback: '', accent: 'neuro', actions, eyebrow: v?.link ? `${v.link.title || 'Referral census'} · ${v.link.tab}` : 'Neurology service' })}
     ${v?.link ? censusStatus(v) : linkCard()}
+    ${everyone.length ? legendCard(everyone) : ''}
     ${patients.length ? html`<div class="segmented refs__tabs" role="radiogroup" aria-label="View">
       ${seg('ref-tab', 'list', 'Patients', 'clipboard', prefs.tab)}
       ${seg('ref-tab', 'calendar', 'Calendar', 'calendar', prefs.tab)}
     </div>
-    ${prefs.tab === 'calendar' ? calendarView(patients) : listView(patients, seg)}` : v?.link && v.cache ? html`<div class="card empty">${icon('clipboard')}<span>No patients in “${v.link.tab}” yet — the census is read from row 2, with names in column ${list.layout().name}. Check the columns (⋯ → Census columns).</span></div>` : ''}
+    ${prefs.tab === 'calendar' ? calendarView(patients) : listView(patients, seg)}` : filterLabel ? html`<div class="card empty">${icon('circle')}<span>No patients have this label yet. Open a patient to give them one.</span></div>` : v?.link && v.cache ? html`<div class="card empty">${icon('clipboard')}<span>No patients in “${v.link.tab}” yet — the census is read from row 2, with names in column ${list.layout().name}. Check the columns (⋯ → Census columns).</span></div>` : ''}
   </div>`);
   if (focused) view.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+}
+
+/** The legend: each label with its colour and how many patients have it. Tap one to show only them. */
+function legendCard(patients) {
+  const labels = legend();
+  return html`<section class="card refs-legend" aria-labelledby="ref-legend-title">
+    <div class="refs-legend__head">
+      <h2 class="refs-legend__title" id="ref-legend-title">Legend</h2>
+      ${filterLabel ? html`<button type="button" class="btn btn--sm btn--ghost" data-action="ref:filter" data-label="" data-focus="filter-all">Show everyone</button>` : ''}
+      <button type="button" class="btn btn--sm btn--ghost" data-action="ref:legend" data-focus="legend-edit">${icon('edit')}Edit</button>
+    </div>
+    ${labels.length ? html`<div class="refs-legend__chips">${labels.map((l) => {
+      const n = patients.filter((p) => p.labels.includes(l.id)).length;
+      return html`<button type="button" class="refs-legend__chip" style="--lc: ${colorOf(l.color).hex}" data-action="ref:filter" data-label="${l.id}" data-focus="filter-${l.id}" aria-pressed="${filterLabel === l.id ? 'true' : 'false'}" title="Show only ${l.name}">
+        <span class="rf__dot" aria-hidden="true"></span><span class="refs-legend__name">${l.name}</span><span class="refs-legend__count">${n}</span>
+      </button>`;
+    })}</div>` : html`<p class="faint">No labels yet. Tap Edit to add some (for example VIP or See first).</p>`}
+    ${filterLabel ? html`<p class="refs-legend__note">Showing only ${labels.find((l) => l.id === filterLabel)?.name}.</p>` : ''}
+  </section>`;
 }
 
 /** Before the census is linked on this device. */
@@ -186,7 +221,7 @@ function censusStatus(v) {
 
 function listView(patients, seg) {
   const active = patients.filter((p) => p.active);
-  const inactive = patients.filter((p) => !p.active).sort(byName);
+  const inactive = patients.filter((p) => !p.active).sort(byLabel);
   const groups = prefs.arrange === 'location' ? locationGroups(active) : dayGroups(active);
   return html`
     <div class="ward-arrange-by">
@@ -244,9 +279,11 @@ function syncBadge(p) {
 function card(p) {
   const today = manilaDateKey();
   const open = (p.waiting ?? []).filter((w) => !w.done);
-  return html`<li class="card rf rf--${dayState(p.next, today)}" data-ref-id="${p.id}">
+  const labels = labelsOf(p.labels);
+  return html`<li class="card rf rf--${dayState(p.next, today)}${labels.length ? ' has-label' : ''}" data-ref-id="${p.id}" style="${labelStyle(p)}">
     <button type="button" class="pt__name" data-action="ref:open" data-id="${p.id}" data-focus="open-${p.id}">${p.name}${icon('chevronRight', 'pt__chev')}</button>
     <p class="pt__hn">${p.hn ? html`<span class="pt__label">HN</span> ${p.hn}` : ''}${p.source === 'app' ? html`${p.hn ? ' · ' : ''}<span class="faint">Added in the app</span>` : ''}</p>
+    ${labels.length ? html`<p class="pt__badges rf__labels">${labels.map((l) => labelChip(l))}</p>` : ''}
     <p class="pt__badges">${statusBadge(p)}${dayBadge(p, today)}${p.location ? html`<span class="wbadge wbadge--loc rf__loc">${icon('pin')}<span class="sr-only">Location: </span>${p.location}</span>` : ''}${syncBadge(p)}</p>
     ${p.diagnosis ? html`<p class="rf__dx"><span class="pt__label">Diagnosis</span> ${p.diagnosis}</p>` : ''}
     ${p.last || p.lastText ? html`<p class="rf__last">${icon('history')}Last rounds ${p.last ? `${dayLabel(p.last, today)}${p.last < today ? ` · ${dayDistance(p.last, today)}` : ''}` : p.lastText}</p>` : ''}
@@ -263,7 +300,7 @@ function inactiveTable(list) {
     <table class="refs-table">
       <thead><tr><th scope="col">Patient</th><th scope="col">Location</th><th scope="col">Diagnosis</th><th scope="col">Status</th></tr></thead>
       <tbody>${list.map((p) => html`<tr>
-        <td><button type="button" class="link-inline refs-table__name" data-action="ref:open" data-id="${p.id}">${p.name}</button>${p.hn ? html`<small>${p.hn}</small>` : ''}</td>
+        <td><button type="button" class="link-inline refs-table__name" data-action="ref:open" data-id="${p.id}">${p.name}</button>${p.hn ? html`<small>${p.hn}</small>` : ''}${labelsOf(p.labels).length ? html`<span class="rf__labels refs-table__labels">${labelsOf(p.labels).map((l) => labelChip(l, ' wbadge--sm'))}</span>` : ''}</td>
         <td>${p.location || html`<span class="faint">—</span>`}</td>
         <td>${p.diagnosis || html`<span class="faint">—</span>`}</td>
         <td>${p.can.status ? html`<select class="input refs-table__status" data-status-for="${p.id}" aria-label="Status of ${p.name}">
@@ -287,9 +324,9 @@ function calendarView(patients) {
   const weeks = [0, 1].map((w) => Array.from({ length: 7 }, (_, d) => addDayKey(start, w * 7 + d)));
   const range = `${wardDay(start)} – ${wardDay(weeks[1][6])}`;
   const overdue = active.filter((p) => p.next && p.next < today).sort(byNext);
-  const none = active.filter((p) => !p.next).sort(byName);
-  const chip = (p) => html`<button type="button" class="rcal__chip rcal__chip--${dayState(p.next, today)}${p.unsynced ? ' is-unsynced' : ''}" data-action="ref:open" data-id="${p.id}" data-focus="cal-${p.id}" title="${p.name}${p.location ? ` · ${p.location}` : ''}"${p.can.next ? raw(' data-drag="1"') : ''} aria-description="${p.can.next ? 'Drag to another day to change Next rounds' : ''}">
-    <span class="rcal__name">${p.name}</span>${p.location ? html`<span class="rcal__loc">${icon('pin')}${p.location}</span>` : ''}${(p.waiting ?? []).some((w) => !w.done) ? html`<span class="rcal__wait" title="Waiting for something">${icon('hourglass')}<span class="sr-only">Waiting for something</span></span>` : ''}${p.unsynced ? html`<span class="rcal__sync" title="Not synced yet">${icon('cloud')}<span class="sr-only">Not synced yet</span></span>` : ''}
+  const none = active.filter((p) => !p.next).sort(byLabel);
+  const chip = (p) => html`<button type="button" class="rcal__chip rcal__chip--${dayState(p.next, today)}${p.unsynced ? ' is-unsynced' : ''}${p.labels.length && labelsOf(p.labels).length ? ' has-label' : ''}" style="${labelStyle(p)}" data-action="ref:open" data-id="${p.id}" data-focus="cal-${p.id}" title="${p.name}${p.location ? ` · ${p.location}` : ''}"${p.can.next ? raw(' data-drag="1"') : ''} aria-description="${p.can.next ? 'Drag to another day to change Next rounds' : ''}">
+    <span class="rcal__name">${p.name}</span>${labelsOf(p.labels).length ? html`<span class="sr-only">, ${labelsOf(p.labels).map((l) => l.name).join(', ')}</span><span class="rcal__dots" aria-hidden="true">${labelsOf(p.labels).map((l) => html`<span class="rf__dot" style="--lc: ${colorOf(l.color).hex}"></span>`)}</span>` : ''}${p.location ? html`<span class="rcal__loc">${icon('pin')}${p.location}</span>` : ''}${(p.waiting ?? []).some((w) => !w.done) ? html`<span class="rcal__wait" title="Waiting for something">${icon('hourglass')}<span class="sr-only">Waiting for something</span></span>` : ''}${p.unsynced ? html`<span class="rcal__sync" title="Not synced yet">${icon('cloud')}<span class="sr-only">Not synced yet</span></span>` : ''}
   </button>`;
   return html`<div class="rcal" data-rcal>
     <div class="rcal__nav">
@@ -302,7 +339,7 @@ function calendarView(patients) {
     ${weeks.map((days, w) => html`<section class="rcal__week">
       <h2 class="rcal__week-title">${weekOffset === 0 ? (w === 0 ? 'This week' : 'Next week') : `Week of ${wardDay(days[0])}`}</h2>
       <ol class="rcal__grid">${days.map((key) => {
-        const list = active.filter((p) => p.next === key).sort(byName);
+        const list = active.filter((p) => p.next === key).sort(byLabel);
         const label = dayLabel(key, today);
         return html`<li class="rcal__day${key === today ? ' is-today' : ''}${key < today ? ' is-past' : ''}${list.length ? '' : ' is-empty'}" data-drop-day="${key}">
           <p class="rcal__date"><span class="rcal__wd">${label === wardDay(key) ? wardDay(key).split(',')[0] : label}</span><span class="rcal__dn">${wardDay(key).split(', ')[1]}</span></p>
@@ -495,6 +532,9 @@ function detailBody(p) {
     ${p.can.status || p.status ? section('status', 'Status', p.can.status ? html`<div class="chips chips--sm">${[...new Set([...STATUS_CHOICES, ...(p.status && !STATUS_CHOICES.includes(p.status) ? [p.status] : [])])].map((s) => html`<button type="button" class="chip-toggle" data-ract="status" data-value="${s}" aria-pressed="${s.toLowerCase() === (p.status || '').toLowerCase() ? 'true' : 'false'}">${s}</button>`)}</div>
       <p class="faint rfd__hint">${p.active ? 'In the deck.' : 'In the Inactive table.'} Inactive patients leave the deck; Active or For rounds bring them back.</p>` : html`<p>${p.status}</p>`) : ''}
 
+    ${p.can.labels ? section('labels', 'Labels', html`${legend().length ? html`<div class="chips chips--sm rfd__labels">${legend().map((l) => html`<button type="button" class="chip-toggle rfd__label" style="--lc: ${colorOf(l.color).hex}" data-ract="label" data-label="${l.id}" aria-pressed="${p.labels.includes(l.id) ? 'true' : 'false'}"><span class="rf__dot" aria-hidden="true"></span>${l.name}</button>`)}</div>` : html`<p class="faint">No labels in the legend yet.</p>`}`,
+      html`<button type="button" class="btn btn--sm btn--ghost" data-action="ref:legend">${icon('edit')}Edit legend</button>`) : ''}
+
     ${section('next', 'Next rounds', html`<p class="rfd__day${state === 'overdue' ? ' is-overdue' : ''}">${icon('calendar')}<span>${p.next ? html`<strong>${wardDayLong(p.next)}</strong> · ${dayDistance(p.next, today)}` : p.nextText ? `“${p.nextText}” in the census (not a date)` : 'No day set'}</span></p>
       ${p.can.next ? html`${quickDays(p, today)}<label class="field rfd__pick"><span class="field__label">Or pick a day</span><input class="input" type="date" data-rdate value="${p.next}"></label>` : ''}`,
       p.can.next && (p.next || p.nextText) ? html`<button type="button" class="btn btn--sm btn--ghost" data-ract="next" data-day="">Clear</button>` : '')}
@@ -589,7 +629,13 @@ async function openPatient(id) {
         const now = findPatient(id);
         if (!b || !now) return;
         const act = b.dataset.ract;
-        if (act === 'next') await change('next', b.dataset.day, b.dataset.day ? `Next rounds: ${wardDayLong(b.dataset.day)}.` : 'No day set.');
+        if (act === 'label') {
+          const id2 = b.dataset.label;
+          const on = !now.labels.includes(id2);
+          const next = on ? [...now.labels, id2] : now.labels.filter((x) => x !== id2);
+          await setField(now, 'labels', legend().map((l) => l.id).filter((x) => next.includes(x)));
+          announce(`${legend().find((l) => l.id === id2)?.name}: ${on ? 'on' : 'off'}.`);
+        } else if (act === 'next') await change('next', b.dataset.day, b.dataset.day ? `Next rounds: ${wardDayLong(b.dataset.day)}.` : 'No day set.');
         else if (act === 'seen') await change('last', manilaDateKey(), 'Last rounds: today.');
         else if (act === 'status') {
           await change('status', b.dataset.value, `Status: ${b.dataset.value}.`);
@@ -745,6 +791,131 @@ async function editDetails(p) {
   toast('Saved.', { icon: 'check' });
 }
 
+/* ---------- The legend: name, colour and order of each label ---------- */
+
+function legendRow(l, i, count) {
+  return html`<li class="refs-leg" data-id="${l.id}" style="--lc: ${colorOf(l.color).hex}">
+    <span class="ward-col__handle" data-drag-handle title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>
+    <span class="refs-leg__swatch" aria-hidden="true"></span>
+    <div class="refs-leg__body">
+      <input class="input refs-leg__name" data-leg-name maxlength="${MAX_LABEL_NAME}" value="${l.name}" aria-label="Label name" placeholder="Label name" autocomplete="off">
+      <div class="refs-leg__colors" role="radiogroup" aria-label="Colour of ${l.name || 'this label'}">${COLORS.map((c) => html`<button type="button" class="refs-leg__color" role="radio" style="--sw: ${c.hex}" data-leg-color="${c.id}" aria-checked="${c.id === l.color ? 'true' : 'false'}" aria-label="${c.name}" title="${c.name}"></button>`)}</div>
+    </div>
+    <button type="button" class="icon-btn ward-col__remove" data-leg-remove aria-label="Delete ${l.name || 'this label'}">${icon('trash')}</button>
+    <button type="button" class="sr-only sr-only-focusable" data-leg-move="-1"${raw(i === 0 ? ' disabled' : '')}>Move ${l.name} up</button>
+    <button type="button" class="sr-only sr-only-focusable" data-leg-move="1"${raw(i === count - 1 ? ' disabled' : '')}>Move ${l.name} down</button>
+  </li>`;
+}
+
+async function openLegend() {
+  let labels = legend().map((l) => ({ ...l }));
+  const start = JSON.stringify(labels);
+  const counts = new Map(legend().map((l) => [l.id, referralPatients().filter((p) => p.labels.includes(l.id)).length]));
+  const result = await openDialog({
+    variant: 'sheet',
+    className: 'ward-cols-sheet refs-legend-sheet accent-neuro',
+    dismissible: false,
+    title: 'Legend',
+    body: html`<p class="dlg__msg">Name each colour — for example VIP, See first or Under consultant. Labels higher in the list come first within each day; drag ${icon('grip')} to change the order.</p>
+      <ol class="card refs-legs" data-legs></ol>
+      <button type="button" class="btn btn--block ward-cols__add" data-leg-add>${icon('plus')}Add label</button>
+      <p class="form-error" data-error hidden></p>
+      <div class="form__actions">
+        <button type="button" class="btn btn--ghost" data-cancel>Cancel</button>
+        <button type="button" class="btn btn--primary" data-save>Save legend</button>
+      </div>`,
+    onOpen(dlg, close) {
+      const ol = dlg.querySelector('[data-legs]');
+      const error = dlg.querySelector('[data-error]');
+      const add = dlg.querySelector('[data-leg-add]');
+      const read = () => { // keep what's typed before redrawing
+        ol.querySelectorAll('.refs-leg').forEach((li) => {
+          const l = labels.find((x) => x.id === li.dataset.id);
+          if (l) l.name = li.querySelector('[data-leg-name]').value;
+        });
+      };
+      const draw = (focus = null) => {
+        setHTML(ol, labels.length ? html`${labels.map((l, i) => legendRow(l, i, labels.length))}` : html`<li class="refs-leg refs-leg--none faint">No labels — add one below.</li>`);
+        add.disabled = labels.length >= MAX_LABELS;
+        if (focus) ol.querySelector(focus)?.focus();
+      };
+      draw();
+      makeReorderable(ol, {
+        scroller: dlg.querySelector('.dlg__panel'),
+        onReorder: (ids) => {
+          read();
+          labels = ids.map((id) => labels.find((l) => l.id === id)).filter(Boolean);
+          draw();
+        },
+      });
+      dlg.addEventListener('input', () => { error.hidden = true; });
+      dlg.addEventListener('click', async (event) => {
+        const li = event.target.closest('.refs-leg[data-id]');
+        const l = li && labels.find((x) => x.id === li.dataset.id);
+        const color = event.target.closest('[data-leg-color]');
+        if (color && l) {
+          read();
+          l.color = color.dataset.legColor;
+          draw(`[data-id="${CSS.escape(l.id)}"] [data-leg-color="${l.color}"]`);
+          return;
+        }
+        if (event.target.closest('[data-leg-remove]') && l) {
+          read();
+          const n = counts.get(l.id) ?? 0;
+          if (n && !(await confirmDialog({ title: `Delete “${l.name || 'this label'}”?`, message: `${plural(n, 'patient')} ${n === 1 ? 'has' : 'have'} it; the label is taken off them (nothing else changes). Takes effect when you tap Save legend.`, confirmLabel: 'Delete label', destructive: true }))) return;
+          labels = labels.filter((x) => x !== l);
+          draw();
+          return;
+        }
+        const move = event.target.closest('[data-leg-move]');
+        if (move && l) {
+          read();
+          const from = labels.indexOf(l);
+          const to = from + Number(move.dataset.legMove);
+          if (to < 0 || to >= labels.length) return;
+          labels.splice(to, 0, labels.splice(from, 1)[0]);
+          draw(`[data-id="${CSS.escape(l.id)}"] [data-leg-move="${move.dataset.legMove}"]`);
+          announce(`Moved to position ${to + 1} of ${labels.length}.`);
+          return;
+        }
+        if (event.target.closest('[data-leg-add]')) {
+          read();
+          const used = new Set(labels.map((x) => x.color));
+          const id = newLabelId();
+          labels.push({ id, name: '', color: (COLORS.find((c) => !used.has(c.id)) ?? COLORS[0]).id });
+          draw(`[data-id="${CSS.escape(id)}"] [data-leg-name]`);
+          return;
+        }
+        if (event.target.closest('[data-cancel]')) {
+          read();
+          if (JSON.stringify(labels) !== start && !(await confirmDialog({ title: 'Discard your changes?', message: 'The legend stays as it was.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return;
+          close(null);
+          return;
+        }
+        if (event.target.closest('[data-save]')) {
+          read();
+          const named = labels.map((x) => ({ ...x, name: cleanLabelName(x.name) }));
+          if (named.some((x) => !x.name)) {
+            setHTML(error, html`Give every label a name (or delete the empty one).`);
+            error.hidden = false;
+            return;
+          }
+          const names = named.map((x) => x.name.toLowerCase());
+          if (new Set(names).size !== names.length) {
+            setHTML(error, html`Two labels have the same name.`);
+            error.hidden = false;
+            return;
+          }
+          close({ labels: named });
+        }
+      });
+    },
+  });
+  if (!result || typeof result !== 'object') return;
+  await saveLegend(result.labels);
+  toast('Legend saved.', { icon: 'check' });
+}
+
 /* ---------- The census: columns, conflicts, menu ---------- */
 
 /** Tick which census column holds each thing. */
@@ -859,6 +1030,7 @@ async function openMenu() {
     items: [
       link ? { label: 'Refresh now', value: 'refresh', icon: 'refresh' } : null,
       { label: 'Census columns', value: 'columns', icon: 'columns', detail: 'Which column holds what' },
+      { label: 'Legend', value: 'legend', icon: 'edit', detail: 'Colour labels' },
       link ? { label: 'Open in Google Sheets', value: 'open', icon: 'external' } : null,
       { label: link ? 'Change census link' : 'Link referral census', value: 'link', icon: 'link' },
       link ? { label: 'Remove link from this device', value: 'remove', icon: 'x' } : null,
@@ -866,6 +1038,7 @@ async function openMenu() {
   });
   if (choice === 'refresh') list.refresh();
   else if (choice === 'columns') openCensusColumns();
+  else if (choice === 'legend') openLegend();
   else if (choice === 'open') window.open(link.url, '_blank', 'noopener');
   else if (choice === 'link') linkCensus();
   else if (choice === 'remove') removeLogsheet(CENSUS_ID);
@@ -885,6 +1058,12 @@ registerAction('ref:menu', () => openMenu());
 registerAction('ref:columns', () => openCensusColumns());
 registerAction('ref:refresh', () => censusList()?.refresh());
 registerAction('ref:conflict', (el) => openConflict(el.dataset.key));
+registerAction('ref:legend', () => openLegend());
+registerAction('ref:filter', (el) => {
+  filterLabel = el.dataset.label && filterLabel !== el.dataset.label ? el.dataset.label : null;
+  render();
+  announce(filterLabel ? `Showing only ${legend().find((l) => l.id === filterLabel)?.name}.` : 'Showing everyone.');
+});
 registerAction('ref:retry', async (el) => {
   toast('Trying again…', { icon: 'refresh' });
   await censusList()?.retryChange(el.dataset.key);

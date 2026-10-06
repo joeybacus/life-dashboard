@@ -679,3 +679,49 @@ button.wbadge { cursor: pointer; }
 .rcal__loc .icon { display: inline-block; margin-right: 3px; vertical-align: -1px; }
 @media (min-width: 900px) { .rcal__day, .rcal__day.is-empty { align-items: stretch; } }
 .refs-error-detail { display: inline-block; margin-top: 4px; font-size: var(--fs-xs); opacity: .85; overflow-wrap: anywhere; }
+
+/* ==========================================================================
+   Referrals: colour labels and their legend (0.4.4.7)
+   ========================================================================== */
+.rf__dot { display: inline-block; flex: none; width: .65rem; height: .65rem; border-radius: 50%; background: var(--lc, var(--text-3)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--lc, #888) 50%, transparent); }
+.rf__label { color: var(--text); background: color-mix(in srgb, var(--lc) 14%, transparent); border-color: color-mix(in srgb, var(--lc) 45%, transparent); }
+.wbadge--sm { min-height: 20px; padding: 1px 7px; font-size: var(--fs-2xs); }
+.rf__labels { margin-top: 6px; }
+.rf.has-label { border-color: color-mix(in srgb, var(--lc) 55%, var(--border)); box-shadow: inset 4px 0 0 var(--lc), var(--shadow-1); }
+.rcal__chip.has-label { border-left: 4px solid var(--lc); padding-left: 6px; }
+.rcal__dots { grid-row: 1; display: inline-flex; gap: 3px; }
+.rcal__dots .rf__dot { width: .5rem; height: .5rem; }
+.refs-table__labels { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+/* The legend area */
+.refs-legend { margin-top: 14px; padding: 12px 14px; }
+.refs-legend__head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.refs-legend__title { flex: 1 1 auto; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.refs-legend__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.refs-legend__chip {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 6px 12px; border-radius: var(--r-pill);
+  font-size: var(--fs-sm); font-weight: 600; color: var(--text);
+  background: color-mix(in srgb, var(--lc) 10%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--lc) 40%, var(--border));
+}
+@media (hover: hover) { .refs-legend__chip:hover { border-color: var(--lc); } }
+.refs-legend__chip[aria-pressed="true"] { background: color-mix(in srgb, var(--lc) 28%, var(--surface-2)); border-color: var(--lc); box-shadow: 0 0 0 1px var(--lc); }
+.refs-legend__count { min-width: 1.4em; padding: 0 6px; border-radius: var(--r-pill); font-size: var(--fs-2xs); font-weight: 700; text-align: center; color: var(--text-2); background: var(--surface); }
+.refs-legend__note { margin-top: 8px; font-size: var(--fs-sm); color: var(--text-2); }
+
+/* Ticking labels in a patient's sheet */
+.rfd__label { display: inline-flex; align-items: center; gap: 6px; }
+.rfd__label[aria-pressed="true"] { color: var(--text); background: color-mix(in srgb, var(--lc) 22%, transparent); border-color: var(--lc); }
+
+/* The legend editor */
+.refs-legs { display: flex; flex-direction: column; margin-top: 4px; }
+.refs-leg { display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 0; background: var(--surface-solid); }
+.refs-leg + .refs-leg { border-top: 1px solid var(--border); }
+.refs-leg--none { padding: 14px; }
+.refs-leg__swatch { flex: none; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--lc); }
+.refs-leg__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.refs-leg__name { min-height: 40px; }
+.refs-leg__colors { display: flex; flex-wrap: wrap; gap: 6px; }
+.refs-leg__color { width: 28px; height: 28px; border-radius: 50%; background: var(--sw); border: 2px solid transparent; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25); }
+.refs-leg__color[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface-solid) inset; }
+.refs-legend-sheet .form__actions { margin-top: 16px; }
+.refs-legend-sheet .dlg__msg .icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -3px; }
