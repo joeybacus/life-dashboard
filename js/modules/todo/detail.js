@@ -25,6 +25,7 @@ import { bindRepeatField, repeatFieldMarkup } from './repeat-ui.js';
 import { firstDate, templateChanged, templateOf } from './repeat.js';
 import { autoCalendar, bindCalendarField, calendarFieldMarkup } from './calendar-link.js';
 import { subtaskSheet } from './subtask-sheet.js';
+import { taskToHabit } from '../habits/convert.js';
 
 const checkedAttr = (on) => (on ? raw(' checked') : '');
 const disabledAttr = (on) => (on ? raw(' disabled') : '');
@@ -151,6 +152,7 @@ function sheetBody(task, { isNew, categories, today }) {
     ${isNew ? '' : html`<div class="tform__actions">
       <button type="button" class="btn" data-complete>${icon(isDone(task) ? 'refresh' : 'checkCircle')}${isDone(task) ? 'Mark not done' : 'Complete'}</button>
       <button type="button" class="btn" data-tomorrow>${icon('arrowRight')}Move to tomorrow</button>
+      ${state.settings.habits?.enabled !== false ? html`<button type="button" class="btn" data-to-habit>${icon('flame')}Turn into a habit</button>` : ''}
       <button type="button" class="btn btn--danger" data-delete>${icon('trash')}Delete</button>
     </div>
     <p class="tform__meta" data-slot="meta"></p>`}
@@ -552,6 +554,12 @@ async function taskSheet({ task: start, data, isNew }) {
       finished = true;
       closeSheet('deleted');
       await removeTask({ ...draft }, choice);
+    } else if ('toHabit' in t.dataset) {
+      await persist();
+      const habit = await taskToHabit({ ...draft });
+      if (!habit) return;
+      finished = true;
+      closeSheet('habit');
     } else if ('cancel' in t.dataset) {
       await tryClose();
     }

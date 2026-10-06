@@ -229,7 +229,8 @@ link (v0.4.3) and repeating tasks (v0.4.4). The focus timer and habits arrive in
   day, chosen days or N times a week. Tick to log; streaks, the last 7 days, and a month you can fill in for past
   days (tap a habit). Pause or delete; drag to reorder on the Habits page. "Log habit" on the + button; a Habits
   tile and ticks on the dashboard's To Do card. Use a repeating task for things with a time or reminder, and a
-  habit for things you want a streak on.
+  habit for things you want a streak on. Either turns into the other: a habit's sheet → **Turn into a repeating task**
+  (the habit is paused, its history kept); a task's sheet → **Turn into a habit** (the task goes to Recently deleted).
 - Both sync (Focus sessions, Habits and Habit log tabs) and are in backups. Turn either off in Settings.
 
 ## Referrals (Neurology tab, 0.4.4.3)

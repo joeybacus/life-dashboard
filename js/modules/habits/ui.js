@@ -18,6 +18,7 @@ import {
   GROUPS, MAX_NAME, WEEKDAY_LETTER, WEEKDAY_SHORT, cleanSchedule, dueOn, groupOrder, lastSeven, monthGrid, scheduleText, streakText, streaks, weekCount,
 } from './model.js';
 import { deleteHabit, loadHabits, reorderHabits, saveHabit, setDone } from './store.js';
+import { habitToTask } from './convert.js';
 
 export const habitsOn = () => state.settings.habits?.enabled !== false;
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -189,6 +190,7 @@ function detailBody(h, set, ym) {
     <div class="rfd__foot">
       <button type="button" class="btn btn--sm" data-hact="edit">${icon('edit')}Edit</button>
       <button type="button" class="btn btn--sm" data-hact="pause">${icon(h.active === false ? 'play' : 'pause')}${h.active === false ? 'Resume' : 'Pause'}</button>
+      <button type="button" class="btn btn--sm" data-hact="totask">${icon('repeat')}Turn into a repeating task</button>
       <button type="button" class="btn btn--sm btn--ghost ward-col__remove" data-hact="delete">${icon('trash')}Delete</button>
     </div>
   </div>`;
@@ -237,6 +239,8 @@ export async function openHabit(id) {
           redraw();
         } else if (act === 'edit') {
           await editHabit(h.id);
+        } else if (act === 'totask') {
+          if (await habitToTask(h.id)) close(null);
         } else if (act === 'pause') {
           await saveHabit({ id: h.id, active: h.active === false });
           toast(h.active === false ? `${h.name} is back in your daily list.` : `${h.name} paused — it’s kept, but not shown in Today.`, { icon: 'check' });
