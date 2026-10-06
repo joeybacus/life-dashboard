@@ -4,6 +4,7 @@
      (none)          start or resume, this week, templates, recent workouts
      log             the workout in progress
      history         all workouts, with filters
+     stats           statistics: totals, streaks, heatmap, records (Phase 4)
      w/<id>          one workout            w/<id>/edit   edit a finished workout
      exercises       exercise library       exercise/<id> one exercise
      template/<id>   edit a template
@@ -16,12 +17,12 @@ import { db } from '../core/db.js';
 import { changed, on, state } from '../core/state.js';
 import { html, setHTML } from '../core/html.js';
 import { icon } from '../core/icons.js';
-import { liveElapsed, pageHead, ring, roadmapCard } from '../core/components.js';
+import { liveElapsed, pageHead, ring } from '../core/components.js';
 import {
   addDays, daysBetween, formatDuration, formatRelativeDay, formatShortDate, formatWeekdayNarrow, startOfDay, startOfWeek, toDateKey,
 } from '../core/dates.js';
 import { SPLITS, suggestNext } from './workout/muscles.js';
-import { isActive, loadWorkouts, workoutDuration } from './workout/model.js';
+import { formatVolume, isActive, loadWorkouts, workoutDuration } from './workout/model.js';
 import { getActiveWorkout, loadTemplates } from './workout/store.js';
 import { initRestTimer } from './workout/rest-timer.js';
 import { initWorkoutBar } from './workout/bar.js';
@@ -31,6 +32,9 @@ import { detailPage, historyPage, workoutBadge, workoutRow } from './workout/his
 import { exercisePage, libraryPage } from './workout/exercises.js';
 import { mountTemplateEditor, templateCards, templatePage } from './workout/templates.js';
 import { exportWorkoutsCsv, importHevyFile } from './workout/transfer.js';
+import { statsPage } from './workout/stats.js';
+import { computeRecords, finished, insights, percentChange, summarize, between } from './workout/analytics.js';
+import { loadLibrary } from './workout/library.js';
 
 export { SPLITS };
 
@@ -39,13 +43,15 @@ const signed = (n) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${Math.abs(n).toFixe
 
 /** Everything the dashboard card and the Workout screen show (read fresh from the database). */
 export async function loadWorkoutModel(now = new Date()) {
-  const [workouts, measurements] = await Promise.all([loadWorkouts(), db.live('bodyMeasurements')]);
+  const [workouts, measurements, library] = await Promise.all([loadWorkouts(), db.live('bodyMeasurements'), loadLibrary()]);
   const active = workouts.find(isActive) ?? null;
   const completed = workouts.filter((w) => w.endedAt);
   const todayKey = toDateKey(now);
   const todays = completed.filter((w) => dayKeyOf(w.startedAt) === todayKey);
   const weekStart = startOfWeek(now);
   const split = SPLITS[state.settings.workout.split] ?? SPLITS.ppl;
+  const done = finished(workouts);
+  const records = computeRecords(done);
   return {
     now,
     completed,
@@ -60,6 +66,9 @@ export async function loadWorkoutModel(now = new Date()) {
     split,
     suggestion: suggestNext(split, completed),
     weight: weightSummary(measurements),
+    records,
+    month: monthSummary(done, now),
+    insights: insights(done, records, now, { nameOf: (id, fallback) => library.get(id)?.name ?? fallback }),
   };
 }
 
@@ -71,6 +80,17 @@ function streakDays(completed, now) {
   let count = 0;
   while (days.has(toDateKey(day))) { count++; day = addDays(day, -1); }
   return count;
+}
+
+/** This month so far, against the same days of last month (1st – today's date). */
+function monthSummary(done, now) {
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthDays = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+  const lastEnd = new Date(lastStart.getFullYear(), lastStart.getMonth(), Math.min(now.getDate(), lastMonthDays) + 1);
+  const current = summarize(between(done, start));
+  const last = summarize(between(done, lastStart, lastEnd));
+  return { ...current, lastCount: last.count, volumePct: percentChange(last.volume, current.volume) };
 }
 
 function weightSummary(measurements) {
@@ -87,6 +107,14 @@ function weightSummary(measurements) {
 }
 
 /* ---- Dashboard card ---- */
+
+/** A record from this week and the biggest volume change (from analytics.insights). */
+function highlights(m) {
+  if (!m.insights.length) return '';
+  return html`<ul class="wk-insights">${m.insights.map((tip) => html`<li>
+    <button type="button" class="wk-insight" data-action="nav" data-route="workout" data-sub="${tip.exerciseId ? `exercise/${tip.exerciseId}` : 'stats'}">
+      ${icon(tip.icon)}<span>${tip.text}</span></button></li>`)}</ul>`;
+}
 
 function cta(m) {
   if (m.active) {
@@ -124,9 +152,11 @@ function stats(m) {
     <div class="stat"><dt>${icon('flame')}Streak</dt>
       <dd class="stat__value">${m.streak} ${m.streak === 1 ? 'day' : 'days'}</dd>
       <dd class="stat__sub">${m.doneToday ? 'Including today' : m.streak ? 'Keep it going today' : 'Start one today'}</dd></div>
-    <div class="stat"><dt>${icon('target')}Plan</dt>
-      <dd class="stat__value">${m.split.name}</dd>
-      <dd class="stat__sub">Next up: ${m.suggestion}</dd></div>
+    <div class="stat"><dt>${icon('chart')}This month</dt>
+      <dd class="stat__value">${m.month.count} workout${m.month.count === 1 ? '' : 's'}</dd>
+      <dd class="stat__sub">${m.month.volumePct != null
+        ? `Volume ${m.month.volumePct === 0 ? 'same as' : `${m.month.volumePct > 0 ? '↑' : '↓'} ${Math.abs(m.month.volumePct)}% vs`} last month`
+        : m.month.count ? formatVolume(m.month.volume) : `${m.month.lastCount} by this time last month`}</dd></div>
     <div class="stat"><dt>${icon('scale')}Body weight</dt>
       <dd class="stat__value">${w ? `${w.latest.valueKg.toFixed(1)} kg` : '—'}</dd>
       <dd class="stat__sub">${weightSub}</dd></div>
@@ -151,7 +181,7 @@ registerModule({
     };
   },
   body(m) {
-    return html`${cta(m)}${stats(m)}
+    return html`${cta(m)}${stats(m)}${highlights(m)}
       <div class="card-foot"><button type="button" class="link-btn" data-action="nav" data-route="workout" data-sub="">Open Workout ${icon('arrowRight')}</button></div>`;
   },
   glance(m) {
@@ -201,6 +231,7 @@ const homePage = {
       <section class="card wk-hero accent-workout" aria-label="Today">${cta(m)}</section>
 
       <nav class="wk-links accent-workout" aria-label="Workout pages">
+        <a class="wk-link" href="#/workout/stats" data-action="nav" data-route="workout" data-sub="stats">${icon('chart')}<span>Stats</span></a>
         <a class="wk-link" href="#/workout/history" data-action="nav" data-route="workout" data-sub="history">${icon('history')}<span>History</span></a>
         <a class="wk-link" href="#/workout/exercises" data-action="nav" data-route="workout" data-sub="exercises">${icon('list')}<span>Exercises</span></a>
         <label class="wk-link">${icon('download')}<span>Import Hevy</span><input type="file" class="sr-only" accept=".csv,text/csv" data-field="hevy"></label>
@@ -227,21 +258,10 @@ const homePage = {
         <div class="section__head"><h2 class="section__title" id="wk-recent-title">Recent workouts</h2>
           ${m.completed.length ? html`<a class="text-btn" href="#/workout/history" data-action="nav" data-route="workout" data-sub="history">See all</a>` : ''}</div>
         ${m.completed.length
-          ? html`<ul class="card wk-list">${m.completed.slice(0, 5).map((w) => workoutRow(w, m.now))}</ul>`
+          ? html`<ul class="card wk-list">${m.completed.slice(0, 5).map((w) => workoutRow(w, m.now, { records: m.records.byWorkout.get(w.id)?.length ?? 0 }))}</ul>`
           : html`<div class="card empty">${icon('dumbbell')}<span>No workouts yet. Tap Start Workout, or import your history from Hevy.</span></div>`}
       </section>
-
-      <div class="accent-workout">${roadmapCard({
-        phase: 4,
-        title: 'Workout statistics are next',
-        note: 'Charts for every exercise, personal records, volume and frequency trends, and a workout calendar heatmap.',
-        items: [
-          ['chart', 'Exercise progress charts'],
-          ['trophy', 'Personal records'],
-          ['calendarCheck', 'Workout heatmap'],
-          ['flame', 'Weekly & monthly totals'],
-        ],
-      })}</div>`);
+`);
   },
 };
 
@@ -251,6 +271,7 @@ const ROUTES = [
   [/^$/, homePage, () => ({})],
   [/^log$/, loggerPage, () => ({ mode: 'active' })],
   [/^history$/, historyPage, () => ({})],
+  [/^stats$/, statsPage, () => ({})],
   [/^w\/([\w-]+)$/, detailPage, (m) => ({ id: m[1] })],
   [/^w\/([\w-]+)\/edit$/, loggerPage, (m) => ({ mode: 'edit', id: m[1] })],
   [/^exercises$/, libraryPage, () => ({})],

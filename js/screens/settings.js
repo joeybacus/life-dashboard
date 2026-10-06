@@ -338,6 +338,11 @@ function render() {
           </div>
         </div>
         <label class="row row--icon">
+          <span class="row__icon">${icon('trophy')}</span>
+          <span class="row__text"><span class="row__label">Celebrate personal records</span><span class="row__sub">A short glow and a message when a set beats your best. The trophy marks stay either way.</span></span>
+          <input type="checkbox" class="switch" switch data-field="recordCelebrate"${checked(s.workout.recordCelebrate)}>
+        </label>
+        <label class="row row--icon">
           <span class="row__icon">${icon('eye')}</span>
           <span class="row__text"><span class="row__label">Keep screen on during workouts</span>${wakeLockSupported() ? '' : html`<span class="row__sub">Not supported by this browser</span>`}</span>
           <input type="checkbox" class="switch" switch data-field="keepAwake"${checked(s.workout.keepAwake)}${wakeLockSupported() ? '' : raw(' disabled')}>
@@ -766,6 +771,9 @@ async function onChange(event) {
         break;
       case 'keepAwake':
         await save((s) => { s.workout.keepAwake = el.checked; });
+        break;
+      case 'recordCelebrate':
+        await save((s) => { s.workout.recordCelebrate = el.checked; });
         break;
       case 'focusEnabled':
         await save((s) => { s.focus.enabled = el.checked; });

@@ -4,13 +4,11 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 3 — Tasks and productivity (v0.4.4: the fifth of seven small releases).** A real
-to-do list with priorities, dates and times, categories, subtasks and links, smart views, search and sorting,
-fast capture — type tasks in plain words, a + button on every tab, a tap-a-task quick menu and swipes —
-reminders for tasks and subtasks (subtasks can have their own date and time), with "Still not done" follow-ups,
-the Google Calendar link, so reminders ring even on a locked phone, and repeating tasks —
-on top of Phase 2 (workouts, and ward rounds from your logsheets in **patient lists** like Ward Patients,
-Neurology tab — with your own columns and row order since v0.4.3.1) and
+**Current status: Phase 4 — Workout analytics (v0.5.0).** Statistics for your workouts: totals and streaks,
+workouts per week and month, a workout calendar heatmap, muscle-group frequency, progress charts for every
+exercise and personal records (with a small celebration while you log) — on top of Phase 3 (a real to-do list
+with fast capture, reminders, the Google Calendar link, repeating tasks, a focus timer and habits), Phase 2
+(workouts, and ward rounds from your logsheets in **patient lists** and **Referrals**, Neurology tab) and
 Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on each device and, once sync is
 set up, in your own Google Sheet.
 
@@ -213,10 +211,36 @@ link (v0.4.3) and repeating tasks (v0.4.4). The focus timer and habits arrive in
 - **History:** every workout with filters (dates, muscle group, exercise, template); open one to edit it,
   do it again, save it as a template, or delete it (with Undo).
 - **Exercise library:** ~200 exercises named like Hevy's, plus your own; favourites, notes, rest time per
-  exercise, a video link, and each exercise's history and best set.
+  exercise, a video link, and each exercise's history, best set, progress chart and records (Phase 4).
 - **Hevy:** in Hevy go to Settings → Export & Import Data → Export Workouts, save the CSV to Files, then in
   this app choose **Import Hevy** (Workout tab) or Settings → Hevy. You'll see a preview first; workouts you
   already have are skipped, so importing again later is safe. **Export workouts (CSV)** writes the same format.
+
+## Workout statistics and records (Phase 4, 0.5.0)
+
+Worked out from your workouts each time you look (Hevy imports included), so editing or deleting an old workout
+corrects everything at once. Nothing new is stored or synced, and the sync script doesn't change.
+
+- **Stats** (Workout tab): choose 7 days, 30 days, 3 months, 6 months, 1 year or All time. Workouts, time,
+  volume and sets for that period, compared with the same length of time before it; streaks (days in a row, and
+  weeks that met your weekly goal); workouts per week or month (tap a bar for its time and volume); the
+  **workout calendar** — a year of squares, brighter on days with more volume (tap one to open its workouts);
+  working sets per muscle; your exercises with ↑ / ↓ arrows; and your recent personal records.
+- **Each exercise's page:** a **Progress** chart over time — heaviest weight, estimated 1-rep max, volume, sets,
+  reps or how often — with a sentence such as "Heaviest weight up 7% compared with the 30 days before". Tap the
+  chart to read any point (Open goes to that workout). Below it, **Personal records**: heaviest, best estimated
+  1-rep max, best volume, most reps at each weight, and the records you've set.
+- **Personal records:** heaviest weight, most reps at a weight you've lifted before, best estimated 1-rep max
+  (weight × (1 + reps ÷ 30), from sets of 12 reps or fewer), most volume for an exercise in one workout, most
+  volume in a whole workout, and longest time or distance for timed and cardio exercises. Warm-ups never count;
+  an exercise's first session only sets the starting point; matching your best isn't a record.
+- **While you log:** a set that beats a record gets a gold trophy, a short glow and a message ("New record!").
+  Turn the glow and message off in **Settings → Workout → Celebrate personal records** (the trophies stay).
+  Finished workouts list their records, and History shows 🏆 with how many.
+- **Main dashboard:** the Workout card shows **This month** (workouts, and volume compared with the same days of
+  last month) and highlights: a record from this week, and the exercise whose volume changed most over the last
+  30 days.
+- Checks for the calculations: open `tools/workout-checks.html` through the preview server.
 
 ## Focus timer and habits (To Do tab, 0.4.5–0.4.6)
 
@@ -385,6 +409,10 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
 - **Workouts** are one record each with their exercises and sets inside (see `js/modules/workout/model.js`);
   the built-in exercise list lives in code (`library.js`) and the `exercises` store only keeps your own
   exercises and your changes to built-in ones. Never rename a built-in exercise: its id comes from its name.
+- **Workout analytics** (`js/modules/workout/analytics.js`) are pure functions over the workouts — nothing is
+  stored — so stats and records are always recomputed and stay right after edits. Charts (`charts.js`) are drawn
+  by the app (no library): an SVG line over HTML gridlines, dots and labels, with one listener for taps, hover
+  and arrow keys. The logger compares new sets with `baselineRecords()` (the workouts before this one).
 - **Sync script versions:** `SCRIPT_VERSION` in `Code.gs` and `LATEST_SCRIPT_VERSION` / `STORE_SCRIPT_VERSION`
   in `sync.js`. A new synced store that an older script can't save waits in the outbox until the script is updated.
   Version 3 adds the Ward Patients actions (`wardCheck`, `wardSync`, `wardCreateTest`), which open the logsheet

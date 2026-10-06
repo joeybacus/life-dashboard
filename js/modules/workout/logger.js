@@ -22,13 +22,14 @@ import { getActiveWorkout, notifyActiveChanged, onActiveWorkout, setActiveWorkou
 import { addExercises, chooseFocus } from './start.js';
 import { pickExercises } from './picker.js';
 import { startRest, stopRest } from './rest-timer.js';
+import { RECORD_TYPES, baselineRecords, liveRecords, recordTitle, recordValue } from './analytics.js';
 
 const checked = (on) => (on ? raw(' checked') : '');
 const REST_CHOICES = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
 const LIMITS = { weightKg: [0, 1500], reps: [0, 1000], rpe: [1, 10], rir: [0, 10], durationSec: [0, 86400], distanceKm: [0, 1000] };
 
 let view = null;
-let s = null;             // { workout, mode: 'active' | 'edit', library, previous, noteOpen }
+let s = null;             // { workout, mode: 'active' | 'edit', library, previous, noteOpen, baseline, live, celebrated }
 let visible = false;
 let typingTimer = null;
 let ownChange = false;
@@ -52,7 +53,14 @@ export const loggerPage = {
       library,
       previous: lastPerformances(workouts, { excludeId: workout.id, before: mode === 'edit' ? workout.startedAt : null }),
       noteOpen: new Set(),
+      // Personal records: the bests from every workout before this one; records already
+      // standing when the page opens aren't celebrated again
+      baseline: baselineRecords(workouts, { excludeId: workout.id, before: workout.startedAt }),
+      live: null,
+      celebrated: new Set(),
     };
+    s.live = liveRecords(s.baseline, workout);
+    s.live.events.forEach((e) => s.celebrated.add(recordKey(e)));
     render();
   },
   hide() {
@@ -100,6 +108,7 @@ function columns(kind) {
 
 function render() {
   const w = s.workout;
+  s.live = liveRecords(s.baseline, w);
   const letters = supersetLetters(w);
   setHTML(view, html`<div class="wl wl--${s.mode} accent-workout">
     ${s.mode === 'active' ? activeHead(w) : editHead(w)}
@@ -234,7 +243,7 @@ function setRow(entry, set, index, kind, cols) {
   const typeName = set.type === 'normal' ? `Set ${label}` : `${SET_TYPES[set.type].label} set`;
   const prev = prevSetFor(entry, index);
   return html`<div class="set set--${set.type}${set.done ? ' is-done' : ''}" data-set="${set.id}" role="group" aria-label="${typeName}">
-    <button type="button" class="set__type" data-action="wl:set-menu" aria-label="${typeName}: options">${label}</button>
+    <button type="button" class="set__type" data-action="wl:set-menu" aria-label="${typeName}${s.live?.sets.has(set.id) ? ', personal record' : ''}: options">${label}${s.live?.sets.has(set.id) ? prMark() : ''}</button>
     <button type="button" class="set__prev" data-action="wl:use-prev"${prev ? '' : raw(' disabled')} aria-label="${prev ? `Last time: ${describeSet(prev, kind)}. Use these numbers` : 'No previous set'}">${prev ? compactSet(prev, kind) : '—'}</button>
     ${cols.map(([field, header, mode]) => html`<input class="set__in" data-field="${field}" inputmode="${mode}"
       enterkeyhint="next" autocomplete="off" autocorrect="off" spellcheck="false" value="${inputValue(set, field)}" placeholder="${hint(field, prev, entry)}"
@@ -371,7 +380,10 @@ function onInput(event) {
   el.setAttribute('aria-invalid', ok ? 'false' : 'true');
   if (!ok) return;
   setField(set, field, value);
-  if (set.done) updateStats();
+  if (set.done) {
+    updateStats();
+    updateRecords();
+  }
   saveSoon();
 }
 
@@ -436,6 +448,43 @@ export function mountLogger(el) {
   el.addEventListener('input', onInput);
   el.addEventListener('change', onChange);
   el.addEventListener('keydown', onKeydown);
+}
+
+/* ---------- Personal records ---------- */
+
+const prMark = (fresh = false) => html`<span class="set__pr${fresh ? ' is-new' : ''}" aria-hidden="true">${icon('trophy')}</span>`;
+const recordKey = (e) => `${e.exerciseId ?? 'workout'}:${e.type}:${e.weightKg ?? ''}:${e.value}`;
+const RECORD_ORDER = Object.keys(RECORD_TYPES);
+
+/**
+ * After a set changes: move the trophy marks to the sets that now hold records,
+ * and — when a ticked set beat a record for the first time in this workout —
+ * celebrate it (a short glow and a message; Settings → Workout can turn that off).
+ */
+function updateRecords(ticked = null) {
+  s.live = liveRecords(s.baseline, s.workout);
+  view.querySelectorAll('[data-set]').forEach((row) => {
+    const has = s.live.sets.has(row.dataset.set);
+    const button = row.querySelector('.set__type');
+    const mark = button?.querySelector('.set__pr');
+    if (has && !mark) button.insertAdjacentHTML('beforeend', String(prMark(row === ticked)));
+    if (!has && mark) mark.remove();
+    if (button) button.setAttribute('aria-label', button.getAttribute('aria-label').replace(/(, personal record)?: options$/, `${has ? ', personal record' : ''}: options`));
+  });
+  const fresh = s.live.events.filter((e) => !s.celebrated.has(recordKey(e)));
+  fresh.forEach((e) => s.celebrated.add(recordKey(e)));
+  if (!ticked || !fresh.length || s.mode !== 'active') return;
+  fresh.sort((a, b) => RECORD_ORDER.indexOf(a.type) - RECORD_ORDER.indexOf(b.type));
+  const top = fresh[0];
+  const nameOf = (id, fallback) => s.library.get(id)?.name ?? fallback;
+  const words = `${recordTitle(top, nameOf)} · ${recordValue(top)}${fresh.length > 1 ? ` (+${fresh.length - 1} more)` : ''}`;
+  announce(`New personal record: ${words}`);
+  if (state.settings.workout.recordCelebrate === false) return;
+  ticked.classList.remove('is-pr-glow');
+  void ticked.offsetWidth; // restart the glow if it's still running
+  ticked.classList.add('is-pr-glow');
+  ticked.addEventListener('animationend', () => ticked.classList.remove('is-pr-glow'), { once: true });
+  toast(`New record! ${words}`, { icon: 'trophy', duration: 4500 });
 }
 
 /* ---------- Sets ---------- */
@@ -522,6 +571,7 @@ registerAction('wl:check', (el) => {
   }
   refreshRow(entry, set);
   updateStats();
+  updateRecords(set.done ? view.querySelector(`[data-set="${CSS.escape(set.id)}"]`) : null);
   save();
 });
 
@@ -532,7 +582,10 @@ registerAction('wl:use-prev', (el) => {
   if (!prev) return;
   columns(kindOf(entry)).forEach(([field]) => setField(set, field, prev[field] ?? null));
   refreshRow(entry, set);
-  if (set.done) updateStats();
+  if (set.done) {
+    updateStats();
+    updateRecords();
+  }
   save();
 });
 
@@ -833,8 +886,9 @@ registerAction('wl:end', async () => {
   setActiveWorkout(null);
   workoutsChanged('workout-end');
   const st = workoutStats(w);
+  const records = liveRecords(baselineRecords(await loadWorkouts(), { excludeId: w.id, before: w.startedAt }), w).events.length;
   replacePage(`w/${w.id}`);
-  toast(`Workout saved · ${formatDuration(st.duration)} · ${st.sets} set${st.sets === 1 ? '' : 's'}`, { icon: 'checkCircle' });
+  toast(`Workout saved · ${formatDuration(st.duration)} · ${st.sets} set${st.sets === 1 ? '' : 's'}${records ? ` · ${records} record${records === 1 ? '' : 's'}` : ''}`, { icon: records ? 'trophy' : 'checkCircle' });
 });
 
 async function discard({ confirmFirst = true } = {}) {

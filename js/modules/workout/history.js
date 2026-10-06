@@ -20,6 +20,8 @@ import { getActiveWorkout, loadTemplates } from './store.js';
 import { startWorkout } from './start.js';
 import { pickExercises } from './picker.js';
 import { saveWorkoutAsTemplate } from './templates.js';
+import { computeRecords } from './analytics.js';
+import { recordList } from './stats.js';
 
 const PAGE_SIZE = 40;
 const RANGES = [['all', 'All time'], ['30', 'Last 30 days'], ['90', 'Last 3 months'], ['365', 'Last 12 months'], ['year', 'This year']];
@@ -43,7 +45,7 @@ export function workoutBadge(w) {
  * One row in a list of workouts. dates: 'relative' ("Yesterday", "Sep 12") for
  * recent lists, 'day' ("Sat 26") under a month heading.
  */
-export function workoutRow(w, now = new Date(), { dates = 'relative' } = {}) {
+export function workoutRow(w, now = new Date(), { dates = 'relative', records = 0 } = {}) {
   const st = workoutStats(w);
   const start = new Date(w.startedAt);
   const day = dates === 'day' ? `${formatWeekdayShort(start)} ${start.getDate()}` : formatRelativeDay(start, now);
@@ -55,7 +57,7 @@ export function workoutRow(w, now = new Date(), { dates = 'relative' } = {}) {
     <span class="type-badge" aria-hidden="true">${workoutBadge(w)}</span>
     <span class="wk-item__main">
       <span class="wk-item__title">${w.title}${w.sample ? html` <span class="faint">· sample</span>` : ''}${isActive(w) ? html` <span class="live-pill">Live</span>` : ''}</span>
-      <span class="wk-item__meta">${meta}</span>
+      <span class="wk-item__meta">${meta}${records ? html` · <span class="pr-badge">${icon('trophy')}${records}<span class="sr-only"> record${records === 1 ? '' : 's'}</span></span>` : ''}</span>
     </span>
     <span class="wk-item__dur">${w.endedAt ? formatDuration(st.duration) : 'In progress'}${st.volume ? html`<small>${formatVolume(st.volume)}</small>` : ''}</span>
   </a></li>`;
@@ -94,6 +96,7 @@ async function render() {
   }, { time: 0, sets: 0, volume: 0 });
   const filtered = filters.range !== 'all' || filters.group !== 'all' || filters.exercise || filters.template !== 'all';
   const exerciseName = filters.exercise ? library.get(filters.exercise)?.name ?? 'Exercise' : null;
+  const records = computeRecords(workouts).byWorkout;
 
   // Group by month
   const months = [];
@@ -135,7 +138,7 @@ async function render() {
     ${matches.length
       ? months.map((m) => html`<section class="hist-month" aria-label="${m.label}">
           <h2 class="section__title hist-month__title">${m.label}</h2>
-          <ul class="card wk-list">${m.items.map((w) => workoutRow(w, now, { dates: 'day' }))}</ul>
+          <ul class="card wk-list">${m.items.map((w) => workoutRow(w, now, { dates: 'day', records: records.get(w.id)?.length ?? 0 }))}</ul>
         </section>`)
       : html`<div class="card empty">${icon('history')}<span>${filtered ? 'No workouts match these filters.' : 'No workouts yet. Finished workouts appear here.'}</span></div>`}
     ${matches.length > shown ? html`<button type="button" class="btn btn--block hist-more" data-action="hist:more">Show more (${matches.length - shown} left)</button>` : ''}
@@ -173,17 +176,18 @@ registerAction('hist:exercise-clear', () => {
 
 /* ---------- One workout ---------- */
 
-function setLine(set, n, kind) {
+function setLine(set, n, kind, prSets) {
   const label = set.type === 'normal' ? String(n) : SET_TYPES[set.type]?.mark ?? '•';
+  const pr = prSets.has(set.id);
   return html`<li class="wd-set set--${set.type}${set.done ? '' : ' is-undone'}">
     <span class="wd-set__n" aria-label="${set.type === 'normal' ? `Set ${n}` : SET_TYPES[set.type]?.label}">${label}</span>
-    <span class="wd-set__main">${describeSet(set, kind) || '—'}</span>
+    <span class="wd-set__main">${describeSet(set, kind) || '—'}${pr ? html`<span class="wd-set__pr" title="Personal record">${icon('trophy')}<span class="sr-only">Personal record</span></span>` : ''}</span>
     <span class="wd-set__effort">${describeEffort(set)}</span>
     ${set.note ? html`<span class="wd-set__note">${set.note}</span>` : ''}
   </li>`;
 }
 
-function entryBlock(entry, library, letters) {
+function entryBlock(entry, library, letters, prSets) {
   const exercise = library.get(entry.exerciseId);
   const kind = exercise?.kind ?? 'weight';
   const stats = entryStats(entry);
@@ -195,14 +199,14 @@ function entryBlock(entry, library, letters) {
     </div>
     ${entry.supersetId ? html`<span class="tag tag--superset">${icon('link')}Superset ${letters.get(entry.supersetId)}</span>` : ''}
     ${entry.notes ? html`<p class="wd-ex__notes">${entry.notes}</p>` : ''}
-    <ol class="wd-sets">${entry.sets.map((set) => setLine(set, set.type === 'normal' ? ++n : n, kind))}</ol>
+    <ol class="wd-sets">${entry.sets.map((set) => setLine(set, set.type === 'normal' ? ++n : n, kind, prSets))}</ol>
   </li>`;
 }
 
 export const detailPage = {
   async show(el, { id }) {
     view = el;
-    const [w, library, templates] = await Promise.all([loadWorkout(id), loadLibrary(), loadTemplates()]);
+    const [w, library, templates, workouts] = await Promise.all([loadWorkout(id), loadLibrary(), loadTemplates(), loadWorkouts()]);
     if (!w) {
       setHTML(view, html`<div class="wk-page accent-workout">
         ${subHead({ title: 'Workout not found', back: 'History', fallback: 'history', accent: 'workout' })}
@@ -218,6 +222,9 @@ export const detailPage = {
     const start = new Date(w.startedAt);
     const template = w.templateId ? templates.find((t) => t.id === w.templateId) : null;
     const letters = supersetLetters(w);
+    const records = w.endedAt ? computeRecords(workouts).byWorkout.get(w.id) ?? [] : [];
+    const prSets = new Set(records.map((r) => r.setId).filter(Boolean));
+    const nameOf = (exerciseId, fallback) => library.get(exerciseId)?.name ?? fallback;
     setHTML(view, html`<div class="wk-page accent-workout">
       ${subHead({ title: w.title, back: 'Back', fallback: 'history', accent: 'workout', eyebrow: formatShortDate(start),
         actions: w.endedAt ? html`<button type="button" class="btn btn--sm" data-action="wd:edit" data-id="${w.id}">${icon('edit')}Edit</button>` : '' })}
@@ -237,12 +244,17 @@ export const detailPage = {
         <div class="stat"><dt>${icon('repeat')}Reps</dt><dd class="stat__value">${st.reps}</dd><dd class="stat__sub">In total</dd></div>
       </dl>
 
+      ${records.length ? html`<section class="section" aria-labelledby="wd-rec-title">
+        <div class="section__head"><h2 class="section__title" id="wd-rec-title">Personal records</h2><span class="section__meta">${records.length} in this workout</span></div>
+        ${recordList(records, nameOf, { link: 'exercise' })}
+      </section>` : ''}
+
       ${w.notes ? html`<section class="section"><div class="section__head"><h2 class="section__title">Notes</h2></div><p class="card card--pad prose">${w.notes}</p></section>` : ''}
 
       <section class="section" aria-labelledby="wd-ex-title">
         <div class="section__head"><h2 class="section__title" id="wd-ex-title">Exercises</h2></div>
         ${w.exercises.length
-          ? html`<ol class="wd-list">${w.exercises.map((e) => entryBlock(e, library, letters))}</ol>`
+          ? html`<ol class="wd-list">${w.exercises.map((e) => entryBlock(e, library, letters, prSets))}</ol>`
           : html`<div class="card empty">${icon('layers')}<span>No sets were logged.</span></div>`}
       </section>
 

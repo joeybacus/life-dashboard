@@ -206,7 +206,7 @@ fieldset.field .field__label { padding: 0; margin-bottom: 6px; }
 .focus-template { border-radius: 14px; }
 
 /* ---- Workout home ---- */
-.wk-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.wk-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .wk-link {
   display: flex;
   flex-direction: column;
@@ -640,3 +640,178 @@ html.has-wbar:has(.wbar[data-mode="rest"]) .toasts { bottom: calc(var(--tabbar-h
 .import-rpe { margin: 12px -8px 0; padding: 10px 8px; border-radius: 12px; background: var(--surface-2); }
 
 .num.is-paused { opacity: .8; }
+
+/* ==========================================================================
+   Workout analytics (Phase 4): Stats page, charts, heatmap, records
+   ========================================================================== */
+.stats-range { margin-top: 4px; }
+.stats-unit { margin-bottom: 14px; }
+.stats-note { margin: 8px 2px 0; font-size: var(--fs-sm); color: var(--text-2); line-height: 1.4; }
+.stats-totals { margin-top: 14px; }
+.stats-more { margin-top: 8px; }
+
+.stats-insights { margin-top: 14px; padding: 4px 0; }
+.stats-insights > li + li { border-top: 1px solid var(--border); }
+.stats-insight { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: inherit; font-size: var(--fs-md); line-height: 1.35; }
+.stats-insight > .icon:first-child { flex: none; color: var(--accent-ink); }
+.stats-insight > span { flex: 1; min-width: 0; }
+a.stats-insight:active { background: var(--surface); }
+
+/* ---- Charts (single series in the Workout accent; text stays in text colours) ---- */
+.chart { margin: 0; }
+.chart__plot {
+  position: relative;
+  height: 168px;
+  margin: 8px 0 0 2.6rem;      /* room for the tick labels on the left */
+  touch-action: pan-y;
+  cursor: crosshair;
+  border-radius: 4px;
+}
+.chart__plot:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 6px; }
+.chart__grid { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid var(--border); }
+.chart__tick {
+  position: absolute; right: calc(100% + 8px); top: 0; transform: translateY(-50%);
+  font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.chart__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.chart__line { fill: none; stroke: var(--workout); stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
+.chart__area { fill: color-mix(in srgb, var(--workout) 11%, transparent); stroke: none; }
+.chart__cross { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid var(--border-2); pointer-events: none; }
+.chart__dot {
+  position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+  background: var(--workout); box-shadow: 0 0 0 2px var(--bg-raised); pointer-events: none;
+  transition: transform var(--t-fast) var(--ease);
+}
+.chart__dot.is-sel { transform: scale(1.5); }
+.chart__x { display: flex; justify-content: space-between; margin: 8px 0 0 2.6rem; font-size: var(--fs-2xs); color: var(--text-3); }
+.chart__x--bars { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); justify-content: initial; }
+.chart__x--bars span { text-align: center; white-space: nowrap; overflow: visible; display: flex; justify-content: center; }
+.chart__readout {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 44px; margin-top: 10px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--surface);
+}
+.chart__readout-text { display: flex; flex-direction: column; min-width: 0; font-size: var(--fs-md); }
+.chart__readout-text strong { font-weight: 650; }
+.chart__readout-text span { font-size: var(--fs-sm); color: var(--text-2); }
+.chart__readout .text-btn { flex: none; }
+
+.chart__bars { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 2px; align-items: end; }
+.chart__col { position: relative; height: 100%; display: flex; align-items: flex-end; justify-content: center; border-radius: 4px; }
+.chart__col.is-sel { background: var(--surface); }
+.chart__bar {
+  width: min(24px, 70%); min-height: 2px; border-radius: 4px 4px 0 0;
+  background: color-mix(in srgb, var(--workout) 62%, transparent);
+}
+.chart__col.is-current .chart__bar, .chart__col.is-sel .chart__bar { background: var(--workout); }
+.chart__bar.is-zero { background: var(--surface-3); }
+.chart__goal { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed color-mix(in srgb, var(--workout-ink) 70%, transparent); pointer-events: none; z-index: 1; }
+.chart__goal span { position: absolute; right: 0; bottom: 2px; font-size: var(--fs-2xs); font-weight: 600; color: var(--text-2); background: var(--bg-raised); padding: 0 4px; border-radius: 4px; }
+.chart-empty { margin-top: 8px; }
+
+/* ---- Heatmap ---- */
+.hm__summary { margin: 0 0 10px; font-size: var(--fs-sm); color: var(--text-2); }
+.hm__scroll { overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 4px; scrollbar-width: thin; }
+/* right-to-left scrolling box: it opens at the right end (this week); the grid inside reads left to right */
+.hm__scroll { direction: rtl; }
+.hm { --cell: 14px; --gap: 3px; width: max-content; direction: ltr; }
+.hm__months, .hm__grid { display: grid; grid-template-columns: repeat(var(--weeks), var(--cell)); column-gap: var(--gap); }
+.hm__months { margin-bottom: 4px; height: 1rem; }
+.hm__months span { font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; overflow: visible; }
+.hm__grid { grid-template-rows: repeat(7, var(--cell)); grid-auto-flow: column; row-gap: var(--gap); }
+.hm__cell { display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 3px; background: var(--surface-2); }
+.hm__cell.is-future { background: transparent; }
+button.hm__cell { cursor: pointer; }
+.hm__cell.hm--l1 { background: color-mix(in srgb, var(--workout) 30%, var(--surface-2)); }
+.hm__cell.hm--l2 { background: color-mix(in srgb, var(--workout) 52%, var(--surface-2)); }
+.hm__cell.hm--l3 { background: color-mix(in srgb, var(--workout) 76%, var(--surface-2)); }
+.hm__cell.hm--l4 { background: var(--workout); }
+.hm__cell.is-today { box-shadow: inset 0 0 0 1.5px var(--text); }
+.hm__cell.is-sel { outline: 2px solid var(--text); outline-offset: 1px; }
+.hm__cell:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 1px; }
+.hm__legend { display: flex; align-items: center; justify-content: flex-end; gap: 3px; margin-top: 8px; font-size: var(--fs-2xs); color: var(--text-3); }
+.hm__legend .hm__cell { width: 11px; height: 11px; }
+.hm__legend span:first-child { margin-right: 4px; }
+.hm__legend span:last-child { margin-left: 4px; }
+.hm__readout { margin-top: 10px; min-height: 2.5rem; font-size: var(--fs-sm); }
+.hm__readout p { margin: 0; }
+.hm__day { font-weight: 650; font-size: var(--fs-md); }
+.hm__list a { display: flex; align-items: center; gap: 8px; min-height: 44px; color: inherit; border-top: 1px solid var(--border); }
+.hm__list a span:first-child { flex: 1; font-weight: 600; }
+.hm__day + .hm__list { margin-top: 4px; }
+
+/* ---- Muscle groups ---- */
+.mbars { display: grid; gap: 10px; }
+.mbar { display: grid; grid-template-columns: 6.2rem 1fr auto; align-items: center; gap: 10px; }
+.mbar__name { font-size: var(--fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mbar__track { height: 10px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.mbar__fill { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--workout); }
+.mbar__value { min-width: 4.8rem; text-align: right; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.mbar__value small { display: block; font-size: var(--fs-2xs); color: var(--text-3); }
+
+/* ---- Trend chip ---- */
+.trend { display: inline-flex; align-items: center; gap: 2px; flex: none; padding: 2px 8px; border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: 700; background: var(--surface-2); color: var(--text-2); }
+.trend .icon { width: .85rem; height: .85rem; }
+.trend.is-up .icon { color: var(--success); }
+.trend.is-down .icon { color: var(--text-3); }
+
+/* ---- Records ---- */
+.rec-list > li + li { border-top: 1px solid var(--border); }
+.rec { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 14px; color: inherit; }
+a.rec:active { background: var(--surface); }
+@media (hover: hover) { a.rec:hover { background: var(--surface); } }
+.rec__icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: color-mix(in srgb, var(--workout-2) 18%, transparent); color: var(--workout-2); }
+[data-theme="light"] .rec__icon { color: #a16207; }
+.rec__icon .icon { width: 1.05rem; height: 1.05rem; }
+.rec__text { flex: 1; min-width: 0; }
+.rec__title { display: block; font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec__meta { display: block; font-size: var(--fs-sm); color: var(--text-2); }
+.rec__value { flex: none; font-size: var(--fs-md); font-weight: 700; font-variant-numeric: tabular-nums; }
+.rec-reps { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.rec-reps th, .rec-reps td { padding: 8px 14px; text-align: left; border-top: 1px solid var(--border); }
+.rec-reps thead th { border-top: 0; font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.rec-reps td:last-child, .rec-reps th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Trophy marks: on a record-setting set and on workouts in lists */
+.pr-badge { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-xs); font-weight: 700; color: var(--workout-2); }
+[data-theme="light"] .pr-badge { color: #a16207; }
+.pr-badge .icon { width: .9rem; height: .9rem; }
+.set__type { position: relative; }
+.set__pr {
+  position: absolute; top: -5px; right: -5px; display: grid; place-items: center; width: 17px; height: 17px;
+  border-radius: 50%; background: var(--workout-2); color: #3b2300; box-shadow: 0 0 0 2px var(--bg-raised); pointer-events: none;
+}
+.set__pr .icon { width: 11px; height: 11px; stroke-width: 2.4; }
+.set.is-pr-glow { animation: pr-glow 1.6s var(--ease) 1; }
+@keyframes pr-glow {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--workout-2) 0%, transparent); background-color: transparent; }
+  25% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--workout-2) 55%, transparent), 0 0 24px color-mix(in srgb, var(--workout-2) 45%, transparent); background-color: color-mix(in srgb, var(--workout-2) 14%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--workout-2) 0%, transparent); background-color: transparent; }
+}
+.set__pr.is-new { animation: pr-pop .5s var(--ease-spring) 1; }
+@keyframes pr-pop { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.wd-set__pr { display: inline-flex; color: var(--workout-2); margin-left: 6px; vertical-align: -2px; }
+[data-theme="light"] .wd-set__pr { color: #a16207; }
+.wd-set__pr .icon { width: .95rem; height: .95rem; }
+@media (prefers-reduced-motion: reduce) {
+  .set.is-pr-glow, .set__pr.is-new { animation: none; }
+  .chart__dot { transition: none; }
+}
+.ex-progress .stats-range { margin-bottom: 8px; }
+.ex-metrics { margin-bottom: 6px; }
+.ex-compare { display: flex; align-items: flex-start; gap: 6px; margin-top: 12px; }
+.ex-compare .icon { flex: none; width: 1rem; height: 1rem; margin-top: 2px; color: var(--accent-ink); }
+.ex-rec-tiles { margin-top: 0; }
+.ex-reps { margin-top: 8px; overflow: hidden; }
+.ex-rec-sub { margin: 16px 2px 8px; font-size: var(--fs-sm); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+
+/* Dashboard Workout card: highlights */
+.wk-insights { display: grid; gap: 6px; margin-top: 8px; }
+.wk-insight {
+  display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); line-height: 1.35; text-align: left; cursor: pointer;
+}
+.wk-insight .icon { flex: none; width: 1rem; height: 1rem; margin-top: 1px; color: var(--accent-ink); }
+.wk-insight:active { background: var(--surface-2); }
+.stats-find { display: inline-flex; align-items: center; gap: 4px; }
+.stats-find .icon { width: 1rem; height: 1rem; }
+.chart--line .chart__plot { margin-top: 16px; }

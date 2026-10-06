@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS = {
     restAlert: true,        // chime + vibration when the rest timer ends
     restOnSilent: false,    // iPhone: chime even on silent (pauses music apps while it plays)
     keepAwake: true,        // keep the screen on during a workout
+    recordCelebrate: true,  // a short glow and a message when a set beats a personal record (0.5.0)
   },
   tasks: {
     view: 'today',          // the To Do screen opens on: 'today' | 'upcoming' | 'overdue' | 'category' | 'all' | 'completed'
