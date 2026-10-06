@@ -155,7 +155,10 @@ function censusStatus(v) {
   } else if (code === 'not-connected') {
     out.push(banner('neuro', 'cloud', 'Sync is off on this device', LOAD_PROBLEMS['not-connected'], html`<button type="button" class="btn btn--sm btn--primary" data-action="sync:setup">Set up sync</button>`));
   } else if (v.error) {
-    out.push(banner('danger', 'info', 'Couldn’t load the census', v.error.message, html`<button type="button" class="btn btn--sm" data-action="ref:refresh">Try again</button>`));
+    out.push(banner('danger', 'info', 'Couldn’t load the census', html`${v.error.message}${v.error.detail ? html`<br><span class="refs-error-detail">Google said: “${v.error.detail}”</span>` : ''}`, html`<button type="button" class="btn btn--sm" data-action="ref:refresh">Try again</button>`));
+  }
+  if (v.cache?.emptyAt && censusList().emptyAnswer) {
+    out.push(banner('workout', 'info', 'The census came back empty', `Google sent no patients at ${wardStamp(v.cache.emptyAt)} (it may still be calculating). Showing the list from ${wardStamp(v.cache.fetchedAt)} — tap Refresh to try again.`));
   }
   if (!censusList().def.mapped) {
     out.push(banner('neuro', 'columns', 'Check the census columns', 'The app is using B Status, E Location, I Name, J Hospital No., K Last rounds, L Next rounds and M Diagnosis.', html`<button type="button" class="btn btn--sm btn--primary" data-action="ref:columns">Check columns</button>`));

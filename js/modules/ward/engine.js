@@ -58,10 +58,11 @@ let midnightTimer = null;
 
 export class WardError extends Error {
   /** code: a LOAD_PROBLEMS key, a sync error code ('network', 'bad-token'…) or 'offline'. */
-  constructor(code, { message, data = null } = {}) {
+  constructor(code, { message, data = null, detail = '' } = {}) {
     super(message ?? LOAD_PROBLEMS[code] ?? 'Something went wrong. Please try again.');
     this.code = code;
     this.data = data;
+    this.detail = detail; // Google's own words, when the sync script reported a problem
   }
 }
 
@@ -70,9 +71,9 @@ function toWardError(err) {
   if (err instanceof SyncError) {
     if (err.reason === 'bad-action') return new WardError('script-outdated');
     if (LOAD_PROBLEMS[err.reason]) return new WardError(err.reason, { data: err.data });
-    return new WardError(err.code, { message: err.message });
+    return new WardError(err.code, { message: err.message, detail: typeof err.detail === 'string' ? err.detail.slice(0, 300) : '' });
   }
-  return new WardError('server');
+  return new WardError('server', { detail: String(err?.message ?? '').slice(0, 300) });
 }
 
 const publish = (list = null) => emit('ward', { list });
@@ -420,6 +421,15 @@ class WardList {
 
   async applyResponse(res, sent, date, didReset, cols) {
     const link = this.link;
+    // A referral census that suddenly comes back empty is usually still calculating (formulas,
+    // IMPORTRANGE): keep the last list on screen and say so, rather than showing nobody
+    const emptySince = Date.parse(this.cache?.emptyAt ?? '');
+    this.emptyAnswer = this.isCensus && !(res.rows ?? []).length && (this.cache?.rows?.length ?? 0) > 0 && this.cache.spreadsheetId === link.spreadsheetId
+      && !(Date.now() - emptySince > 15 * 60e3); // still empty after 15 minutes: it really is empty
+    if (this.emptyAnswer) {
+      this.cache = { ...this.cache, emptyAt: this.cache.emptyAt ?? nowISO() };
+      return;
+    }
     const v7 = Array.isArray(res.headings); // sync script 7 or later: reads the list's own columns
     const rows = (res.rows ?? []).map((r) => ({
       row: r.row,
