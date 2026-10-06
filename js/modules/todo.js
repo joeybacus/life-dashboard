@@ -2,12 +2,14 @@
 
    Pages of the To Do tab (#/todo/…):
      (none)        the list: the plain-words box, views, search, sorting, quick menu
+     focus         the focus timer (focus/)
+     habits        your habits: add, edit, reorder, history (habits/)
      deleted       Recently deleted (restore for 30 days)
      categories    add, rename, recolour, reorder and delete categories
    The pieces live in js/modules/todo/. Tasks use Manila time (js/core/manila.js). */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
-import { changed, on } from '../core/state.js';
+import { changed, on, state } from '../core/state.js';
 import { html, setHTML } from '../core/html.js';
 import { registerQuickAdd } from '../core/quick-add.js';
 import { icon } from '../core/icons.js';
@@ -18,6 +20,9 @@ import { checkButton, priorityChip } from './todo/rows.js';
 import { mountList, newTaskDefaults, refreshList, showList } from './todo/list.js';
 import { categoriesPage, deletedPage } from './todo/pages.js';
 import { bindCapture, captureMarkup } from './todo/capture.js';
+import { focusPage, formatMinutes } from './focus/page.js';
+import { focusTimer, loadSessions, sessionMinutes } from './focus/timer.js';
+import { habitsOn, habitsPage, habitsToday } from './habits/ui.js';
 
 /** What the dashboard card and Today at a Glance show. */
 export async function loadTodoModel(now = new Date()) {
@@ -29,6 +34,7 @@ export async function loadTodoModel(now = new Date()) {
   const list = groups[0]?.tasks ?? [];
   const pending = list.filter((t) => !isDone(t));
   const counts = viewCounts(d.tasks, ms, subs);
+  const focusToday = (await loadSessions()).filter((s) => todayKey(Date.parse(s.start)) === today).reduce((n, s) => n + sessionMinutes(s), 0);
   const upcomingTimed = sortTasks([...d.tasks, ...subs].filter((t) => !isDone(t) && t.date === today && t.startTime), 'time', { now: ms })
     .filter((t) => !isOverdue(t, ms));
   return {
@@ -44,6 +50,8 @@ export async function loadTodoModel(now = new Date()) {
     overdueCount: counts.overdue,
     top: pending.find((t) => t.priority !== 'none') ?? pending[0] ?? null,
     next: upcomingTimed[0] ?? null,
+    focusToday,
+    habits: habitsOn() ? await habitsToday(today) : null,
   };
 }
 
@@ -81,10 +89,18 @@ registerModule({
       <button type="button" class="link-btn" data-action="nav" data-route="todo" data-sub="">Open To Do ${icon('arrowRight')}</button>
     </div>`;
     if (!m.pending.length) {
-      return html`<div class="empty">${icon('checkCircle')}<span>${m.totalToday ? 'Everything for today is done. Nice work!' : 'No tasks for today.'}</span></div>${footer}`;
+      const habitsOnly = m.habits?.total ? html`<div class="mini-habits" aria-label="Habits today">
+        <p class="mini-habits__title">${icon('flame')}Habits · ${m.habits.doneCount} of ${m.habits.total}</p>
+        <div class="mini-habits__list">${m.habits.items.map((i) => html`<button type="button" class="hab-tick hab-tick--chip${i.done ? ' is-done' : ''}" role="checkbox" aria-checked="${i.done ? 'true' : 'false'}" data-action="habit:tick" data-id="${i.habit.id}" aria-label="${i.habit.name}"><span class="pt__box">${icon('check')}</span><span class="hab-tick__name">${i.habit.name}</span></button>`)}</div>
+      </div>` : '';
+      return html`${habitsOnly}<div class="empty">${icon('checkCircle')}<span>${m.totalToday ? 'Everything for today is done. Nice work!' : 'No tasks for today.'}</span></div>${footer}`;
     }
+    const habits = m.habits?.total ? html`<div class="mini-habits" aria-label="Habits today">
+      <p class="mini-habits__title">${icon('flame')}Habits · ${m.habits.doneCount} of ${m.habits.total}</p>
+      <div class="mini-habits__list">${m.habits.items.map((i) => html`<button type="button" class="hab-tick hab-tick--chip${i.done ? ' is-done' : ''}" role="checkbox" aria-checked="${i.done ? 'true' : 'false'}" data-action="habit:tick" data-id="${i.habit.id}" aria-label="${i.habit.name}"><span class="pt__box">${icon('check')}</span><span class="hab-tick__name">${i.habit.name}</span></button>`)}</div>
+    </div>` : '';
     const shown = m.pending.slice(0, 5);
-    return html`<ul class="mini-tasks">${shown.map((t) => html`
+    return html`${habits}<ul class="mini-tasks">${shown.map((t) => html`
       <li class="mini-task${isOverdue(t, m.now) ? ' is-overdue' : ''}">
         ${checkButton(t)}
         <button type="button" class="mini-task__open" data-action="todo:quick" data-id="${t.id}" data-kind="${t.kind === 'subtask' ? 'subtask' : 'task'}"
@@ -119,6 +135,17 @@ registerModule({
         sub: m.next ? formatClock(m.next.startTime) : 'Untimed tasks are in To Do',
         action: m.next ? 'todo:open' : 'nav', data: m.next ? { id: m.next.id, kind: m.next.kind ?? 'task' } : { route: 'todo', sub: '' },
       },
+      ...(m.habits?.any ? [{
+        id: 'habits', order: 26, icon: 'flame', accent: 'todo', label: 'Habits',
+        big: String(m.habits.doneCount), value: `of ${m.habits.total} done`,
+        sub: m.habits.total && m.habits.doneCount === m.habits.total ? 'All done today' : m.habits.total ? 'today · tap to tick' : 'None due today',
+        action: 'nav', data: { route: 'todo', sub: '' },
+      }] : []),
+      ...(state.settings.focus?.enabled !== false ? [{
+        id: 'focus', order: 27, icon: 'timer', accent: 'todo', label: 'Focus',
+        value: formatMinutes(m.focusToday), sub: focusTimer()?.endsAt ? 'Session running' : 'today · tap to focus',
+        action: 'nav', data: { route: 'todo', sub: 'focus' },
+      }] : []),
     ];
   },
 });
@@ -144,6 +171,8 @@ const ROUTES = [
   [/^$/, listPage],
   [/^deleted$/, deletedPage],
   [/^categories$/, categoriesPage],
+  [/^focus$/, focusPage],
+  [/^habits$/, habitsPage],
 ];
 
 let view = null;
@@ -153,6 +182,7 @@ let visible = false;
 function route(el, sub) {
   for (const [pattern, def] of ROUTES) {
     if (!pattern.test(sub)) continue;
+    if (page && page !== def) page.hide?.();
     page = def;
     return def.show(el);
   }
@@ -177,6 +207,7 @@ registerScreen('todo', {
   },
   onHide() {
     visible = false;
+    page?.hide?.();
   },
 });
 

@@ -14,6 +14,8 @@ import { keepScreenOn } from '../../services/wake-lock.js';
 import { getActiveWorkout, onActiveWorkout } from './store.js';
 import { adjustRest, currentRest, onRestChange, restLeftMs, stopRest } from './rest-timer.js';
 import { formatSeconds } from './model.js';
+import { on as onEvent } from '../../core/events.js';
+import { focusTimer } from '../focus/timer.js';
 
 let bar = null;
 let active = null;
@@ -32,6 +34,7 @@ export async function initWorkoutBar() {
   });
   onRestChange(update);
   onRoute(update);
+  onEvent('focus', update);
   on('settings', update);
   update();
 }
@@ -41,8 +44,15 @@ function update() {
   keepScreenOn(Boolean(active) && state.settings.workout.keepAwake);
   const rest = currentRest();
   const mode = rest && onLogPage() ? 'rest' : active && !onLogPage() ? 'mini' : null;
-  bar.hidden = !mode;
-  document.documentElement.classList.toggle('has-wbar', Boolean(mode));
+  const shownMode = mode === 'mini' && focusTimer() && state.settings.focus?.enabled !== false ? null : mode; // the focus bar takes its place
+  bar.hidden = !shownMode;
+  const root = document.documentElement;
+  root.classList.toggle('has-wbar-workout', Boolean(shownMode));
+  root.classList.toggle('has-wbar', Boolean(shownMode) || root.classList.contains('has-fbar'));
+  if (!shownMode) {
+    setHTML(bar, '');
+    return;
+  }
   if (!mode) {
     setHTML(bar, '');
     return;

@@ -69,6 +69,8 @@ const CHIMES = {
   set: [[0, 1318.5], [0.24, 1046.5]],                  // two notes: next set
   exercise: [[0, 1046.5], [0.2, 1318.5], [0.4, 1568]], // three rising notes: next exercise
   reminder: [[0, 1174.7], [0.18, 1568], [0.58, 1174.7], [0.76, 1568]], // two rising pairs: a to-do reminder
+  focus: [[0, 784], [0.3, 1046.5], [0.6, 1318.5], [0.9, 1568]],        // four rising notes: focus time is up
+  break: [[0, 1568], [0.3, 1174.7], [0.6, 784]],                       // three falling notes: break is over
 };
 
 /**

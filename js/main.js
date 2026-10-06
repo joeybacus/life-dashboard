@@ -19,6 +19,8 @@ import './modules/index.js'; // registers Workout, To Do and Neurology
 import { initWorkout } from './modules/workout.js';
 import { initWard } from './modules/ward/engine.js';
 import { initReferrals } from './modules/referrals/store.js';
+import { initFocusTimer } from './modules/focus/timer.js';
+import { initFocusBar } from './modules/focus/page.js';
 import { initReminders } from './modules/todo/reminders.js';
 import { initCalendarLink } from './modules/todo/calendar-link.js';
 import { initDashboard } from './screens/dashboard.js';
@@ -81,6 +83,8 @@ async function boot() {
 
   initActions();
   await initWorkout(); // the workout in progress, rest timer and workout bar
+  await initFocusTimer(); // a focus session running on this device
+  initFocusBar();
   initDashboard();
   initSettings();
   initRouter();

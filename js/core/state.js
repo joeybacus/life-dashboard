@@ -54,6 +54,18 @@ export const DEFAULT_SETTINGS = {
       always: false,        // new tasks and subtasks with a time go to Calendar by themselves
     },
   },
+  focus: {                  // the focus timer (0.4.5)
+    enabled: true,          // off: hidden everywhere
+    focus: 25,              // minutes of focus
+    short: 5,               // a short break
+    long: 15,               // a long break…
+    every: 4,               // …after this many focus sessions
+    autoBreaks: true,       // a break starts by itself when a focus session ends
+    onSilent: false,        // the end chime plays even when the iPhone is on silent
+  },
+  habits: {                 // habits and daily routines (0.4.6)
+    enabled: true,          // off: hidden everywhere
+  },
   backup: {
     reminders: true,        // weekly "back up your data" nudge (not shown while sync works)
   },

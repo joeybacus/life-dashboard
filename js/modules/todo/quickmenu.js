@@ -24,6 +24,7 @@ import {
   addSubtaskTo, chooseCategory, choosePriority, deleteSubtask, deleteTask, focusTaskLater, toggleDone, togglePin, toggleSubDone,
   tomorrowSub, tomorrowTask,
 } from './task-actions.js';
+import { focusOnTask } from '../focus/page.js';
 
 const REACH = 88;    // from the centre of the cross to the centre of each arm
 const HALF = 34;     // half a button
@@ -122,6 +123,7 @@ export async function openQuickMenu(id, rowEl, kind = 'task') {
     case 'category': return chooseCategory(id);
     case 'subtask': return addSubtaskTo(id);
     case 'pin': return togglePin(id);
+    case 'focus': return focusOnTask(id);
     case 'calendar': return setInCalendar('task', id, !task.addToCalendar);
     default: return null;
   }

@@ -27,6 +27,7 @@ import { reminderSettings } from './alerts.js';
 import { loadLinks } from './calendar-link.js';
 import { exportTasksCsv } from './pages.js';
 import './quickmenu.js';
+import { renderHabitsCard } from '../habits/ui.js';
 
 let el = null;
 let data = null;
@@ -234,8 +235,9 @@ function drawChrome() {
 function drawPage() {
   setHTML(el, html`<div class="todo-page accent-todo" data-todo-page>
     ${pageHead({ title: 'To Do', iconName: 'checklist', accent: 'todo', eyebrow: 'Module',
-      aside: html`<button type="button" class="icon-btn" data-action="todo:menu" aria-label="More: categories, recently deleted, export">${icon('more')}</button>` })}
+      aside: html`${state.settings.focus?.enabled !== false ? html`<button type="button" class="btn btn--sm todo-focus-btn" data-action="nav" data-route="todo" data-sub="focus">${icon('timer')}Focus</button>` : ''}<button type="button" class="icon-btn" data-action="todo:menu" aria-label="More: categories, recently deleted, export">${icon('more')}</button>` })}
     <div class="todo-capture" data-slot="capture">${captureMarkup({ placeholder: 'Add a task…' })}</div>
+    <div class="todo-habits" data-slot="habits"></div>
     <nav class="todo-views"></nav>
     <div class="todo-tools">
       <label class="todo-search">${icon('search')}<span class="sr-only">Search tasks</span>
@@ -256,6 +258,7 @@ export async function showList(target) {
   if (!el.querySelector('[data-todo-page]')) drawPage();
   drawChrome();
   drawList();
+  renderHabitsCard(el.querySelector('[data-slot="habits"]'));
   revealView();
 }
 
@@ -265,6 +268,7 @@ export async function refreshList() {
   await load();
   drawChrome();
   drawList();
+  renderHabitsCard(el.querySelector('[data-slot="habits"]'));
 }
 
 export function mountList(target) {

@@ -921,3 +921,158 @@ kbd {
 .rpt__ends .input[type="date"] { width: auto; }
 .rpt__preview { font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); }
 .rpt__preview:empty { display: none; }
+
+/* ==========================================================================
+   Focus timer (0.4.5): the Focus page (#/todo/focus) and its bar
+   ========================================================================== */
+.focus-page { display: flex; flex-direction: column; gap: 16px; }
+.focus-card { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 20px 16px; text-align: center; }
+.focus-card--start { align-items: stretch; text-align: left; }
+.focus-card__title { font-size: var(--fs-xl); font-weight: 700; }
+.focus-card__sub { color: var(--text-2); font-size: var(--fs-sm); line-height: 1.45; }
+.focus-card__task { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; font-weight: 650; }
+.focus-card__task span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.focus-card__task .icon { flex: none; width: 1.1rem; height: 1.1rem; color: var(--accent-ink); }
+.focus-card__icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px; color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.focus-card__icon .icon { width: 28px; height: 28px; }
+.focus-card__btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.focus-card__adjust { display: flex; gap: 8px; }
+.focus-card__go { margin-top: 6px; }
+.focus-card--start .field__label { margin-top: 6px; }
+.focus-lengths { margin-top: -4px; }
+
+/* The countdown ring */
+.focus-ring { position: relative; width: min(72vw, 260px); aspect-ratio: 1; }
+.focus-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.focus-ring__track { fill: none; stroke: var(--surface-2); stroke-width: 8; }
+.focus-ring__bar { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: calc(var(--p, 0)); transition: stroke-dashoffset .25s linear; }
+.focus-ring.is-break .focus-ring__bar { stroke: var(--success); }
+.focus-ring.is-paused .focus-ring__bar { stroke: var(--text-3); }
+.focus-ring__inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.focus-ring__type { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink); }
+.is-break .focus-ring__type { color: color-mix(in srgb, var(--success) 70%, var(--text)); }
+.focus-ring__time { font-family: var(--font-rounded); font-size: clamp(2.6rem, 14vw, 3.6rem); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.focus-ring__plan { font-size: var(--fs-sm); color: var(--text-3); }
+
+/* Picking a task */
+.focus-tasks { display: flex; flex-direction: column; gap: 6px; max-height: 18rem; overflow-y: auto; }
+.focus-task { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 10px 12px; border-radius: var(--r-md); text-align: left; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border); }
+.focus-task small { font-size: var(--fs-xs); font-weight: 500; color: var(--text-3); }
+.focus-task.is-picked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Totals */
+.focus-totals { padding: 16px; }
+.focus-totals__title { margin-bottom: 10px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.focus-totals__nums { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.focus-totals__nums p { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); }
+.focus-totals__nums strong { font-size: var(--fs-xl); }
+.focus-totals__nums span { font-size: var(--fs-xs); color: var(--text-3); }
+.focus-cats { margin-top: 10px; }
+.focus-cats li, .focus-sessions li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 2px; border-top: 1px solid var(--border); font-size: var(--fs-sm); }
+.focus-totals__sub { margin: 14px 0 4px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.focus-sessions__what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.focus-sessions__time, .focus-sessions__min { color: var(--text-2); white-space: nowrap; }
+
+/* The bar above the tabs (it takes the workout bar's place) */
+.fbar__mini { padding: 4px 6px 4px 14px; background: color-mix(in srgb, var(--todo) 8%, var(--surface-solid)); border-color: color-mix(in srgb, var(--todo) 45%, var(--glass-border)); }
+.fbar__open { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; min-height: 44px; text-align: left; }
+.fbar .wbar__dot { background: var(--todo); box-shadow: 0 0 10px var(--todo); }
+.fbar .wbar__dot.is-break { background: var(--success); box-shadow: 0 0 10px var(--success); }
+.fbar .wbar__dot.is-paused { background: var(--text-3); box-shadow: none; animation: none; }
+.fbar__task { font-weight: 500; color: var(--text-2); }
+.fbar__btn { flex: none; }
+
+/* ==========================================================================
+   Habits (0.4.6): today's card in To Do, the Habits page, a habit's sheet
+   ========================================================================== */
+.todo-focus-btn { margin-right: 4px; }
+.todo-habits:empty { display: none; }
+.todo-habits { margin-top: 12px; }
+.hab-card { padding: 10px 12px 12px; }
+.hab-card--empty { display: flex; align-items: center; gap: 12px; padding: 12px; }
+.hab-card__head { display: flex; align-items: center; gap: 4px; }
+.hab-card__toggle { display: flex; flex: 1; align-items: center; gap: 10px; min-height: 44px; text-align: left; }
+.hab-card__icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 11px; color: var(--workout-ink); background: color-mix(in srgb, var(--workout) 14%, transparent); }
+.hab-card__icon .icon { width: 18px; height: 18px; }
+.hab-card__title { font-weight: 700; }
+.hab-card__count { margin-left: auto; font-size: var(--fs-sm); font-weight: 650; color: var(--text-2); }
+.hab-card__chev { width: 1rem; height: 1rem; color: var(--text-3); transition: transform var(--t-fast); }
+.hab-card.is-collapsed .hab-card__chev { transform: rotate(-90deg); }
+.hab-card__text { display: flex; flex: 1; flex-direction: column; min-width: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.hab-card__text strong { color: var(--text); font-size: var(--fs-md); }
+.hab-card__none { display: flex; align-items: center; gap: 6px; padding: 6px 2px 2px; color: var(--text-3); font-size: var(--fs-sm); }
+.hab-card__none .icon { width: 1rem; height: 1rem; }
+.hab-group + .hab-group { margin-top: 6px; }
+.hab-group__title { margin: 8px 2px 2px; font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.hab-list { display: flex; flex-direction: column; }
+.hab-row { display: flex; align-items: center; gap: 8px; min-height: 48px; border-top: 1px solid var(--border); }
+.hab-list .hab-row:first-child { border-top: 0; }
+.hab-row__open { display: flex; flex: 1; flex-direction: column; min-width: 0; padding: 6px 0; text-align: left; }
+.hab-row__name { font-weight: 600; overflow-wrap: anywhere; }
+.hab-row.is-done .hab-row__name { color: var(--text-2); }
+.hab-row__meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: var(--fs-xs); color: var(--text-3); }
+.hab-streak { display: inline-flex; align-items: center; gap: 3px; color: var(--workout-ink); font-weight: 650; }
+.hab-streak .icon { width: .85rem; height: .85rem; }
+
+/* The tick (a circle, like a task's) */
+.hab-tick { display: grid; place-items: center; flex: none; width: 2.75rem; height: 2.75rem; border-radius: 50%; }
+.hab-tick .pt__box { width: 26px; height: 26px; }
+.hab-tick.is-done .pt__box { background: var(--workout); border-color: var(--workout); color: #1a0d00; }
+.hab-tick--chip, .hab-log .hab-tick { display: inline-flex; gap: 8px; width: auto; height: auto; min-height: 40px; padding: 4px 12px 4px 6px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border); }
+.hab-tick--chip .pt__box, .hab-log .hab-tick .pt__box { width: 22px; height: 22px; }
+.hab-tick__name { font-size: var(--fs-sm); font-weight: 600; }
+.hab-tick--chip.is-done .hab-tick__name { color: var(--text-2); }
+
+/* On the dashboard's To Do card */
+.mini-habits { margin-bottom: 10px; }
+.mini-habits__title { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+.mini-habits__title .icon { width: .9rem; height: .9rem; color: var(--workout-ink); }
+.mini-habits__list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Log habits (+ button) */
+.hab-log { display: flex; flex-direction: column; gap: 8px; }
+.hab-log li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+
+/* The Habits page */
+.hab-page { display: flex; flex-direction: column; gap: 14px; }
+.hab-all { display: flex; flex-direction: column; }
+.hab-item { display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 0; background: var(--surface-solid); }
+.hab-item + .hab-item { border-top: 1px solid var(--border); }
+.hab-item.is-paused { opacity: .6; }
+.hab-item__open { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; padding: 10px 4px; text-align: left; }
+.hab-item__name { font-weight: 650; }
+.hab-item__name small { font-weight: 500; color: var(--text-3); }
+.hab-item__sub { font-size: var(--fs-sm); color: var(--text-2); }
+.hab-strip { display: flex; gap: 4px; margin-top: 4px; }
+.hab-strip__day { width: 14px; height: 14px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--border); }
+.hab-strip__day.is-done { background: var(--workout); border-color: var(--workout); }
+.hab-strip__day.is-missed { background: color-mix(in srgb, var(--danger, #ef4444) 18%, transparent); border-color: color-mix(in srgb, var(--danger, #ef4444) 40%, transparent); }
+.hab-strip__day.is-today { border: 2px solid var(--workout); }
+.hab-strip__day.is-off { opacity: .45; }
+
+/* A habit's sheet */
+.hab-detail { display: flex; flex-direction: column; gap: 14px; }
+.hab-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.hab-stats p { display: flex; flex-direction: column; align-items: center; padding: 10px 6px; border-radius: var(--r-md); background: var(--surface-2); text-align: center; }
+.hab-stats strong { font-size: var(--fs-xl); color: var(--workout-ink); }
+.hab-stats span { font-size: var(--fs-xs); color: var(--text-3); }
+.hab-seven { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.hab-seven__day { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-3); }
+.hab-seven__dot { width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); }
+.hab-seven__day.is-done .hab-seven__dot { background: var(--workout); border-color: var(--workout); }
+.hab-seven__day.is-missed .hab-seven__dot { background: color-mix(in srgb, var(--danger, #ef4444) 18%, transparent); }
+.hab-seven__day.is-today .hab-seven__dot { border: 2px solid var(--workout); }
+.hab-month__nav { display: flex; align-items: center; justify-content: space-between; }
+.hab-month__label { font-weight: 650; }
+.hab-month__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 6px; }
+.hab-month__wd { text-align: center; font-size: var(--fs-2xs); font-weight: 700; color: var(--text-3); }
+.hab-month__day { aspect-ratio: 1; max-height: 44px; border-radius: 10px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; background: var(--surface-2); }
+.hab-month__day.is-done { background: var(--workout); color: #1a0d00; font-weight: 700; }
+.hab-month__day.is-today { box-shadow: inset 0 0 0 2px var(--workout); }
+.hab-month__day:disabled { opacity: .35; }
+.hab-month__hint { margin-top: 6px; font-size: var(--fs-xs); color: var(--text-3); }
+.hab-edit__own { margin-top: 8px; }
+.hab-edit__days, .hab-edit__times { margin-top: 10px; }
+.hab-edit__times { display: inline-flex; align-items: center; gap: 10px; }
+.page-head__aside:has(.todo-focus-btn) { display: flex; align-items: center; gap: 4px; }
+.hab-month__day { display: grid; place-items: center; padding: 0; }

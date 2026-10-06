@@ -218,6 +218,20 @@ link (v0.4.3) and repeating tasks (v0.4.4). The focus timer and habits arrive in
   this app choose **Import Hevy** (Workout tab) or Settings → Hevy. You'll see a preview first; workouts you
   already have are skipped, so importing again later is safe. **Export workouts (CSV)** writes the same format.
 
+## Focus timer and habits (To Do tab, 0.4.5–0.4.6)
+
+- **Focus** (the Focus button in To Do, the + button, or a task's quick menu): 25 minutes of focus, a 5-minute
+  break, a 15-minute break after every 4 — all adjustable in Settings → Focus and habits. Pick a task and its
+  focus minutes are added to it. Pause, ±5 min, skip or stop; a bar above the tabs shows the countdown on other
+  screens. A chime plays at the end (while the app is open); breaks can start by themselves. Totals today and
+  this week, by category; a Focus tile on the dashboard.
+- **Habits**: a card at the top of To Do with today's habits (Morning, Work, Evening or your own groups). Every
+  day, chosen days or N times a week. Tick to log; streaks, the last 7 days, and a month you can fill in for past
+  days (tap a habit). Pause or delete; drag to reorder on the Habits page. "Log habit" on the + button; a Habits
+  tile and ticks on the dashboard's To Do card. Use a repeating task for things with a time or reminder, and a
+  habit for things you want a streak on.
+- Both sync (Focus sessions, Habits and Habit log tabs) and are in backups. Turn either off in Settings.
+
 ## Referrals (Neurology tab, 0.4.4.3)
 
 **Neurology → Referrals** shows the patients referred to your service, from your **referral census** (a Google

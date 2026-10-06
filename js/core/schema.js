@@ -84,12 +84,22 @@ const MIGRATIONS = [
     const referrals = db.createObjectStore('referrals', { keyPath: 'id' });
     referrals.createIndex('updatedAt', 'updatedAt');
   },
+  // v9 — Focus timer (0.4.5) and habits (0.4.6): focus sessions ({ id, taskId, type, start, end,
+  // plannedMinutes, completed }), habits ({ id, name, group, schedule, active, order }) and one log
+  // per habit per Manila day ({ id: "<habit id>:<date>", habitId, date, done }). All synced (tabs
+  // Focus sessions, Habits, Habit log — there since sync script 5) and in backups.
+  (db) => {
+    for (const name of ['focusSessions', 'habits', 'habitLogs']) {
+      const store = db.createObjectStore(name, { keyPath: 'id' });
+      store.createIndex('updatedAt', 'updatedAt');
+    }
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
 
 /** Stores included in JSON backups, in export order. */
-export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists'];
+export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists', 'focusSessions', 'habits', 'habitLogs'];
 
 /** Ward Patients data kept on this device only (see migration v4; the lists themselves sync — v7). */
 export const WARD_STORES = ['wardDays', 'wardQueue'];
@@ -101,7 +111,7 @@ export const SCRIPT_STORES = ['calendarLinks'];
 export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'outbox', ...WARD_STORES, ...SCRIPT_STORES];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
-export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists', 'referrals'];
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists', 'referrals', 'focusSessions', 'habits', 'habitLogs'];
 
 /** Stores that may contain generated sample records. */
 export const SAMPLE_STORES = ['tasks', 'subtasks', 'workouts', 'bodyMeasurements'];

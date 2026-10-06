@@ -69,7 +69,7 @@ export const QUICK_ACTIONS = {
   reminder: { label: 'Reminder', long: 'Reminders', icon: 'bell' },
   details: { label: 'Details', icon: 'edit' },
   delete: { label: 'Delete', icon: 'trash' },
-  focus: { label: 'Focus', icon: 'timer', soon: true },
+  focus: { label: 'Focus', icon: 'timer' },
   tomorrow: { label: 'Tomorrow', long: 'Move to tomorrow', icon: 'arrowRight' },
   priority: { label: 'Priority', long: 'Change priority', icon: 'flag' },
   category: { label: 'Category', long: 'Move category', icon: 'layers' },

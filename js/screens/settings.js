@@ -405,7 +405,43 @@ function render() {
           ${icon('chevronRight', 'row__chev')}
         </button>
       </div>
-      <p class="group__foot">Smart sorting puts overdue tasks first, then High, Medium, Low and no priority, earliest time first. Tasks follow Manila time. The Google Calendar link, the focus timer and habits arrive in the next updates.</p>
+      <p class="group__foot">Smart sorting puts overdue tasks first, then High, Medium, Low and no priority, earliest time first. Tasks follow Manila time.</p>
+    </section>
+
+    <section class="group" id="settings-focus" aria-labelledby="set-focus-title">
+      <h2 class="group__title" id="set-focus-title">Focus and habits</h2>
+      <div class="card group__card accent-todo">
+        <label class="row row--icon">
+          <span class="row__icon">${icon('timer')}</span>
+          <span class="row__text"><span class="row__label">Focus timer</span><span class="row__sub">Pomodoro sessions, on the + button and a task’s quick menu. Off: hidden everywhere.</span></span>
+          <input type="checkbox" class="switch" switch data-field="focusEnabled"${checked(s.focus.enabled !== false)}>
+        </label>
+        ${pickerRow({ field: 'focusLen', iconName: 'timer', label: 'Focus length', value: s.focus.focus, options: [15, 20, 25, 30, 40, 45, 50, 60, 90].map((m) => [m, `${m} min`]) })}
+        ${pickerRow({ field: 'focusShort', iconName: 'hourglass', label: 'Short break', value: s.focus.short, options: [3, 5, 7, 10, 15].map((m) => [m, `${m} min`]) })}
+        ${pickerRow({ field: 'focusLong', iconName: 'hourglass', label: 'Long break', value: s.focus.long, options: [10, 15, 20, 25, 30].map((m) => [m, `${m} min`]) })}
+        ${pickerRow({ field: 'focusEvery', iconName: 'repeat', label: 'Long break after', value: s.focus.every, options: [2, 3, 4, 5, 6].map((n) => [n, `${n} focus sessions`]) })}
+        <label class="row row--icon">
+          <span class="row__icon">${icon('play')}</span>
+          <span class="row__text"><span class="row__label">Start breaks by themselves</span><span class="row__sub">When a focus session ends. The next focus always waits for you.</span></span>
+          <input type="checkbox" class="switch" switch data-field="focusAutoBreaks"${checked(s.focus.autoBreaks)}>
+        </label>
+        ${isIOS() ? html`<label class="row row--icon">
+          <span class="row__icon">${icon('bell')}</span>
+          <span class="row__text"><span class="row__label">Focus chime even on silent</span><span class="row__sub">Music apps pause while it plays. Off: the chime plays over your music, and stays quiet on silent.</span></span>
+          <input type="checkbox" class="switch" switch data-field="focusOnSilent"${checked(s.focus.onSilent)}>
+        </label>` : ''}
+        <label class="row row--icon">
+          <span class="row__icon">${icon('flame')}</span>
+          <span class="row__text"><span class="row__label">Habits</span><span class="row__sub">A daily checklist with streaks, in the To Do tab. Off: hidden everywhere.</span></span>
+          <input type="checkbox" class="switch" switch data-field="habitsEnabled"${checked(s.habits.enabled !== false)}>
+        </label>
+        <button type="button" class="row row--icon" data-action="nav" data-route="todo" data-sub="habits">
+          <span class="row__icon">${icon('list')}</span>
+          <span class="row__text"><span class="row__label">Manage habits</span><span class="row__sub">Add, edit, reorder; streaks and history</span></span>
+          ${icon('chevronRight', 'row__chev')}
+        </button>
+      </div>
+      <p class="group__foot">The chime plays while the app is open. A session keeps counting when you lock the phone; if it ends meanwhile, it’s saved and the next one waits for you.</p>
     </section>
 
     <section class="group" id="settings-reminders" aria-labelledby="set-rem-title">${remindersSection()}</section>
@@ -730,6 +766,30 @@ async function onChange(event) {
         break;
       case 'keepAwake':
         await save((s) => { s.workout.keepAwake = el.checked; });
+        break;
+      case 'focusEnabled':
+        await save((s) => { s.focus.enabled = el.checked; });
+        break;
+      case 'focusLen':
+        await save((s) => { s.focus.focus = Number(el.value); });
+        break;
+      case 'focusShort':
+        await save((s) => { s.focus.short = Number(el.value); });
+        break;
+      case 'focusLong':
+        await save((s) => { s.focus.long = Number(el.value); });
+        break;
+      case 'focusEvery':
+        await save((s) => { s.focus.every = Number(el.value); });
+        break;
+      case 'focusAutoBreaks':
+        await save((s) => { s.focus.autoBreaks = el.checked; });
+        break;
+      case 'focusOnSilent':
+        await save((s) => { s.focus.onSilent = el.checked; });
+        break;
+      case 'habitsEnabled':
+        await save((s) => { s.habits.enabled = el.checked; });
         break;
       case 'hevyImport': {
         const file = el.files?.[0];
