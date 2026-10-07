@@ -59,9 +59,10 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    columns (writes their own values; a value they refuse fails only that change);
    11 ticks and unticks real checkboxes (a list's tick columns, e.g. column A);
    12 takes weights from Apple Health, sent by an Apple Shortcut (healthWeight), and writes several logsheet
-   changes together with one recalculation (a big census used to time out). */
-export const LATEST_SCRIPT_VERSION = 12;
-const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8, focusSessions: 5, habits: 5, habitLogs: 5 };
+   changes together with one recalculation (a big census used to time out); 13 keeps progress photos (the
+   Progress photos tab, and the photos themselves in a Google Drive folder: photoUpload, photoDownload). */
+export const LATEST_SCRIPT_VERSION = 13;
+const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8, focusSessions: 5, habits: 5, habitLogs: 5, progressPhotos: 13 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 /* A device that synced with an older app skipped the kinds of data that app
    didn't know yet (their changes were pulled and ignored). The first sync

@@ -94,12 +94,26 @@ const MIGRATIONS = [
       store.createIndex('updatedAt', 'updatedAt');
     }
   },
+  // v10 — Progress photos (0.7.0): one record per photo ({ id, takenAt, pose, note, weightKg, workoutId,
+  // workoutTitle, muscleGroups, width, height, originalFileId, copyFileId }) — synced (Progress photos tab,
+  // sync script 13) and in backups — and the image files themselves on this device ({ key: "<photo id>:copy"
+  // | ":thumb" | ":original", photoId, kind, blob }), never synced or backed up: the full original lives in
+  // your Google Drive, and every device keeps its own copy.
+  (db) => {
+    const photos = db.createObjectStore('progressPhotos', { keyPath: 'id' });
+    photos.createIndex('takenAt', 'takenAt');
+    photos.createIndex('updatedAt', 'updatedAt');
+    db.createObjectStore('photoFiles', { keyPath: 'key' });
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
 
 /** Stores included in JSON backups, in export order. */
-export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists', 'focusSessions', 'habits', 'habitLogs'];
+export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'focusSessions', 'habits', 'habitLogs'];
+
+/** Image files kept on this device only (progress photos and the profile picture's original). */
+export const DEVICE_FILE_STORES = ['photoFiles'];
 
 /** Ward Patients data kept on this device only (see migration v4; the lists themselves sync — v7). */
 export const WARD_STORES = ['wardDays', 'wardQueue'];
@@ -108,10 +122,10 @@ export const WARD_STORES = ['wardDays', 'wardQueue'];
 export const SCRIPT_STORES = ['calendarLinks'];
 
 /** Every store (used when deleting all data). */
-export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'outbox', ...WARD_STORES, ...SCRIPT_STORES];
+export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'outbox', ...WARD_STORES, ...SCRIPT_STORES, ...DEVICE_FILE_STORES];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
-export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists', 'referrals', 'focusSessions', 'habits', 'habitLogs'];
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'focusSessions', 'habits', 'habitLogs'];
 
 /** Stores that may contain generated sample records. */
 export const SAMPLE_STORES = ['tasks', 'subtasks', 'workouts', 'bodyMeasurements'];

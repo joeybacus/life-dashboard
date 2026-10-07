@@ -7,6 +7,8 @@
      stats           statistics: totals, streaks, heatmap, records (Phase 4)
      health          body weight, goal, height and BMI, measurements (Phase 5)
      health/<kind>   one measurement's chart and entries (health/weight = every weigh-in)
+     photos          progress photos (Phase 6): grid, calendar, timeline
+     photos/<id>     one photo          photos/compare/<a>/<b>   two photos side by side
      w/<id>          one workout            w/<id>/edit   edit a finished workout
      exercises       exercise library       exercise/<id> one exercise
      template/<id>   edit a template
@@ -36,6 +38,8 @@ import { mountTemplateEditor, templateCards, templatePage } from './workout/temp
 import { exportWorkoutsCsv, importHevyFile } from './workout/transfer.js';
 import { statsPage } from './workout/stats.js';
 import { healthPage } from './health/page.js';
+import { photosPage } from './photos/page.js';
+import { initPhotoTransfers } from './photos/transfer.js';
 import { computeRecords, finished, insights, percentChange, summarize, between } from './workout/analytics.js';
 import { loadLibrary } from './workout/library.js';
 
@@ -263,6 +267,7 @@ const homePage = {
                 ? `${formatRelativeDay(new Date(m.weight.latest.measuredAt), m.now)}${m.weight.delta != null ? ` · ${signed(m.weight.delta)} kg in ${m.weight.days} days` : ''}`
                 : 'Weight, goal, BMI and measurements'}</span></span>
           </a>
+          <button type="button" class="btn btn--sm" data-action="nav" data-route="workout" data-sub="photos" aria-label="Progress photos">${icon('camera')}Photos</button>
           <button type="button" class="btn btn--sm btn--accent" data-action="health:log">${icon('plus')}Log</button>
         </div>
       </section>
@@ -293,6 +298,9 @@ const ROUTES = [
   [/^stats$/, statsPage, () => ({})],
   [/^health$/, healthPage, () => ({})],
   [/^health\/(\w+)$/, healthPage, (m) => ({ kind: m[1] })],
+  [/^photos$/, photosPage, () => ({ kind: 'gallery' })],
+  [/^photos\/compare\/([\w-]+)\/([\w-]+)$/, photosPage, (m) => ({ kind: 'compare', a: m[1], b: m[2] })],
+  [/^photos\/([\w-]+)$/, photosPage, (m) => ({ kind: 'photo', id: m[1] })],
   [/^w\/([\w-]+)$/, detailPage, (m) => ({ id: m[1] })],
   [/^w\/([\w-]+)\/edit$/, loggerPage, (m) => ({ mode: 'edit', id: m[1] })],
   [/^exercises$/, libraryPage, () => ({})],
@@ -367,4 +375,5 @@ export async function initWorkout() {
   await initRestTimer();
   await getActiveWorkout();
   await initWorkoutBar();
+  initPhotoTransfers();
 }

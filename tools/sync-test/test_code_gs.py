@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 12
+SCRIPT_VERSION = 13
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -963,6 +963,38 @@ check('a date in the future becomes now (and matches the one just sent)', res.ge
 res = gas('post', {**base, 'action': 'healthWeight', 'weights': [{'value': '79.1', 'date': '2026-10-01T07:00:00+08:00'}, {'value': '79.0', 'date': '2026-10-02T07:00:00+08:00'}, {'value': 'x'}]})
 check('several weigh-ins at once (bad ones listed)', res.get('ok') and res.get('added') == 2 and len(res.get('problems', [])) == 1, res)
 check('the wrong token is refused', gas('post', {**base, 'token': 'AAAA-BBBB-CCCC-DDDD', 'action': 'healthWeight', 'value': '78'}).get('error') == 'bad-token')
+
+print('\nProgress photos (version 13)')
+up = lambda **f: gas('post', {**base, 'action': 'photoUpload', **f})
+res = up(id='ph-1', kind='original', mime='image/jpeg', data='QUJD', takenAt='2026-10-07T00:00:00.000Z')
+drive = gas('dump').get('drive', {})
+folder = next(iter(drive.get('folders', {}).values()), {})
+check('a photo is uploaded to a "Life Dashboard Photos" folder in Drive', res.get('ok') and res.get('fileId') in drive.get('files', {}) and folder.get('name') == 'Life Dashboard Photos', res)
+orig = res['fileId']
+check('…named after the photo, with a description', drive['files'][orig]['name'] == 'ph-1-original.jpg' and 'progress photo (original)' in drive['files'][orig]['description'], drive['files'][orig])
+res2 = up(id='ph-1', kind='original', mime='image/jpeg', data='QUJD')
+check('uploading the same file again returns the one already there', res2.get('fileId') == orig and res2.get('existed'), res2)
+copy = up(id='ph-1', kind='copy', mime='image/jpeg', data='Y29weQ==')['fileId']
+res = gas('post', {**base, 'action': 'photoDownload', 'fileId': copy})
+check('another device downloads the copy', res.get('ok') and res.get('data') == 'Y29weQ==' and res.get('mime') == 'image/jpeg', res)
+st = gas('dump'); st['drive']['files']['outsider000001'] = {'name': 'tax return.pdf', 'mime': 'application/pdf', 'data': 'eA==', 'parents': ['root'], 'trashed': False}; save_state(st)
+check('files outside the photos folder can\'t be downloaded', gas('post', {**base, 'action': 'photoDownload', 'fileId': 'outsider000001'}).get('error') == 'photo-not-found')
+check('bad requests are refused', up(id='../x', kind='original', mime='image/jpeg', data='QQ==').get('error') == 'photo-bad-request'
+      and up(id='ph-2', kind='original', mime='application/pdf', data='QQ==').get('error') == 'photo-bad-request')
+photo = rec('ph-1', '2026-10-07T01:00:00.000Z', takenAt='2026-10-07T00:00:00.000Z', pose='front', weightKg=78.1, originalFileId=orig, copyFileId=copy, note='')
+res = push([('progressPhotos', photo)])
+check('progress photos sync in their own tab', res.get('results', {}).get('progressPhotos:ph-1') == 'applied' and rows_of(gas('dump'), 'Progress photos')[0][0] == 'ph-1', res)
+push([('progressPhotos', {**photo, 'deletedAt': '2026-10-07T02:00:00.000Z', 'updatedAt': '2026-10-07T02:00:00.000Z'})])
+files = gas('dump')['drive']['files']
+check('deleting a photo moves both Drive files to the trash (not gone for good)', files[orig]['trashed'] and files[copy]['trashed'] and orig in files, (files[orig], files[copy]))
+check('…and a trashed photo isn\'t downloaded', gas('post', {**base, 'action': 'photoDownload', 'fileId': copy}).get('error') == 'photo-trashed')
+push([('progressPhotos', {**photo, 'deletedAt': None, 'updatedAt': '2026-10-07T03:00:00.000Z'})])
+files = gas('dump')['drive']['files']
+check('Undo takes them out of the trash', not files[orig]['trashed'] and not files[copy]['trashed'])
+st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
+res = up(id='ph-3', kind='original', mime='image/jpeg', data='QQ==')
+check('without Drive permission the app is told so', res.get('error') == 'photo-needs-permission', res)
+st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

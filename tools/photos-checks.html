@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Photo checks</title>
+  <style>
+    body { margin: 24px; font: 15px/1.45 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: #0d0f15; color: #f3f5fa; }
+    h1 { font-size: 20px; }
+    li { margin: 2px 0; }
+    .ok { color: #34d399; }
+    .fail { color: #ff7b7f; font-weight: 700; }
+    #summary { margin-top: 16px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>Progress photo checks (Phase 6)</h1>
+  <p>Checks the labels, grouping and photo-date logic in js/modules/photos/model.js. Open with the preview server running:
+    <code>http://localhost:8000/tools/photos-checks.html</code>. No data is read or changed.</p>
+  <ol id="results"></ol>
+  <p id="summary" data-summary></p>
+  <script type="module" src="photos-checks.js"></script>
+</body>
+</html>

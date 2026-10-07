@@ -23,6 +23,7 @@ import { addExercises, chooseFocus } from './start.js';
 import { pickExercises } from './picker.js';
 import { startRest, stopRest } from './rest-timer.js';
 import { RECORD_TYPES, baselineRecords, liveRecords, recordTitle, recordValue } from './analytics.js';
+import { addPhotoSheet } from '../photos/page.js';
 
 const checked = (on) => (on ? raw(' checked') : '');
 const REST_CHOICES = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
@@ -888,7 +889,11 @@ registerAction('wl:end', async () => {
   const st = workoutStats(w);
   const records = liveRecords(baselineRecords(await loadWorkouts(), { excludeId: w.id, before: w.startedAt }), w).events.length;
   replacePage(`w/${w.id}`);
-  toast(`Workout saved · ${formatDuration(st.duration)} · ${st.sets} set${st.sets === 1 ? '' : 's'}${records ? ` · ${records} record${records === 1 ? '' : 's'}` : ''}`, { icon: records ? 'trophy' : 'checkCircle' });
+  toast(`Workout saved · ${formatDuration(st.duration)} · ${st.sets} set${st.sets === 1 ? '' : 's'}${records ? ` · ${records} record${records === 1 ? '' : 's'}` : ''}`, {
+    icon: records ? 'trophy' : 'checkCircle',
+    duration: 7000,
+    action: { label: 'Add photo', onClick: () => addPhotoSheet({ workoutId: w.id }) },
+  });
 });
 
 async function discard({ confirmFirst = true } = {}) {

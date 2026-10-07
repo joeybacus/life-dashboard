@@ -1,12 +1,14 @@
 /* Settings. Every change saves immediately. */
 import { currentRoute, navigate, registerScreen } from '../core/router.js';
 import { registerAction } from '../core/actions.js';
-import { emit, on, reloadFromDatabase, state, updateProfile, updateSettings } from '../core/state.js';
+import { emit, on, reloadFromDatabase, state, updateProfile, updateSettings, updateUI } from '../core/state.js';
 import { dataAttrs, html, raw, setHTML } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { avatar, pageHead } from '../core/components.js';
 import { confirmDialog, openDialog, toast } from '../core/ui.js';
-import { tx } from '../core/db.js';
+import { db, tx } from '../core/db.js';
+import { uid } from '../core/ids.js';
+import { runTransfers } from '../modules/photos/transfer.js';
 import { STORE_NAMES } from '../core/schema.js';
 import { APP } from '../core/config.js';
 import { formatAgo, formatDateTime } from '../core/dates.js';
@@ -142,7 +144,8 @@ function scriptUpdateFor() {
   if (version < 5) return 'your tasks and your patient lists';
   if (version < 7) return 'your patient lists (columns, moving rows, and syncing the lists)';
   if (version < 11) return 'Referrals, the referral census and tick columns';
-  return 'faster saving to your referral census and logsheets, and weights from Apple Health';
+  if (version < 12) return 'faster saving to your referral census and logsheets, and weights from Apple Health';
+  return 'progress photos in your Google Drive';
 }
 
 function syncSection() {
@@ -339,6 +342,11 @@ function render() {
             ${EFFORTS.map(([value, label]) => html`<label class="segmented__opt"><input type="radio" name="effort" value="${value}" data-field="effort"${checked(s.workout.effort === value)}><span>${label}</span></label>`)}
           </div>
         </div>
+        <label class="row row--icon">
+          <span class="row__icon">${icon('camera')}</span>
+          <span class="row__text"><span class="row__label">Keep full photo originals on this device</span><span class="row__sub">Progress photos: the full original is always in your Google Drive, and every device keeps a 1 MB copy. On: this device keeps the originals too (uses more space). This device only.</span></span>
+          <input type="checkbox" class="switch" switch data-field="keepPhotoOriginals"${checked(Boolean(state.ui?.keepPhotoOriginals))}>
+        </label>
         <label class="row row--icon">
           <span class="row__icon">${icon('trophy')}</span>
           <span class="row__text"><span class="row__label">Celebrate personal records</span><span class="row__sub">A short glow and a message when a set beats your best. The trophy marks stay either way.</span></span>
@@ -774,6 +782,9 @@ async function onChange(event) {
       case 'keepAwake':
         await save((s) => { s.workout.keepAwake = el.checked; });
         break;
+      case 'keepPhotoOriginals':
+        await updateUI((ui) => { ui.keepPhotoOriginals = el.checked; });
+        break;
       case 'recordCelebrate':
         await save((s) => { s.workout.recordCelebrate = el.checked; });
         break;
@@ -972,7 +983,11 @@ async function changePhoto(input) {
   if (!file) return;
   try {
     const photo = await imageFileToAvatar(file);
-    await updateProfile({ photo }, { source: 'settings' });
+    // The small picture stays in your profile; the full original goes to your Google Drive (Phase 6)
+    const photoId = uid();
+    await db.put('photoFiles', { key: 'profile:original', photoId, kind: 'profile', blob: file, savedAt: new Date().toISOString() });
+    await updateProfile({ photo, photoId, photoFileId: null }, { source: 'settings' });
+    runTransfers();
     render();
     toast('Profile photo updated.', { icon: 'camera' });
   } catch (err) {

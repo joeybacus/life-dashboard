@@ -1,7 +1,7 @@
 /* App identity. Bump the version (and CACHE_VERSION in sw.js) with each release. */
 export const APP = {
   name: 'Life Dashboard',
-  version: '0.6.2',
-  phase: 5,
-  phaseName: 'Health',
+  version: '0.7.0',
+  phase: 6,
+  phaseName: 'Progress photos',
 };

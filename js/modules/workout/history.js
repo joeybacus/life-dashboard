@@ -22,6 +22,7 @@ import { pickExercises } from './picker.js';
 import { saveWorkoutAsTemplate } from './templates.js';
 import { computeRecords } from './analytics.js';
 import { recordList } from './stats.js';
+import { loadPhotos } from '../photos/model.js';
 
 const PAGE_SIZE = 40;
 const RANGES = [['all', 'All time'], ['30', 'Last 30 days'], ['90', 'Last 3 months'], ['365', 'Last 12 months'], ['year', 'This year']];
@@ -206,7 +207,7 @@ function entryBlock(entry, library, letters, prSets) {
 export const detailPage = {
   async show(el, { id }) {
     view = el;
-    const [w, library, templates, workouts] = await Promise.all([loadWorkout(id), loadLibrary(), loadTemplates(), loadWorkouts()]);
+    const [w, library, templates, workouts, photos] = await Promise.all([loadWorkout(id), loadLibrary(), loadTemplates(), loadWorkouts(), loadPhotos()]);
     if (!w) {
       setHTML(view, html`<div class="wk-page accent-workout">
         ${subHead({ title: 'Workout not found', back: 'History', fallback: 'history', accent: 'workout' })}
@@ -236,6 +237,11 @@ export const detailPage = {
         ${w.source === 'hevy' ? html`<span class="tag">${icon('download')}Imported from Hevy</span>` : ''}
         ${w.sample ? html`<span class="tag">Sample</span>` : ''}
       </div>
+
+      ${w.endedAt && Date.now() - Date.parse(w.endedAt) < 6 * 3600e3 && !photos.some((p) => p.workoutId === w.id)
+        ? html`<div class="card card--pad hl-empty wd-photo">${icon('camera')}<div><p><strong>Add a progress photo?</strong></p><p class="muted">It’s saved with this workout and your latest weight.</p></div>
+            <button type="button" class="btn btn--accent" data-action="photos:add" data-workout="${w.id}">${icon('camera')}Add photo</button></div>` : ''}
+      ${photos.some((p) => p.workoutId === w.id) ? html`<button type="button" class="tag tag--btn wd-photo-link" data-action="photos:open" data-id="${photos.filter((p) => p.workoutId === w.id).at(-1).id}">${icon('camera')}Progress photo</button>` : ''}
 
       <dl class="stat-grid wd-stats">
         <div class="stat"><dt>${icon('clock')}Duration</dt><dd class="stat__value">${w.endedAt ? formatDuration(st.duration) : '—'}</dd><dd class="stat__sub">${w.pausedMs >= 60_000 ? `+ ${formatDuration(w.pausedMs)} paused` : 'Active time'}</dd></div>

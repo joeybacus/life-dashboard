@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 12;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census)
+const SCRIPT_VERSION = 13;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -39,6 +39,7 @@ const STORES = {
   exercises: 'Exercises',
   templates: 'Workout templates',
   bodyMeasurements: 'Body measurements',
+  progressPhotos: 'Progress photos', // date, pose, weight, workout and note; the photos are files in the "Life Dashboard Photos" Drive folder
   wardLists: 'Ward lists', // names and columns of your patient lists — never patients (they stay in the logsheet)
   referrals: 'Referrals',  // patients referred to your service: name, hospital number, location, next rounds, what you're waiting for, notes
 };
@@ -50,7 +51,7 @@ const SCRIPT_STORES = {
 
 // Saved in this order, so names used by later tabs (categories, task titles) are up to date
 const SAVE_ORDER = ['profile', 'settings', 'taskCategories', 'tasks', 'subtasks', 'habits', 'habitLogs', 'focusSessions',
-  'workouts', 'exercises', 'templates', 'bodyMeasurements', 'wardLists', 'referrals'];
+  'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals'];
 
 // Fixed columns on every data tab. "json" holds the complete item; the
 // columns after it are a readable copy for you and are ignored by the app.
@@ -86,6 +87,13 @@ function setup() {
 
   const blank = ss.getSheetByName('Sheet1');
   if (blank && blank.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(blank);
+
+  // The Drive folder for progress photos (running setup also asks for Google Drive permission)
+  try {
+    photosFolder_(props);
+  } catch (err) {
+    Logger.log('Couldn’t make the photos folder in Google Drive: ' + ((err && err.message) || err));
+  }
 
   // The 30-minute Google Calendar check (it does nothing until a task is linked to Calendar)
   try {
@@ -140,6 +148,15 @@ function doPost(e) {
       return json_(WARD_ACTIONS[req.action](req));
     } catch (err) {
       return json_({ ok: false, error: 'server', message: String((err && err.message) || err) });
+    }
+  }
+
+  // Progress photos go to and from Google Drive (no lock: a big photo shouldn't hold up sync)
+  if (PHOTO_ACTIONS[req.action]) {
+    try {
+      return json_(PHOTO_ACTIONS[req.action](props, req));
+    } catch (err) {
+      return json_({ ok: false, error: photoError_(err), message: String((err && err.message) || err) });
     }
   }
 
@@ -246,6 +263,11 @@ function push_(ss, props, req) {
   // A renamed category, task or habit: update the names shown in the other tabs
   refreshDependents_(ss, renamed, ctx);
 
+  // A progress photo deleted (or brought back with Undo): its Drive files follow it to the trash (and back)
+  (byStore.progressPhotos || []).forEach(function (record) {
+    if (results['progressPhotos:' + record.id] === 'applied') photoTrashFiles_(props, record);
+  });
+
   // Versions a device replaced when it first joined sync
   (Array.isArray(req.logs) ? req.logs.slice(0, MAX_LOGS) : []).forEach(function (log) {
     if (!log || !STORES[log.store]) return;
@@ -275,6 +297,109 @@ function pull_(ss, props, req) {
     });
   });
   return { ok: true, version: SCRIPT_VERSION, seq: seq, changes: changes };
+}
+
+/* ---------- Progress photos (version 13) ----------
+ * Each progress photo is a row in the Progress photos tab (synced like the
+ * rest) and up to two files in the "Life Dashboard Photos" folder of your
+ * Google Drive: the full original, and a copy of about 1 MB that your other
+ * devices download. The app uploads them after saving the photo on the device:
+ *   photoUpload   { id, kind: 'original' | 'copy' | 'profile', mime, data (base64), takenAt }
+ *                 → { fileId, url }. Sending the same file again returns the one already there.
+ *   photoDownload { fileId } → { mime, data } — only files in that folder.
+ * Deleting a photo in the app moves its files to the Drive trash (recoverable for
+ * 30 days); Undo takes them out again. Nothing here ever deletes a file for good.
+ */
+const PHOTOS_FOLDER = 'Life Dashboard Photos';
+const PHOTO_KINDS = { original: true, copy: true, profile: true };
+const PHOTO_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' };
+const PHOTO_MAX_CHARS = 40 * 1024 * 1024; // base64 characters in one upload (about 30 MB of photo)
+
+const PHOTO_ACTIONS = {
+  photoUpload: photoUpload_,
+  photoDownload: photoDownload_,
+};
+
+/** The photos folder (made the first time it's needed; made again if it was deleted). */
+function photosFolder_(props) {
+  const id = props.getProperty('PHOTOS_FOLDER');
+  if (id) {
+    try {
+      const folder = DriveApp.getFolderById(id);
+      if (!folder.isTrashed()) return folder;
+    } catch (err) {
+      // deleted for good, or no longer ours: make a new one
+    }
+  }
+  const folder = DriveApp.createFolder(PHOTOS_FOLDER);
+  props.setProperty('PHOTOS_FOLDER', folder.getId());
+  return folder;
+}
+
+function photoUpload_(props, req) {
+  const id = String(req.id || '');
+  const kind = String(req.kind || '');
+  const mime = String(req.mime || 'image/jpeg').toLowerCase();
+  const data = typeof req.data === 'string' ? req.data : '';
+  if (!/^[\w-]{1,80}$/.test(id) || !PHOTO_KINDS[kind] || !PHOTO_TYPES[mime] || !data) return { ok: false, error: 'photo-bad-request' };
+  if (data.length > PHOTO_MAX_CHARS) return { ok: false, error: 'photo-too-large' };
+  const folder = photosFolder_(props);
+  const name = (kind === 'profile' ? 'profile-' + id : id + '-' + kind) + '.' + PHOTO_TYPES[mime];
+  const same = folder.getFilesByName(name);
+  while (same.hasNext()) {
+    const file = same.next();
+    if (!file.isTrashed()) return { ok: true, version: SCRIPT_VERSION, fileId: file.getId(), url: file.getUrl(), existed: true };
+  }
+  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, name));
+  const when = req.takenAt ? shownTime_(String(req.takenAt)) : '';
+  file.setDescription('Life Dashboard ' + (kind === 'profile' ? 'profile picture' : 'progress photo (' + kind + ')') + (when ? ' · ' + when : ''));
+  return { ok: true, version: SCRIPT_VERSION, fileId: file.getId(), url: file.getUrl() };
+}
+
+function photoDownload_(props, req) {
+  const file = photoFile_(props, req.fileId);
+  if (!file) return { ok: false, error: 'photo-not-found' };
+  if (file.isTrashed()) return { ok: false, error: 'photo-trashed' };
+  const blob = file.getBlob();
+  return { ok: true, version: SCRIPT_VERSION, mime: blob.getContentType() || 'image/jpeg', data: Utilities.base64Encode(blob.getBytes()) };
+}
+
+/** A file in the photos folder, or null (the app can't reach any other file in your Drive). */
+function photoFile_(props, fileId) {
+  const id = String(fileId || '');
+  if (!/^[\w-]{10,100}$/.test(id)) return null;
+  const folderId = props.getProperty('PHOTOS_FOLDER');
+  if (!folderId) return null;
+  let file;
+  try {
+    file = DriveApp.getFileById(id);
+  } catch (err) {
+    return null;
+  }
+  const parents = file.getParents();
+  while (parents.hasNext()) if (parents.next().getId() === folderId) return file;
+  return null;
+}
+
+/** Move a photo's files to the Drive trash when it's deleted, and back when it isn't. */
+function photoTrashFiles_(props, record) {
+  [record.originalFileId, record.copyFileId].forEach(function (fileId) {
+    if (!fileId) return;
+    try {
+      const file = photoFile_(props, fileId);
+      const trash = Boolean(record.deletedAt);
+      if (file && file.isTrashed() !== trash) file.setTrashed(trash);
+    } catch (err) {
+      Logger.log('Couldn’t update a photo in Drive: ' + ((err && err.message) || err));
+    }
+  });
+}
+
+function photoError_(err) {
+  const message = String((err && err.message) || err);
+  if (/permission|authori[sz]/i.test(message)) return 'photo-needs-permission';
+  if (/storage|quota|limit/i.test(message)) return 'photo-drive-full';
+  return 'server';
 }
 
 /* ---------- Apple Health weight (version 12) ----------

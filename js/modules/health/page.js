@@ -15,6 +15,7 @@ import { lineChart, bindCharts } from '../workout/charts.js';
 import { currentRange, rangeSwitch, setRange } from '../workout/stats.js';
 import { rangeInfo, rangeStart } from '../workout/analytics.js';
 import { shortcutDetails } from '../../services/sync.js';
+import { fillImages, photoStrip } from '../photos/page.js';
 import {
   KINDS, MEASUREMENTS, bmi, bmiCategory, changeOver, deleteMeasurement, entriesOf, formatChange, formatValue, goalProgress,
   healthyRange, latestOf, loadMeasurements, restoreMeasurement, saveMeasurement, trendOf, valueOf, weeklyRate,
@@ -47,6 +48,11 @@ async function render() {
     await setRange(input.value);
     render();
   }));
+  const strip = view.querySelector('[data-ph-strip]');
+  if (strip) {
+    setHTML(strip, await photoStrip());
+    fillImages(strip);
+  }
 }
 
 /* ---------- The Health page ---------- */
@@ -89,6 +95,8 @@ function renderMain(records) {
       ${rangeSwitch('hl-range')}
       <div class="card card--pad hl-chart">${weightChart(weights, trend, goal.goalKg)}</div>
     </section>` : ''}
+
+    <div data-ph-strip></div>
 
     <section class="section" aria-labelledby="hl-goal-title">
       <div class="section__head"><h2 class="section__title" id="hl-goal-title">Weight goal</h2>

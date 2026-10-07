@@ -4,12 +4,12 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 5 — Health (v0.6.1).** A Health page for body weight (log, trend chart, goal and
-pace, and your Apple Health weight sent in by an Apple Shortcut), height and BMI, and body measurements — on top of Phase 4 (workout statistics,
-progress charts and personal records), Phase 3 (a real to-do list with fast capture, reminders, the Google
-Calendar link, repeating tasks, a focus timer and habits), Phase 2 (workouts, and ward rounds from your logsheets
-in **patient lists** and **Referrals**, Neurology tab) and Phase 1 (dashboard, settings, Google Sheets sync and
-backups). Data is stored on each device and, once sync is set up, in your own Google Sheet.
+**Current status: Phase 6 — Progress photos (v0.7.0).** Progress photos saved on every device and in your
+Google Drive, with a gallery (grid, calendar, timeline) and side-by-side or slider comparisons — on top of
+Phase 5 (Health: weight, goal, BMI, measurements, Apple Health weight), Phase 4 (workout statistics and
+personal records), Phase 3 (to-do list, reminders, Google Calendar link, focus timer, habits), Phase 2 (workouts,
+patient lists and Referrals) and Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on
+each device and, once sync is set up, in your own Google Sheet.
 
 ## Install the app (from GitHub Pages)
 
@@ -267,6 +267,31 @@ Workout tab → **Body → Health**, the Body weight tile on the main dashboard,
   Pounds are changed to kg.
 - Checks for the calculations: `tools/health-checks.html` through the preview server.
 
+## Progress photos (Phase 6, 0.7.0)
+
+**Add progress photo** on the + button, on the Health page, on the Workout tab (Body → Photos) and right after a
+workout (the "Workout saved" message and the finished workout's page).
+
+- Take a photo or choose one from your library. Its date comes from the photo itself (you can change it), and it's
+  labelled with your latest weigh-in (up to 14 days before), that day's workout and its muscle groups. Add a pose
+  (Front / Side / Back) and a note if you like.
+- **Where photos live:** the moment you save, the photo is on this device (a sharp copy of about 1 MB, up to
+  2048 px, plus a small thumbnail). With sync on, the copy and the **full original** go to a **Life Dashboard
+  Photos** folder in your Google Drive; then the original is removed from the device (Settings → Workout → Keep
+  full photo originals on this device keeps it). Your other devices download the copy, so every photo works
+  offline everywhere. Nothing is lost if you're offline — it uploads later.
+- **Gallery** (Workout → Body → Photos): Grid (by month), Calendar (a month with each day's photo) and Timeline
+  (with weight change since the photo before); filter by pose, or jump to a date. A photo's page shows its weight
+  and workout, Edit (date, pose, note), Full original in Google Drive, Compare, and Delete.
+- **Compare:** two photos side by side, or one over the other with a **slider** you drag across; it says how many
+  days apart they are and the weight change. Starts with your oldest and newest photo of the same pose.
+- **Deleting** removes the photo on all devices and moves its Drive files to the **Drive trash** (30 days); Undo
+  brings them back. The app can only reach files in its own photos folder.
+- **Profile picture:** its full original goes to the same Drive folder; the small one stays in your profile.
+- Needs **sync script version 13**, and Google Drive permission once (in Apps Script: choose **setup** → **Run** →
+  allow). Photo details sync in a **Progress photos** tab and are in backups; the images are in Drive.
+- Checks: `tools/photos-checks.html`; the script's Drive part is in `tools/sync-test`.
+
 ## Focus timer and habits (To Do tab, 0.4.5–0.4.6)
 
 - **Focus** (the Focus button in To Do, the + button, or a task's quick menu): 25 minutes of focus, a 5-minute
@@ -443,6 +468,10 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
 - **Apple Shortcut → script (version 12):** `healthWeight` takes `{ value, unit, date }` (or `weights: [...]`) with the
   usual token and protocol, makes `health-weight-<time in ms>` Body measurements rows (source "health", device
   "Apple Health (Shortcut)") through `push_`, and skips ids the tab already has — so it never edits or revives a row.
+- **Progress photos:** records in `progressPhotos` (synced, backed up); image files in `photoFiles` (this device only,
+  keys `<photo id>:copy|thumb|original`, and `profile:original`). `js/modules/photos/transfer.js` uploads
+  (`photoUpload`, idempotent by file name) and downloads (`photoDownload`, only inside the photos folder) one file at
+  a time; `push_` in Code.gs trashes / restores a photo's Drive files when its record is deleted / restored.
 - **Sync script versions:** `SCRIPT_VERSION` in `Code.gs` and `LATEST_SCRIPT_VERSION` / `STORE_SCRIPT_VERSION`
   in `sync.js`. A new synced store that an older script can't save waits in the outbox until the script is updated.
   Version 3 adds the Ward Patients actions (`wardCheck`, `wardSync`, `wardCreateTest`), which open the logsheet

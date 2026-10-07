@@ -110,7 +110,7 @@ export async function snoozeBackupReminder(days = 3) {
 
 /** Anything worth backing up yet? (Sample data doesn't count.) */
 async function hasRealData() {
-  const stores = ['tasks', 'workouts', 'templates', 'bodyMeasurements'];
+  const stores = ['tasks', 'workouts', 'templates', 'bodyMeasurements', 'progressPhotos'];
   const all = await readAll(stores);
   return stores.some((name) => all[name].some((r) => !r.sample && !r.deletedAt));
 }
@@ -160,7 +160,7 @@ export function validateBackup(backup) {
       templates: live('templates'),
       tasks: live('tasks'),
       measurements: live('bodyMeasurements'),
-      photos: 0, // progress photos arrive in a later phase
+      photos: live('progressPhotos'), // the details; the photos themselves are in Google Drive and on each device
       hasSample: DATA_STORES.some((name) => data[name].some((r) => r.sample)),
     },
     skipped,

@@ -485,4 +485,58 @@ var Utilities = {
   },
 };
 
+/* Google Drive (progress photos): folders and files kept in __state.drive. A blob's "bytes" are kept as the
+   base64 text itself, so base64Decode / base64Encode just pass it through. __state.drive.noAuth = true makes
+   Drive calls fail as if permission was never given. */
+function __drive() { return __state.drive || (__state.drive = { folders: {}, files: {}, next: 1 }); }
+function __driveCheck() { if (__drive().noAuth) __fail('You do not have permission to call DriveApp.createFolder. Required permissions: https://www.googleapis.com/auth/drive'); }
+function __iter(list) { var i = 0; return { hasNext: function () { return i < list.length; }, next: function () { return list[i++]; } }; }
+function __folder(id) {
+  var f = __drive().folders[id];
+  return {
+    getId: function () { return id; },
+    getName: function () { return f.name; },
+    isTrashed: function () { return Boolean(f.trashed); },
+    createFile: function (blob) {
+      var d = __drive();
+      var fid = 'file' + String(d.next++).padStart(8, '0') + 'abcdef';
+      d.files[fid] = { name: blob.getName(), mime: blob.getContentType(), data: blob.getBytes(), parents: [id], trashed: false, description: '' };
+      return __file(fid);
+    },
+    getFilesByName: function (name) {
+      var d = __drive();
+      return __iter(Object.keys(d.files).filter(function (k) { return d.files[k].name === name && d.files[k].parents.indexOf(id) >= 0; }).map(__file));
+    },
+  };
+}
+function __file(id) {
+  var f = __drive().files[id];
+  return {
+    getId: function () { return id; },
+    getName: function () { return f.name; },
+    getUrl: function () { return 'https://drive.google.com/file/d/' + id + '/view'; },
+    getBlob: function () { return Utilities.newBlob(f.data, f.mime, f.name); },
+    getParents: function () { return __iter(f.parents.map(__folder)); },
+    isTrashed: function () { return Boolean(f.trashed); },
+    setTrashed: function (on) { f.trashed = Boolean(on); return this; },
+    setDescription: function (text) { f.description = String(text); return this; },
+  };
+}
+var DriveApp = {
+  createFolder: function (name) {
+    __driveCheck();
+    var d = __drive();
+    var id = 'folder' + String(d.next++).padStart(8, '0') + 'abcdef';
+    d.folders[id] = { name: name, trashed: false };
+    return __folder(id);
+  },
+  getFolderById: function (id) { __driveCheck(); if (!__drive().folders[id]) __fail('No item with the given ID could be found.'); return __folder(id); },
+  getFileById: function (id) { __driveCheck(); if (!__drive().files[id]) __fail('No item with the given ID could be found.'); return __file(id); },
+};
+Utilities.base64Decode = function (text) { return String(text); };
+Utilities.base64Encode = function (bytes) { return String(bytes); };
+Utilities.newBlob = function (bytes, mime, name) {
+  return { getBytes: function () { return bytes; }, getContentType: function () { return mime; }, getName: function () { return name; } };
+};
+
 var Logger = { log: function (message) { __state.logs.push(String(message)); } };
