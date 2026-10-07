@@ -57,8 +57,9 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    logsheet's names, hospital numbers and rounds from the columns you choose;
    9 reads a referral census (no rounds columns, days as dates); 10 knows dropdown
    columns (writes their own values; a value they refuse fails only that change);
-   11 ticks and unticks real checkboxes (a list's tick columns, e.g. column A). */
-export const LATEST_SCRIPT_VERSION = 11;
+   11 ticks and unticks real checkboxes (a list's tick columns, e.g. column A);
+   12 takes weights from Apple Health, sent by an Apple Shortcut (healthWeight). */
+export const LATEST_SCRIPT_VERSION = 12;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8, focusSessions: 5, habits: 5, habitLogs: 5 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 /* A device that synced with an older app skipped the kinds of data that app
@@ -206,6 +207,9 @@ export async function callSyncScript(action, payload = {}) {
 
 /** The sync script's version, as last reported (null when not connected). */
 export const syncScriptVersion = () => (sync.config ? scriptVersion() : null);
+
+/** What an Apple Shortcut needs to send weights to the sync script: { url, token, version }, or null when not connected. */
+export const shortcutDetails = () => (sync.config ? { url: sync.config.url, token: sync.config.token, version: scriptVersion() } : null);
 
 /* ---------- One sync round ---------- */
 

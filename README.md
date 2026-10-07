@@ -4,13 +4,12 @@ A personal life dashboard — workouts, to-do list and (later) neurology — bui
 Progressive Web App: plain HTML, CSS and JavaScript with no build step, installable on
 iPhone, iPad and Mac, and designed to be hosted for free on GitHub Pages.
 
-**Current status: Phase 4 — Workout analytics (v0.5.0).** Statistics for your workouts: totals and streaks,
-workouts per week and month, a workout calendar heatmap, muscle-group frequency, progress charts for every
-exercise and personal records (with a small celebration while you log) — on top of Phase 3 (a real to-do list
-with fast capture, reminders, the Google Calendar link, repeating tasks, a focus timer and habits), Phase 2
-(workouts, and ward rounds from your logsheets in **patient lists** and **Referrals**, Neurology tab) and
-Phase 1 (dashboard, settings, Google Sheets sync and backups). Data is stored on each device and, once sync is
-set up, in your own Google Sheet.
+**Current status: Phase 5 — Health (v0.6.1).** A Health page for body weight (log, trend chart, goal and
+pace, and your Apple Health weight sent in by an Apple Shortcut), height and BMI, and body measurements — on top of Phase 4 (workout statistics,
+progress charts and personal records), Phase 3 (a real to-do list with fast capture, reminders, the Google
+Calendar link, repeating tasks, a focus timer and habits), Phase 2 (workouts, and ward rounds from your logsheets
+in **patient lists** and **Referrals**, Neurology tab) and Phase 1 (dashboard, settings, Google Sheets sync and
+backups). Data is stored on each device and, once sync is set up, in your own Google Sheet.
 
 ## Install the app (from GitHub Pages)
 
@@ -242,6 +241,32 @@ corrects everything at once. Nothing new is stored or synced, and the sync scrip
   30 days.
 - Checks for the calculations: open `tools/workout-checks.html` through the preview server.
 
+## Health (Phase 5, 0.6.0)
+
+Workout tab → **Body → Health**, the Body weight tile on the main dashboard, or **Log weight** on the + button.
+
+- **Weight:** log a weigh-in with its date, time and an optional note (tap one in the list to change or delete it,
+  with Undo). The page shows your latest weight, the change over 7 and 30 days, a **trend** — a smoothed line
+  that a single heavy or light morning barely moves — and your pace per week over the last 4 weeks (once there
+  are 3 weigh-ins spread over at least a week). The chart has the same 7D … All buttons as Stats; tap it to read
+  any weigh-in.
+- **Weight goal:** set a target; progress counts from your weight on the day you set it, with a bar, how much is
+  left, and — when you're heading the right way — roughly when you'd get there at your current pace. The goal
+  line shows on the chart. Change or remove it any time (Undo).
+- **Height and BMI:** add your height once; BMI = weight ÷ height², with the WHO adult ranges and the weight
+  range that gives a BMI of 18.5–24.9 at your height. (BMI can't tell muscle from fat — waist and body fat are
+  better guides when you lift.)
+- **Measurements:** waist, chest, arms, hips, thighs and body fat %. **Add** several at once (leave the rest
+  empty); each has its own page with a chart and all its entries.
+- Everything syncs in the **Body measurements** tab of your Google Sheet and is in backups.
+- **Apple Health weight (0.6.1, sync script version 12):** web apps can't read Apple Health, so an Apple
+  Shortcut on your iPhone reads your latest weight and sends it to your sync script; the app picks it up on its
+  next sync, marked "From Apple Health". Health → Apple Health → **Set it up** shows the steps, with buttons to
+  copy the Web app URL and secret token, and how to run it every morning (Shortcuts → Automation → Time of Day →
+  Run Immediately). A weigh-in already sent is skipped, and one you edit or delete in the app never comes back.
+  Pounds are changed to kg.
+- Checks for the calculations: `tools/health-checks.html` through the preview server.
+
 ## Focus timer and habits (To Do tab, 0.4.5–0.4.6)
 
 - **Focus** (the Focus button in To Do, the + button, or a task's quick menu): 25 minutes of focus, a 5-minute
@@ -413,6 +438,9 @@ tools/sync-test/      Test Code.gs on a Mac without Google: test_code_gs.py (che
   stored — so stats and records are always recomputed and stay right after edits. Charts (`charts.js`) are drawn
   by the app (no library): an SVG line over HTML gridlines, dots and labels, with one listener for taps, hover
   and arrow keys. The logger compares new sets with `baselineRecords()` (the workouts before this one).
+- **Apple Shortcut → script (version 12):** `healthWeight` takes `{ value, unit, date }` (or `weights: [...]`) with the
+  usual token and protocol, makes `health-weight-<time in ms>` Body measurements rows (source "health", device
+  "Apple Health (Shortcut)") through `push_`, and skips ids the tab already has — so it never edits or revives a row.
 - **Sync script versions:** `SCRIPT_VERSION` in `Code.gs` and `LATEST_SCRIPT_VERSION` / `STORE_SCRIPT_VERSION`
   in `sync.js`. A new synced store that an older script can't save waits in the outbox until the script is updated.
   Version 3 adds the Ward Patients actions (`wardCheck`, `wardSync`, `wardCreateTest`), which open the logsheet

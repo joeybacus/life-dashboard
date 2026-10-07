@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 11;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes)
+const SCRIPT_VERSION = 12;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -154,6 +154,7 @@ function doPost(e) {
     if (req.action === 'ping') return json_({ ok: true, protocol: PROTOCOL, version: SCRIPT_VERSION, seq: currentSeq_(props) });
     if (req.action === 'push') return json_(push_(ss, props, req));
     if (req.action === 'pull') return json_(pull_(ss, props, req));
+    if (req.action === 'healthWeight') return json_(healthWeight_(ss, props, req));
     if (CAL_ACTIONS[req.action]) return json_(CAL_ACTIONS[req.action](ss, props, req));
     return json_({ ok: false, error: 'bad-action' });
   } catch (err) {
@@ -274,6 +275,76 @@ function pull_(ss, props, req) {
     });
   });
   return { ok: true, version: SCRIPT_VERSION, seq: seq, changes: changes };
+}
+
+/* ---------- Apple Health weight (version 12) ----------
+ * An Apple Shortcut on the iPhone reads the latest weight in Apple Health and
+ * sends it here (the same Web app URL and secret token as the app):
+ *   { token, protocol: 1, action: 'healthWeight', value: '78.4', unit: 'kg', date: '2026-10-07T07:10:00+08:00' }
+ * or several at once: weights: [{ value, unit, date }, …] (at most 50).
+ * value may use a comma ("78,4"); unit 'lb' / 'lbs' / 'pound' is converted to kg;
+ * a missing or unreadable date means now. Each weigh-in becomes a Body
+ * measurements row (kind weight, source "health") whose id comes from its time,
+ * so sending the same weigh-in again — the Shortcut runs every morning — adds
+ * nothing. A weigh-in already in the Sheet is never changed, even if you edited
+ * or deleted it in the app. The app picks the new rows up on its next sync.
+ */
+const HEALTH_DEVICE = 'Apple Health (Shortcut)';
+const HEALTH_MAX = 50;
+
+function healthWeight_(ss, props, req) {
+  const list = Array.isArray(req.weights) ? req.weights.slice(0, HEALTH_MAX) : [{ value: req.value, unit: req.unit, date: req.date }];
+  const now = now_();
+  const records = [];
+  const problems = [];
+  list.forEach(function (w) {
+    const kg = healthKg_(w && w.value, w && w.unit);
+    if (kg === null) {
+      problems.push('“' + String(w && w.value) + '” isn’t a weight between 20 and 400 kg');
+      return;
+    }
+    let at = w && w.date ? new Date(String(w.date)) : now;
+    if (isNaN(at.getTime())) at = now;
+    if (at.getTime() > now.getTime() + 10 * 60000) at = now; // never in the future
+    at = new Date(Math.floor(at.getTime() / 1000) * 1000);    // to the second, so resends match
+    const stampIso = now.toISOString();
+    records.push({
+      id: 'health-weight-' + at.getTime(),
+      createdAt: stampIso, updatedAt: stampIso, deletedAt: null,
+      kind: 'weight', valueKg: kg, measuredAt: at.toISOString(), source: 'health', note: '',
+    });
+  });
+
+  // Only weigh-ins the Sheet doesn't have yet (a resend, or one you edited or deleted, is left alone)
+  const sheet = ss.getSheetByName(tabName_('bodyMeasurements'));
+  const have = {};
+  if (sheet) dataRows_(sheet, HEADER.length).forEach(function (row) { if (row[COL.id]) have[row[COL.id]] = true; });
+  const fresh = records.filter(function (r) { return !have[r.id]; });
+  if (fresh.length) {
+    push_(ss, props, { records: fresh.map(function (r) { return { store: 'bodyMeasurements', record: r }; }), deviceId: HEALTH_DEVICE, sinceSeq: 0 });
+  }
+  const latest = records.length ? records[records.length - 1] : null;
+  let message;
+  if (!records.length) message = 'Nothing saved: ' + (problems[0] || 'no weight was sent') + '.';
+  else if (fresh.length) message = 'Saved ' + healthKgText_(fresh[fresh.length - 1].valueKg) + ' to Life Dashboard (' + shownTime_(fresh[fresh.length - 1].measuredAt) + ').';
+  else message = 'Already saved: ' + healthKgText_(latest.valueKg) + ' (' + shownTime_(latest.measuredAt) + ').';
+  return { ok: records.length > 0, error: records.length ? undefined : 'bad-weight', version: SCRIPT_VERSION, added: fresh.length, skipped: records.length - fresh.length, problems: problems, message: message };
+}
+
+/** A weight in kg (1 decimal) from the Shortcut's value and unit, or null if it isn't one. */
+function healthKg_(value, unit) {
+  const text = String(value === undefined || value === null ? '' : value).trim().replace(',', '.');
+  const match = text.match(/-?\d+(\.\d+)?/);
+  if (!match) return null;
+  let n = Number(match[0]);
+  const u = String(unit || '').toLowerCase() + ' ' + text.toLowerCase();
+  if (/\blbs?\b|pound/.test(u)) n = n * 0.45359237;
+  n = Math.round(n * 10) / 10;
+  return n >= 20 && n <= 400 ? n : null;
+}
+
+function healthKgText_(kg) {
+  return String(kg) + ' kg';
 }
 
 /* ---------- Ward Patients (Neurology tab) ----------

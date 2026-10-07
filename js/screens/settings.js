@@ -140,7 +140,9 @@ function scriptUpdateFor() {
   if (version < 2) return 'your tasks, workout templates, exercises and Ward Patients';
   if (version < 4) return 'your tasks and Ward Patients';
   if (version < 5) return 'your tasks and your patient lists';
-  return 'your patient lists (columns, moving rows, and syncing the lists)';
+  if (version < 7) return 'your patient lists (columns, moving rows, and syncing the lists)';
+  if (version < 11) return 'Referrals, the referral census and tick columns';
+  return 'weights from Apple Health (through an Apple Shortcut)';
 }
 
 function syncSection() {

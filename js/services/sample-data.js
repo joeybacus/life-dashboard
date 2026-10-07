@@ -12,7 +12,7 @@ import { addDays as addDayKeys, todayKey } from '../core/manila.js';
 const DEFAULT_CATEGORIES = ['Hospital', 'Residency', 'MBA', 'NU', 'Research', 'Business', 'Personal'];
 
 /** Bump when the shape of sample records changes, so today's samples are rebuilt. */
-const SAMPLE_VERSION = 5; // 5: a repeating task (0.4.4)
+const SAMPLE_VERSION = 6; // 5: a repeating task (0.4.4) · 6: waist and body fat measurements (0.6.0)
 
 /* Sample workouts: [exercise id, name, { warmup kg, sets, kg, reps, weekly step kg, durationSec }] */
 const SAMPLE_EXERCISES = {
@@ -187,6 +187,15 @@ export function buildSampleRecords(now = new Date()) {
       note: '',
     });
   }
+
+  // Waist and body fat every two weeks
+  [-56, -42, -28, -14, -1].forEach((offset, i) => {
+    const measuredAt = atTime(day(offset), '07:15').toISOString();
+    bodyMeasurements.push(
+      { ...base(`sample-waist-${pad2(i + 1)}`, measuredAt), kind: 'waist', value: Math.round((86.5 - i * 0.6) * 10) / 10, measuredAt, source: 'manual', note: '' },
+      { ...base(`sample-fat-${pad2(i + 1)}`, measuredAt), kind: 'bodyFat', value: Math.round((21.4 - i * 0.4) * 10) / 10, measuredAt, source: 'manual', note: '' },
+    );
+  });
 
   return { tasks, subtasks, workouts, bodyMeasurements };
 }

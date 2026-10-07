@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 11
+SCRIPT_VERSION = 12
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -914,6 +914,35 @@ check('a subtask still open after its reminder gets a follow-up too', mine() == 
 push([('tasks', ctask('cal-8', title='Grand rounds', date='2026-10-01', addToCalendar=False, deletedAt='2026-10-01T03:01:00.000Z', updated='2026-10-01T03:01:00.000Z'))])
 cal_sync()
 check('…removed with its task', mine() == [] and link('sub-8')['status'] == 'unlinked', mine())
+
+print('\nApple Health weight (version 12)')
+set_now('2026-10-07T01:30:00.000Z')  # 09:30 in Manila
+hw = lambda **f: gas('post', {**base, 'action': 'healthWeight', **f})
+res = hw(value='78.4', unit='kg', date='2026-10-07T07:10:00+08:00')
+check('a weight from the Shortcut is saved', res.get('ok') and res.get('added') == 1 and res.get('message') == 'Saved 78.4 kg to Life Dashboard (2026-10-07 07:10).', res)
+hrow = readable(gas('dump'), 'Body measurements', 'health-weight-' + str(1791328200000))
+check('…as a Body measurements row marked from Apple Health', hrow['kind'] == 'weight' and hrow['valueKg'] == '78.4' and hrow['source'] == 'health' and hrow['device'] == 'Apple Health (Shortcut)', hrow)
+pulled = [c['record'] for c in gas('post', {**base, 'action': 'pull', 'sinceSeq': 0})['changes'] if c['record']['id'].startswith('health-weight-')]
+check('…and devices pull it on their next sync', len(pulled) == 1 and pulled[0]['measuredAt'] == '2026-10-06T23:10:00.000Z' and pulled[0]['valueKg'] == 78.4, pulled)
+res = hw(value='78.4', unit='kg', date='2026-10-07T07:10:00+08:00')
+check('sending the same weigh-in again adds nothing', res.get('ok') and res.get('added') == 0 and res.get('skipped') == 1 and res['message'].startswith('Already saved'), res)
+edited = {**pulled[0], 'valueKg': 78.0, 'note': 'fixed', 'updatedAt': '2026-10-07T02:00:00.000Z'}
+push([('bodyMeasurements', edited)])
+hw(value='78.4', unit='kg', date='2026-10-07T07:10:00+08:00')
+after = json.loads(readable(gas('dump'), 'Body measurements', edited['id'])['json'])
+check('a weigh-in you edited in the app is never changed back', after['valueKg'] == 78.0 and after['note'] == 'fixed', after)
+check('pounds are converted to kg', hw(value='172.9', unit='lb', date='2026-10-06T07:00:00+08:00').get('message', '').startswith('Saved 78.4 kg'))
+check('a comma decimal works', hw(value='78,6', unit='kg', date='2026-10-05T07:00:00+08:00').get('added') == 1)
+res = hw(value='abc', unit='kg')
+check('something that isn\'t a weight is refused', res.get('ok') is False and res.get('error') == 'bad-weight' and 'Nothing saved' in res.get('message', ''), res)
+check('an impossible weight is refused', hw(value='780', unit='kg').get('ok') is False)
+res = hw(value='77.9', unit='kg', date='not a date')
+check('an unreadable date means now', res.get('added') == 1 and '2026-10-07 09:30' in res['message'], res)
+res = hw(value='77.9', unit='kg', date='2030-01-01T00:00:00Z')
+check('a date in the future becomes now (and matches the one just sent)', res.get('added') == 0, res)
+res = gas('post', {**base, 'action': 'healthWeight', 'weights': [{'value': '79.1', 'date': '2026-10-01T07:00:00+08:00'}, {'value': '79.0', 'date': '2026-10-02T07:00:00+08:00'}, {'value': 'x'}]})
+check('several weigh-ins at once (bad ones listed)', res.get('ok') and res.get('added') == 2 and len(res.get('problems', [])) == 1, res)
+check('the wrong token is refused', gas('post', {**base, 'token': 'AAAA-BBBB-CCCC-DDDD', 'action': 'healthWeight', 'value': '78'}).get('error') == 'bad-token')
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

@@ -5,6 +5,8 @@
      log             the workout in progress
      history         all workouts, with filters
      stats           statistics: totals, streaks, heatmap, records (Phase 4)
+     health          body weight, goal, height and BMI, measurements (Phase 5)
+     health/<kind>   one measurement's chart and entries (health/weight = every weigh-in)
      w/<id>          one workout            w/<id>/edit   edit a finished workout
      exercises       exercise library       exercise/<id> one exercise
      template/<id>   edit a template
@@ -33,6 +35,7 @@ import { exercisePage, libraryPage } from './workout/exercises.js';
 import { mountTemplateEditor, templateCards, templatePage } from './workout/templates.js';
 import { exportWorkoutsCsv, importHevyFile } from './workout/transfer.js';
 import { statsPage } from './workout/stats.js';
+import { healthPage } from './health/page.js';
 import { computeRecords, finished, insights, percentChange, summarize, between } from './workout/analytics.js';
 import { loadLibrary } from './workout/library.js';
 
@@ -157,9 +160,10 @@ function stats(m) {
       <dd class="stat__sub">${m.month.volumePct != null
         ? `Volume ${m.month.volumePct === 0 ? 'same as' : `${m.month.volumePct > 0 ? '↑' : '↓'} ${Math.abs(m.month.volumePct)}% vs`} last month`
         : m.month.count ? formatVolume(m.month.volume) : `${m.month.lastCount} by this time last month`}</dd></div>
-    <div class="stat"><dt>${icon('scale')}Body weight</dt>
+    <div class="stat stat--link"><dt>${icon('scale')}Body weight</dt>
       <dd class="stat__value">${w ? `${w.latest.valueKg.toFixed(1)} kg` : '—'}</dd>
-      <dd class="stat__sub">${weightSub}</dd></div>
+      <dd class="stat__sub">${w ? weightSub : 'Tap to log your weight'}</dd>
+      <dd class="stat__hit"><button type="button" data-action="nav" data-route="workout" data-sub="health" aria-label="Body weight: ${w ? `${w.latest.valueKg.toFixed(1)} kg` : 'none yet'}. Open Health"></button></dd></div>
   </dl>`;
 }
 
@@ -248,6 +252,21 @@ const homePage = {
         </div>
       </section>
 
+      <section class="section accent-workout" aria-labelledby="wk-body-title">
+        <div class="section__head"><h2 class="section__title" id="wk-body-title">Body</h2>
+          <a class="text-btn" href="#/workout/health" data-action="nav" data-route="workout" data-sub="health">Health</a></div>
+        <div class="card wk-body">
+          <a class="wk-body__main" href="#/workout/health" data-action="nav" data-route="workout" data-sub="health">
+            <span class="row__icon">${icon('scale')}</span>
+            <span class="row__text"><span class="row__label">${m.weight ? `${m.weight.latest.valueKg.toFixed(1)} kg` : 'Body weight'}</span>
+              <span class="row__sub">${m.weight
+                ? `${formatRelativeDay(new Date(m.weight.latest.measuredAt), m.now)}${m.weight.delta != null ? ` · ${signed(m.weight.delta)} kg in ${m.weight.days} days` : ''}`
+                : 'Weight, goal, BMI and measurements'}</span></span>
+          </a>
+          <button type="button" class="btn btn--sm btn--accent" data-action="health:log">${icon('plus')}Log</button>
+        </div>
+      </section>
+
       <section class="section accent-workout" aria-labelledby="wk-tpl-title">
         <div class="section__head"><h2 class="section__title" id="wk-tpl-title">Templates</h2>
           ${templates.length ? html`<button type="button" class="text-btn" data-action="tpl:new">New</button>` : ''}</div>
@@ -272,6 +291,8 @@ const ROUTES = [
   [/^log$/, loggerPage, () => ({ mode: 'active' })],
   [/^history$/, historyPage, () => ({})],
   [/^stats$/, statsPage, () => ({})],
+  [/^health$/, healthPage, () => ({})],
+  [/^health\/(\w+)$/, healthPage, (m) => ({ kind: m[1] })],
   [/^w\/([\w-]+)$/, detailPage, (m) => ({ id: m[1] })],
   [/^w\/([\w-]+)\/edit$/, loggerPage, (m) => ({ mode: 'edit', id: m[1] })],
   [/^exercises$/, libraryPage, () => ({})],
@@ -338,7 +359,7 @@ on('data', () => {
   redraw();
 });
 on('settings', ({ prev, next }) => {
-  if (changed(prev, next, 'workout')) redraw();
+  if (changed(prev, next, 'workout') || changed(prev, next, 'health')) redraw();
 });
 
 /** Load the workout in progress and the rest timer, and show the workout bar. */

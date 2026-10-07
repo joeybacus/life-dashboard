@@ -38,8 +38,10 @@ export function niceTicks(min, max, count = 4, { integer = false } = {}) {
  *   label: what the chart shows (read by screen readers); format(value) for ticks
  *   zero: start the scale at 0 (counts) rather than near the lowest value (weights)
  */
-export function lineChart({ points, label, format = String, zero = false, xLabels = [] }) {
-  const values = points.map((p) => p.value);
+export function lineChart({ points, label, format = String, zero = false, xLabels = [], trend = null, goal = null, legend = null }) {
+  // trend: a smoothed value for each point, drawn as the main line over faint weigh-ins;
+  // goal: a dashed line at that value; legend: { points, trend, goal } names, shown under the chart
+  const values = [...points.map((p) => p.value), ...(trend ?? []), ...(goal != null ? [goal] : [])];
   const ticks = niceTicks(zero ? 0 : Math.min(...values), Math.max(...values));
   const lo = ticks[0];
   const hi = ticks[ticks.length - 1];
@@ -50,14 +52,18 @@ export function lineChart({ points, label, format = String, zero = false, xLabel
   const xy = points.map((p) => [xOf(p), yOf(p.value)]);
   const line = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${(x * 100).toFixed(2)} ${(y * 100).toFixed(2)}`).join(' ');
   const area = `${line} L${(xy[xy.length - 1][0] * 100).toFixed(2)} 100 L${(xy[0][0] * 100).toFixed(2)} 100 Z`;
+  const trendLine = trend ? xy.map(([x], i) => `${i ? 'L' : 'M'}${(x * 100).toFixed(2)} ${(yOf(trend[i]) * 100).toFixed(2)}`).join(' ') : null;
   const showDots = points.length <= 40;
   const last = points.length - 1;
   return html`<figure class="chart chart--line" data-chart="line" data-xs="${JSON.stringify(xy.map(([x]) => Math.round(x * 1e4) / 1e4))}" data-readouts="${JSON.stringify(points.map((p) => p.readout))}" data-sel="${last}">
     <div class="chart__plot" tabindex="0" role="group" aria-label="${label}. ${points.length} point${points.length === 1 ? '' : 's'}. Use the arrow keys to move between them.">
       ${ticks.map((t) => html`<span class="chart__grid" style="top:${pct(yOf(t))}"><span class="chart__tick">${format(t)}</span></span>`)}
       <svg class="chart__svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        ${points.length > 1 ? html`<path class="chart__area" d="${area}"/><path class="chart__line" d="${line}" vector-effect="non-scaling-stroke"/>` : ''}
+        ${points.length > 1 && !trend ? html`<path class="chart__area" d="${area}"/>` : ''}
+        ${points.length > 1 ? html`<path class="chart__line${trend ? ' chart__line--raw' : ''}" d="${line}" vector-effect="non-scaling-stroke"/>` : ''}
+        ${trendLine && points.length > 1 ? html`<path class="chart__trend" d="${trendLine}" vector-effect="non-scaling-stroke"/>` : ''}
       </svg>
+      ${goal != null ? html`<span class="chart__goal" style="top:${pct(yOf(goal))}" aria-hidden="true"><span>${legend?.goal ?? 'Goal'} ${format(goal)}</span></span>` : ''}
       <span class="chart__cross" aria-hidden="true" style="left:${pct(xy[last][0])}"></span>
       ${xy.map(([x, y], i) => (showDots || i === last
         ? html`<span class="chart__dot${i === last ? ' is-sel' : ''}" data-i="${i}" aria-hidden="true" style="left:${pct(x)};top:${pct(y)}"></span>`
@@ -65,6 +71,11 @@ export function lineChart({ points, label, format = String, zero = false, xLabel
       ${showDots ? '' : html`<span class="chart__dot chart__dot--float" data-float aria-hidden="true" hidden></span>`}
     </div>
     ${xLabels.length ? html`<div class="chart__x" aria-hidden="true">${xLabels.map((t) => html`<span>${t}</span>`)}</div>` : ''}
+    ${legend ? html`<div class="chart__legend" aria-hidden="true">
+      <span><i class="chart__key chart__key--dot"></i>${legend.points}</span>
+      ${trend ? html`<span><i class="chart__key chart__key--line"></i>${legend.trend}</span>` : ''}
+      ${goal != null ? html`<span><i class="chart__key chart__key--goal"></i>${legend.goal ?? 'Goal'}</span>` : ''}
+    </div>` : ''}
     <figcaption class="chart__readout" aria-live="polite" data-readout>${readoutMarkup(points[last].readout)}</figcaption>
     ${valueTable(label, points.map((p) => p.readout))}
   </figure>`;

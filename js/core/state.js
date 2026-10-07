@@ -67,6 +67,11 @@ export const DEFAULT_SETTINGS = {
   habits: {                 // habits and daily routines (0.4.6)
     enabled: true,          // off: hidden everywhere
   },
+  health: {                 // body weight goal (0.6.0); height and weigh-ins are records in bodyMeasurements
+    goalKg: null,           // target weight, or null for no goal
+    startKg: null,          // the weight when the goal was set (progress counts from here)
+    setAt: null,            // when the goal was set
+  },
   backup: {
     reminders: true,        // weekly "back up your data" nudge (not shown while sync works)
   },
