@@ -595,6 +595,26 @@ check('v11: ticking and unticking write real checkbox values (not text)', st['t1
 check('v11: only TRUE or FALSE can go in a tick-box column', st['t3'] == 'invalid', st)
 check('v11: the answer shows the new ticks', [r['cells']['A'] for r in res['rows']] == ['FALSE', 'TRUE'], [r['cells'] for r in res['rows']])
 
+# Version 12: many changes at once are written together, and Sheets recalculates once (not once per change)
+BIG = '1' + 'B' * 43
+add_logsheet(BIG, [['#', 'Status', 'C', 'D', 'Location', 'F', 'G', 'H', 'Name', 'HRN', 'Last', 'Next', 'Dx']]
+             + [[i, 'ACTIVE', '', '', 'Ward', '', '', '', f'Batch Patient {i}', f'BB-{i:03}', '', '', ''] for i in range(1, 11)],
+             max_cols=13, validation={'2': STATUSES})
+bw = {**base, 'spreadsheetId': BIG, 'tab': 'Sheet1', 'layout': {'name': 'I', 'hn': 'J', 'rounds': ''}, 'dates': ['K', 'L']}
+before = gas('dump').get('flushes', 0)
+res = gas('post', {**bw, 'action': 'wardSync', 'cols': ['B', 'L'], 'writes': [
+    {'id': f'b{i}', 'hn': f'BB-{i:03}', 'text': True, 'expect': {}, 'set': {'L': f'2026-10-{10 + i}'}} for i in range(1, 9)
+] + [{'id': 'b9', 'hn': 'BB-009', 'text': True, 'expect': {}, 'set': {'B': 'for rounds'}},
+     {'id': 'b10', 'hn': 'BB-010', 'text': True, 'expect': {}, 'set': {'B': 'nonsense'}}]})
+st = {k: v['status'] for k, v in res['results'].items()}
+lr = log_rows(BIG)
+flushes = gas('dump').get('flushes', 0) - before
+check('v12: eight Next rounds days are all saved, as dates', all(st[f'b{i}'] == 'ok' for i in range(1, 9))
+      and all(isinstance(lr[i][11], dict) for i in range(1, 9)), (st, [lr[i][11] for i in range(1, 9)]))
+check('v12: a dropdown change still works, and a refused one fails alone', st['b9'] == 'ok' and lr[9][1] == 'FOR ROUNDS' and st['b10'] == 'not-a-choice' and lr[10][1] == 'ACTIVE', st)
+check('v12: Sheets recalculates once for all the days (plus once per dropdown change), not once per change', flushes <= 4, flushes)
+check('v12: the answer shows the new days', [r['cells']['L'] for r in res['rows']][:3] == ['2026-10-11', '2026-10-12', '2026-10-13'], [r['cells']['L'] for r in res['rows']][:3])
+
 # ---------------------------------------------------------------------------
 print('\nTo-do tabs (version 5)')
 open(STATE, 'w').close()

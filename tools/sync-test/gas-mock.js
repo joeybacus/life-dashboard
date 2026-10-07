@@ -294,6 +294,7 @@ var SpreadsheetApp = {
     return SpreadsheetApp.openById(id);
   },
   flush: function () {
+    __state.flushes = (__state.flushes || 0) + 1; // how often Sheets would recalculate (checked by the tests)
     if (__state.__violation) {
       var message = __state.__violation;
       delete __state.__violation;

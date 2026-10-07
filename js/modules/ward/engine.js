@@ -33,7 +33,12 @@ const RETRY_MS = [15, 30, 60, 120, 300].map((s) => s * 1000);
 const SESSION_MAX_MS = 12 * 3600e3;      // an unfinished rounds session older than this was forgotten
 const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response']);
 // Errors that can come from a change Google can't save (an error page, a timeout)
-const STUCK_CODES = new Set(['bad-response', 'server', 'timeout']);
+// Errors that may come from one change Google can't handle. Not 'timeout': a big sheet can simply be slow
+// (and often finishes the write anyway), so a slow answer is tried again later, never set aside.
+const STUCK_CODES = new Set(['bad-response', 'server']);
+// How long to wait for Google when sending changes (Apps Script itself may run for up to 6 minutes)
+const WRITE_TIMEOUT_MS = 180_000;
+const SLOW = /took too long/i; // a change set aside by an older version only because Google was slow
 // The first list is the same on every device (a fixed, old date, so a renamed copy always wins)
 const SEEDED_AT = '2020-01-01T00:00:00.000Z';
 export const CENSUS_ID = 'census';
@@ -386,15 +391,19 @@ class WardList {
     const version = syncScriptVersion() ?? 0;
     const layout = this.layout();
     if (!isDefaultLayout(layout) && version < (layout.rounds ? LAYOUT_SCRIPT_VERSION : CENSUS_SCRIPT_VERSION)) return stop(new WardError('script-outdated')); // it would read the wrong columns
-    if (this.isCensus) {
-      // Referrals: what you enter in the app wins — a change waiting for your choice is simply saved
-      for (const item of this.queue.values()) {
-        const spelled = this.choiceSpelling(item.kind, item.set?.[item.kind]);
-        if (item.state !== 'conflict' && spelled === item.set?.[item.kind]) continue;
-        if (spelled !== item.set?.[item.kind]) item.set = { ...item.set, [item.kind]: spelled }; // "Inactive" → "INACTIVE"
-        Object.assign(item, { state: item.state === 'conflict' ? 'pending' : item.state, current: null, rev: item.rev + 1 });
-        await store.saveQueueItem(item);
-      }
+    // Changes set aside by an older version only because Google was slow: send them again
+    for (const item of this.queue.values()) {
+      if (item.state !== 'blocked' || item.problem !== 'stuck' || !SLOW.test(item.detail ?? '')) continue;
+      Object.assign(item, { state: 'pending', problem: null, detail: null, failures: 0, rev: item.rev + 1 });
+      await store.saveQueueItem(item);
+    }
+    // What you enter in the app wins (Referrals and patient lists alike) — a change waiting for your choice is simply saved
+    for (const item of this.queue.values()) {
+      const spelled = this.choiceSpelling(item.kind, item.set?.[item.kind]);
+      if (item.state !== 'conflict' && spelled === item.set?.[item.kind]) continue;
+      if (spelled !== item.set?.[item.kind]) item.set = { ...item.set, [item.kind]: spelled }; // "Inactive" → "INACTIVE"
+      Object.assign(item, { state: item.state === 'conflict' ? 'pending' : item.state, current: null, rev: item.rev + 1 });
+      await store.saveQueueItem(item);
     }
     const waiting = this.outgoing();
     const checks = this.checkCols();
@@ -417,9 +426,10 @@ class WardList {
         tab: link.tab,
         ...this.layoutField(),
         writes: sent.map((i) => ({
-          // The census never asks: with nothing expected, the app's text replaces whatever the cell holds
-          // A tick-box column never asks either: your tick is what you meant
-          id: `${i.key}#${i.rev}`, hn: i.hn, expect: this.isCensus || checks.includes(i.kind) ? {} : i.expect, set: i.set, quiet: !this.isCensus && i.day < date,
+          // The app always wins: with nothing expected, your change replaces whatever the cell holds.
+          // Except a rounds tick from an earlier day: if the sheet changed since (the daily reset), it's quietly skipped
+          ...(i.kind === 'rounds' && !this.isCensus && i.day < date ? { expect: i.expect, quiet: true } : { expect: {} }),
+          id: `${i.key}#${i.rev}`, hn: i.hn, set: i.set,
           // Columns other than C and D need sync script 7, which reads them as plain text (always, with your own layout or a tick-box column)
           ...(i.kind === 'rounds' || ((i.kind === 'C' || i.kind === 'D') && isDefaultLayout(layout) && !checks.length) ? {} : { text: true }),
         })),
@@ -430,7 +440,7 @@ class WardList {
         ...(checks.length ? { checks } : {}),
         ...(op?.addColumn ? { addColumn: op.addColumn } : {}),
         ...(op?.move ? { move: op.move } : {}),
-      });
+      }, sent.length || op ? { timeoutMs: WRITE_TIMEOUT_MS } : {});
     } catch (err) {
       this.phase = 'idle';
       if (this.link !== link || this.gone) {

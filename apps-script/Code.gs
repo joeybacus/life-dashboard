@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 12;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight)
+const SCRIPT_VERSION = 12;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -493,7 +493,7 @@ function wardSync_(req) {
       if (writes.length) out.results = wardApplyWrites_(sheet, writes, headers, claimError, L, dates);
       if (move) out.moved = wardMoveRows_(sheet, move, L);
       if (resetBefore && headers.state === 'ours') out.reset = wardResetStale_(sheet, resetBefore, L);
-      try { SpreadsheetApp.flush(); } catch (err) { out.flushError = String((err && err.message) || err); } // each write already flushed its own
+      try { SpreadsheetApp.flush(); } catch (err) { out.flushError = String((err && err.message) || err); } // the writes already flushed
     } finally {
       lock.releaseLock();
     }
@@ -767,13 +767,53 @@ function wardApplyWrites_(sheet, writes, headers, claimError, L, dates) {
       return String(r[L.name - 1]).trim() ? wardKey_(r[L.hn - 1]) : ''; // rows without a name don't count
     })
     : [];
+  // 1. Read and check every change first — a read after a write makes Sheets recalculate the
+  //    whole sheet, which on a big census with formulas took minutes for a handful of changes
   const results = {};
+  const plans = [];
   writes.forEach(function (w) {
     const id = String((w && w.id) || '');
     if (!id || results[id]) return;
-    results[id] = wardWriteOne_(sheet, w, keys, headers, claimError, L, dates);
+    const r = wardWriteOne_(sheet, w, keys, headers, claimError, L, dates);
+    if (r.plan) {
+      plans.push({ id: id, plan: r.plan });
+      results[id] = { status: 'ok', row: r.row };
+    } else results[id] = r;
+  });
+  // 2. Write the cells without a dropdown all together, then let Sheets recalculate once
+  const fail = function (id, err) {
+    const message = String((err && err.message) || err);
+    results[id] = /data validation/i.test(message)
+      ? { status: 'not-a-choice', row: results[id].row, message: message.slice(0, 300) }
+      : { status: wardWriteError_(err), row: results[id].row };
+  };
+  plans.forEach(function (p) {
+    try {
+      p.plan.filter(function (x) { return !x.validated; }).forEach(wardPut_);
+    } catch (err) { fail(p.id, err); }
+  });
+  try {
+    SpreadsheetApp.flush();
+  } catch (err) { // rare: blame the changes written in this round
+    plans.forEach(function (p) { if (p.plan.some(function (x) { return !x.validated; }) && results[p.id].status === 'ok') fail(p.id, err); });
+  }
+  // 3. Cells with a dropdown (or other rule) one at a time: Sheets checks them only when flushed,
+  //    so a refusal fails that change alone
+  plans.forEach(function (p) {
+    const checked = p.plan.filter(function (x) { return x.validated; });
+    if (!checked.length || results[p.id].status !== 'ok') return;
+    try {
+      checked.forEach(wardPut_);
+      SpreadsheetApp.flush();
+    } catch (err) { fail(p.id, err); }
   });
   return results;
+}
+
+/** Write one planned cell (see wardWriteOne_). */
+function wardPut_(x) {
+  if (x.how === 'value') x.cell.setValue(x.value);
+  else x.cell.setNumberFormat('@').setValue(x.value); // text, so Sheets never turns it into a date or formula
 }
 
 function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
@@ -839,21 +879,21 @@ function wardWriteOne_(sheet, w, keys, headers, claimError, L, dates) {
     set[c] = String(match);
   }
   if (cols.every(function (c) { return same(c, current[c], set[c]); })) return { status: 'same', row: row };
-  try {
-    cols.forEach(function (c) {
-      const cell = sheet.getRange(row, real(c));
-      if (isRounds(c) && c === 'E') cell.setValue(set.E);
-      else if (isCheck(c)) cell.setValue(set[c] === 'TRUE'); // a real tick (the cell keeps its checkbox)
-      else if (isDay(c) && /^\d{4}-\d{2}-\d{2}$/.test(set[c])) cell.setValue(set[c]); // a day: Sheets keeps it as a date (in the cell's own format)
-      else cell.setNumberFormat('@').setValue(set[c]); // text, so Sheets never turns it into a date or formula
-    });
-    SpreadsheetApp.flush(); // Sheets checks dropdowns only now: a refusal fails this change, not the whole request
-  } catch (err) {
-    const message = String((err && err.message) || err);
-    if (/data validation/i.test(message)) return { status: 'not-a-choice', row: row, message: message.slice(0, 300) };
-    return { status: wardWriteError_(err), row: row };
-  }
-  return { status: 'ok', row: row };
+  // Nothing is written yet: wardApplyWrites_ writes every change's cells after all of them are checked
+  const plan = cols.map(function (c) {
+    const cell = sheet.getRange(row, real(c));
+    // Text into a cell with a rule (a dropdown, usually) can be refused: those are written one by one.
+    // Days, ticks and the rounds columns can't be (a day-only rule takes a day), so they go in the batch.
+    let validated = false;
+    if (!isRounds(c) && !isDay(c) && !isCheck(c)) {
+      try { validated = Boolean(cell.getDataValidation()); } catch (err) { validated = false; }
+    }
+    if (isRounds(c) && c === 'E') return { cell: cell, how: 'value', value: set.E, validated: validated };
+    if (isCheck(c)) return { cell: cell, how: 'value', value: set[c] === 'TRUE', validated: false }; // a real tick (the cell keeps its checkbox)
+    if (isDay(c) && /^\d{4}-\d{2}-\d{2}$/.test(set[c])) return { cell: cell, how: 'value', value: set[c], validated: validated }; // a day: Sheets keeps it as a date (in the cell's own format)
+    return { cell: cell, how: 'text', value: set[c], validated: validated };
+  });
+  return { status: 'ok', row: row, plan: plan };
 }
 
 /** Untick patients whose tick is from an earlier day (Manila time). F and G keep the last rounds times. */

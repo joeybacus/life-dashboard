@@ -297,7 +297,9 @@ M Diagnosis (Waiting for and Notes are optional). Needs sync script version 9.
   touch and hold, then drag) — the new day is saved to the census as a date; drop on **No day set** to clear it.
 - **A patient's sheet:** status, next rounds (Today, Tomorrow, In 2 or 3 days, Next week or a date), **Seen
   today** (Last rounds), location, diagnosis, and Waiting for / Notes if the census has columns for them.
-- Changes go straight to the census; if someone changed the same cell meanwhile you choose which version to keep.
+- Changes go straight to the census. What you enter in the app always wins: it replaces whatever the cell holds,
+  even if someone changed it meanwhile (patient lists too, since 0.6.2). Several changes are saved together, and
+  if Google is slow the app simply tries again — it doesn't set the change aside.
   The app never writes to the name or hospital number columns, or to columns it doesn't use.
 - **Add** keeps a patient who isn't in the census in the app (synced to your devices through the Referrals tab of
   your Life Dashboard sheet, never in backups).

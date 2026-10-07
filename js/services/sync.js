@@ -58,7 +58,8 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    9 reads a referral census (no rounds columns, days as dates); 10 knows dropdown
    columns (writes their own values; a value they refuse fails only that change);
    11 ticks and unticks real checkboxes (a list's tick columns, e.g. column A);
-   12 takes weights from Apple Health, sent by an Apple Shortcut (healthWeight). */
+   12 takes weights from Apple Health, sent by an Apple Shortcut (healthWeight), and writes several logsheet
+   changes together with one recalculation (a big census used to time out). */
 export const LATEST_SCRIPT_VERSION = 12;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8, focusSessions: 5, habits: 5, habitLogs: 5 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
@@ -148,9 +149,9 @@ function googleWords(page) {
   return text.slice(0, 300);
 }
 
-async function call(action, payload = {}, config = sync.config) {
+async function call(action, payload = {}, config = sync.config, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     let response;
     try {
@@ -185,13 +186,13 @@ async function call(action, payload = {}, config = sync.config) {
  * Throws SyncError: code 'not-connected' without one; reason holds the
  * script's own error code.
  */
-export async function callSyncScript(action, payload = {}) {
+export async function callSyncScript(action, payload = {}, { timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   const config = sync.config;
   if (!config) throw new SyncError('not-connected');
   const before = scriptVersion(config);
   let data;
   try {
-    data = await call(action, payload, config);
+    data = await call(action, payload, config, timeoutMs);
   } catch (err) {
     // Scripts older than version 3 don't know the action
     if (err.reason === 'bad-action' && before >= LATEST_SCRIPT_VERSION) config.scriptVersion = LATEST_SCRIPT_VERSION - 1;
