@@ -21,7 +21,8 @@ the app lives at `https://<your-username>.github.io/life-dashboard/`.
 - **Mac:** open it in Safari → **File → Add to Dock**.
 
 To publish an update: in GitHub Desktop, **Commit to main**, then **Push origin**. The installed
-app picks up the new version the next time it's opened.
+app picks up the new version the next time it's opened; if it was only in the background, it shows "A new
+version is ready" with an **Update** button (since 0.7.0.1).
 
 ## Sync with Google Sheets (one-time setup, about 10 minutes)
 
