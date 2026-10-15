@@ -1,12 +1,13 @@
 /* Calendar integration.
-   The dashboard asks a "provider" for events. Phase 1 ships a sample provider;
-   a later phase adds a Google Calendar provider (via Apps Script) with the same
-   shape, so the dashboard won't need to change.
+   The dashboard asks a "provider" for events: your Google Calendar once the
+   sync script can read it (version 16, services/gcal.js), else the sample
+   calendar while sample data is on.
 
    Event shape: { id, title, start: Date, end: Date, allDay, location,
                   description, calendar, color, url|null, sample } */
 import { state } from '../core/state.js';
 import { addDays, atTime, startOfDay, toDateKey } from '../core/dates.js';
+import { gcalAvailable, googleProvider } from './gcal.js';
 
 const SAMPLE_CALENDARS = {
   hospital: { name: 'Hospital', color: '#4f8bff' },
@@ -62,6 +63,7 @@ const notConnected = {
 };
 
 export function calendarProvider() {
+  if (gcalAvailable()) return googleProvider;
   const s = state.settings.sampleData;
   return s.enabled && s.calendar ? sampleProvider : notConnected;
 }

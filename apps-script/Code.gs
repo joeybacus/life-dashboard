@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 15;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab)
+const SCRIPT_VERSION = 16;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -149,6 +149,15 @@ function doPost(e) {
       return json_(WARD_ACTIONS[req.action](req));
     } catch (err) {
       return json_({ ok: false, error: 'server', message: String((err && err.message) || err) });
+    }
+  }
+
+  // Reading Google Calendar for the Calendar page changes nothing here: no lock
+  if (req.action === 'calendarEvents') {
+    try {
+      return json_(calEvents_(props, req));
+    } catch (err) {
+      return json_({ ok: false, version: SCRIPT_VERSION, error: calErrorCode_(err), message: String((err && err.message) || err) });
     }
   }
 
@@ -1640,6 +1649,101 @@ const CAL_ACTIONS = {
   calendarSetup: calSetup_,
   calendarSync: calSync_,
 };
+
+/* ---------- Reading your calendars (sync script 16) ----------
+ * The app's Calendar page asks for the events between two moments (at most
+ * CAL_READ_MAX_DAYS apart), from every calendar in your Google account — your
+ * own and the ones you subscribe to. Nothing is changed or saved here.
+ */
+const CAL_READ_MAX_DAYS = 62;
+const CAL_READ_MAX_EVENTS = 2000;
+const CAL_READ_MAX_TEXT = 2000;
+
+function calEvents_(props, req) {
+  const from = new Date(String(req.from || ''));
+  const to = new Date(String(req.to || ''));
+  if (isNaN(from.getTime()) || isNaN(to.getTime()) || to <= from || to - from > CAL_READ_MAX_DAYS * 864e5) {
+    return { ok: false, version: SCRIPT_VERSION, error: 'calendar-bad-range' };
+  }
+  const tz = Session.getScriptTimeZone() || SHOWN_TZ;
+  const taskCal = props.getProperty('CAL_ID') || '';
+  const calendars = [];
+  const events = [];
+  const failed = [];
+  let truncated = false;
+  CalendarApp.getAllCalendars().forEach(function (cal) {
+    const id = cal.getId();
+    const opt = function (fn, fallback) {
+      try { return typeof cal[fn] === 'function' ? cal[fn]() : fallback; } catch (err) { return fallback; }
+    };
+    calendars.push({
+      id: id,
+      name: cal.getName(),
+      color: opt('getColor', ''),
+      primary: Boolean(opt('isMyPrimaryCalendar', false)),
+      owned: Boolean(opt('isOwnedByMe', false)),
+      shown: !opt('isHidden', false) && opt('isSelected', true) !== false, // ticked in Google Calendar's own list
+      tasks: id === taskCal,
+    });
+    let list;
+    try {
+      list = cal.getEvents(from, to);
+    } catch (err) {
+      if (calNeedsAuth_(err)) throw err;
+      failed.push(id);
+      return;
+    }
+    list.forEach(function (e) {
+      if (events.length >= CAL_READ_MAX_EVENTS) {
+        truncated = true;
+        return;
+      }
+      events.push(calEventOut_(e, id, tz));
+    });
+  });
+  return { ok: true, version: SCRIPT_VERSION, from: from.toISOString(), to: to.toISOString(), calendars: calendars, events: events, failed: failed, truncated: truncated };
+}
+
+/** One event for the app: times as ISO moments (all-day ones as days), and a link that opens it in Google Calendar. */
+function calEventOut_(e, calId, tz) {
+  const opt = function (fn, fallback) {
+    try { return typeof e[fn] === 'function' ? e[fn]() : fallback; } catch (err) { return fallback; }
+  };
+  const allDay = Boolean(e.isAllDayEvent());
+  const out = {
+    id: e.getId(),
+    cal: calId,
+    title: String(e.getTitle() || '').slice(0, 300),
+    allDay: allDay,
+    start: e.getStartTime().toISOString(),
+    end: e.getEndTime().toISOString(),
+    location: String(opt('getLocation', '') || '').slice(0, 300),
+    description: String(opt('getDescription', '') || '').slice(0, CAL_READ_MAX_TEXT),
+    color: String(opt('getColor', '') || ''),
+    recurring: Boolean(opt('isRecurringEvent', false)),
+    task: '', // a to-do the app put in Google Calendar: the app shows the to-do instead
+  };
+  try { out.task = String(e.getTag(CAL_TAG) || ''); } catch (err) { /* no tag */ }
+  if (allDay) {
+    out.date = Utilities.formatDate(e.getAllDayStartDate(), tz, 'yyyy-MM-dd');
+    const endDay = opt('getAllDayEndDate', null);
+    out.endDate = endDay ? Utilities.formatDate(endDay, tz, 'yyyy-MM-dd') : '';
+  }
+  out.url = calEventUrl_(out, calId, tz);
+  return out;
+}
+
+/** Google Calendar's own page for an event; for repeating events, the day it's on. */
+function calEventUrl_(ev, calId, tz) {
+  if (!ev.recurring) {
+    try {
+      const eid = Utilities.base64Encode(String(ev.id).split('@')[0] + ' ' + calId).replace(/=+$/, '');
+      return 'https://calendar.google.com/calendar/event?eid=' + encodeURIComponent(eid);
+    } catch (err) { /* the day instead */ }
+  }
+  const day = ev.date || Utilities.formatDate(new Date(ev.start), tz, 'yyyy/M/d');
+  return 'https://calendar.google.com/calendar/r/day/' + String(day).replace(/-/g, '/').replace(/\/0(\d)/g, '/$1');
+}
 
 /** Which calendars you own, which one tasks go into, and whether the 30-minute check is running. */
 function calStatus_(ss, props) {

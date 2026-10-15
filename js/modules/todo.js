@@ -4,6 +4,7 @@
      (none)        the list: the plain-words box, views, search, sorting, quick menu
      focus         the focus timer (focus/)
      habits        your habits: add, edit, reorder, history (habits/)
+     calendar      your Google Calendar and the app's own things by day, week, month (calendar/)
      deleted       Recently deleted (restore for 30 days)
      categories    add, rename, recolour, reorder and delete categories
    The pieces live in js/modules/todo/. Tasks use Manila time (js/core/manila.js). */
@@ -23,6 +24,7 @@ import { bindCapture, captureMarkup } from './todo/capture.js';
 import { focusPage, formatMinutes } from './focus/page.js';
 import { focusTimer, loadSessions, sessionMinutes } from './focus/timer.js';
 import { habitsOn, habitsPage, habitsToday } from './habits/ui.js';
+import { bindCalendarSwipe, calendarPage, handleCalendarChange, handleCalendarClick } from './calendar/page.js';
 
 /** What the dashboard card and Today at a Glance show. */
 export async function loadTodoModel(now = new Date()) {
@@ -173,6 +175,7 @@ const ROUTES = [
   [/^categories$/, categoriesPage],
   [/^focus$/, focusPage],
   [/^habits$/, habitsPage],
+  [/^calendar$/, calendarPage],
 ];
 
 let view = null;
@@ -197,6 +200,9 @@ registerScreen('todo', {
   mount(el) {
     view = el;
     mountList(el);
+    el.addEventListener('click', handleCalendarClick);
+    el.addEventListener('change', handleCalendarChange);
+    bindCalendarSwipe(el);
   },
   onShow(el, sub) {
     visible = true;
@@ -215,7 +221,7 @@ registerScreen('todo', {
 on('data', () => {
   if (!visible || !page) return;
   if (page === listPage) refreshList();
-  else page.show(view);
+  else if (page !== calendarPage) page.show(view); // the calendar redraws by itself
 });
 on('settings', ({ prev, next }) => {
   if (visible && page === listPage && changed(prev, next, 'tasks')) showList(view);

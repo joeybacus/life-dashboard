@@ -147,7 +147,8 @@ function scriptUpdateFor() {
   if (version < 12) return 'faster saving to your referral census and logsheets, and weights from Apple Health';
   if (version < 13) return 'progress photos in your Google Drive';
   if (version < 14) return 'NCCU/ACSU on all your devices, and bold or red logsheet text shown in bold';
-  return 'NCCU/ACSU on all your devices';
+  if (version < 15) return 'NCCU/ACSU on all your devices, and your Google Calendar in the app';
+  return 'your Google Calendar in the app (the Calendar page)';
 }
 
 function syncSection() {

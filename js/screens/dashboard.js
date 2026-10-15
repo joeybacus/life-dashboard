@@ -59,6 +59,7 @@ export function initDashboard() {
   on('ward', () => refreshIfVisible());
   on('referrals', () => refreshIfVisible());
   on('units', () => refreshIfVisible());
+  on('calendar', () => refreshIfVisible()); // Google Calendar events arrived
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refreshIfVisible();
   });
@@ -78,6 +79,7 @@ function mount(view) {
           <div class="section__head">
             <h2 class="section__title" id="dash-today-title">Today</h2>
             <span class="section__meta" data-slot="calSource"></span>
+            <a class="text-btn" href="#/todo/calendar" data-action="nav" data-route="todo" data-sub="calendar">Calendar</a>
           </div>
           <div data-slot="today"></div>
         </section>
@@ -244,7 +246,7 @@ function quoteCard(now, agenda) {
     </figure>
     <p class="quote__foot">${icon('calendar')}<span>${agenda.provider.connected
       ? 'No events today'
-      : 'No calendar connected yet — Google Calendar arrives in a later phase'}</span></p>
+      : 'No calendar connected yet — update the sync script to see Google Calendar'}</span></p>
   </div>`;
 }
 
@@ -297,7 +299,7 @@ function openEvent(id) {
       ${e.location ? html`<p class="event-detail__row">${icon('pin')}<span>${e.location}</span></p>` : ''}
       <p class="event-detail__row">${icon('calendar')}<span class="cal-tag"><span class="cal-tag__dot" aria-hidden="true"></span>${e.calendar}</span></p>
       ${e.description ? html`<p class="event-detail__desc">${e.description}</p>` : ''}
-      ${e.sample ? html`<p class="note">${icon('info')}<span>This is a sample event. Once Google Calendar is connected in a later phase, tapping an event will open it in Google Calendar.</span></p>` : ''}
+      ${e.sample ? html`<p class="note">${icon('info')}<span>This is a sample event. Once the sync script is updated (version 16), your real Google Calendar shows here instead.</span></p>` : ''}
     </div>`,
     actions: e.url
       ? [{ label: 'Close', value: 'close', variant: 'ghost' }, { label: 'Open in Google Calendar', value: 'open', variant: 'primary', href: e.url }]
@@ -313,7 +315,7 @@ function calendarGlance(agenda, now) {
   if (!e) {
     return agenda.provider.connected
       ? { ...base, value: 'Nothing coming up', sub: 'Your week is clear' }
-      : { ...base, value: 'No calendar yet', sub: 'Connects in a later phase' };
+      : { ...base, value: 'No calendar yet', sub: 'Update the sync script to connect' };
   }
   const ongoing = e.start <= now && e.end > now;
   const day = toDateKey(e.start) === toDateKey(now) ? '' : `${formatRelativeDay(e.start, now)} · `;

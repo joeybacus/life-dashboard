@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 15
+SCRIPT_VERSION = 16
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -1027,6 +1027,34 @@ hdr = shown['rows'][0] if shown else []
 row = next((r for r in rows_of(state, 'NCCU-ACSU') if r[0] == 'bed:nccu:2'), None)
 check('v15: NCCU/ACSU beds sync in the NCCU-ACSU tab', set(res.get('results', {}).values()) == {'applied'} and row is not None, res)
 check('v15: …with the unit, bed, patient and to-dos readable', row is not None and [row[hdr.index(h)] for h in ['Unit', 'Bed', 'Patient', 'To do', 'Done']] == ['NCCU', '2', 'Unit Patient', 'Repeat Na', 'Give KCl'], (hdr, row))
+
+# Version 16: the Calendar page reads Google Calendar events (read-only, every calendar)
+st = gas('dump')
+st['calendars']['me@gmail.com'] = {'id': 'me@gmail.com', 'name': 'Me', 'tz': 'Asia/Manila', 'deleted': False, 'primary': True, 'color': '#4285f4', 'events': {
+    'ce1@google.com': {'id': 'ce1@google.com', 'title': 'Grand rounds', 'description': 'Auditorium', 'location': 'Aud B', 'start': '2026-10-16T00:00:00.000Z', 'end': '2026-10-16T01:00:00.000Z', 'allDay': False, 'date': None, 'popups': [], 'tags': {'lifeDashboardTaskId': 'task-77'}, 'deleted': False},
+    'ce2@google.com': {'id': 'ce2@google.com', 'title': 'Duty', 'allDay': True, 'date': '2026-10-17', 'endDate': '2026-10-19', 'start': None, 'end': None, 'popups': [], 'tags': {}, 'deleted': False, 'recurring': True, 'color': '11'},
+    'ce3@google.com': {'id': 'ce3@google.com', 'title': 'Next month', 'start': '2026-12-20T00:00:00.000Z', 'end': '2026-12-20T01:00:00.000Z', 'allDay': False, 'date': None, 'popups': [], 'tags': {}, 'deleted': False},
+}}
+st['calendars']['holidays@group.v.calendar.google.com'] = {'id': 'holidays@group.v.calendar.google.com', 'name': 'Holidays in the Philippines', 'tz': 'Asia/Manila', 'deleted': False, 'owned': False, 'hidden': True, 'events': {
+    'h1@google.com': {'id': 'h1@google.com', 'title': 'Holiday', 'allDay': True, 'date': '2026-10-18', 'start': None, 'end': None, 'popups': [], 'tags': {}, 'deleted': False},
+}}
+save_state(st)
+res = gas('post', {**base, 'action': 'calendarEvents', 'from': '2026-10-11T16:00:00.000Z', 'to': '2026-10-18T16:00:00.000Z'})
+evs = {e['id']: e for e in res.get('events', [])}
+cals = {c['id']: c for c in res.get('calendars', [])}
+check('v16: events from every calendar come back, subscribed ones too', res.get('ok') and {'ce1@google.com', 'ce2@google.com', 'h1@google.com'} <= set(evs) and 'ce3@google.com' not in evs, res)
+check('v16: a timed event has its times, place, notes and a link to it', evs.get('ce1@google.com', {}).get('start') == '2026-10-16T00:00:00.000Z' and evs['ce1@google.com']['location'] == 'Aud B'
+      and evs['ce1@google.com']['url'].startswith('https://calendar.google.com/calendar/event?eid='), evs.get('ce1@google.com'))
+check('v16: an all-day event has its days (end not included); a repeating one links to its day', evs.get('ce2@google.com', {}).get('date') == '2026-10-17' and evs['ce2@google.com']['endDate'] == '2026-10-19'
+      and evs['ce2@google.com']['url'] == 'https://calendar.google.com/calendar/r/day/2026/10/17' and evs['ce2@google.com']['color'] == '11', evs.get('ce2@google.com'))
+check('v16: calendars say which is yours, subscribed or hidden in Google', cals.get('me@gmail.com', {}).get('primary') and cals['me@gmail.com']['shown'] and cals['holidays@group.v.calendar.google.com']['owned'] is False
+      and cals['holidays@group.v.calendar.google.com']['shown'] is False, cals)
+check('v16: the tasks calendar is marked, and a to-do\'s event says which to-do', [c['name'] for c in res['calendars'] if c.get('tasks')] == ['Life Dashboard Tasks'] and evs['ce1@google.com']['task'] == 'task-77'
+      and evs['ce2@google.com']['task'] == '', [(c['name'], c.get('tasks')) for c in res['calendars']])
+check('v16: a range too long is refused', gas('post', {**base, 'action': 'calendarEvents', 'from': '2026-01-01T00:00:00Z', 'to': '2026-06-01T00:00:00Z'}).get('error') == 'calendar-bad-range')
+st = gas('dump'); st['calNoAuth'] = True; save_state(st)
+check('v16: without Calendar permission the app is told so', gas('post', {**base, 'action': 'calendarEvents', 'from': '2026-10-11T16:00:00.000Z', 'to': '2026-10-18T16:00:00.000Z'}).get('error') == 'calendar-needs-auth')
+st = gas('dump'); st['calNoAuth'] = False; save_state(st)
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

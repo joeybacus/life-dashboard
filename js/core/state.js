@@ -72,6 +72,11 @@ export const DEFAULT_SETTINGS = {
     startKg: null,          // the weight when the goal was set (progress counts from here)
     setAt: null,            // when the goal was set
   },
+  calendar: {               // the Calendar page (0.8.0)
+    hidden: null,           // Google calendars you've hidden (ids); null = as ticked in Google Calendar
+    colors: {},             // your own colour per Google calendar: { id: '#rrggbb' }
+    layers: { tasks: true, workouts: true, referrals: true, habits: true }, // the app's own things shown too
+  },
   backup: {
     reminders: true,        // weekly "back up your data" nudge (not shown while sync works)
   },

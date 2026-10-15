@@ -414,6 +414,13 @@ MockEvent.prototype.addPopupReminder = function (minutes) {
   this.e.popups.push(minutes);
   return this;
 };
+MockEvent.prototype.getLocation = function () { return this.e.location || ''; };
+MockEvent.prototype.getColor = function () { return this.e.color || ''; };
+MockEvent.prototype.isRecurringEvent = function () { return Boolean(this.e.recurring); };
+MockEvent.prototype.getAllDayEndDate = function () {
+  if (!this.e.allDay) __fail('Event is not an all-day event.');
+  return new Date(__midnight(this.e.endDate || this.e.date, Session.getScriptTimeZone()).getTime() + (this.e.endDate ? 0 : 864e5));
+};
 MockEvent.prototype.setTag = function (key, value) { this.e.tags[key] = String(value); return this; };
 MockEvent.prototype.getTag = function (key) { return Object.prototype.hasOwnProperty.call(this.e.tags, key) ? this.e.tags[key] : null; };
 MockEvent.prototype.deleteEvent = function () { __calAuth(); this.e.deleted = true; };
@@ -421,6 +428,11 @@ MockEvent.prototype.deleteEvent = function () { __calAuth(); this.e.deleted = tr
 function MockCalendar(data) { this.c = data; }
 MockCalendar.prototype.getId = function () { return this.c.id; };
 MockCalendar.prototype.getName = function () { return this.c.name; };
+MockCalendar.prototype.getColor = function () { return this.c.color || '#9fc6e7'; };
+MockCalendar.prototype.isHidden = function () { return Boolean(this.c.hidden); };
+MockCalendar.prototype.isSelected = function () { return this.c.selected !== false; };
+MockCalendar.prototype.isMyPrimaryCalendar = function () { return Boolean(this.c.primary); };
+MockCalendar.prototype.isOwnedByMe = function () { return this.c.owned !== false; };
 MockCalendar.prototype.__add = function (fields) {
   __calAuth();
   __state.eventSeq = (__state.eventSeq || 0) + 1;
@@ -453,6 +465,12 @@ MockCalendar.prototype.getEvents = function (start, end) {
 
 var CalendarApp = {
   getAllOwnedCalendars: function () {
+    __calAuth();
+    return Object.keys(__state.calendars).map(function (id) { return __state.calendars[id]; })
+      .filter(function (c) { return !c.deleted && c.owned !== false; }).map(function (c) { return new MockCalendar(c); });
+  },
+  // Owned and subscribed ones (a calendar with owned: false is one you subscribe to)
+  getAllCalendars: function () {
     __calAuth();
     return Object.keys(__state.calendars).map(function (id) { return __state.calendars[id]; })
       .filter(function (c) { return !c.deleted; }).map(function (c) { return new MockCalendar(c); });

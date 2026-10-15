@@ -235,7 +235,7 @@ function drawChrome() {
 function drawPage() {
   setHTML(el, html`<div class="todo-page accent-todo" data-todo-page>
     ${pageHead({ title: 'To Do', iconName: 'checklist', accent: 'todo', eyebrow: 'Module',
-      aside: html`${state.settings.focus?.enabled !== false ? html`<button type="button" class="btn btn--sm todo-focus-btn" data-action="nav" data-route="todo" data-sub="focus">${icon('timer')}Focus</button>` : ''}<button type="button" class="icon-btn" data-action="todo:menu" aria-label="More: categories, recently deleted, export">${icon('more')}</button>` })}
+      aside: html`<button type="button" class="btn btn--sm todo-focus-btn" data-action="nav" data-route="todo" data-sub="calendar">${icon('calendar')}Calendar</button>${state.settings.focus?.enabled !== false ? html`<button type="button" class="btn btn--sm todo-focus-btn" data-action="nav" data-route="todo" data-sub="focus">${icon('timer')}Focus</button>` : ''}<button type="button" class="icon-btn" data-action="todo:menu" aria-label="More: categories, recently deleted, export">${icon('more')}</button>` })}
     <div class="todo-capture" data-slot="capture">${captureMarkup({ placeholder: 'Add a task…' })}</div>
     <div class="todo-habits" data-slot="habits"></div>
     <nav class="todo-views"></nav>

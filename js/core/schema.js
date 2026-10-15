@@ -113,6 +113,13 @@ const MIGRATIONS = [
     const units = db.createObjectStore('units', { keyPath: 'id' });
     units.createIndex('updatedAt', 'updatedAt');
   },
+  // v12 — Calendar (0.8.0): your Google Calendar events, one record per Manila month
+  // ({ key: "YYYY-MM", fetchedAt, events }) plus your calendars ({ key: 'calendars', calendars }),
+  // kept so the Calendar page works offline. On this device only: never synced or backed up
+  // (Google Calendar has them).
+  (db) => {
+    db.createObjectStore('calendarCache', { keyPath: 'key' });
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
@@ -130,7 +137,7 @@ export const WARD_STORES = ['wardDays', 'wardQueue'];
 export const SCRIPT_STORES = ['calendarLinks'];
 
 /** Every store (used when deleting all data). */
-export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'units', 'outbox', ...WARD_STORES, ...SCRIPT_STORES, ...DEVICE_FILE_STORES];
+export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'units', 'outbox', ...WARD_STORES, ...SCRIPT_STORES, ...DEVICE_FILE_STORES, 'calendarCache'];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
 export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'units', 'focusSessions', 'habits', 'habitLogs'];
