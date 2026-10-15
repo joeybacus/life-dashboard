@@ -419,6 +419,9 @@ function badges(p, v, { detail = false } = {}) {
   return out.some(Boolean) ? html`<p class="pt__badges">${out}</p>` : '';
 }
 
+/** A cell's text, with the parts that are bold or red in the logsheet in bold. */
+const cellText = (p, col) => (p.marks?.[col] ? p.marks[col].map(([t, on]) => (on ? html`<strong class="pt__mark">${t}</strong>` : t)) : p.cells[col]);
+
 /** A tick-box cell (TRUE / FALSE in the logsheet). */
 const isTicked = (text) => /^(true|yes|y|1|✓|✔|x)$/i.test(String(text ?? '').trim());
 
@@ -451,7 +454,7 @@ function clampText(p, c, v) {
     <p class="pt__label">${c.label}</p>
     ${!c.readable ? html`<p class="pt__text pt__text--empty">${c.loading ? 'Loading…' : 'Update the sync script to see this'}</p>`
       : text
-        ? html`<div class="pt__text${open ? '' : ' is-clamped'}" data-clamp="${id}">${text}</div>
+        ? html`<div class="pt__text${open ? '' : ' is-clamped'}" data-clamp="${id}">${cellText(p, c.col)}</div>
           <button type="button" class="pt__more" data-action="ward:more" data-clamp-id="${id}" aria-expanded="${open ? 'true' : 'false'}"${open ? '' : raw(' hidden')}>${open ? 'Show less' : 'Show more'}</button>`
         : html`<p class="pt__text pt__text--empty">None</p>`}
   </div>`;
@@ -536,7 +539,7 @@ function tileBody(p, c, t) {
       : ''}<span>${isTicked(p.cells[c.col]) ? `Ticked in column ${c.col} of the logsheet` : `Not ticked in column ${c.col}`}</span></div>`;
   }
   return p.cells[c.col]
-    ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}">${p.cells[c.col]}</div>`
+    ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}">${cellText(p, c.col)}</div>`
     : html`<p class="faint">Empty in the logsheet.</p>`;
 }
 

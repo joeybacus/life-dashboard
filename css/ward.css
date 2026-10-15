@@ -372,6 +372,9 @@ button.wbadge { cursor: pointer; }
 .ptd__text { margin-top: 6px; font-size: var(--fs-base); color: var(--text); }
 .ptd__section .note { margin-top: 10px; }
 
+/* Bold or red in the logsheet */
+.pt__mark { font-weight: 750; color: var(--text); }
+
 /* ---- One patient, full screen (their dashboard) ---- */
 .dlg--full.ward-detail .dlg__panel { width: 100%; }
 .ptb__bar {

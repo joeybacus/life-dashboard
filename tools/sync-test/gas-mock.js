@@ -109,6 +109,45 @@ MockRange.prototype.getDisplayValues = function () {
   return this.__cells(function (v) { return __display(v, tz); });
 };
 MockRange.prototype.getDisplayValue = function () { return this.getDisplayValues()[0][0]; };
+// How cells look: a sheet's "styles" { "row,col": { bold, color, runs: [[text, { bold, color }], …] } }
+MockRange.prototype.__style = function (r, c) { return (this.s.styles || {})[__cellKey(r, c)] || {}; };
+function __mockColor(hex) {
+  return hex ? { getColorType: function () { return 'RGB'; }, asRgbColor: function () { return { asHexString: function () { return hex; } }; } } : null;
+}
+MockRange.prototype.getFontWeights = function () {
+  var self = this;
+  return this.__cells(function (v, r, c) { return self.__style(r, c).bold ? 'bold' : 'normal'; });
+};
+MockRange.prototype.getFontColorObjects = function () {
+  var self = this;
+  return this.__cells(function (v, r, c) { return __mockColor(self.__style(r, c).color || '#000000'); });
+};
+MockRange.prototype.getRichTextValues = function () {
+  var self = this;
+  return this.__cells(function (v, r, c) {
+    var p = __plain(v);
+    if (typeof p !== 'string') return null; // like Sheets: numbers and dates have no rich text
+    var st = self.__style(r, c);
+    var runs = st.runs || [[p, {}]];
+    return {
+      getText: function () { return p; },
+      getRuns: function () {
+        return runs.map(function (run) {
+          var own = run[1] || {};
+          return {
+            getText: function () { return run[0]; },
+            getTextStyle: function () {
+              return {
+                isBold: function () { return 'bold' in own ? own.bold : Boolean(st.bold); },
+                getForegroundColorObject: function () { return __mockColor(own.color || st.color || '#000000'); },
+              };
+            },
+          };
+        });
+      },
+    };
+  });
+};
 MockRange.prototype.getFormulas = function () {
   return this.__cells(function (v) { return v && typeof v === 'object' && v.__f ? v.__f : ''; });
 };

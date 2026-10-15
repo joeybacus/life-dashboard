@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 13;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder)
+const SCRIPT_VERSION = 14;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -574,6 +574,7 @@ function wardCheck_(req) {
  *   claim:       add the E–G headings if E1:G1 are empty
  *   resetBefore: "YYYY-MM-DD" — untick patients last rounded before that day (Manila)
  *   cols:        the list's columns to read, e.g. ['C', 'D', 'H'] (each row then has cells: { C, D, H })
+ *                and, from version 14, marks: { H: [[text, 1 | 0], …] } for cells with bold or red text
  *   addColumn:   { heading } — add a column after all the others (answer: added { status, column })
  *   move:        { expect, order } — put the patient rows in a new order (answer: moved { status })
  */
@@ -763,6 +764,7 @@ function wardRead_(sheet, headers, cols, L, dates) {
     const shown = sheet.getRange(2, 1, count, width).getDisplayValues();
     const raw = headers.state === 'ours' ? sheet.getRange(2, L.rounds, count, 3).getValues() : null;
     const values = dates && (dates.cols.length || dates.checks.length) ? sheet.getRange(2, 1, count, width).getValues() : null;
+    const styles = cols ? wardStyles_(sheet.getRange(2, 1, count, width)) : null;
     for (let i = 0; i < count; i++) {
       const name = String(shown[i][L.name - 1] == null ? '' : shown[i][L.name - 1]).trim();
       if (!name) continue;
@@ -772,7 +774,12 @@ function wardRead_(sheet, headers, cols, L, dates) {
         cols.forEach(function (c) {
           const at = wardColIndex_(c) - 1;
           if (values && dates.checks.indexOf(c) >= 0) item.cells[c] = wardBool_(values[i][at]) ? 'TRUE' : 'FALSE';
-          else item.cells[c] = values && dates.cols.indexOf(c) >= 0 ? wardDay_(values[i][at], shown[i][at], dates.tz) : wardText_(shown[i][at]);
+          else if (values && dates.cols.indexOf(c) >= 0) item.cells[c] = wardDay_(values[i][at], shown[i][at], dates.tz);
+          else {
+            item.cells[c] = wardText_(shown[i][at]);
+            const marks = styles ? wardMarks_(styles, i, at, item.cells[c]) : null;
+            if (marks) (item.marks = item.marks || {})[c] = marks;
+          }
         });
       }
       if (raw) {
@@ -784,6 +791,82 @@ function wardRead_(sheet, headers, cols, L, dates) {
     }
   }
   return { rows: rows, truncated: lastRow - 1 > WARD_MAX_ROWS };
+}
+
+/**
+ * How the cells look (sync script 14): their rich text (bold or coloured words)
+ * and the whole cell's weight and colour. null when Sheets can't tell, so the
+ * list still loads, just without bold.
+ */
+function wardStyles_(range) {
+  try {
+    return { rich: range.getRichTextValues(), weights: range.getFontWeights(), colors: range.getFontColorObjects() };
+  } catch (err) {
+    return null;
+  }
+}
+
+/** A colour as "#rrggbb", or '' for a theme colour or none. */
+function wardHex_(color) {
+  try {
+    if (!color) return '';
+    if (typeof color === 'string') return /^#([0-9a-f]{2})?[0-9a-f]{6}$/i.test(color) ? '#' + color.slice(-6).toLowerCase() : '';
+    if (String(color.getColorType()) !== 'RGB') return '';
+    return wardHex_(color.asRgbColor().asHexString());
+  } catch (err) {
+    return '';
+  }
+}
+
+/** Red text: plenty of red, little green and blue (#ff0000, #cc0000, #e06666, #990000…). */
+function wardIsRed_(hex) {
+  if (!hex) return false;
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return r >= 100 && g <= 120 && b <= 120 && r - Math.max(g, b) >= 70;
+}
+
+/**
+ * A cell's bold or red parts, as the cell's text in pieces: [[text, 1 | 0], …]
+ * (1 = bold or red), or null when none of it is (or the pieces don't add up
+ * to the text the app shows).
+ */
+function wardMarks_(styles, i, at, text) {
+  if (!text) return null;
+  const cellBold = String((styles.weights[i] || [])[at] || '') === 'bold';
+  const cellRed = wardIsRed_(wardHex_((styles.colors[i] || [])[at]));
+  const rich = (styles.rich[i] || [])[at];
+  let runs = [];
+  try {
+    if (rich && typeof rich.getRuns === 'function') {
+      rich.getRuns().forEach(function (run) {
+        const style = run.getTextStyle();
+        const bold = style ? style.isBold() : null;
+        const color = style && style.getForegroundColorObject ? style.getForegroundColorObject() : null;
+        const on = bold === true || (bold == null && cellBold) || (color ? wardIsRed_(wardHex_(color)) : cellRed);
+        const piece = String(run.getText() || '').replace(/\r\n?/g, '\n');
+        if (!piece) return;
+        const last = runs[runs.length - 1];
+        if (last && last[1] === (on ? 1 : 0)) last[0] += piece;
+        else runs.push([piece, on ? 1 : 0]);
+      });
+    } else if (cellBold || cellRed) runs = [[text, 1]];
+  } catch (err) {
+    return null;
+  }
+  if (!runs.some(function (r) { return r[1]; })) return null;
+  // The app shows the text with trailing space dropped: trim the pieces the same way
+  let joined = runs.map(function (r) { return r[0]; }).join('');
+  let extra = joined.length - text.length;
+  while (extra > 0 && runs.length) {
+    const last = runs[runs.length - 1];
+    const cut = Math.min(extra, last[0].length);
+    last[0] = last[0].slice(0, last[0].length - cut);
+    extra -= cut;
+    if (!last[0]) runs.pop();
+  }
+  joined = runs.map(function (r) { return r[0]; }).join('');
+  if (joined !== text || !runs.some(function (r) { return r[1]; })) return null;
+  return runs;
 }
 
 /** Row 1 (A to the last column used, at most AZ): the app shows these headings when you add a column. */

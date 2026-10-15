@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 13
+SCRIPT_VERSION = 14
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -995,6 +995,27 @@ st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
 res = up(id='ph-3', kind='original', mime='image/jpeg', data='QQ==')
 check('without Drive permission the app is told so', res.get('error') == 'photo-needs-permission', res)
 st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
+
+# Version 14: bold or red text in a list's columns comes back as marks, so the app shows it in bold
+BR = '1' + 'R' * 43
+add_logsheet(BR, [
+    ['Name', 'HN', 'Labs', 'Plans', 'Rounded', 'Start', 'End', 'Dx'],
+    ['Bold Patient 1', 'BR-001', 'Na 130 low\nK 4.2', 'Plan A', False, '', '', 'Whole cell bold'],
+    ['Bold Patient 2', 'BR-002', 'Plain only', 'Red plan', False, '', '', 12],
+    ['Bold Patient 3', 'BR-003', 'Trailing  ', 'x', False, '', '', ''],
+], max_cols=8, styles={
+    '2,3': {'runs': [['Na 130 ', {}], ['low', {'color': '#ff0000'}], ['\nK 4.2', {}]]},
+    '2,8': {'bold': True},
+    '3,4': {'color': '#cc0000'},
+    '3,8': {'bold': True},
+    '4,3': {'runs': [['Trailing', {'bold': True}], ['  ', {}]]},
+})
+res = gas('post', {**base, 'spreadsheetId': BR, 'tab': 'Sheet1', 'action': 'wardSync', 'cols': ['C', 'D', 'H']})
+rows = {r['hn']: r for r in res['rows']}
+check('v14: red words in a cell come back marked', rows['BR-001'].get('marks', {}).get('C') == [['Na 130 ', 0], ['low', 1], ['\nK 4.2', 0]], rows['BR-001'].get('marks'))
+check('v14: a bold cell is marked as a whole', rows['BR-001']['marks'].get('H') == [['Whole cell bold', 1]] and 'D' not in rows['BR-001']['marks'], rows['BR-001'].get('marks'))
+check('v14: a red cell is marked, a number in a bold cell too, plain cells aren\'t', rows['BR-002'].get('marks') == {'D': [['Red plan', 1]], 'H': [['12', 1]]}, rows['BR-002'].get('marks'))
+check('v14: the pieces match the text the app shows (trailing space dropped)', rows['BR-003'].get('marks') == {'C': [['Trailing', 1]]} and rows['BR-003']['cells']['C'] == 'Trailing', rows['BR-003'])
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

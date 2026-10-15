@@ -256,10 +256,13 @@ class WardList {
     const patients = rows.map((r) => {
       const cells = {};
       const items = {};
+      const marks = {};
       for (const c of columns) {
         const item = r.key ? this.queue.get(queueKey(this.id, r.key, c.col)) ?? null : null;
         items[c.col] = item;
         cells[c.col] = item ? item.set[c.col] : r.cells?.[c.col] ?? '';
+        const runs = item ? null : r.marks?.[c.col];
+        if (runs && runs.map((x) => x[0]).join('') === cells[c.col]) marks[c.col] = runs;
       }
       const roundsItem = r.key ? this.queue.get(queueKey(this.id, r.key, 'rounds')) ?? null : null;
       const entry = r.key ? part.patients[r.key] : null;
@@ -274,6 +277,7 @@ class WardList {
         hn: r.hn,
         cells,     // column letter → text (your unsaved edit if there is one)
         items,     // column letter → change waiting to be saved, or null
+        marks,     // column letter → [[text, 1 | 0], …]: its bold or red parts in the logsheet (sync script 14)
         roundsItem,
         duplicate: counts.get(r.key) > 1,
         tickable: Boolean(r.key) && counts.get(r.key) === 1,
@@ -514,6 +518,7 @@ class WardList {
       cells: v7 && r.cells && typeof r.cells === 'object'
         ? Object.fromEntries(Object.entries(r.cells).map(([c, text]) => [c, String(text ?? '')]))
         : { C: String(r.labs ?? ''), D: String(r.recs ?? '') },
+      ...(v7 && r.marks && typeof r.marks === 'object' ? { marks: cleanMarks(r.marks) } : {}),
       ...(typeof r.rounded === 'boolean' ? { rounded: r.rounded, start: String(r.start ?? ''), end: String(r.end ?? '') } : {}),
     }));
     this.cache = {
@@ -902,6 +907,17 @@ export const wardList = (id) => lists.get(id) ?? null;
 export const wardSummaries = () => wardLists().map((l) => l.summary());
 
 let reconciling = Promise.resolve();
+
+/** Bold or red parts of cells from the sync script: { C: [[text, 1 | 0], …] }, anything else dropped. */
+function cleanMarks(marks) {
+  const out = {};
+  for (const [col, runs] of Object.entries(marks)) {
+    if (!/^[A-Z]{1,2}$/.test(col) || !Array.isArray(runs)) continue;
+    const ok = runs.filter((x) => Array.isArray(x) && typeof x[0] === 'string').map((x) => [x[0], x[1] ? 1 : 0]);
+    if (ok.some((x) => x[1])) out[col] = ok;
+  }
+  return out;
+}
 
 /** Bring the lists in memory in line with the saved ones (after a change here, a sync or a restore). */
 function reconcile() {
