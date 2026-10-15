@@ -301,6 +301,7 @@ class WardList {
       locationCol,
       locations: locationsOf(patients),
       // 'location' groups the list by where patients are (once a column is marked location)
+      board: this.def.board ?? null, // how the patient dashboard is laid out (board.js)
       arrange: this.def.arrange === 'location' && columns.some((c) => c.location) ? 'location' : 'rounds',
       date,
       link: this.link,

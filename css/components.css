@@ -538,6 +538,21 @@ button.row { width: 100%; text-align: left; }
   .dlg--sheet .dlg__grabber { display: none; }
 }
 
+/* Full screen (a patient's dashboard): the whole window, its own bar at the top */
+.dlg--full[open] { align-items: stretch; }
+.dlg--full .dlg__panel {
+  width: 100%;
+  max-height: none;
+  height: 100%;
+  padding: 0 0 env(safe-area-inset-bottom);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  animation: full-in var(--t) var(--ease) both;
+}
+.dlg--full.is-closing .dlg__panel { animation: pop-out var(--t-fast) var(--ease) both; }
+@keyframes full-in { from { opacity: 0; transform: translateY(14px); } }
+
 /* Top sheet (Quick Add): near the top, so the iPhone keyboard never covers what you type */
 .dlg--top[open] { align-items: flex-start; padding: calc(env(safe-area-inset-top) + 10px) 12px 12px; }
 .dlg--top .dlg__panel {

@@ -3,8 +3,8 @@
    "ward".
 
    Patients show as cards on iPhone and as a table on wider screens, with the
-   list's own columns. A patient's details open in a sheet, not a page of
-   their own, so hospital numbers never appear in the address bar or browser
+   list's own columns. A patient's details open full screen (their dashboard,
+   laid out as you like — board.js), in a dialog, not a page of their own, so hospital numbers never appear in the address bar or browser
    history (list ids are random, never patient data). */
 import { html, raw, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
@@ -21,6 +21,7 @@ import {
 } from './model.js';
 import { openColumns, renameColumn, setupLocation } from './columns.js';
 import { openArrange } from './arrange.js';
+import { boardOf, changeTile, savedBoard, withCols } from './board.js';
 import { removeList, renameList } from './manage.js';
 
 const AUTO_REFRESH_MS = 3 * 60 * 1000;
@@ -523,25 +524,109 @@ function roundsBox(p, v) {
   </div>`;
 }
 
-function detailBody(p, v) {
-  if (!p) return html`<p class="dlg__msg">This patient is no longer in the logsheet.</p>`;
-  return html`<div class="ptd">
-    <p class="ptd__meta">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet</p>
-    ${badges(p, v, { detail: true })}
-    ${v.hidden.rounded ? '' : roundsBox(p, v)}
-    ${v.columns.map((c) => html`<section class="ptd__section" aria-labelledby="ptd-${c.col}">
-      <div class="ptd__head">
-        <h3 class="ptd__title" id="ptd-${c.col}">${c.label}</h3>
-        ${p.tickable && c.readable && c.type !== 'check' ? html`<button type="button" class="btn btn--sm" data-dact="edit" data-col="${c.col}" aria-label="Edit ${c.label}">${icon('edit')}Edit</button>` : ''}
-      </div>
-      ${!c.readable ? html`<p class="faint">${c.loading ? 'Loading this column — it appears once the list refreshes.' : `Update the sync script (Settings → Sync) to see column ${c.col}.`}</p>`
-        : c.type === 'check' ? html`<div class="ptd__check">${p.tickable
-          ? html`<button type="button" class="pt__tick" role="checkbox" aria-checked="${isTicked(p.cells[c.col]) ? 'true' : 'false'}" aria-label="${c.label}" data-action="ward:check" data-id="${p.id}" data-col="${c.col}"><span class="pt__box">${icon('check')}</span></button>`
-          : ''}<span>${isTicked(p.cells[c.col]) ? `Ticked in column ${c.col} of the logsheet` : `Not ticked in column ${c.col}`}</span></div>`
-        : p.cells[c.col] ? html`<div class="prose ptd__text">${p.cells[c.col]}</div>` : html`<p class="faint">Empty in the logsheet.</p>`}
-      ${changeNote(p.items[c.col])}
-    </section>`)}
+/* A patient opens full screen, as their dashboard: a bar with who they are and
+   their rounds, then the list's columns as tiles you arrange (Customize). */
+
+/** What a tile shows: the cell's text, a tick box, or why it can't. */
+function tileBody(p, c, t) {
+  if (!c.readable) return html`<p class="faint">${c.loading ? 'Loading this column — it appears once the list refreshes.' : `Update the sync script (Settings → Sync) to see column ${c.col}.`}</p>`;
+  if (c.type === 'check') {
+    return html`<div class="ptd__check">${p.tickable
+      ? html`<button type="button" class="pt__tick" role="checkbox" aria-checked="${isTicked(p.cells[c.col]) ? 'true' : 'false'}" aria-label="${c.label}" data-action="ward:check" data-id="${p.id}" data-col="${c.col}"><span class="pt__box">${icon('check')}</span></button>`
+      : ''}<span>${isTicked(p.cells[c.col]) ? `Ticked in column ${c.col} of the logsheet` : `Not ticked in column ${c.col}`}</span></div>`;
+  }
+  return p.cells[c.col]
+    ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}">${p.cells[c.col]}</div>`
+    : html`<p class="faint">Empty in the logsheet.</p>`;
+}
+
+/** The buttons under a tile while you customize: move it, its text size, two columns, hide. */
+function tileTools(c, t, at, board) {
+  const b = (op, label, iconName, { off = false, pressed = null, text = '' } = {}) => html`<button type="button" class="ptt__tool${text ? ' ptt__tool--text' : ''}" data-bact="${op}" data-col="${c.col}" data-focus="b-${op}-${c.col}"
+    aria-label="${label}: ${c.label}" title="${label}"${pressed == null ? '' : raw(` aria-pressed="${pressed}"`)}${off ? raw(' disabled') : ''}>${iconName ? icon(iconName) : ''}${text}</button>`;
+  const { z, i, count } = at;
+  return html`<div class="ptt__tools" role="group" aria-label="Arrange ${c.label}">
+    <span class="ptt__group">
+      ${b('up', 'Move up', 'arrowUp', { off: i === 0 })}
+      ${b('down', 'Move down', 'arrowDown', { off: i === count - 1 })}
+      ${b('left', 'Move to the column on the left', 'arrowLeft', { off: z <= 1 })}
+      ${b('right', 'Move to the column on the right', 'arrowRight', { off: z === 0 || z >= board.cols })}
+      ${b('top', z === 0 ? 'Back into the columns' : 'Across the top', 'layers', { pressed: z === 0 ? 'true' : 'false', text: 'Top' })}
+    </span>
+    <span class="ptt__group">
+      ${b('smaller', 'Smaller text', '', { off: t.size <= -2, text: 'A−' })}
+      ${b('bigger', 'Larger text', '', { off: t.size >= 2, text: 'A+' })}
+      ${b('flow', 'Text in two columns', 'columns', { pressed: t.flow === 2 ? 'true' : 'false' })}
+      ${b('hide', 'Hide', 'eye', { text: 'Hide' })}
+    </span>
   </div>`;
+}
+
+function boardTile(p, v, c, t, at, board, editing) {
+  const size = t.size ? ` ptt--s${t.size < 0 ? `m${-t.size}` : t.size}` : '';
+  const canEdit = p.tickable && c.readable && c.type !== 'check';
+  return html`<section class="ptt${size}" aria-labelledby="ptd-${c.col}">
+    <div class="ptt__head">
+      <h3 class="ptd__title" id="ptd-${c.col}">${c.label}</h3>
+      ${canEdit ? html`<button type="button" class="btn btn--sm ptt__edit" data-dact="edit" data-col="${c.col}" aria-label="Edit ${c.label}">${icon('edit')}Edit</button>` : ''}
+    </div>
+    ${tileBody(p, c, t)}
+    ${changeNote(p.items[c.col])}
+    ${editing ? tileTools(c, t, at, board) : ''}
+  </section>`;
+}
+
+/** Customize: columns, the wider one, hidden tiles and Reset. */
+function boardSetup(v, board, byCol) {
+  const opt = (op, n, label, on) => html`<button type="button" class="chip-toggle" data-bact="${op}" data-n="${n}" data-focus="b-${op}-${n}" aria-pressed="${on ? 'true' : 'false'}">${label}</button>`;
+  const hidden = board.zones.flat().filter((t) => t.hidden && byCol.has(t.col));
+  return html`<div class="ptb__setup">
+    <p class="ptb__hint">${icon('sliders')}<span>This layout is the same for every patient in “${v.name}” and shows on all your devices. Changes save as you go. On a phone the tiles stack: the top ones first, then column 1, 2 and 3.</span></p>
+    <div class="ptb__opts">
+      <div class="ptb__opt"><span class="ptb__opt-label">Columns</span><span class="chips chips--sm">${[1, 2, 3].map((n) => opt('cols', n, String(n), board.cols === n))}</span></div>
+      ${board.cols > 1 ? html`<div class="ptb__opt"><span class="ptb__opt-label">Wider column</span><span class="chips chips--sm">${opt('wide', 0, 'Even', board.wide === 0)}${Array.from({ length: board.cols }, (_, i) => opt('wide', i + 1, String(i + 1), board.wide === i + 1))}</span></div>` : ''}
+      <button type="button" class="btn btn--sm btn--ghost" data-bact="reset">${icon('refresh')}Reset layout</button>
+    </div>
+    ${hidden.length ? html`<div class="ptb__opt ptb__hidden"><span class="ptb__opt-label">Hidden</span><span class="chips chips--sm">${hidden.map((t) => html`<button type="button" class="chip-toggle" data-bact="show" data-col="${t.col}" data-focus="b-show-${t.col}">${icon('plus')}${byCol.get(t.col).label}</button>`)}</span></div>` : ''}
+  </div>`;
+}
+
+function detailBody(p, v, { editing = false } = {}) {
+  if (!p) {
+    return html`<div class="ptb__bar"><div class="ptb__who"><h2 class="ptb__name" id="ptb-title">Patient</h2></div>
+      <div class="ptb__acts"><button type="button" class="btn btn--sm" data-dialog-value="close">${icon('x')}Close</button></div></div>
+      <p class="dlg__msg ptb__gone">This patient is no longer in the logsheet.</p>`;
+  }
+  const byCol = new Map(v.columns.map((c) => [c.col, c]));
+  const board = boardOf(v.board, v.columns);
+  const zone = (z) => {
+    const shown = board.zones[z].filter((t) => !t.hidden);
+    return shown.map((t, i) => boardTile(p, v, byCol.get(t.col), t, { z, i, count: shown.length }, board, editing));
+  };
+  const top = zone(0);
+  return html`<header class="ptb__bar">
+      <div class="ptb__who">
+        <h2 class="ptb__name" id="ptb-title">${p.name}</h2>
+        <p class="ptd__meta">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet</p>
+        ${badges(p, v, { detail: true })}
+      </div>
+      <div class="ptb__acts">
+        <button type="button" class="btn btn--sm${editing ? ' btn--accent' : ''}" data-dact="customize" data-focus="b-customize" aria-pressed="${editing ? 'true' : 'false'}">${icon(editing ? 'check' : 'sliders')}${editing ? 'Done' : 'Customize'}</button>
+        <button type="button" class="btn btn--sm" data-dialog-value="close" autofocus>${icon('x')}Close</button>
+      </div>
+    </header>
+    <div class="ptb__main">
+      ${v.hidden.rounded ? '' : roundsBox(p, v)}
+      ${editing ? boardSetup(v, board, byCol) : ''}
+      <div class="ptb ptb--c${board.cols} ptb--w${board.wide}${editing ? ' is-editing' : ''}">
+        ${top.length ? html`<div class="ptb__top">${top}</div>` : ''}
+        <div class="ptb__cols">${board.zones.slice(1).map((_, k) => {
+          const tiles = zone(k + 1);
+          return html`<div class="ptb__col">${tiles}${editing && !tiles.length ? html`<p class="ptb__empty">Column ${k + 1} is empty — move tiles here with ${icon('arrowLeft')} ${icon('arrowRight')}</p>` : ''}</div>`;
+        })}</div>
+      </div>
+      <button type="button" class="btn btn--block ptb__close" data-dialog-value="close">Close</button>
+    </div>`;
 }
 
 async function openPatient(id) {
@@ -551,33 +636,65 @@ async function openPatient(id) {
   if (p.tickable) await list.notePatientOpened(p.key); // during rounds, opening a patient starts their timer
   p = findPatient(id);
   let dialog = null;
+  let editing = false;
+  let saving = Promise.resolve();
   const redraw = () => {
     const body = dialog?.querySelector('.dlg__body');
     const v = current()?.view();
-    if (body && dialog.open && v) setHTML(body, detailBody(v.patients.find((x) => x.id === id) ?? null, v));
+    if (!body || !dialog.open || !v) return;
+    const focused = document.activeElement?.closest?.('[data-focus]')?.dataset.focus;
+    setHTML(body, detailBody(v.patients.find((x) => x.id === id) ?? null, v, { editing }));
+    if (focused) {
+      const again = body.querySelector(`[data-focus="${focused}"]`);
+      (again && !again.disabled ? again : body.querySelector('[data-dact="customize"]'))?.focus({ preventScroll: true });
+    }
+  };
+  /** Change the dashboard's layout (saved on the list, one change after another). */
+  const arrange = (change) => {
+    saving = saving.then(async () => {
+      const now = current();
+      if (!now) return;
+      const v = now.view();
+      const next = change(boardOf(v.board, v.columns));
+      await updateList(now.id, (def) => { def.board = next ? savedBoard(next) : undefined; });
+      redraw();
+    }).catch((err) => toast(err.message, { icon: 'info' }));
+    return saving;
   };
   const stop = on('ward', redraw);
   await openDialog({
-    variant: 'sheet',
+    variant: 'full',
     className: 'ward-detail accent-neuro',
-    title: p.name,
     body: detailBody(p, list.view()),
-    actions: [{ label: 'Close', value: 'close', variant: 'ghost', autofocus: true }], // never an accidental tick
     onOpen(dlg, close) {
       dialog = dlg;
+      dlg.setAttribute('aria-labelledby', 'ptb-title');
       dlg.addEventListener('click', async (event) => {
+        const tool = event.target.closest('[data-bact]');
+        if (tool) {
+          const { bact: op, col, n } = tool.dataset;
+          if (op === 'cols') arrange((b) => withCols(b, Number(n)));
+          else if (op === 'wide') arrange((b) => ({ ...b, wide: Number(n) }));
+          else if (op === 'reset') {
+            if (await confirmDialog({ title: 'Reset the layout?', message: `The dashboard for “${current()?.name ?? ''}” goes back to two columns, with every tile shown at its usual size.`, confirmLabel: 'Reset' })) arrange(() => null);
+          } else arrange((b) => changeTile(b, col, op));
+          return;
+        }
         const button = event.target.closest('[data-dact]');
         const act = button?.dataset.dact;
         const now = findPatient(id);
         if (!act || !now) return;
-        if (act === 'mark') {
+        if (act === 'customize') {
+          editing = !editing;
+          redraw();
+        } else if (act === 'mark') {
           close('rounded');
           await tick(now, true);
         } else if (act === 'untick') {
           await untick(now);
         } else if (act === 'edit') {
           if (button.dataset.col === current()?.view().locationCol) await editLocation(now, button.dataset.col);
-        else await editText(now, button.dataset.col);
+          else await editText(now, button.dataset.col);
         } else if (act === 'start') {
           await current()?.startRounds();
           await current()?.notePatientOpened(now.key);
