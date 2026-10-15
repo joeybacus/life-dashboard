@@ -105,6 +105,14 @@ const MIGRATIONS = [
     photos.createIndex('updatedAt', 'updatedAt');
     db.createObjectStore('photoFiles', { keyPath: 'key' });
   },
+  // v11 — NCCU/ACSU (0.7.3): a record per bed ({ id: "bed:<unit>:<n>", type: 'bed', unit, bed, name,
+  // todos: [{ id, cat, text, done, doneAt }] }) and one for your subcategories ({ id: 'settings',
+  // type: 'settings', cats }). Synced (the NCCU-ACSU tab, sync script 15) but never in backup files,
+  // like the rest of the patient data.
+  (db) => {
+    const units = db.createObjectStore('units', { keyPath: 'id' });
+    units.createIndex('updatedAt', 'updatedAt');
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
@@ -122,10 +130,10 @@ export const WARD_STORES = ['wardDays', 'wardQueue'];
 export const SCRIPT_STORES = ['calendarLinks'];
 
 /** Every store (used when deleting all data). */
-export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'outbox', ...WARD_STORES, ...SCRIPT_STORES, ...DEVICE_FILE_STORES];
+export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'units', 'outbox', ...WARD_STORES, ...SCRIPT_STORES, ...DEVICE_FILE_STORES];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
-export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'focusSessions', 'habits', 'habitLogs'];
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'units', 'focusSessions', 'habits', 'habitLogs'];
 
 /** Stores that may contain generated sample records. */
 export const SAMPLE_STORES = ['tasks', 'subtasks', 'workouts', 'bodyMeasurements'];

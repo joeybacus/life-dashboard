@@ -145,7 +145,9 @@ function scriptUpdateFor() {
   if (version < 7) return 'your patient lists (columns, moving rows, and syncing the lists)';
   if (version < 11) return 'Referrals, the referral census and tick columns';
   if (version < 12) return 'faster saving to your referral census and logsheets, and weights from Apple Health';
-  return 'progress photos in your Google Drive';
+  if (version < 13) return 'progress photos in your Google Drive';
+  if (version < 14) return 'NCCU/ACSU on all your devices, and bold or red logsheet text shown in bold';
+  return 'NCCU/ACSU on all your devices';
 }
 
 function syncSection() {

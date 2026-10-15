@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 14;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold
+const SCRIPT_VERSION = 15;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -42,6 +42,7 @@ const STORES = {
   progressPhotos: 'Progress photos', // date, pose, weight, workout and note; the photos are files in the "Life Dashboard Photos" Drive folder
   wardLists: 'Ward lists', // names and columns of your patient lists — never patients (they stay in the logsheet)
   referrals: 'Referrals',  // patients referred to your service: name, hospital number, location, next rounds, what you're waiting for, notes
+  units: 'NCCU-ACSU',      // a box per NCCU/ACSU bed: the patient's name and your duty to-dos (and your subcategories)
 };
 
 // Tabs this script fills in itself. The app reads them but never sends them.
@@ -51,7 +52,7 @@ const SCRIPT_STORES = {
 
 // Saved in this order, so names used by later tabs (categories, task titles) are up to date
 const SAVE_ORDER = ['profile', 'settings', 'taskCategories', 'tasks', 'subtasks', 'habits', 'habitLogs', 'focusSessions',
-  'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals'];
+  'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'units'];
 
 // Fixed columns on every data tab. "json" holds the complete item; the
 // columns after it are a readable copy for you and are ignored by the app.
@@ -1285,6 +1286,14 @@ const ORDINALS = { 1: 'first', 2: 'second', 3: 'third', 4: 'fourth', 5: 'fifth',
 
 // Readable columns, in order, for the tabs that have a fixed layout (the other tabs list every field)
 const LAYOUTS = {
+  units: {
+    Unit: function (r) { return r.type === 'settings' ? 'Subcategories' : String(r.unit || '').toUpperCase(); },
+    Bed: function (r) { return r.type === 'settings' ? '' : r.bed || ''; },
+    Patient: function (r) { return r.type === 'settings' ? list_(r.cats).map(function (c) { return c && c.name; }).join(', ') : r.name || ''; },
+    'To do': function (r) { return list_(r.todos).filter(function (t) { return t && !t.done; }).map(function (t) { return t.text; }).join('; '); },
+    Done: function (r) { return list_(r.todos).filter(function (t) { return t && t.done; }).map(function (t) { return t.text; }).join('; '); },
+    Updated: function (r) { return shownTime_(r.updatedAt); },
+  },
   referrals: {
     Name: function (r) { return r.name || ''; },
     'Hospital No.': function (r) { return r.hn || ''; },

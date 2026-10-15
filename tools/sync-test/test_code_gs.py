@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 14
+SCRIPT_VERSION = 15
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -1016,6 +1016,17 @@ check('v14: red words in a cell come back marked', rows['BR-001'].get('marks', {
 check('v14: a bold cell is marked as a whole', rows['BR-001']['marks'].get('H') == [['Whole cell bold', 1]] and 'D' not in rows['BR-001']['marks'], rows['BR-001'].get('marks'))
 check('v14: a red cell is marked, a number in a bold cell too, plain cells aren\'t', rows['BR-002'].get('marks') == {'D': [['Red plan', 1]], 'H': [['12', 1]]}, rows['BR-002'].get('marks'))
 check('v14: the pieces match the text the app shows (trailing space dropped)', rows['BR-003'].get('marks') == {'C': [['Trailing', 1]]} and rows['BR-003']['cells']['C'] == 'Trailing', rows['BR-003'])
+
+# Version 15: NCCU/ACSU beds and duty to-dos sync in their own tab, with readable columns
+bedrec = rec('bed:nccu:2', '2026-10-16T01:00:00.000Z', type='bed', unit='nccu', bed=2, name='Unit Patient',
+             todos=[{'id': 't1', 'cat': 'labs', 'text': 'Repeat Na', 'done': False}, {'id': 't2', 'cat': 'meds', 'text': 'Give KCl', 'done': True}])
+res = push([('units', bedrec), ('units', rec('settings', '2026-10-16T01:00:00.000Z', type='settings', cats=[{'id': 'labs', 'name': 'Labs'}, {'id': 'meds', 'name': 'Meds'}]))])
+state = gas('dump')
+shown = sheet(state, 'NCCU-ACSU')
+hdr = shown['rows'][0] if shown else []
+row = next((r for r in rows_of(state, 'NCCU-ACSU') if r[0] == 'bed:nccu:2'), None)
+check('v15: NCCU/ACSU beds sync in the NCCU-ACSU tab', set(res.get('results', {}).values()) == {'applied'} and row is not None, res)
+check('v15: …with the unit, bed, patient and to-dos readable', row is not None and [row[hdr.index(h)] for h in ['Unit', 'Bed', 'Patient', 'To do', 'Done']] == ['NCCU', '2', 'Unit Patient', 'Repeat Na', 'Give KCl'], (hdr, row))
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

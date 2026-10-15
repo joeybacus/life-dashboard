@@ -19,6 +19,7 @@ import './modules/index.js'; // registers Workout, To Do and Neurology
 import { initWorkout } from './modules/workout.js';
 import { initWard } from './modules/ward/engine.js';
 import { initReferrals } from './modules/referrals/store.js';
+import { initUnits } from './modules/units/store.js';
 import { initFocusTimer } from './modules/focus/timer.js';
 import { initFocusBar } from './modules/focus/page.js';
 import { initReminders } from './modules/todo/reminders.js';
@@ -80,6 +81,7 @@ async function boot() {
   await initSync(); // reads the sync connection; the first sync starts shortly after
   await initWard(); // Ward Patients: this device's logsheet, rounds and unsaved changes
   await initReferrals(); // Referrals: patients referred to your service
+  await initUnits(); // NCCU/ACSU: beds and duty to-dos
 
   initActions();
   await initWorkout(); // the workout in progress, rest timer and workout bar

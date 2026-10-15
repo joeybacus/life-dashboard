@@ -7,6 +7,7 @@
      list/<id>              a patient list (Ward Patients is list/ward)
      list/<id>/history      its rounds history
      referrals              patients referred to your service (with a calendar)
+     units                  NCCU/ACSU: a box per bed with your duty to-dos
      ward, ward/history     older addresses of Ward Patients (they still work) */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
@@ -21,6 +22,8 @@ import { handleCardClick, historyPage, listPage } from './ward/page.js';
 import './ward/manage.js'; // New list, and each list's ⋯ menu
 import { handleReferralClick, referralsPage } from './referrals/page.js';
 import { referralPatients, referralSummary } from './referrals/patients.js';
+import { handleUnitsClick, unitsPage } from './units/page.js';
+import { unitsSummary } from './units/store.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -60,6 +63,23 @@ function referralsLink({ compact = false } = {}) {
     ${icon('chevronRight', 'ward-entry__chev')}`;
   const attrs = 'href="#/neurology/referrals" data-action="nav" data-route="neurology" data-sub="referrals"';
   // Built like a list's card (without the ⋯ menu), so they all line up
+  return compact
+    ? html`<a class="ward-entry ward-entry--compact" ${raw(attrs)}>${inner}</a>`
+    : html`<div class="card ward-entry ward-entry--solo"><a class="ward-entry__link" ${raw(attrs)}>${inner}</a></div>`;
+}
+
+/** "NCCU 4/6 · ACSU 5/8 · 12 to-dos left" */
+function unitsSub() {
+  const all = unitsSummary();
+  const left = all.reduce((n, u) => n + u.left, 0);
+  return [...all.map((u) => `${u.name} ${u.filled}/${u.beds}`), left ? `${left} ${left === 1 ? 'to-do' : 'to-dos'} left` : ''].filter(Boolean).join(' · ');
+}
+
+function unitsLink({ compact = false } = {}) {
+  const inner = html`<span class="ward-entry__icon">${icon('checklist')}</span>
+    <span class="ward-entry__text"><span class="ward-entry__title">NCCU/ACSU</span><span class="ward-entry__sub">${unitsSub()}</span></span>
+    ${icon('chevronRight', 'ward-entry__chev')}`;
+  const attrs = 'href="#/neurology/units" data-action="nav" data-route="neurology" data-sub="units"';
   return compact
     ? html`<a class="ward-entry ward-entry--compact" ${raw(attrs)}>${inner}</a>`
     : html`<div class="card ward-entry ward-entry--solo"><a class="ward-entry__link" ${raw(attrs)}>${inner}</a></div>`;
@@ -149,6 +169,7 @@ registerModule({
   body: (all) => html`
     ${all.map(listLink)}
     ${referralsLink({ compact: true })}
+    ${unitsLink({ compact: true })}
     ${todaysReferrals()}
     <p class="neuro-note">${MESSAGE}</p>
     <div class="tag-cloud">${PLANNED_TOOLS.slice(0, 6).map((t) => html`<span class="tag">${t.name}</span>`)}</div>
@@ -170,6 +191,10 @@ function showHome(el) {
       <h2 class="ward-lists__title" id="neuro-refs-title">Referrals</h2>
       ${referralsLink()}
     </section>
+    <section class="ward-lists ward-lists--refs accent-neuro" aria-labelledby="neuro-units-title">
+      <h2 class="ward-lists__title" id="neuro-units-title">NCCU/ACSU</h2>
+      ${unitsLink()}
+    </section>
     <section class="card placeholder accent-neuro" aria-label="Coming soon">
       <div class="placeholder__orb">${icon('brain')}</div>
       <h2 class="placeholder__title">More coming in a future update</h2>
@@ -190,6 +215,7 @@ const ROUTES = [
   [/^list\/([\w-]+)$/, listPage],
   [/^list\/([\w-]+)\/history$/, historyPage],
   [/^referrals$/, referralsPage],
+  [/^units$/, unitsPage],
 ];
 const OLD_ROUTES = { ward: 'list/ward', 'ward/history': 'list/ward/history' };
 
@@ -221,6 +247,7 @@ registerScreen('neurology', {
     view = el;
     el.addEventListener('click', handleCardClick);
     el.addEventListener('click', handleReferralClick);
+    el.addEventListener('click', handleUnitsClick);
   },
   onShow(el, sub) {
     visible = true;
@@ -239,3 +266,4 @@ registerScreen('neurology', {
 // Keep the lists' summaries current
 on('ward', () => { if (visible && page === HOME) showHome(view); });
 on('referrals', () => { if (visible && page === HOME) showHome(view); });
+on('units', () => { if (visible && page === HOME) showHome(view); });
