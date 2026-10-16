@@ -325,7 +325,12 @@ function tableStyle(count, hidden) {
     ...(hidden.name || hidden.hn ? [] : ['minmax(6.5rem, .55fr)']),
     ...Array(count).fill(count > 3 ? 'minmax(10rem, 1.6fr)' : 'minmax(0, 1.8fr)'),
   ];
-  return `--pt-cols: ${cols.join(' ')};${count > 3 ? ` --pt-min: ${22 + count * 10.5}rem;` : ''}`;
+  // Wide tables scroll: the rows must be at least as wide as all their columns,
+  // or the last column spills past the row's edge. Each column's smallest width,
+  // plus 1rem gaps between columns and the row's 1.5rem side padding.
+  const fixed = (hidden.rounded ? 0 : 4.5) + 9 + (hidden.name || hidden.hn ? 0 : 6.5);
+  const min = fixed + count * 10 + (cols.length - 1) + 1.5;
+  return `--pt-cols: ${cols.join(' ')};${count > 3 ? ` --pt-min: ${min}rem;` : ''}`;
 }
 
 function tableHead(v) {
@@ -502,6 +507,11 @@ function changeNote(item) {
   return html`<p class="note">${icon('cloud')}<span>Not synced yet — it’s saved on this device and goes to the logsheet automatically.</span></p>`;
 }
 
+/** How far through the list you are, e.g. "0 of 15 patients rounded". */
+function roundsCount(v) {
+  return html`<p class="ptd__count"><strong class="num">${v.roundedCount}</strong> of ${plural(v.total, 'patient')} rounded</p>`;
+}
+
 function roundsBox(p, v) {
   if (!p.tickable) {
     return html`<div class="ptd__rounds"><p class="ptd__status">${icon('info')}<span>${p.key
@@ -510,6 +520,7 @@ function roundsBox(p, v) {
   }
   if (p.rounded) {
     return html`<div class="ptd__rounds is-done">
+      ${roundsCount(v)}
       <p class="ptd__status">${icon('checkCircle')}<span>Rounded${p.end ? ` at ${wardTime(p.end)}` : ''}${p.durationMs != null ? ` · ${formatSpan(p.durationMs)}` : ''}${p.start ? html`<small>Started ${wardTime(p.start)}</small>` : ''}</span></p>
       ${changeNote(p.roundsItem)}
       <button type="button" class="btn btn--sm btn--ghost" data-dact="untick">Untick</button>
@@ -521,6 +532,7 @@ function roundsBox(p, v) {
       ? html`${icon('timer')}<span>Timing starts when you open a patient during rounds.</span>`
       : html`${icon('info')}<span>Rounds aren’t in progress, so this visit isn’t timed. <button type="button" class="link-inline" data-dact="start">Start Rounds now</button></span>`;
   return html`<div class="ptd__rounds">
+    ${roundsCount(v)}
     <p class="ptd__status">${timing}</p>
     ${changeNote(p.roundsItem)}
     <button type="button" class="btn btn--accent btn--block" data-dact="mark">${icon('check')}Mark as rounded</button>

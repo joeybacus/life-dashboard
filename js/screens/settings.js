@@ -37,6 +37,7 @@ import { wardLists } from '../modules/ward/engine.js';
 import { imageFileToAvatar } from '../services/images.js';
 import { formatBytes, storageInfo } from '../services/storage.js';
 import { offlineLabel } from '../services/pwa.js';
+import { accessSection, initAccessSettings } from './access-settings.js';
 
 let root = null;
 let nicknameTimer = null;
@@ -98,6 +99,7 @@ export function initSettings() {
   registerAction('settings:delete', deleteAllData);
   registerAction('settings:goal', (el) => changeGoal(Number(el.dataset.dir)));
   registerAction('backup:export', runExport);
+  initAccessSettings(() => { if (isVisible()) render(); });
   registerAction('sync:setup', openSyncSetup);
   registerAction('sync:update', openScriptUpdate);
   registerAction('sync:now', runSyncNow);
@@ -472,6 +474,7 @@ function render() {
 
     ${syncSection()}
     ${backupSection()}
+    ${accessSection()}
 
     <section class="group" id="settings-data" aria-labelledby="set-data-title">
       <h2 class="group__title" id="set-data-title">Data</h2>

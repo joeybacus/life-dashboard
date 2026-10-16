@@ -13,6 +13,7 @@ import { toDateKey } from './core/dates.js';
 import { todayKey } from './core/manila.js';
 import { ensureDefaults, ensureSampleData } from './services/sample-data.js';
 import { registerServiceWorker } from './services/pwa.js';
+import { ensureAccess, formatEnds, watchAccess } from './services/access.js';
 import { initSync } from './services/sync.js';
 import { requestPersistentStorage } from './services/storage.js';
 import './modules/index.js'; // registers Workout, To Do and Neurology
@@ -61,6 +62,9 @@ function watchDayChange() {
 async function boot() {
   document.documentElement.classList.toggle('no-native-switch', !supportsNativeSwitch());
 
+  // The lock comes first: nothing of yours is opened until the password or an invite is accepted
+  const access = await ensureAccess();
+
   onDatabaseBlocked(() => {
     document.getElementById('boot-msg').textContent = 'Please close other Life Dashboard tabs to finish updating.';
   });
@@ -94,6 +98,8 @@ async function boot() {
   startLiveClocks();
   watchDayChange();
   hideBoot();
+  watchAccess(); // a trial that ends while the app is open locks it again
+  if (access.fresh) toast(`Welcome${access.name ? `, ${access.name}` : ''}! Your trial runs until ${formatEnds(access.ends)}.`, { duration: 8000 });
   initReminders(); // to-do reminders ring while the app is open; missed ones are listed
   initCalendarLink(); // linked tasks' Google Calendar events follow their changes
 

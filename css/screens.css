@@ -546,3 +546,18 @@ button.glance__tile:active { transform: scale(.97); }
 .restore__choice { margin-top: 12px; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); }
 .restore__choice strong { color: var(--text); }
 .restore .note { margin-top: 12px; }
+
+/* Settings → Lock and invites */
+.access-invite.is-ended .row__label { color: var(--text-3); }
+.access-form { display: flex; flex-direction: column; gap: 12px; }
+.access-form__msg { font-size: var(--fs-sm); color: var(--danger-ink); }
+.access-form__msg:empty { display: none; }
+.access-link {
+  padding: 10px 12px;
+  border-radius: var(--r-md, 12px);
+  background: var(--surface-2);
+  font-size: var(--fs-xs, .75rem);
+  word-break: break-all;
+  user-select: all;
+  -webkit-user-select: all;
+}
