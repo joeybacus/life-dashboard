@@ -1,31 +1,31 @@
-/* The lock: a master password (yours, never ends) and invite links for other people (each with an end date).
+/* The lock: a master password (yours, never ends) and voucher codes for paying customers.
+   Codes live in your voucher Google Sheet (apps-script/Vouchers.gs): column B = 1 week, C = 1 month,
+   D = 1 year, E = the customer's own Google Sheet. The app asks that Sheet whether a code may be used here.
    This keeps casual visitors out. It isn't bank-grade: the app's files are public on GitHub Pages, so a
    determined techie could get past it — your data stays safe anyway, because your Google Sheet needs your
    secret token and everything else lives on your own devices.
 
-   How it works:
-   - Master password → PBKDF2 → 64 bytes. The first half unlocks the invite-signing key (AES-GCM);
-     the second half's SHA-256 must match ACCESS.check.
-   - An invite is "payload.signature": payload = { v, id, n: name, e: last day 'YYYY-MM-DD' }, signed with
-     ECDSA P-256. Every device can check it with the public key; only the master password can make one. */
+   Master password → PBKDF2 → 32 bytes; their SHA-256 must match ACCESS.check. */
 import { ACCESS } from '../core/access-config.js';
-import { APP } from '../core/config.js';
-import { esc } from '../core/html.js';
 import { toDateKey } from '../core/dates.js';
+import { toast } from '../core/ui.js';
+import { pingScript, savedSheet, syncSheetId } from './sync.js';
 
 const GRANT_KEY = 'ld.access';
-const SEEN_KEY = 'ld.access.seen'; // the latest day seen here, so turning the clock back doesn't revive a trial
-const INVITES_KEY = 'ld.invites'; // invites made on this device (a list for you to copy again)
+const DEVICE_KEY = 'ld.access.device';
+const SEEN_KEY = 'ld.access.seen'; // the latest day seen here, so turning the clock back doesn't revive a code
+const REMINDED_KEY = 'ld.access.reminded'; // the day the last reminder was shown
+const PENDING_SYNC_KEY = 'ld.access.pendingSync'; // a Sheet connected on the lock screen, for sync to pick up
 const ITERATIONS = 310_000;
-const SIGN = { name: 'ECDSA', namedCurve: 'P-256' };
-const SIGN_HASH = { name: 'ECDSA', hash: 'SHA-256' };
+const RECHECK_MS = 6 * 3600_000;
+const CHECK_TIMEOUT_MS = 25_000;
+export const SOON_DAYS = 3;
 
-let current = null; // { kind: 'open' } | { kind: 'master' } | { kind: 'invite', name, ends }
+let current = null; // { kind: 'open' } | { kind: 'master' } | { kind: 'voucher', code, ends, needsSheet, graceEnds }
 
 /* ---------- small helpers ---------- */
 
 const enc = new TextEncoder();
-const dec = new TextDecoder();
 
 function toB64(bytes) {
   let s = '';
@@ -58,55 +58,66 @@ function effectiveToday() {
   return today;
 }
 
+const dayNumber = (key) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return Math.round(Date.UTC(y, m - 1, d) / 86_400_000);
+};
+
 export function formatEnds(key) {
   const [y, m, d] = key.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/** Where invite links point: the live site, even when the invite is made in the preview. */
-function liveUrl() {
-  const local = /^(localhost|127\.0\.0\.1|\[::1\]|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname);
-  return local ? APP.liveUrl : `${location.origin}${location.pathname}`;
+/** Whole days from today until the last day (0 = today is the last day). */
+export function daysLeft(ends) {
+  return dayNumber(ends) - dayNumber(effectiveToday());
+}
+
+function deviceId() {
+  let id = readLocal(DEVICE_KEY);
+  if (typeof id !== 'string' || !id) {
+    id = toB64(crypto.getRandomValues(new Uint8Array(9)));
+    writeLocal(DEVICE_KEY, id);
+  }
+  return id;
+}
+
+/** Once a day at most: true the first time today for this kind of note. */
+function firstTimeToday(kind) {
+  const today = effectiveToday();
+  const done = readLocal(REMINDED_KEY) ?? {};
+  if (done[kind] === today) return false;
+  writeLocal(REMINDED_KEY, { ...done, [kind]: today });
+  return true;
 }
 
 /* ---------- the master password ---------- */
 
 async function deriveBits(password, salt, iterations) {
   const base = await crypto.subtle.importKey('raw', enc.encode(password.normalize('NFC')), 'PBKDF2', false, ['deriveBits']);
-  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, base, 512));
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, base, 256));
 }
 
 async function checkValue(bits) {
-  return toB64(await crypto.subtle.digest('SHA-256', bits.slice(32)));
+  return toB64(await crypto.subtle.digest('SHA-256', bits));
 }
 
 async function masterBitsOk(bits) {
   return Boolean(ACCESS) && (await checkValue(bits)) === ACCESS.check;
 }
 
-/** The invite-signing key, unlocked with the master password's bits. */
-async function signingKey(bits) {
-  const aes = await crypto.subtle.importKey('raw', bits.slice(0, 32), 'AES-GCM', false, ['decrypt']);
-  const pkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(ACCESS.privateKey.iv) }, aes, fromB64(ACCESS.privateKey.data));
-  return crypto.subtle.importKey('pkcs8', pkcs8, SIGN, false, ['sign']);
-}
-
-/** A new lock for a new master password (a new signing key too, so every earlier invite stops working). */
-export async function buildAccessConfig(password) {
-  const pair = await crypto.subtle.generateKey(SIGN, true, ['sign', 'verify']);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const bits = await deriveBits(password, salt, ITERATIONS);
-  const aes = await crypto.subtle.importKey('raw', bits.slice(0, 32), 'AES-GCM', false, ['encrypt']);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const pkcs8 = await crypto.subtle.exportKey('pkcs8', pair.privateKey);
-  return {
-    v: 1,
-    salt: toB64(salt),
-    iterations: ITERATIONS,
-    check: await checkValue(bits),
-    publicKey: toB64(await crypto.subtle.exportKey('spki', pair.publicKey)),
-    privateKey: { iv: toB64(iv), data: toB64(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aes, pkcs8)) },
-  };
+/** The lock with a new master password and/or voucher Sheet (what isn't given stays as it is). */
+export async function buildAccessConfig({ password, voucherUrl }) {
+  const config = { v: 3, ...(ACCESS ?? {}) };
+  config.v = 3;
+  if (password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    config.salt = toB64(salt);
+    config.iterations = ITERATIONS;
+    config.check = await checkValue(await deriveBits(password, salt, ITERATIONS));
+  }
+  if (voucherUrl) config.voucherUrl = voucherUrl;
+  return config;
 }
 
 /** Save a new lock into js/core/access-config.js — only the preview on your Mac can do this. */
@@ -115,9 +126,21 @@ export async function saveAccessConfig(config) {
   if (!res.ok) throw new Error((await res.text()) || `The preview didn't save it (${res.status}).`);
 }
 
-/** True in the preview on this Mac (the only place the master password can be set). */
+/** True in the preview on this Mac (the only place the lock can be set up). */
 export function canSetMaster() {
   return ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+}
+
+/** Is this the voucher Sheet's Web app? Throws a friendly message when it isn't. */
+export async function testVoucherUrl(url) {
+  let data = null;
+  try {
+    const res = await fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'follow' });
+    data = await res.json();
+  } catch { /* below */ }
+  if (data?.app !== 'life-dashboard-vouchers') {
+    throw new Error('That URL didn’t answer as the voucher Sheet. Check that you deployed it as a Web app with access for Anyone, and copied the URL ending in /exec.');
+  }
 }
 
 async function tryMaster(password) {
@@ -128,104 +151,84 @@ async function tryMaster(password) {
   return true;
 }
 
-/* ---------- invites ---------- */
+/* ---------- vouchers ---------- */
 
-/** Pull the invite code out of a pasted link or code. */
-function inviteCodeFrom(text) {
-  const t = String(text ?? '').trim();
-  const m = t.match(/invite=([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/) ?? t.match(/^([A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{40,})$/);
-  return m ? m[1] : null;
-}
-
-/** Check an invite: { ok, name, ends } or { ok: false, reason: 'bad' | 'expired', name?, ends? }. */
-async function checkInvite(code) {
+/** Ask the voucher Sheet. → { valid, ends, needsSheet, graceEnds } | { valid: false, reason, ends? } | { network: true } */
+async function askSheet(code, sheetId) {
+  if (!ACCESS?.voucherUrl) return { network: true };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
   try {
-    const [p, s] = code.split('.');
-    const key = await crypto.subtle.importKey('spki', fromB64(ACCESS.publicKey), SIGN, false, ['verify']);
-    if (!(await crypto.subtle.verify(SIGN_HASH, key, fromB64(s), fromB64(p)))) return { ok: false, reason: 'bad' };
-    const payload = JSON.parse(dec.decode(fromB64(p)));
-    if (payload.v !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(payload.e)) return { ok: false, reason: 'bad' };
-    const info = { name: String(payload.n ?? ''), ends: payload.e };
-    if (effectiveToday() > payload.e) return { ok: false, reason: 'expired', ...info };
-    return { ok: true, ...info };
+    const res = await fetch(ACCESS.voucherUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // a "simple" request: Apps Script can't answer CORS preflights
+      body: JSON.stringify({ action: 'voucher', code, deviceId: deviceId(), sheetId: sheetId ?? '' }),
+      credentials: 'omit',
+      cache: 'no-store',
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    const data = await res.json();
+    return data?.ok ? data : { network: true };
   } catch {
-    return { ok: false, reason: 'bad' };
+    return { network: true };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-/** Make an invite link for someone (you must be unlocked with the master password on this device). */
-export async function makeInvite(name, ends) {
-  const grant = readLocal(GRANT_KEY);
-  if (grant?.kind !== 'master') throw new Error('Unlock with the master password first.');
-  const key = await signingKey(fromB64(grant.secret));
-  const id = toB64(crypto.getRandomValues(new Uint8Array(6)));
-  const p = toB64(enc.encode(JSON.stringify({ v: 1, id, n: name, e: ends })));
-  const s = toB64(await crypto.subtle.sign(SIGN_HASH, key, fromB64(p)));
-  const invite = { id, name, ends, link: `${liveUrl()}#invite=${p}.${s}`, madeAt: new Date().toISOString(), check: ACCESS.check };
-  writeLocal(INVITES_KEY, [invite, ...madeInvites()]);
-  return invite;
+function keepGrant(code, result) {
+  const grant = { kind: 'voucher', code, ends: result.ends, needsSheet: Boolean(result.needsSheet), graceEnds: result.graceEnds ?? null };
+  writeLocal(GRANT_KEY, grant);
+  current = grant;
+  return grant;
 }
 
-/** Invites made on this device with the current master password, newest first. */
-export function madeInvites() {
-  const list = readLocal(INVITES_KEY);
-  return Array.isArray(list) ? list.filter((i) => i && i.check === ACCESS?.check) : [];
+/** Use a code on this device (lock screen, or Settings when renewing). → the Sheet's answer. */
+export async function useVoucher(text, sheetId = savedSheet()?.sheetId ?? '') {
+  const code = String(text ?? '').trim();
+  if (!code) return { valid: false, reason: 'unknown' };
+  const result = await askSheet(code, sheetId);
+  if (result.valid) keepGrant(code, result);
+  return result;
 }
 
-export function forgetInvite(id) {
-  writeLocal(INVITES_KEY, (readLocal(INVITES_KEY) ?? []).filter((i) => i?.id !== id));
-}
-
-export function inviteEnded(invite) {
-  return effectiveToday() > invite.ends;
+export function voucherMessage(result) {
+  if (result.network) return 'Couldn’t check the code. Check your internet connection and try again.';
+  switch (result.reason) {
+    case 'expired': return `That code ended on ${formatEnds(result.ends)}. Ask for a new code to keep using the app.`;
+    case 'stopped': return 'This code no longer works. Ask the person you got it from.';
+    case 'in-use': return 'This code is already used on another device. Ask the person you got it from to move it to this one.';
+    case 'other-sheet': return 'This code belongs to a different Google Sheet than the one this app syncs to. Ask the person you got it from.';
+    case 'needs-sheet': return 'This code needs this device connected to your Google Sheet. Enter your sync details below — the same Web app URL and secret token as on your other device (also in your Sheet’s Connection tab).';
+    default: return 'That code isn’t right. Check it and try again.';
+  }
 }
 
 /* ---------- this device ---------- */
 
-/** How this device got in: { kind: 'open' | 'master' | 'invite', name?, ends? }. */
+/** How this device got in: { kind: 'open' | 'master' | 'voucher', ends?, needsSheet?, graceEnds? }. */
 export const currentAccess = () => current;
 export const lockConfigured = () => Boolean(ACCESS);
 
-/** Forget this device's password or invite and show the lock again. */
+/** Forget this device's password or code and show the lock again. */
 export function lockDevice() {
   writeLocal(GRANT_KEY, null);
   location.reload();
 }
 
-async function storedGrant() {
-  const grant = readLocal(GRANT_KEY);
-  if (grant?.kind === 'master') {
-    try {
-      if (await masterBitsOk(fromB64(grant.secret))) return { kind: 'master' };
-    } catch { /* fall through to the lock */ }
-    return null;
-  }
-  if (grant?.kind === 'invite') {
-    const result = await checkInvite(grant.code);
-    if (result.ok) return { kind: 'invite', name: result.name, ends: result.ends };
-    return result.reason === 'expired' ? { expired: result } : null;
-  }
-  return null;
+/** The lock screen's "connect your Google Sheet" part: resolves with the Sheet ID, after checking the details. */
+async function connectSheetOnLock(form) {
+  const url = form.elements.url.value;
+  const token = form.elements.token.value;
+  const data = await pingScript({ url, token }); // throws a SyncError with a friendly message
+  if (!data.sheetId) throw new Error('Your sync script needs updating first: in your Google Sheet, paste the newest code and deploy a new version.');
+  writeLocal(PENDING_SYNC_KEY, { url, token });
+  return data.sheetId;
 }
 
-async function useInvite(code) {
-  const result = await checkInvite(code);
-  if (result.ok) {
-    writeLocal(GRANT_KEY, { kind: 'invite', code });
-    current = { kind: 'invite', name: result.name, ends: result.ends };
-  }
-  return result;
-}
-
-function inviteMessage(result) {
-  if (result.reason === 'expired') {
-    return `${result.name ? `${esc(result.name)}, your` : 'Your'} trial ended on ${formatEnds(result.ends)}. Ask the person who invited you for a new invite.`;
-  }
-  return 'That invite link isn’t valid. It may have been cancelled — ask for a new one.';
-}
-
-/** Show the lock in the start-up screen and wait for a good password or invite. */
-function showLock(message = '') {
+/** Show the lock in the start-up screen and wait for a good password or code. */
+function showLock(result = null, code = '') {
   return new Promise((resolve) => {
     const boot = document.getElementById('boot');
     boot.classList.add('boot--lock');
@@ -234,36 +237,60 @@ function showLock(message = '') {
     form.className = 'lock';
     form.noValidate = true;
     form.innerHTML = `
-      <p class="lock__lead">This app is private. Enter the password, or paste your invite link.</p>
+      <p class="lock__lead">Enter your voucher code to open the app.</p>
       <label class="field">
-        <span class="sr-only">Password or invite link</span>
-        <input class="input" name="secret" type="password" autocomplete="current-password" autocapitalize="off"
-          autocorrect="off" spellcheck="false" placeholder="Password or invite link" enterkeyhint="go">
+        <span class="sr-only">Voucher code or password</span>
+        <input class="input" name="secret" type="password" autocomplete="current-password" autocapitalize="characters"
+          autocorrect="off" spellcheck="false" placeholder="Voucher code" enterkeyhint="go">
       </label>
-      <p class="lock__msg" role="alert">${message}</p>
+      <label class="lock__show"><input type="checkbox" data-show> Show what I type</label>
+      <div class="lock__sheet" hidden>
+        <label class="field"><span class="field__label">Web app URL</span>
+          <input class="input" name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"></label>
+        <label class="field"><span class="field__label">Secret token</span>
+          <input class="input" name="token" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX"></label>
+      </div>
+      <p class="lock__msg" role="alert"></p>
       <button type="submit" class="btn btn--primary btn--block">Unlock</button>`;
     boot.append(form);
     const field = form.elements.secret;
     const msg = form.querySelector('.lock__msg');
+    const sheetPart = form.querySelector('.lock__sheet');
     const button = form.querySelector('button');
+    const say = (r) => {
+      msg.textContent = r ? voucherMessage(r) : '';
+      sheetPart.hidden = r?.reason !== 'needs-sheet';
+    };
+    if (code) field.value = code;
+    say(result);
+    form.querySelector('[data-show]').addEventListener('change', (event) => { field.type = event.target.checked ? 'text' : 'password'; });
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const text = field.value;
       if (!text.trim()) { field.focus(); return; }
       button.disabled = true;
+      button.textContent = 'Checking…';
       msg.textContent = '';
-      const code = inviteCodeFrom(text);
-      let ok = false;
-      if (code) {
-        const result = await useInvite(code);
-        ok = result.ok;
-        if (!ok) msg.innerHTML = inviteMessage(result);
-      } else {
-        ok = await tryMaster(text);
-        if (!ok) msg.textContent = 'That password isn’t right.';
+      let ok = await tryMaster(text);
+      if (!ok) {
+        let sheetId;
+        if (!sheetPart.hidden) {
+          try {
+            sheetId = await connectSheetOnLock(form);
+          } catch (err) {
+            msg.textContent = err.message;
+            button.disabled = false;
+            button.textContent = 'Unlock';
+            return;
+          }
+        }
+        const answer = await useVoucher(text, sheetId);
+        ok = Boolean(answer.valid);
+        if (!ok) say(answer);
       }
       button.disabled = false;
-      if (!ok) { field.select(); return; }
+      button.textContent = 'Unlock';
+      if (!ok) { field.focus(); return; }
       form.remove();
       boot.classList.remove('boot--lock');
       resolve();
@@ -274,32 +301,72 @@ function showLock(message = '') {
 /** Called first thing at start-up: resolves once this device may open the app. */
 export async function ensureAccess() {
   if (!ACCESS) { current = { kind: 'open' }; return current; }
-
-  // Opened from an invite link: use it, and take it out of the address bar
-  const linked = /^#invite=/.test(location.hash) ? inviteCodeFrom(location.hash) : null;
-  if (linked) history.replaceState(null, '', `${location.pathname}${location.search}`);
-
-  const grant = await storedGrant();
-  if (grant && !grant.expired) {
-    current = grant;
-    // A new invite still replaces an old one (say, a trial was extended)
-    if (linked && grant.kind === 'invite') await useInvite(linked);
-    return current;
+  const grant = readLocal(GRANT_KEY);
+  if (grant?.kind === 'master') {
+    try {
+      if (await masterBitsOk(fromB64(grant.secret))) { current = { kind: 'master' }; return current; }
+    } catch { /* show the lock */ }
   }
-  if (linked) {
-    const result = await useInvite(linked);
-    if (result.ok) return { ...current, fresh: true };
-    await showLock(inviteMessage(result));
-    return current;
+  if (grant?.kind === 'voucher' && grant.code) {
+    if (grant.refused) {
+      await showLock(grant.refused, grant.code);
+    } else if (effectiveToday() > grant.ends) {
+      await showLock({ reason: 'expired', ends: grant.ends }, grant.code);
+    } else {
+      current = grant; // trusted until the next check with your Sheet (it can work offline)
+      return current;
+    }
+    return { ...current, fresh: true };
   }
-  await showLock(grant?.expired ? inviteMessage(grant.expired) : '');
-  return current;
+  await showLock();
+  return { ...current, fresh: true };
 }
 
-/** A trial that ends while the app is open locks it again. */
-export function watchAccess() {
-  if (current?.kind !== 'invite') return;
-  const check = () => { if (effectiveToday() > current.ends) location.reload(); };
+let lastCheck = 0;
+
+/** Check this device's code with your Sheet again (in the background). A stopped code locks the app. */
+async function recheck() {
+  if (current?.kind !== 'voucher') return;
+  lastCheck = Date.now();
+  const result = await askSheet(current.code, await syncSheetId());
+  if (result.network) return;
+  if (result.valid) {
+    keepGrant(current.code, result);
+    return;
+  }
+  // A code that worked before and is now unknown was deleted from your Sheet: say "stopped", not "wrong"
+  const reason = result.reason === 'unknown' ? 'stopped' : result.reason;
+  writeLocal(GRANT_KEY, { ...current, refused: reason === 'expired' ? { reason, ends: result.ends } : { reason } });
+  location.reload();
+}
+
+/** After start-up: connect a Sheet entered on the lock screen, remind about endings, and keep checking. */
+export async function afterBoot({ isSyncConnected, connectSync }) {
+  if (current?.kind !== 'voucher') return;
+  const pending = readLocal(PENDING_SYNC_KEY);
+  if (pending) {
+    writeLocal(PENDING_SYNC_KEY, null);
+    if (!isSyncConnected()) {
+      try { await connectSync(pending); } catch (err) { toast(`Sync didn’t connect: ${err.message}`); }
+    }
+  }
+  const left = daysLeft(current.ends);
+  if (left <= SOON_DAYS && firstTimeToday('ends')) {
+    toast(left === 0 ? 'Your code ends today. Ask for a new code to keep using the app.'
+      : `Your code ends in ${left} day${left === 1 ? '' : 's'} (${formatEnds(current.ends)}). Ask for a new code to keep going.`, { duration: 10_000 });
+  } else if (current.needsSheet && current.graceEnds && firstTimeToday('sheet')) {
+    toast(`Connect this device to your Google Sheet (Settings → Sync) by ${formatEnds(current.graceEnds)} to keep using your code.`, { duration: 10_000 });
+  }
+  recheck();
+  const check = () => {
+    if (effectiveToday() > current.ends) { location.reload(); return; }
+    if (Date.now() - lastCheck > RECHECK_MS) recheck();
+  };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
   setInterval(check, 60_000);
+}
+
+/** Settings → Sync just connected (or changed): check the code again with the new Sheet. */
+export function accessSyncChanged() {
+  if (current?.kind === 'voucher') recheck();
 }

@@ -250,3 +250,6 @@ html.has-fab .views { padding-bottom: calc(var(--tabbar-h) + var(--tabbar-gap) +
 .lock__lead { text-align: center; font-size: var(--fs-sm); color: var(--text-3); line-height: 1.5; }
 .lock__msg { min-height: 1.2em; text-align: center; font-size: var(--fs-sm); color: var(--danger-ink); line-height: 1.45; }
 .lock__msg:empty { min-height: 0; }
+.lock__show { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: var(--fs-sm); color: var(--text-3); }
+.lock__sheet { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.lock__sheet[hidden] { display: none; }

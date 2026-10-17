@@ -152,6 +152,36 @@ function googleWords(page) {
   return text.slice(0, 300);
 }
 
+/* Which Google Sheet this device syncs to (voucher codes can be linked to one customer's Sheet).
+   The script says so when pinged (since the voucher update); kept here, outside the database. */
+const SHEET_KEY = 'ld.sync.sheet';
+
+function rememberSheet(config, data) {
+  if (!data?.sheetId) return;
+  try { localStorage.setItem(SHEET_KEY, JSON.stringify({ url: config.url, sheetId: data.sheetId, sheetUrl: data.sheetUrl ?? '' })); } catch { /* private browsing */ }
+}
+
+/** The synced Sheet as last reported: { sheetId, sheetUrl } or null. Works before the database opens. */
+export function savedSheet() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SHEET_KEY));
+    return saved?.sheetId && (!sync.config || saved.url === sync.config.url) ? saved : null;
+  } catch { return null; }
+}
+
+/** This device's synced Sheet ID ('' when not synced, or the script is too old to say). */
+export async function syncSheetId() {
+  if (!sync.config) return '';
+  const saved = savedSheet();
+  if (saved) return saved.sheetId;
+  try { return (await call('ping', {}, sync.config, 20_000)).sheetId ?? ''; } catch { return ''; }
+}
+
+/** Ask a sync script which Sheet it belongs to (the lock screen uses this before sync is set up here). */
+export async function pingScript({ url, token }) {
+  return call('ping', {}, { url: checkUrl(url), token: normalizeToken(token) }, 20_000);
+}
+
 async function call(action, payload = {}, config = sync.config, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -177,6 +207,7 @@ async function call(action, payload = {}, config = sync.config, timeoutMs = REQU
     try { data = JSON.parse(text); } catch { throw new SyncError('bad-response', googleWords(text)); }
     if (!data || data.ok !== true) throw new SyncError(data?.error ?? 'server', data?.message, data);
     config.scriptVersion = Number(data.version) || 1;
+    rememberSheet(config, data);
     return data;
   } finally {
     clearTimeout(timer);
@@ -531,6 +562,7 @@ export async function disconnectSync() {
   timer = null;
   clearTimeout(retryTimer);
   sync.config = null;
+  try { localStorage.removeItem(SHEET_KEY); } catch { /* private browsing */ }
   await db.delete('meta', META_KEY);
   // What the old Sheet's script reported (Google Calendar links) means nothing without it
   await tx(SCRIPT_STORES, 'readwrite', (s) => { SCRIPT_STORES.forEach((name) => s[name].clear()); });

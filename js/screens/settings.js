@@ -38,6 +38,7 @@ import { imageFileToAvatar } from '../services/images.js';
 import { formatBytes, storageInfo } from '../services/storage.js';
 import { offlineLabel } from '../services/pwa.js';
 import { accessSection, initAccessSettings } from './access-settings.js';
+import { accessSyncChanged } from '../services/access.js';
 
 let root = null;
 let nicknameTimer = null;
@@ -1205,6 +1206,7 @@ async function openSyncSetup() {
         submit.textContent = 'Connecting…';
         try {
           const ok = await connectSync({ url: form.url.value, token: form.token.value });
+          accessSyncChanged(); // a voucher code linked to a Sheet is checked again
           close('connected');
           toast(ok ? 'Connected. Your data is syncing with your Google Sheet.' : `Connected, but the first sync didn’t finish: ${syncSnapshot().error?.message ?? 'it will try again.'}`, { icon: 'cloud', duration: 6000 });
           render();

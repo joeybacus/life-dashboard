@@ -1,100 +1,114 @@
-/* Settings → Lock and invites: the master password, invite links with end dates, and locking this device. */
+/* Settings → Voucher codes: setting up the master password and voucher Sheet, making up codes,
+   and (for customers) their code's end date and entering a new code. */
 import { registerAction } from '../core/actions.js';
-import { html, raw } from '../core/html.js';
+import { html } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { confirmDialog, openDialog, toast } from '../core/ui.js';
-import { addDays, toDateKey } from '../core/dates.js';
 import {
-  buildAccessConfig, canSetMaster, currentAccess, forgetInvite, formatEnds, inviteEnded, lockConfigured, lockDevice,
-  madeInvites, makeInvite, saveAccessConfig,
+  SOON_DAYS, buildAccessConfig, canSetMaster, currentAccess, daysLeft, formatEnds, lockConfigured, lockDevice,
+  saveAccessConfig, testVoucherUrl, useVoucher, voucherMessage,
 } from '../services/access.js';
+import { checkUrl, savedSheet } from '../services/sync.js';
 
 const MIN_LENGTH = 8;
-const TRIAL_DAYS = 14;
+const ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ'; // no 0/O, 1/I/L or U — easy to read out and type
 
-/** The Settings section (rerender: redraw Settings after a change). */
+/** The Settings section. */
 export function accessSection() {
   const access = currentAccess() ?? { kind: 'open' };
   let rows;
-  let foot;
+  let foot = '';
   if (!lockConfigured()) {
     rows = html`<div class="row row--icon accent-neutral">
         <span class="row__icon">${icon('lock')}</span>
-        <span class="row__text"><span class="row__label">Lock is off</span><span class="row__sub">Anyone with the web address can open the app (they get an empty copy — never your data).</span></span>
+        <span class="row__text"><span class="row__label">Codes are off</span><span class="row__sub">Anyone with the web address can open the app (they get an empty copy — never your data).</span></span>
       </div>
-      ${canSetMaster() ? html`<button type="button" class="row row--icon accent-brand" data-action="access:master">
+      ${canSetMaster() ? html`<button type="button" class="row row--icon accent-brand" data-action="access:setup">
         <span class="row__icon">${icon('shield')}</span>
-        <span class="row__text"><span class="row__label">Set master password</span><span class="row__sub">Then publish with GitHub Desktop to lock the live app</span></span>
+        <span class="row__text"><span class="row__label">Set up voucher codes</span><span class="row__sub">A Google Sheet for your codes, and a master password for you</span></span>
         ${icon('chevronRight', 'row__chev')}
       </button>` : ''}`;
-    foot = canSetMaster() ? '' : 'To turn the lock on, double-click “Start Preview” on your Mac and open Settings there.';
+    foot = canSetMaster() ? '' : 'To turn codes on, double-click “Start Preview” on your Mac and open Settings there.';
   } else if (access.kind === 'master') {
-    const invites = madeInvites();
     rows = html`<div class="row row--icon accent-brand">
         <span class="row__icon">${icon('shield')}</span>
         <span class="row__text"><span class="row__label">Unlocked with your master password</span><span class="row__sub">Your password never ends</span></span>
       </div>
-      <button type="button" class="row row--icon accent-brand" data-action="access:invite">
-        <span class="row__icon">${icon('link')}</span>
-        <span class="row__text"><span class="row__label">Invite someone</span><span class="row__sub">A link that works until the end date you choose</span></span>
+      <button type="button" class="row row--icon accent-brand" data-action="access:make">
+        <span class="row__icon">${icon('sparkles')}</span>
+        <span class="row__text"><span class="row__label">Make up a code</span><span class="row__sub">A hard-to-guess code to paste into your voucher Sheet</span></span>
         ${icon('chevronRight', 'row__chev')}
       </button>
-      ${invites.map((i) => html`<div class="row row--icon accent-neutral access-invite${inviteEnded(i) ? ' is-ended' : ''}">
-        <span class="row__icon">${icon('clock')}</span>
-        <span class="row__text"><span class="row__label">${i.name}</span><span class="row__sub">${inviteEnded(i) ? `Ended ${formatEnds(i.ends)}` : `Until ${formatEnds(i.ends)}`}</span></span>
-        ${inviteEnded(i)
-          ? html`<button type="button" class="btn btn--sm row__control" data-action="access:forget" data-id="${i.id}">Remove</button>`
-          : html`<button type="button" class="btn btn--sm row__control" data-action="access:copy" data-id="${i.id}">${icon('copy')}Copy link</button>`}
-      </div>`)}
       ${canSetMaster() ? html`<button type="button" class="row row--icon accent-neutral" data-action="access:master">
         <span class="row__icon">${icon('lock')}</span>
-        <span class="row__text"><span class="row__label">Change master password</span><span class="row__sub">Also cancels every invite you’ve sent</span></span>
+        <span class="row__text"><span class="row__label">Change master password</span><span class="row__sub">Customers’ codes keep working</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>
+      <button type="button" class="row row--icon accent-neutral" data-action="access:sheet">
+        <span class="row__icon">${icon('link')}</span>
+        <span class="row__text"><span class="row__label">Change voucher Sheet</span><span class="row__sub">Use a different Web app URL</span></span>
         ${icon('chevronRight', 'row__chev')}
       </button>` : ''}
       <button type="button" class="row row--icon row--danger accent-danger" data-action="access:lock">
         <span class="row__icon">${icon('lock')}</span>
         <span class="row__text"><span class="row__label">Lock this device</span><span class="row__sub">Asks for the password again. Your data stays.</span></span>
       </button>`;
-    foot = `Invites listed here were made on this device. A trial ends by itself after its end date. To end every trial early, change the master password${canSetMaster() ? '' : ' (in the preview on your Mac)'} and publish.`;
+    foot = 'In your voucher Sheet’s Codes tab: column B = 1 week, C = 1 month, D = 1 year, E = the customer’s Google Sheet link. A code starts on its first use. With a Sheet in column E it works only in the app synced to that Sheet; without one, on one device only. Delete a code to stop it. The Used tab shows who started when.';
   } else {
+    const left = daysLeft(access.ends);
+    const sheet = savedSheet();
     rows = html`<div class="row row--icon accent-brand">
         <span class="row__icon">${icon('clock')}</span>
-        <span class="row__text"><span class="row__label">Trial${access.name ? ` for ${access.name}` : ''}</span><span class="row__sub">Ends ${access.ends ? formatEnds(access.ends) : ''}</span></span>
+        <span class="row__text"><span class="row__label">Your code works until ${formatEnds(access.ends)}</span><span class="row__sub${left <= SOON_DAYS ? ' tone-danger' : ''}">${left === 0 ? 'Today is the last day' : `${left} day${left === 1 ? '' : 's'} left`}</span></span>
       </div>
+      ${access.needsSheet ? html`<button type="button" class="row row--icon accent-workout" data-action="settings:sync">
+        <span class="row__icon">${icon('cloud')}</span>
+        <span class="row__text"><span class="row__label">Connect your Google Sheet</span><span class="row__sub tone-danger">Your code is linked to your Google Sheet. Set up sync on this device by ${formatEnds(access.graceEnds)} to keep using it.</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>` : ''}
+      ${sheet?.sheetUrl ? html`<div class="row row--icon accent-neutral">
+        <span class="row__icon">${icon('link')}</span>
+        <span class="row__text"><span class="row__label">Your Google Sheet link</span><span class="row__sub">Send it with your payment, so your code works on all your devices</span></span>
+        <button type="button" class="btn btn--sm row__control" data-action="access:copy-sheet">${icon('copy')}Copy</button>
+      </div>` : ''}
+      <button type="button" class="row row--icon accent-brand" data-action="access:enter">
+        <span class="row__icon">${icon('plus')}</span>
+        <span class="row__text"><span class="row__label">Enter a new code</span><span class="row__sub">When you renew</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>
       <button type="button" class="row row--icon row--danger accent-danger" data-action="access:lock">
         <span class="row__icon">${icon('lock')}</span>
-        <span class="row__text"><span class="row__label">Lock this device</span><span class="row__sub">You’ll need your invite link again to get back in</span></span>
+        <span class="row__text"><span class="row__label">Lock this device</span><span class="row__sub">You’ll need your code again to get back in. Your data stays.</span></span>
       </button>`;
-    foot = '';
   }
   return html`<section class="group" id="settings-access" aria-labelledby="set-access-title">
-    <h2 class="group__title" id="set-access-title">Lock and invites</h2>
+    <h2 class="group__title" id="set-access-title">Voucher codes</h2>
     <div class="card group__card">${rows}</div>
     ${foot ? html`<p class="group__foot">${foot}</p>` : ''}
   </section>`;
 }
 
-async function copyText(text, done = 'Link copied.') {
+async function copyText(text, done = 'Copied.') {
   try {
     await navigator.clipboard.writeText(text);
     toast(done, { icon: 'copy' });
   } catch {
-    toast('Couldn’t copy here — press and hold the link to copy it.');
+    toast('Couldn’t copy here — press and hold the text to copy it.');
   }
 }
 
 /** Ask before throwing away what was typed (pop-ups with typing close only with their buttons). */
 async function keepTyping(form) {
-  const typed = [...form.querySelectorAll('input')].some((i) => i.type !== 'date' && i.value.trim());
+  const typed = [...form.querySelectorAll('input')].some((i) => i.value.trim());
   if (!typed) return false;
   return !(await confirmDialog({ title: 'Discard this?', message: 'What you typed will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }));
 }
 
-/** A typing pop-up: resolves with the form's values, or null. check(form) returns an error message or ''. */
-function formDialog({ title, body, saveLabel, check }) {
+/** A typing pop-up: resolves with the form's values, or null. check(form) returns an error message or '' (may be async). */
+function formDialog({ title, body, saveLabel, check, setup, variant = 'alert' }) {
   return openDialog({
-    variant: 'alert',
-    className: 'prompt-dialog',
+    variant,
+    className: variant === 'alert' ? 'prompt-dialog' : 'setup',
     dismissible: false,
     title,
     body: html`<form class="prompt access-form" novalidate>${body}
@@ -106,13 +120,20 @@ function formDialog({ title, body, saveLabel, check }) {
     </form>`,
     onOpen(dlg, close) {
       const form = dlg.querySelector('form');
-      setTimeout(() => form.querySelector('input')?.focus(), 60);
+      setup?.(form);
       form.querySelector('[data-cancel]').addEventListener('click', async () => {
         if (!(await keepTyping(form))) close(null);
       });
-      form.addEventListener('submit', (event) => {
+      form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const problem = check(form);
+        const button = form.querySelector('[type="submit"]');
+        const label = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Checking…';
+        let problem;
+        try { problem = await check(form); } catch (err) { problem = err.message; }
+        button.disabled = false;
+        button.textContent = label;
         form.querySelector('.access-form__msg').textContent = problem;
         if (!problem) close(Object.fromEntries(new FormData(form)));
       });
@@ -120,102 +141,169 @@ function formDialog({ title, body, saveLabel, check }) {
   });
 }
 
-async function setMaster(rerender) {
-  const changing = lockConfigured();
-  const values = await formDialog({
-    title: changing ? 'Change master password' : 'Set master password',
-    saveLabel: 'Save',
-    body: html`<p class="dlg__msg">${changing
-      ? 'Every invite you’ve sent stops working, and each of your devices asks for the new password once.'
-      : 'You’ll type this once on each of your devices. Pick something you won’t forget — it can’t be recovered, only replaced here.'}</p>
-      <label class="field"><span class="field__label">New master password</span>
-        <input class="input" name="password" type="password" autocomplete="new-password" minlength="${MIN_LENGTH}"></label>
-      <label class="field"><span class="field__label">Type it again</span>
-        <input class="input" name="again" type="password" autocomplete="new-password"></label>`,
-    check(form) {
-      const { password, again } = Object.fromEntries(new FormData(form));
-      if (password.length < MIN_LENGTH) return `Use at least ${MIN_LENGTH} characters.`;
-      if (password !== again) return 'The two passwords don’t match.';
-      return '';
-    },
-  });
-  if (!values) return;
+const passwordFields = html`<label class="field"><span class="field__label">Master password</span>
+    <input class="input" name="password" type="password" autocomplete="new-password" minlength="${MIN_LENGTH}"></label>
+  <label class="field"><span class="field__label">Type it again</span>
+    <input class="input" name="again" type="password" autocomplete="new-password"></label>`;
+
+function checkPasswords(form) {
+  const { password, again } = Object.fromEntries(new FormData(form));
+  if (password.length < MIN_LENGTH) return `Use a master password of at least ${MIN_LENGTH} characters.`;
+  if (password !== again) return 'The two passwords don’t match.';
+  return '';
+}
+
+async function checkSheetUrl(form) {
+  let url;
+  try { url = checkUrl(form.elements.voucherUrl.value); } catch (err) { return err.message; }
+  form.elements.voucherUrl.value = url;
+  await testVoucherUrl(url);
+  return '';
+}
+
+const urlField = html`<label class="field"><span class="field__label">Voucher Sheet’s Web app URL</span>
+  <input class="input" name="voucherUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"></label>`;
+
+let scriptCode = null;
+function loadScriptCode() {
+  if (scriptCode) return;
+  fetch('apps-script/Vouchers.gs', { cache: 'no-cache' }).then((r) => (r.ok ? r.text() : null)).then((t) => { scriptCode = t; }).catch(() => {});
+}
+
+async function saveAndReload(config, message) {
   try {
-    await saveAccessConfig(await buildAccessConfig(values.password));
+    await saveAccessConfig(config);
   } catch (err) {
     toast(`Not saved: ${err.message}`);
     return;
   }
   await openDialog({
     variant: 'alert',
-    title: 'Master password saved',
-    body: html`<p class="dlg__msg">The app reloads now and asks for it once.</p>
-      <p class="dlg__msg"><strong>Then publish with GitHub Desktop</strong> (commit, then Push) — the live app is locked from then on.</p>`,
+    title: 'Saved',
+    body: html`<p class="dlg__msg">${message}</p>
+      <p class="dlg__msg"><strong>Then publish with GitHub Desktop</strong> (commit, then Push) so the live app uses it.</p>`,
     actions: [{ label: 'Reload', value: 'ok', variant: 'primary', autofocus: true }],
     dismissible: false,
   });
-  rerender();
   location.reload();
 }
 
-async function invite(rerender) {
-  const today = new Date();
+async function setup() {
+  loadScriptCode();
   const values = await formDialog({
-    title: 'Invite someone',
-    saveLabel: 'Make link',
-    body: html`<label class="field"><span class="field__label">Their name</span>
-        <input class="input" name="name" maxlength="40" autocomplete="off" placeholder="e.g. Sarah"></label>
-      <label class="field"><span class="field__label">Last day of the trial</span>
-        <input class="input" name="ends" type="date" min="${toDateKey(today)}" value="${toDateKey(addDays(today, TRIAL_DAYS))}"></label>`,
-    check(form) {
-      const { name, ends } = Object.fromEntries(new FormData(form));
-      if (!name.trim()) return 'Add their name.';
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(ends)) return 'Choose the last day.';
-      if (ends < toDateKey(new Date())) return 'Choose today or a later day.';
-      return '';
+    variant: 'sheet',
+    title: 'Set up voucher codes',
+    saveLabel: 'Save',
+    body: html`<p class="setup__lead">Your codes live in a new Google Sheet of their own (not your sync Sheet). About 10 minutes, once.</p>
+      <ol class="setup__steps">
+        <li><strong>Create a sheet.</strong> At sheets.google.com, create a blank spreadsheet called “Life Dashboard Vouchers”, then choose <strong>Extensions → Apps Script</strong>.</li>
+        <li><strong>Paste the voucher code.</strong> Delete what’s in the editor, paste this code, then click Save.
+          <span class="setup__buttons"><button type="button" class="btn btn--sm" data-copy-code>${'Copy code'}</button></span></li>
+        <li><strong>Run setup.</strong> Choose <code>setup</code> in the toolbar and click <strong>Run</strong>, then allow access. A Codes tab appears.</li>
+        <li><strong>Deploy.</strong> Click <strong>Deploy → New deployment</strong>, pick <strong>Web app</strong>, set “Execute as” to <strong>Me</strong> and “Who has access” to <strong>Anyone</strong>, then copy the Web app URL.</li>
+        <li><strong>Paste it below</strong>, and choose your master password — your own way in, which never ends. It can’t be recovered, only replaced here.</li>
+      </ol>
+      ${urlField}
+      ${passwordFields}`,
+    setup(form) {
+      form.querySelector('[data-copy-code]').addEventListener('click', () => {
+        if (scriptCode) copyText(scriptCode, 'Code copied. Paste it into Apps Script.');
+        else toast('Still loading the code — try again in a moment.');
+      });
+    },
+    async check(form) {
+      return checkPasswords(form) || checkSheetUrl(form);
     },
   });
   if (!values) return;
-  let made;
-  try {
-    made = await makeInvite(values.name.trim(), values.ends);
-  } catch (err) {
-    toast(`Couldn’t make the link: ${err.message}`);
-    return;
-  }
-  rerender();
-  await showLink(made);
+  await saveAndReload(await buildAccessConfig({ password: values.password, voucherUrl: values.voucherUrl }),
+    'The app reloads now and asks for your master password once.');
 }
 
-async function showLink(made) {
+async function changeMaster() {
+  const values = await formDialog({
+    title: 'Change master password',
+    saveLabel: 'Save',
+    body: html`<p class="dlg__msg">Each of your devices asks for the new password once. Customers’ codes keep working.</p>${passwordFields}`,
+    check: checkPasswords,
+  });
+  if (!values) return;
+  await saveAndReload(await buildAccessConfig({ password: values.password }), 'The app reloads now and asks for your new password once.');
+}
+
+async function changeSheet() {
+  const values = await formDialog({
+    title: 'Change voucher Sheet',
+    saveLabel: 'Save',
+    body: html`<p class="dlg__msg">Codes are checked in the Sheet at this URL from now on.</p>${urlField}`,
+    check: checkSheetUrl,
+  });
+  if (!values) return;
+  await saveAndReload(await buildAccessConfig({ voucherUrl: values.voucherUrl }), 'The app reloads now.');
+}
+
+function randomCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  const s = [...bytes].map((b) => ALPHABET[b % ALPHABET.length]).join('');
+  return `${s.slice(0, 5)}-${s.slice(5)}`;
+}
+
+async function makeUp() {
+  let code = randomCode();
   await openDialog({
     variant: 'alert',
-    title: `Invite for ${made.name}`,
-    body: html`<p class="dlg__msg">Send ${made.name} this link (text or email). It works until the end of ${formatEnds(made.ends)}.</p>
-      <p class="access-link">${made.link}</p>
-      <p class="dlg__msg">If they add the app to their Home Screen, the first time it opens they paste the same link into the lock screen.</p>`,
-    actions: [{ label: 'Done', value: 'done', variant: 'ghost' }, { label: 'Copy link', value: 'copy', variant: 'primary', autofocus: true }],
+    title: 'A new code',
+    body: html`<p class="access-big-code" data-code>${code}</p>
+      <p class="dlg__msg">Paste it into your voucher Sheet’s Codes tab: column B for 1 week, C for 1 month, D for 1 year. Add the customer’s Google Sheet link in column E if you have it. Then send them the code.</p>`,
+    actions: [{ label: 'Another', value: 'again', variant: 'ghost' }, { label: 'Done', value: 'done', variant: 'ghost' }, { label: 'Copy', value: 'copy', variant: 'primary', autofocus: true }],
     onOpen(dlg) {
-      // Copy straight from the tap, so the browser allows it
-      dlg.querySelector('[data-dialog-value="copy"]').addEventListener('click', () => copyText(made.link));
+      // Copy straight from the tap, so the browser allows it; "Another" stays open with a new code
+      dlg.querySelector('[data-dialog-value="copy"]').addEventListener('click', () => copyText(code, 'Code copied.'));
+      dlg.querySelector('[data-dialog-value="again"]').addEventListener('click', (event) => {
+        event.stopPropagation();
+        code = randomCode();
+        dlg.querySelector('[data-code]').textContent = code;
+      }, true);
     },
   });
 }
 
-export function initAccessSettings(rerender) {
-  registerAction('access:master', () => setMaster(rerender));
-  registerAction('access:invite', () => invite(rerender));
-  registerAction('access:copy', (el) => {
-    const made = madeInvites().find((i) => i.id === el.dataset.id);
-    if (made) showLink(made);
+async function enterCode(rerender) {
+  const before = currentAccess();
+  const values = await formDialog({
+    title: 'Enter a new code',
+    saveLabel: 'Use code',
+    body: html`<label class="field"><span class="field__label">Voucher code</span>
+      <input class="input" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>`,
+    async check(form) {
+      const result = await useVoucher(form.elements.code.value);
+      return result.valid ? '' : voucherMessage(result);
+    },
   });
-  registerAction('access:forget', (el) => { forgetInvite(el.dataset.id); rerender(); });
+  if (!values) return;
+  const now = currentAccess();
+  toast(before?.ends && now.ends < before.ends
+    ? `Done — note this code ends sooner: ${formatEnds(now.ends)}.`
+    : `Thanks! Your code works until ${formatEnds(now.ends)}.`, { duration: 6000 });
+  rerender();
+}
+
+export function initAccessSettings(rerender) {
+  registerAction('access:setup', setup);
+  registerAction('access:master', changeMaster);
+  registerAction('access:sheet', changeSheet);
+  registerAction('access:make', makeUp);
+  registerAction('access:enter', () => enterCode(rerender));
+  registerAction('access:copy-sheet', () => {
+    const sheet = savedSheet();
+    if (sheet?.sheetUrl) copyText(sheet.sheetUrl, 'Sheet link copied.');
+  });
   registerAction('access:lock', async () => {
     const access = currentAccess();
     const ok = await confirmDialog({
       title: 'Lock this device?',
-      message: access?.kind === 'invite'
-        ? 'You’ll need your invite link to get back in.'
+      message: access?.kind === 'voucher'
+        ? 'You’ll need your code to get back in. Your data stays on this device.'
         : 'You’ll need the master password to get back in. Your data stays on this device.',
       confirmLabel: 'Lock',
       destructive: true,

@@ -303,7 +303,8 @@ MockSpreadsheet.prototype.deleteSheet = function (sheet) {
   if (i >= 0) list.splice(i, 1);
 };
 MockSpreadsheet.prototype.getName = function () { return this.file ? this.file.name : 'Life Dashboard Data'; };
-MockSpreadsheet.prototype.getId = function () { return this.id || 'SCRIPT-SPREADSHEET'; };
+// The script's own spreadsheet can have an ID set in the state ("spreadsheetId"), to act as different Sheets
+MockSpreadsheet.prototype.getId = function () { return this.id || __state.spreadsheetId || 'SCRIPT-SPREADSHEET'; };
 MockSpreadsheet.prototype.getUrl = function () { return 'https://docs.google.com/spreadsheets/d/' + this.getId() + '/edit'; };
 MockSpreadsheet.prototype.setSpreadsheetTimeZone = function (tz) { if (this.file) this.file.tz = tz; };
 MockSpreadsheet.prototype.getSpreadsheetTimeZone = function () { return (this.file && this.file.tz) || 'Asia/Manila'; };

@@ -13,8 +13,8 @@ import { toDateKey } from './core/dates.js';
 import { todayKey } from './core/manila.js';
 import { ensureDefaults, ensureSampleData } from './services/sample-data.js';
 import { registerServiceWorker } from './services/pwa.js';
-import { ensureAccess, formatEnds, watchAccess } from './services/access.js';
-import { initSync } from './services/sync.js';
+import { afterBoot, ensureAccess, formatEnds } from './services/access.js';
+import { connectSync, initSync, syncSnapshot } from './services/sync.js';
 import { requestPersistentStorage } from './services/storage.js';
 import './modules/index.js'; // registers Workout, To Do and Neurology
 import { initWorkout } from './modules/workout.js';
@@ -98,8 +98,8 @@ async function boot() {
   startLiveClocks();
   watchDayChange();
   hideBoot();
-  watchAccess(); // a trial that ends while the app is open locks it again
-  if (access.fresh) toast(`Welcome${access.name ? `, ${access.name}` : ''}! Your trial runs until ${formatEnds(access.ends)}.`, { duration: 8000 });
+  if (access.fresh && access.kind === 'voucher') toast(`Welcome! Your code works until ${formatEnds(access.ends)}.`, { duration: 8000 });
+  afterBoot({ isSyncConnected: () => syncSnapshot().connected, connectSync }); // keeps checking a customer's code with your Sheet
   initReminders(); // to-do reminders ring while the app is open; missed ones are listed
   initCalendarLink(); // linked tasks' Google Calendar events follow their changes
 

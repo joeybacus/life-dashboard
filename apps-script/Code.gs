@@ -178,7 +178,8 @@ function doPost(e) {
   }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (req.action === 'ping') return json_({ ok: true, protocol: PROTOCOL, version: SCRIPT_VERSION, seq: currentSeq_(props) });
+    // sheetId: which Google Sheet this is (voucher codes can be linked to one customer's Sheet)
+    if (req.action === 'ping') return json_({ ok: true, protocol: PROTOCOL, version: SCRIPT_VERSION, seq: currentSeq_(props), sheetId: SpreadsheetApp.getActiveSpreadsheet().getId(), sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl() });
     if (req.action === 'push') return json_(push_(ss, props, req));
     if (req.action === 'pull') return json_(pull_(ss, props, req));
     if (req.action === 'healthWeight') return json_(healthWeight_(ss, props, req));
