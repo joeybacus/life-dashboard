@@ -10,7 +10,7 @@
      wardQueue    changes waiting to be saved to a logsheet: { key: "<list id>|<HN key>|<column or 'rounds'>", list, … }
      wardDays     the rounds history, one record per Manila date:
                   { date, updatedAt, lists: { <list id>: {
-                      sessions: [{ id, start, end, starts: { key: ISO } }],
+                      sessions: [{ id, start, end, starts: { key: ISO }, spent: { key: ms }, openAt: { key: ISO } }],
                       patients: { key: { hn, rounded, start, end, durationMs, source } } } } }
    ("key" is the hospital number in capitals — see hnKey in model.js.) The
    first list, Ward Patients, has the id "ward" and keeps the meta keys it

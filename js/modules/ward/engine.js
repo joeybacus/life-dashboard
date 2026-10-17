@@ -95,6 +95,17 @@ async function dayRecord(date) {
   return days.get(date);
 }
 
+/** A patient's time this session (ms). It runs only while their page is open: `spent` holds the time
+    before, `openAt` when their page was opened. Patients timed before 0.8.0.6 count from the first open. */
+function timeSpent(session, key, now = Date.now()) {
+  const start = session?.starts?.[key];
+  if (!start) return null;
+  const spent = session.spent?.[key];
+  if (spent == null) return Math.max(0, now - Date.parse(start));
+  const at = session.openAt?.[key];
+  return spent + (at ? Math.max(0, now - Date.parse(at)) : 0);
+}
+
 async function saveDayRecord(day) {
   day.updatedAt = nowISO();
   await store.saveDay(day);
@@ -268,6 +279,8 @@ class WardList {
       const entry = r.key ? part.patients[r.key] : null;
       const rounded = Boolean(entry?.rounded);
       const opened = !rounded && r.key ? timing?.starts?.[r.key] ?? null : null;
+      const timeMs = opened ? timeSpent(timing, r.key, now) : null;
+      const running = Boolean(opened) && (timing.spent?.[r.key] == null || Boolean(timing.openAt?.[r.key]));
       const lastDay = sheetTimeDay(r.end);
       return {
         id: r.key || `row-${r.row}`,
@@ -288,6 +301,8 @@ class WardList {
         end: rounded ? entry.end ?? null : null,
         durationMs: rounded ? entry.durationMs ?? null : null,
         opened,
+        timeMs,    // time on their page this session (pauses while it's closed)
+        running,   // their page is open, so the timer is going
         lastRounded: !rounded && lastDay && lastDay < date ? fromSheetTime(r.end) : null,
       };
     });
@@ -666,13 +681,34 @@ class WardList {
 
   /* ---------- What you do ---------- */
 
-  /** Opening a patient's card during rounds starts their timer (once, and only if not rounded yet). */
+  /** Opening a patient's page during rounds starts their timer, or carries on from where it paused (not once rounded). */
   async notePatientOpened(key) {
     const active = this.activeSession();
     if (!active || !this.rowByKey(key)) return;
     const part = partOf(await dayRecord(manilaDateKey()), this.id);
-    if (part.patients[key]?.rounded || active.session.starts?.[key]) return;
-    active.session.starts = { ...active.session.starts, [key]: nowISO() };
+    if (part.patients[key]?.rounded) return;
+    const s = active.session;
+    const now = nowISO();
+    const first = !s.starts?.[key];
+    if (first) s.starts = { ...s.starts, [key]: now };
+    if (first || s.spent?.[key] != null) {
+      if (first) s.spent = { ...s.spent, [key]: 0 };
+      // Only one patient's page is open at a time. One still marked open was left when the app closed:
+      // its time stops where it was last counted, without the gap.
+      s.openAt = { [key]: now };
+    }
+    await saveDayRecord(days.get(active.date));
+    publish(this.id);
+  }
+
+  /** Closing a patient's page (or going to another patient) pauses their timer. */
+  async notePatientClosed(key) {
+    const active = this.activeSession();
+    const s = active?.session;
+    if (!s?.starts?.[key] || (s.spent?.[key] != null && !s.openAt?.[key])) return;
+    s.spent = { ...s.spent, [key]: timeSpent(s, key) };
+    const { [key]: _closed, ...open } = s.openAt ?? {};
+    s.openAt = open;
     await saveDayRecord(days.get(active.date));
     publish(this.id);
   }
@@ -686,7 +722,10 @@ class WardList {
     const part = partOf(day, this.id);
     const entry = part.patients[key];
     if (entry?.rounded) return false;
-    active.session.starts = { ...active.session.starts, [key]: nowISO() };
+    const now = nowISO();
+    active.session.starts = { ...active.session.starts, [key]: now };
+    active.session.spent = { ...active.session.spent, [key]: 0 };
+    active.session.openAt = { [key]: now };
     const hadStart = Boolean(entry?.start);
     if (entry) entry.start = null; // an earlier start (kept after an untick) no longer counts
     const sessionDay = days.get(active.date);
@@ -710,7 +749,15 @@ class WardList {
     if (rounded) {
       const timing = this.activeSession()?.session ?? part.sessions.at(-1);
       const start = entry.start ?? timing?.starts?.[key] ?? null;
-      Object.assign(entry, { hn: r.hn, rounded: true, start, end: now, durationMs: start ? Date.parse(now) - Date.parse(start) : null, source: 'app' });
+      const spent = timeSpent(timing, key, Date.parse(now));
+      const durationMs = spent ?? (start ? Date.parse(now) - Date.parse(start) : null);
+      if (timing?.openAt?.[key]) { // the timer stops here
+        timing.spent = { ...timing.spent, [key]: spent };
+        const { [key]: _done, ...open } = timing.openAt;
+        timing.openAt = open;
+        if (this.activeSession()?.session === timing) await saveDayRecord(days.get(this.activeSession().date));
+      }
+      Object.assign(entry, { hn: r.hn, rounded: true, start, end: now, durationMs, source: 'app' });
     } else {
       Object.assign(entry, { rounded: false, end: null, durationMs: null, source: 'app' }); // the start time stays
     }

@@ -11,6 +11,7 @@ import { icon } from '../../core/icons.js';
 import { registerAction, runAction } from '../../core/actions.js';
 import { on } from '../../core/events.js';
 import { liveElapsed, subHead } from '../../core/components.js';
+import { formatClock } from '../../core/dates.js';
 import { actionSheet, announce, confirmDialog, openDialog, toast } from '../../core/ui.js';
 import { openPage, replacePage } from '../../core/router.js';
 import { LATEST_SCRIPT_VERSION, syncScriptVersion, syncSnapshot } from '../../services/sync.js';
@@ -428,7 +429,9 @@ function badges(p, v, { detail = false } = {}) {
     if (p.rounded) {
       out.push(html`<span class="wbadge wbadge--done">${icon('check')}${p.end ? `Rounded ${wardTime(p.end)}` : 'Rounded'}${p.durationMs != null ? ` · ${formatSpan(p.durationMs)}` : ''}</span>`);
     } else if (p.opened && v.active) {
-      out.push(html`<span class="wbadge wbadge--live">${icon('timer')}Started ${wardTime(p.opened)} · ${liveElapsed(p.opened)}</span>`);
+      out.push(p.running
+        ? html`<span class="wbadge wbadge--live">${icon('timer')}Started ${wardTime(p.opened)} · ${patientClock(p)}</span>`
+        : html`<span class="wbadge wbadge--paused">${icon('pause')}Paused · ${patientClock(p)}</span>`);
     } else if (p.lastRounded) {
       out.push(html`<span class="wbadge">${icon('history')}Last rounded ${wardStamp(p.lastRounded)}</span>`);
     }
@@ -521,6 +524,14 @@ function changeNote(item) {
   return html`<p class="note">${icon('cloud')}<span>Not synced yet — it’s saved on this device and goes to the logsheet automatically.</span></p>`;
 }
 
+/** A patient's timer: counting while their page is open, paused (with the time so far) while it's closed. */
+function patientClock(p) {
+  if (p.timeMs == null) return '';
+  return p.running
+    ? liveElapsed(new Date(Date.now() - p.timeMs).toISOString())
+    : html`<span class="num is-paused">${formatClock(p.timeMs)}</span>`;
+}
+
 /** How far through the list you are, e.g. "0 of 15 patients rounded". */
 function roundsCount(v) {
   return html`<p class="ptd__count"><strong class="num">${v.roundedCount}</strong> of ${plural(v.total, 'patient')} rounded</p>`;
@@ -541,7 +552,7 @@ function roundsBox(p, v) {
     </div>`;
   }
   const timing = p.start
-    ? html`${icon('timer')}<span>Started ${wardTime(p.start)}${p.opened && v.active ? html` · ${liveElapsed(p.start)}` : ''}${v.active ? html` <button type="button" class="link-inline ptd__restart" data-dact="restart" data-focus="b-restart">${icon('refresh')}Restart timer</button>` : ''}</span>`
+    ? html`${icon('timer')}<span>Started ${wardTime(p.start)}${p.opened && v.active ? html` · ${patientClock(p)}` : ''}${v.active ? html` <button type="button" class="link-inline ptd__restart" data-dact="restart" data-focus="b-restart">${icon('refresh')}Restart timer</button>` : ''}</span>`
     : v.active
       ? html`${icon('timer')}<span>Timing starts when you open a patient during rounds.</span>`
       : html`${icon('info')}<span>Rounds aren’t in progress, so this visit isn’t timed. <button type="button" class="link-inline" data-dact="start">Start Rounds now</button></span>`;
@@ -716,7 +727,9 @@ async function openPatient(openId) {
   const go = async (nextId) => {
     const next = findPatient(nextId);
     if (!next || !dialog?.open) return;
+    const leaving = findPatient(id);
     id = nextId;
+    if (leaving?.tickable) await current()?.notePatientClosed(leaving.key);
     if (next.tickable) await current()?.notePatientOpened(next.key);
     redraw();
     dialog.querySelector('.dlg__panel')?.scrollTo?.({ top: 0 });
@@ -783,6 +796,8 @@ async function openPatient(openId) {
   });
   stop();
   document.removeEventListener('keydown', onKey);
+  const last = findPatient(id);
+  if (last?.tickable) await current()?.notePatientClosed(last.key); // closing their page pauses their timer
 }
 
 /* ---------- Ticking ---------- */

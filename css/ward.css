@@ -256,6 +256,8 @@
 .wbadge--done { color: color-mix(in srgb, var(--success) 70%, var(--text)); background: color-mix(in srgb, var(--success) 12%, transparent); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
 .wbadge--live { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
 .wbadge--live .num { font-weight: 700; }
+.wbadge--paused { color: var(--text-2); }
+.wbadge--paused .num { font-weight: 700; }
 .wbadge--sync { color: var(--todo-ink); background: color-mix(in srgb, var(--todo) 12%, transparent); border-color: color-mix(in srgb, var(--todo) 30%, transparent); }
 .wbadge--warn { color: var(--workout-ink); background: color-mix(in srgb, var(--workout) 14%, transparent); border-color: color-mix(in srgb, var(--workout) 38%, transparent); }
 button.wbadge { cursor: pointer; }
