@@ -368,6 +368,8 @@ button.wbadge { cursor: pointer; }
 .ptd__rounds.is-done .ptd__status > .icon { color: color-mix(in srgb, var(--success) 70%, var(--text)); }
 .ptd__status small { display: block; margin-top: 2px; font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); }
 .ptd__status .link-inline { font-size: inherit; }
+.ptd__restart { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; white-space: nowrap; }
+.ptd__restart .icon { width: .95em; height: .95em; }
 .ptd__section { padding-top: 12px; border-top: 1px solid var(--border); }
 .ptd__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ptd__title { font-size: var(--fs-sm); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
@@ -592,6 +594,11 @@ button.wbadge { cursor: pointer; }
 .ward-edit .dlg__panel { width: min(100%, 640px); }
 .ward-edit .dlg__msg { margin-top: -6px; }
 .ward-edit__text { min-height: 12rem; max-height: 55dvh; }
+@media (min-width: 700px) {
+  /* On a Mac or iPad: room to read and edit long plans and labs */
+  .ward-edit--big .dlg__panel { width: min(100%, 1000px); }
+  .ward-edit--big .ward-edit__text { height: max(16rem, 100dvh - 22rem); max-height: none; }
+}
 .ward-edit__hint { font-size: var(--fs-sm); line-height: 1.4; color: var(--text-3); }
 
 /* Two versions side by side */

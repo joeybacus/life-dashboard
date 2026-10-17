@@ -677,6 +677,27 @@ class WardList {
     publish(this.id);
   }
 
+  /** Start a patient's timer again from now (during rounds, before they're rounded). */
+  async restartTimer(key) {
+    const active = this.activeSession();
+    const r = this.rowByKey(key);
+    if (!active || !r) return false;
+    const day = await dayRecord(manilaDateKey());
+    const part = partOf(day, this.id);
+    const entry = part.patients[key];
+    if (entry?.rounded) return false;
+    active.session.starts = { ...active.session.starts, [key]: nowISO() };
+    const hadStart = Boolean(entry?.start);
+    if (entry) entry.start = null; // an earlier start (kept after an untick) no longer counts
+    const sessionDay = days.get(active.date);
+    await saveDayRecord(sessionDay);
+    if (day !== sessionDay) await saveDayRecord(day);
+    if (hadStart && this.roundsToSheet()) await this.queueChange(r, 'rounds', { E: false, F: '', G: '' });
+    publish(this.id);
+    if (hadStart) this.sendSoon();
+    return true;
+  }
+
   /** Tick (rounded = true) or untick a patient. Returns today's entry for them. */
   async setRounded(key, rounded) {
     const r = this.rowByKey(key);

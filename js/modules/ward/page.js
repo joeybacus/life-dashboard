@@ -541,7 +541,7 @@ function roundsBox(p, v) {
     </div>`;
   }
   const timing = p.start
-    ? html`${icon('timer')}<span>Started ${wardTime(p.start)}${p.opened && v.active ? html` · ${liveElapsed(p.start)}` : ''}</span>`
+    ? html`${icon('timer')}<span>Started ${wardTime(p.start)}${p.opened && v.active ? html` · ${liveElapsed(p.start)}` : ''}${v.active ? html` <button type="button" class="link-inline ptd__restart" data-dact="restart" data-focus="b-restart">${icon('refresh')}Restart timer</button>` : ''}</span>`
     : v.active
       ? html`${icon('timer')}<span>Timing starts when you open a patient during rounds.</span>`
       : html`${icon('info')}<span>Rounds aren’t in progress, so this visit isn’t timed. <button type="button" class="link-inline" data-dact="start">Start Rounds now</button></span>`;
@@ -770,6 +770,9 @@ async function openPatient(openId) {
         } else if (act === 'edit') {
           if (button.dataset.col === current()?.view().locationCol) await editLocation(now, button.dataset.col);
           else await editText(now, button.dataset.col);
+        } else if (act === 'restart') {
+          const ok = await confirmDialog({ title: 'Restart the timer?', message: `${now.name}’s timer starts again from 0:00 now.`, confirmLabel: 'Restart' });
+          if (ok && await current()?.restartTimer(now.key)) toast('Timer restarted.', { icon: 'timer' });
         } else if (act === 'start') {
           await current()?.startRounds();
           await current()?.notePatientOpened(now.key);
@@ -817,7 +820,7 @@ async function editText(p, col) {
   const before = p.cells[col] ?? '';
   const result = await openDialog({
     variant: 'sheet',
-    className: 'ward-edit accent-neuro',
+    className: 'ward-edit ward-edit--big accent-neuro',
     dismissible: false,
     title: `Edit ${c.label}`,
     body: html`<form class="form" data-edit novalidate>
