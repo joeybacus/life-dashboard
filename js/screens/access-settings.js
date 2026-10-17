@@ -174,7 +174,7 @@ async function saveAndReload(config, message) {
   try {
     await saveAccessConfig(config);
   } catch (err) {
-    toast(`Not saved: ${err.message}`);
+    toast(`Not saved: ${err.message} Close the preview’s Terminal window, double-click “Start Preview” again, and try once more.`, { duration: 12_000 });
     return;
   }
   await openDialog({
