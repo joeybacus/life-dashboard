@@ -348,12 +348,7 @@ function patientTable(v) {
   if (!v.patients.length) {
     return html`<div class="card empty">${icon('sheet')}<span>No patients in “${v.link.tab}” yet. The app reads patients from row 2, with the name in column ${v.layout.name}.</span></div>`;
   }
-  const done = (p) => p.rounded && !v.hidden.rounded; // without the tick box, nobody is set apart as rounded
-  const groups = v.arrange === 'location' ? locationGroups(v) : [
-    ...[1, 2, 3].map((level) => [`p${level}`, PRIORITY_LEVELS[level].group, 'flag', v.patients.filter((p) => !done(p) && p.priority?.level === level)]),
-    ['todo', v.hidden.rounded ? 'Other patients' : 'Not yet rounded', 'circle', v.patients.filter((p) => !done(p) && !p.priority)],
-    ['done', 'Rounded', 'checkCircle', v.patients.filter(done)],
-  ].filter((g) => g[3].length);
+  const groups = patientGroups(v);
   return html`<div class="ward-table${v.columns.length > 3 ? ' is-wide' : ''}${v.hidden.rounded ? ' no-tick' : ''}" style="${tableStyle(v.columns.length, v.hidden)}">
     <div class="ward-table__inner">
       ${tableHead(v)}
@@ -363,6 +358,25 @@ function patientTable(v) {
       </section>`)}
     </div>
   </div>`;
+}
+
+/** The table's groups, in order: [id, heading, icon, patients]. */
+function patientGroups(v) {
+  if (v.arrange === 'location') return locationGroups(v);
+  const done = (p) => p.rounded && !v.hidden.rounded; // without the tick box, nobody is set apart as rounded
+  return [
+    ...[1, 2, 3].map((level) => [`p${level}`, PRIORITY_LEVELS[level].group, 'flag', v.patients.filter((p) => !done(p) && p.priority?.level === level)]),
+    ['todo', v.hidden.rounded ? 'Other patients' : 'Not yet rounded', 'circle', v.patients.filter((p) => !done(p) && !p.priority)],
+    ['done', 'Rounded', 'checkCircle', v.patients.filter(done)],
+  ].filter((g) => g[3].length);
+}
+
+/** Every patient in the table's order, with where they are: the location heading they sit under
+    (arranged for rounds: their own location). */
+function tableOrder(v) {
+  return patientGroups(v).flatMap(([, label, , list]) => list.map((p) => ({
+    p, where: v.arrange === 'location' ? label : cleanLocation(p.location) || 'No location',
+  })));
 }
 
 /** One group per location (A to Z), then patients without one; each sorted for rounds (P1 first, rounded last). */
@@ -606,6 +620,26 @@ function boardSetup(v, board, byCol) {
   </div>`;
 }
 
+/** Previous and next patient, in the table's order, under the rounds box. */
+function patientNav(p, v) {
+  const order = tableOrder(v);
+  const at = order.findIndex((x) => x.p.id === p.id);
+  if (at < 0 || order.length < 2) return '';
+  const side = (x, dir) => {
+    if (!x) return html`<span class="ptn__side ptn__side--${dir} is-end" aria-hidden="true"></span>`;
+    const label = dir === 'prev' ? 'Previous patient' : 'Next patient';
+    return html`<button type="button" class="ptn__side ptn__side--${dir}" data-dact="go" data-id="${x.p.id}" data-focus="n-${dir}" aria-label="${label}: ${x.p.name || x.p.hn}, ${x.where}" title="${label}${dir === 'prev' ? ' (←)' : ' (→)'}">
+      <span class="ptn__arrow">${icon(dir === 'prev' ? 'chevronLeft' : 'chevronRight')}</span>
+      <span class="ptn__who"><span class="ptn__dir">${dir === 'prev' ? 'Previous' : 'Next'}</span><span class="ptn__name">${x.p.name || x.p.hn}</span><span class="ptn__where">${icon(x.p.location ? 'pin' : 'circle')}<span>${x.where}</span></span></span>
+    </button>`;
+  };
+  return html`<nav class="ptn" aria-label="Other patients">
+    ${side(order[at - 1], 'prev')}
+    <span class="ptn__pos">${at + 1} of ${order.length}</span>
+    ${side(order[at + 1], 'next')}
+  </nav>`;
+}
+
 function detailBody(p, v, { editing = false } = {}) {
   if (!p) {
     return html`<div class="ptb__bar"><div class="ptb__who"><h2 class="ptb__name" id="ptb-title">Patient</h2></div>
@@ -632,6 +666,7 @@ function detailBody(p, v, { editing = false } = {}) {
     </header>
     <div class="ptb__main">
       ${v.hidden.rounded ? '' : roundsBox(p, v)}
+      ${patientNav(p, v)}
       ${editing ? boardSetup(v, board, byCol) : ''}
       <div class="ptb ptb--c${board.cols} ptb--w${board.wide}${editing ? ' is-editing' : ''}">
         ${top.length ? html`<div class="ptb__top">${top}</div>` : ''}
@@ -644,7 +679,8 @@ function detailBody(p, v, { editing = false } = {}) {
     </div>`;
 }
 
-async function openPatient(id) {
+async function openPatient(openId) {
+  let id = openId;
   const list = current();
   let p = findPatient(id);
   if (!list || !p) return;
@@ -676,6 +712,28 @@ async function openPatient(id) {
     }).catch((err) => toast(err.message, { icon: 'info' }));
     return saving;
   };
+  /** Show another patient on the same page (the arrows under the rounds box). */
+  const go = async (nextId) => {
+    const next = findPatient(nextId);
+    if (!next || !dialog?.open) return;
+    id = nextId;
+    if (next.tickable) await current()?.notePatientOpened(next.key);
+    redraw();
+    dialog.querySelector('.dlg__panel')?.scrollTo?.({ top: 0 });
+    dialog.scrollTo?.({ top: 0 });
+    announce(`${next.name}`);
+  };
+  /** ← and → on a keyboard, unless you're typing or another pop-up is on top. */
+  const onKey = (event) => {
+    if ((event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
+    if (!dialog?.open || [...document.querySelectorAll('dialog[open]')].pop() !== dialog) return;
+    if (event.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+    const target = dialog.querySelector(`[data-dact="go"].ptn__side--${event.key === 'ArrowLeft' ? 'prev' : 'next'}`);
+    if (!target) return;
+    event.preventDefault();
+    go(target.dataset.id);
+  };
+  document.addEventListener('keydown', onKey);
   const stop = on('ward', redraw);
   await openDialog({
     variant: 'full',
@@ -699,7 +757,9 @@ async function openPatient(id) {
         const act = button?.dataset.dact;
         const now = findPatient(id);
         if (!act || !now) return;
-        if (act === 'customize') {
+        if (act === 'go') {
+          await go(button.dataset.id);
+        } else if (act === 'customize') {
           editing = !editing;
           redraw();
         } else if (act === 'mark') {
@@ -719,6 +779,7 @@ async function openPatient(id) {
     },
   });
   stop();
+  document.removeEventListener('keydown', onKey);
 }
 
 /* ---------- Ticking ---------- */

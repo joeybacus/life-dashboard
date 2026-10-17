@@ -417,6 +417,73 @@ button.wbadge { cursor: pointer; }
   .ptb__main > .ptd__rounds .btn--block { width: auto; min-width: 220px; }
 }
 
+/* Previous / next patient, under the rounds box (same order as the table) */
+.ptn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "prev pos next";
+  align-items: stretch;
+  gap: 10px;
+}
+.ptn__side--prev { grid-area: prev; }
+.ptn__side--next { grid-area: next; flex-direction: row-reverse; text-align: right; }
+.ptn__pos { grid-area: pos; align-self: center; font-size: var(--fs-sm); font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ptn__side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 10px 14px 10px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .1s;
+}
+.ptn__side--next { padding: 10px 10px 10px 14px; }
+.ptn__side.is-end { visibility: hidden; }
+.ptn__side:active { transform: scale(.98); }
+.ptn__side:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
+@media (hover: hover) { button.ptn__side:hover { background: var(--surface-2); border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); } }
+.ptn__arrow {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  color: var(--accent-ink);
+}
+.ptn__who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ptn__side--next .ptn__who { align-items: flex-end; }
+.ptn__dir { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.ptn__name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.ptn__where { display: flex; align-items: center; gap: 4px; max-width: 100%; font-size: var(--fs-sm); color: var(--text-2); }
+.ptn__where .icon { flex-shrink: 0; width: .9rem; height: .9rem; }
+.ptn__where > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 559px) {
+  /* On a phone: "3 of 15" above, the two patients side by side */
+  .ptn { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "pos pos" "prev next"; gap: 6px 8px; }
+  .ptn__pos { justify-self: center; }
+  .ptn__side { gap: 8px; padding: 10px 10px 10px 8px; }
+  .ptn__side--next { padding: 10px 8px 10px 10px; }
+  .ptn__arrow { width: 30px; height: 30px; }
+}
+
 /* The tiles: across the top, then the columns (stacked on a phone) */
 .ptb { display: flex; flex-direction: column; gap: 14px; }
 .ptb__top { display: flex; flex-wrap: wrap; gap: 14px; }
