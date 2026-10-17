@@ -24,6 +24,7 @@ import { openColumns, renameColumn, setupLocation } from './columns.js';
 import { openArrange } from './arrange.js';
 import { boardOf, changeTile, savedBoard, withCols } from './board.js';
 import { removeList, renameList } from './manage.js';
+import { keepNotes, mountNotes, notesSlot } from './notes.js';
 
 const AUTO_REFRESH_MS = 3 * 60 * 1000;
 const FRESH_MS = 15_000; // opening the screen again within this doesn't reload
@@ -112,10 +113,12 @@ function render() {
   const v = list.view();
   const focused = view.contains(document.activeElement) ? document.activeElement.closest('[data-focus]')?.dataset.focus : null;
   const menu = html`<button type="button" class="icon-btn" data-action="ward:menu" aria-label="Options for ${v.name}" data-focus="menu">${icon('more')}</button>`;
+  keepNotes(view);
   setHTML(view, html`<div class="ward accent-neuro">
     ${subHead({ title: v.name, back: 'Neurology', fallback: '', accent: 'neuro', actions: menu, eyebrow: v.link ? `${v.link.title || 'Logsheet'} · ${v.link.tab}` : '' })}
     ${v.link ? linkedBody(v) : setupBody(v)}
   </div>`);
+  mountNotes(view, list.id);
   measureClamps();
   if (focused) view.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
 }
@@ -147,6 +150,7 @@ const roundsSpan = (L) => `${roundsCols(L)[0]}–${roundsCols(L)[2]}`;
 function linkedBody(v) {
   return html`${banners(v)}
     ${v.hidden.rounded ? '' : roundsCard(v)}
+    ${notesSlot('list')}
     ${statusLine(v)}
     ${v.cache && v.patients.length ? arrangeBar(v) : ''}
     ${v.cache ? patientTable(v) : html`<div class="card empty">${icon(v.phase === 'loading' ? 'refresh' : 'sheet')}<span>${v.phase === 'loading' ? 'Loading your logsheet…' : 'The list will appear here once the logsheet loads.'}</span></div>`}
@@ -678,6 +682,7 @@ function detailBody(p, v, { editing = false } = {}) {
     <div class="ptb__main">
       ${v.hidden.rounded ? '' : roundsBox(p, v)}
       ${patientNav(p, v)}
+      ${notesSlot('patient')}
       ${editing ? boardSetup(v, board, byCol) : ''}
       <div class="ptb ptb--c${board.cols} ptb--w${board.wide}${editing ? ' is-editing' : ''}">
         ${top.length ? html`<div class="ptb__top">${top}</div>` : ''}
@@ -705,7 +710,9 @@ async function openPatient(openId) {
     const v = current()?.view();
     if (!body || !dialog.open || !v) return;
     const focused = document.activeElement?.closest?.('[data-focus]')?.dataset.focus;
+    keepNotes(body);
     setHTML(body, detailBody(v.patients.find((x) => x.id === id) ?? null, v, { editing }));
+    mountNotes(body, listId);
     if (focused) {
       const again = body.querySelector(`[data-focus="${focused}"]`);
       (again && !again.disabled ? again : body.querySelector('[data-dact="customize"]'))?.focus({ preventScroll: true });
@@ -755,6 +762,7 @@ async function openPatient(openId) {
     onOpen(dlg, close) {
       dialog = dlg;
       dlg.setAttribute('aria-labelledby', 'ptb-title');
+      mountNotes(dlg.querySelector('.dlg__body'), listId);
       dlg.addEventListener('click', async (event) => {
         const tool = event.target.closest('[data-bact]');
         if (tool) {
@@ -1196,6 +1204,7 @@ async function renderHistory() {
   const [days, names] = [await list.history(), list.namesByKey()];
   if (showing !== 'history') return;
   const now = Date.now();
+  keepNotes(view);
   setHTML(view, html`<div class="ward accent-neuro">
     ${subHead({ title: 'Rounds history', back: list.name, fallback: `list/${list.id}`, accent: 'neuro', eyebrow: list.name,
       actions: days.length ? html`<button type="button" class="btn btn--sm btn--ghost" data-action="ward:history-delete">Delete</button>` : '' })}
