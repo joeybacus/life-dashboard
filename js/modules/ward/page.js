@@ -672,6 +672,7 @@ function detailBody(p, v, { editing = false } = {}) {
       <div class="ptb__who">
         <h2 class="ptb__name" id="ptb-title">${p.name}</h2>
         <p class="ptd__meta">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet</p>
+        ${p.location ? html`<p class="ptb__loc">${icon('pin')}<span class="sr-only">Location: </span><span>${p.location}</span></p>` : ''}
         ${badges(p, v, { detail: true })}
       </div>
       <div class="ptb__acts">
