@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 18
+SCRIPT_VERSION = 19
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -1253,6 +1253,45 @@ check('v18: a backup in the trash can\'t be restored from the app', gas('post', 
 st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
 check('v18: no Drive permission → the app is told', gas('post', {**base, 'action': 'driveBackupSave', 'name': 'LifeDashboard_Backup_z.json', 'data': backup_text(9)}).get('error') == 'backup-needs-permission')
 st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
+
+
+# Version 19: more from Apple Health (healthDaily)
+print('\nVersion 19: steps, sleep, heart rate, energy and body fat from Apple Health')
+set_now('2026-10-19T02:00:00.000Z')  # 10:00 in Manila
+
+
+def bm(id_):
+    s_ = sheet(gas('dump'), 'Body measurements')
+    hdr = s_['rows'][0]
+    row = next((r for r in s_['rows'][1:] if r and r[0] == id_), None)
+    return json.loads(row[hdr.index('json')]) if row and 'json' in hdr else (json.loads(row[5]) if row else None)
+
+
+res = gas('post', {**base, 'action': 'healthDaily', 'steps': '8,231', 'sleep': '7h 12m', 'restingHeartRate': '58 count/min', 'activeEnergy': '2140 kJ', 'bodyFat': '0.185'})
+check('v19: a day\'s numbers are saved, one row each', res.get('ok') and res.get('added') == 5, res)
+check('v19: steps (with a thousands comma)', (bm('health-steps-2026-10-19') or {}).get('value') == 8231, bm('health-steps-2026-10-19'))
+check('v19: sleep "7h 12m" is 7.2 hours', (bm('health-sleep-2026-10-19') or {}).get('value') == 7.2, bm('health-sleep-2026-10-19'))
+check('v19: kJ become kcal, 0.185 becomes 18.5 %', (bm('health-activeEnergy-2026-10-19') or {}).get('value') == 511 and (bm('health-bodyFat-2026-10-19') or {}).get('value') == 18.5,
+      (bm('health-activeEnergy-2026-10-19'), bm('health-bodyFat-2026-10-19')))
+check('v19: marked as from Apple Health, at midday that day', (bm('health-restingHeartRate-2026-10-19') or {}).get('source') == 'health'
+      and bm('health-restingHeartRate-2026-10-19')['measuredAt'] == '2026-10-19T04:00:00.000Z' and bm('health-restingHeartRate-2026-10-19')['value'] == 58)
+check('v19: the message says what was saved', 'Saved to Life Dashboard: 8,231 steps · 7 h 12 min sleep' in res.get('message', ''), res.get('message'))
+res = gas('post', {**base, 'action': 'healthDaily', 'steps': '8231'})
+check('v19: the same number again changes nothing', res.get('ok') and res.get('added') == 0 and res.get('message') == 'Already up to date.', res)
+set_now('2026-10-19T12:00:00.000Z')
+res = gas('post', {**base, 'action': 'healthDaily', 'steps': '12004'})
+check('v19: later in the day, the day\'s steps are updated', res.get('added') == 1 and bm('health-steps-2026-10-19')['value'] == 12004, res)
+r = bm('health-sleep-2026-10-19')
+push([('bodyMeasurements', {**r, 'deletedAt': '2026-10-19T12:01:00.000Z', 'updatedAt': '2026-10-19T12:01:00.000Z'})])
+res = gas('post', {**base, 'action': 'healthDaily', 'sleep': '6.5'})
+check('v19: a day\'s number you deleted in the app never comes back', bm('health-sleep-2026-10-19')['deletedAt'] and res.get('added') == 0, res)
+res = gas('post', {**base, 'action': 'healthDaily', 'days': [{'date': '2026-10-17', 'sleep': '7:30', 'steps': '9000'}, {'date': '2026-10-18', 'sleep': '450'}, {'date': '2026-10-16', 'sleep': '25200'}, {'date': '2026-10-25', 'steps': '1'}]})
+check('v19: several days at once; minutes, seconds and "h:mm" for sleep; no future days', res.get('added') == 4 and bm('health-sleep-2026-10-17')['value'] == 7.5
+      and bm('health-sleep-2026-10-16')['value'] == 7
+      and bm('health-sleep-2026-10-18')['value'] == 7.5 and bm('health-steps-2026-10-25') is None and res['problems'], res)
+res = gas('post', {**base, 'action': 'healthDaily', 'restingHeartRate': '900', 'steps': 'lots'})
+check('v19: numbers that can\'t be right are refused, with the reason', not res.get('ok') and res.get('error') == 'bad-health' and len(res['problems']) == 2, res)
+check('v19: weights still work as before', gas('post', {**base, 'action': 'healthWeight', 'value': '78.4', 'unit': 'kg', 'date': '2026-10-19T07:00:00+08:00'}).get('ok'))
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

@@ -26,6 +26,7 @@ import { initFocusBar } from './modules/focus/page.js';
 import { initReminders } from './modules/todo/reminders.js';
 import { initCalendarLink } from './modules/todo/calendar-link.js';
 import { initDriveBackup } from './services/drive-backup.js';
+import './modules/search.js'; // search everywhere: ⌘K, /, the + button and the dashboard
 import { initDashboard } from './screens/dashboard.js';
 import { initSettings } from './screens/settings.js';
 import { maybeShowWelcome } from './screens/welcome.js';

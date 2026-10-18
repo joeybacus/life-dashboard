@@ -38,6 +38,8 @@ import { mountTemplateEditor, templateCards, templatePage } from './workout/temp
 import { exportWorkoutsCsv, importHevyFile } from './workout/transfer.js';
 import { statsPage } from './workout/stats.js';
 import { healthPage } from './health/page.js';
+import { formatValue as formatHealth } from './health/model.js';
+import { addDays as manilaAddDays, todayKey as manilaToday } from '../core/manila.js';
 import { photosPage } from './photos/page.js';
 import { initPhotoTransfers } from './photos/transfer.js';
 import { computeRecords, finished, insights, percentChange, summarize, between } from './workout/analytics.js';
@@ -73,6 +75,7 @@ export async function loadWorkoutModel(now = new Date()) {
     split,
     suggestion: suggestNext(split, completed),
     weight: weightSummary(measurements),
+    activity: activitySummary(measurements),
     records,
     month: monthSummary(done, now),
     insights: insights(done, records, now, { nameOf: (id, fallback) => library.get(id)?.name ?? fallback }),
@@ -98,6 +101,17 @@ function monthSummary(done, now) {
   const current = summarize(between(done, start));
   const last = summarize(between(done, lastStart, lastEnd));
   return { ...current, lastCount: last.count, volumePct: percentChange(last.volume, current.volume) };
+}
+
+/** Today's steps and last night's sleep from Apple Health (0.10.0), if they came today or yesterday. */
+function activitySummary(measurements) {
+  const today = manilaToday();
+  const recent = [today, manilaAddDays(today, -1)];
+  const latest = (kind) => measurements.filter((r) => r.kind === kind && !r.deletedAt && recent.includes(r.date ?? manilaToday(Date.parse(r.measuredAt))))
+    .sort((a, b) => String(b.date ?? b.measuredAt).localeCompare(String(a.date ?? a.measuredAt)))[0] ?? null;
+  const steps = latest('steps');
+  const sleep = latest('sleep');
+  return steps || sleep ? { steps, sleep, today } : null;
 }
 
 function weightSummary(measurements) {
@@ -202,7 +216,17 @@ registerModule({
       value = 'Completed';
       sub = `${m.todays[0].title} · ${formatDuration(workoutDuration(m.todays[0]))}`;
     }
-    return [{ id: 'workout', order: 30, icon: 'dumbbell', accent: 'workout', label: 'Workout', value, sub, action: 'nav', data: { route: 'workout', sub: m.active ? 'log' : '' } }];
+    const tiles = [{ id: 'workout', order: 30, icon: 'dumbbell', accent: 'workout', label: 'Workout', value, sub, action: 'nav', data: { route: 'workout', sub: m.active ? 'log' : '' } }];
+    const a = m.activity;
+    if (a?.steps) {
+      tiles.push({ id: 'steps', order: 45, icon: 'footprints', accent: 'workout', label: 'Steps', value: formatHealth('steps', a.steps.value, { unit: false }),
+        sub: a.steps.date === a.today ? 'Today · Apple Health' : 'Yesterday · Apple Health', action: 'nav', data: { route: 'workout', sub: 'health/steps' } });
+    }
+    if (a?.sleep) {
+      tiles.push({ id: 'sleep', order: 46, icon: 'moon', accent: 'workout', label: 'Sleep', value: formatHealth('sleep', a.sleep.value),
+        sub: a.sleep.date === a.today ? 'Last night' : 'The night before', action: 'nav', data: { route: 'workout', sub: 'health/sleep' } });
+    }
+    return tiles;
   },
 });
 

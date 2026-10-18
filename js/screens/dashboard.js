@@ -188,7 +188,8 @@ function renderHero() {
           : ''}
         ${syncChip()}
       </div>
-    </div>`);
+    </div>
+    <button type="button" class="icon-btn hero__search" data-action="search:open" aria-label="Search everything" title="Search (⌘K)">${icon('search')}</button>`);
 }
 
 function syncChip() {

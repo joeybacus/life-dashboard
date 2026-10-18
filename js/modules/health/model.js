@@ -5,7 +5,9 @@
 
    {
      id, createdAt, updatedAt, deletedAt,
-     kind: 'weight' | 'height' | 'waist' | 'chest' | 'arms' | 'hips' | 'thighs' | 'bodyFat',
+     kind: 'weight' | 'height' | 'waist' | 'chest' | 'arms' | 'hips' | 'thighs' | 'bodyFat'
+           | 'steps' | 'sleep' | 'restingHeartRate' | 'activeEnergy'   (a day's number, 0.10.0)
+     date,             a day's number only: the Manila day it's for (id "health-<kind>-<date>")
      valueKg,          weight only (the name used since Phase 1)
      value,            every other kind: cm, or % for body fat
      measuredAt,       ISO time of the weigh-in or measurement
@@ -30,7 +32,14 @@ export const KINDS = {
   thighs: { label: 'Thighs', unit: 'cm', min: 10, max: 150, decimals: 1, hint: 'At the widest part' },
   bodyFat: { label: 'Body fat', unit: '%', min: 2, max: 75, decimals: 1 },
   height: { label: 'Height', unit: 'cm', min: 50, max: 260, decimals: 1 },
+  // A day's numbers, sent from Apple Health by the Shortcut (sync script 19) — or typed in
+  steps: { label: 'Steps', unit: 'steps', min: 0, max: 200000, decimals: 0, daily: true, icon: 'footprints' },
+  sleep: { label: 'Sleep', unit: 'h', min: 0.25, max: 24, decimals: 2, daily: true, icon: 'moon', hint: 'The night before that day, in hours' },
+  restingHeartRate: { label: 'Resting heart rate', unit: 'bpm', min: 20, max: 250, decimals: 0, daily: true, icon: 'heart' },
+  activeEnergy: { label: 'Active energy', unit: 'kcal', min: 0, max: 20000, decimals: 0, daily: true, icon: 'flame' },
 };
+/** The day's numbers, in the order the Health page shows them. */
+export const DAILY = ['steps', 'sleep', 'restingHeartRate', 'activeEnergy'];
 /** The measurements listed on the Health page, in order. */
 export const MEASUREMENTS = ['waist', 'chest', 'arms', 'hips', 'thighs', 'bodyFat'];
 
@@ -43,6 +52,10 @@ const round = (n, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
 export function formatValue(kind, value, { unit = true } = {}) {
   if (value == null || !Number.isFinite(value)) return '—';
   const k = KINDS[kind] ?? KINDS.weight;
+  if (kind === 'sleep' && unit) {
+    const mins = Math.round(value * 60);
+    return `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} min`;
+  }
   const text = new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: k.decimals }).format(round(value, k.decimals));
   return unit ? `${text}${k.unit === '%' ? ' %' : ` ${k.unit}`}` : text;
 }
@@ -182,6 +195,7 @@ export const healthChanged = () => emit('data', { reason: 'health' });
 /** Save an entry (new or edited); returns the saved record. */
 export async function saveMeasurement(entry) {
   const record = stamp({ source: 'manual', note: '', ...entry });
+  if (KINDS[record.kind]?.daily && !record.date) record.date = new Date(Date.parse(record.measuredAt) + 8 * 3600e3).toISOString().slice(0, 10); // its Manila day
   if (record.kind === 'weight') delete record.value;
   else delete record.valueKg;
   await saveRecord('bodyMeasurements', record);
@@ -202,4 +216,20 @@ export async function deleteMeasurement(id) {
 export async function restoreMeasurement(record) {
   await saveRecord('bodyMeasurements', stamp({ ...record, deletedAt: null }));
   healthChanged();
+}
+
+/* ---------- A day's numbers (0.10.0) ---------- */
+
+/**
+ * One day's number: the latest day with one (and how long ago), plus the
+ * average of the last 7 days that have one. → { latest, avg7, days7 } or null.
+ */
+export function dailySummary(records, kind, now = new Date()) {
+  const list = entriesOf(records, kind);
+  const latest = list.at(-1);
+  if (!latest) return null;
+  const from = addDays(startOfDay(now), -6).getTime();
+  const week = list.filter((e) => Date.parse(e.measuredAt) >= from);
+  const avg7 = week.length ? round(week.reduce((s, e) => s + valueOf(e), 0) / week.length, KINDS[kind].decimals) : null;
+  return { latest, avg7, days7: week.length };
 }

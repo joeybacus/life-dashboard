@@ -320,7 +320,7 @@ async function deliver(file, done) {
 const EXPORTS = [
   { value: 'tasks', label: 'Tasks (CSV)', icon: 'checklist', detail: 'Every task, with its day, time, category and notes' },
   { value: 'workouts', label: 'Workouts (CSV)', icon: 'dumbbell', detail: 'Every set, in Hevy’s columns (kg)' },
-  { value: 'measurements', label: 'Weight & measurements (CSV)', icon: 'scale', detail: 'Weigh-ins and body measurements' },
+  { value: 'measurements', label: 'Weight & measurements (CSV)', icon: 'scale', detail: 'Weigh-ins, measurements, steps, sleep and heart rate' },
   { value: 'habits', label: 'Habits (CSV)', icon: 'flame', detail: 'Each habit on each day: due, done' },
   { value: 'focus', label: 'Focus sessions (CSV)', icon: 'timer', detail: 'When, how long, which task' },
   { value: 'stats', label: 'Exercise stats (CSV)', icon: 'chart', detail: 'Times done, heaviest, best est. 1-rep max, volume' },

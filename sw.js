@@ -2,7 +2,7 @@
    Strategy: always try the network first (so you get updates right away),
    and fall back to the saved copy when offline or the network is too slow.
    When adding files in a later phase, add them to SHELL and bump CACHE_VERSION. */
-const CACHE_VERSION = 'v0.9.0';
+const CACHE_VERSION = 'v0.10.0';
 const CACHE = `life-dashboard-${CACHE_VERSION}`;
 const NETWORK_TIMEOUT_MS = 3500;
 
@@ -103,6 +103,7 @@ const SHELL = [
   'js/modules/calendar/items.js',
   'js/modules/calendar/page.js',
   'js/modules/calendar/editor.js',
+  'js/modules/search.js',
   'js/modules/focus/page.js',
   'js/modules/habits/convert.js',
   'js/modules/habits/model.js',

@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 18;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept)
+const SCRIPT_VERSION = 19;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -201,6 +201,7 @@ function doPost(e) {
     if (req.action === 'push') return json_(push_(ss, props, req));
     if (req.action === 'pull') return json_(pull_(ss, props, req));
     if (req.action === 'healthWeight') return json_(healthWeight_(ss, props, req));
+    if (req.action === 'healthDaily') return json_(healthDaily_(ss, props, req));
     if (CAL_ACTIONS[req.action]) return json_(CAL_ACTIONS[req.action](ss, props, req));
     return json_({ ok: false, error: 'bad-action' });
   } catch (err) {
@@ -604,6 +605,117 @@ function healthWeight_(ss, props, req) {
   else if (fresh.length) message = 'Saved ' + healthKgText_(fresh[fresh.length - 1].valueKg) + ' to Life Dashboard (' + shownTime_(fresh[fresh.length - 1].measuredAt) + ').';
   else message = 'Already saved: ' + healthKgText_(latest.valueKg) + ' (' + shownTime_(latest.measuredAt) + ').';
   return { ok: records.length > 0, error: records.length ? undefined : 'bad-weight', version: SCRIPT_VERSION, added: fresh.length, skipped: records.length - fresh.length, problems: problems, message: message };
+}
+
+/* ---------- More from Apple Health (version 19) ----------
+ * The Shortcut can also send a day's numbers (all optional):
+ *   { token, protocol: 1, action: 'healthDaily', date: '2026-10-19',
+ *     steps: '8231', sleep: '7.2' (hours; "7:12", "7h 12m" and minutes work too),
+ *     restingHeartRate: '58', activeEnergy: '512' (kcal; "2140 kJ" is changed),
+ *     bodyFat: '18.5' (%, or 0.185) }
+ * or several days: days: [{ date, steps, … }, …] (at most 62). No date means today
+ * (Manila). Each number becomes one Body measurements row per day (id from the
+ * kind and the day), so running the Shortcut again later in the day updates that
+ * day's steps or energy. A day's number you deleted in the app never comes back.
+ */
+const HEALTH_DAILY = {
+  steps: { keys: ['steps', 'stepCount'], min: 0, max: 200000, decimals: 0, unit: 'steps' },
+  sleep: { keys: ['sleep', 'sleepHours', 'sleepAnalysis'], min: 0.25, max: 24, decimals: 2, unit: 'h' },
+  restingHeartRate: { keys: ['restingHeartRate', 'restingHR', 'resting'], min: 20, max: 250, decimals: 0, unit: 'bpm' },
+  activeEnergy: { keys: ['activeEnergy', 'activeCalories', 'activeEnergyBurned'], min: 0, max: 20000, decimals: 0, unit: 'kcal' },
+  bodyFat: { keys: ['bodyFat', 'bodyFatPercentage'], min: 2, max: 75, decimals: 1, unit: '%' },
+};
+
+/** A day's number from what the Shortcut sent, or null. */
+function healthDailyValue_(kind, raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const spec = HEALTH_DAILY[kind];
+  const text = String(raw).trim().toLowerCase().replace(/(\d),(\d{3})(?!\d)/g, '$1$2').replace(',', '.');
+  let n;
+  if (kind === 'sleep') {
+    const hm = text.match(/^(\d{1,2}):(\d{2})/) || text.match(/(\d+(?:\.\d+)?)\s*h(?:ours?|rs?|r)?\s*(?:(\d+)\s*m)?/);
+    if (hm) n = Number(hm[1]) + (hm[2] ? Number(hm[2]) / 60 : 0);
+    else {
+      const m = text.match(/(\d+(?:\.\d+)?)\s*(m(?:in)?)?/);
+      if (!m) return null;
+      n = Number(m[1]);
+      if (/sec/.test(text) || (!m[2] && n > 1440)) n = n / 3600; // seconds (a Shortcut's "Duration" total)
+      else if (m[2] || n > 24) n = n / 60;                      // minutes
+    }
+  } else {
+    const m = text.match(/-?\d+(?:\.\d+)?/);
+    if (!m) return null;
+    n = Number(m[0]);
+    if (kind === 'activeEnergy' && /kj/.test(text)) n = n / 4.184;
+    if (kind === 'bodyFat' && n > 0 && n < 1) n = n * 100;
+  }
+  if (!isFinite(n)) return null;
+  const f = Math.pow(10, spec.decimals);
+  n = Math.round(n * f) / f;
+  return n >= spec.min && n <= spec.max ? n : null;
+}
+
+function healthDaily_(ss, props, req) {
+  const days = Array.isArray(req.days) ? req.days.slice(0, 62) : [req];
+  const now = now_();
+  const today = shownDate_(now);
+  const stampIso = now.toISOString();
+  const sheet = ss.getSheetByName(tabName_('bodyMeasurements'));
+  const have = {};
+  if (sheet) {
+    dataRows_(sheet, HEADER.length).forEach(function (row) {
+      if (!row[COL.id]) return;
+      try { have[row[COL.id]] = JSON.parse(row[COL.json]); } catch (err) { have[row[COL.id]] = {}; }
+    });
+  }
+  const records = [];
+  const saved = [];
+  const problems = [];
+  let kept = 0;
+  days.forEach(function (d) {
+    if (!d || typeof d !== 'object') return;
+    let date = String(d.date || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const at = date ? new Date(date) : now;
+      date = isNaN(at.getTime()) ? today : shownDate_(at);
+    }
+    if (date > today) {
+      problems.push(date + ' is in the future');
+      return;
+    }
+    Object.keys(HEALTH_DAILY).forEach(function (kind) {
+      const spec = HEALTH_DAILY[kind];
+      const key = spec.keys.filter(function (k) { return d[k] !== undefined && d[k] !== null && d[k] !== ''; })[0];
+      if (!key) return;
+      const value = healthDailyValue_(kind, d[key]);
+      if (value === null) {
+        problems.push('“' + String(d[key]) + '” isn’t a ' + kind + ' value');
+        return;
+      }
+      const id = 'health-' + kind + '-' + date;
+      const old = have[id];
+      if (old && (old.deletedAt || Number(old.value) === value)) { kept += 1; return; } // deleted in the app, or the same
+      records.push({
+        id: id, createdAt: old && old.createdAt ? old.createdAt : stampIso, updatedAt: stampIso, deletedAt: null,
+        kind: kind, value: value, measuredAt: manilaTime_(date, '12:00').toISOString(), date: date, source: 'health', note: '',
+      });
+      saved.push(healthDailyText_(kind, value));
+    });
+  });
+  if (records.length) {
+    push_(ss, props, { records: records.map(function (r) { return { store: 'bodyMeasurements', record: r }; }), deviceId: HEALTH_DEVICE, sinceSeq: 0 });
+  }
+  const message = records.length ? 'Saved to Life Dashboard: ' + saved.slice(0, 6).join(' · ') + (saved.length > 6 ? ' …' : '') + '.'
+    : kept ? 'Already up to date.' : 'Nothing saved: ' + (problems[0] || 'no numbers were sent') + '.';
+  return { ok: records.length > 0 || kept > 0, error: records.length || kept ? undefined : 'bad-health', version: SCRIPT_VERSION, added: records.length, kept: kept, problems: problems, message: message };
+}
+
+function healthDailyText_(kind, value) {
+  if (kind === 'sleep') return Math.floor(value) + ' h ' + Math.round((value % 1) * 60) + ' min sleep';
+  if (kind === 'steps') return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' steps';
+  if (kind === 'restingHeartRate') return value + ' bpm resting';
+  if (kind === 'activeEnergy') return value + ' kcal active';
+  return value + '% body fat';
 }
 
 /** A weight in kg (1 decimal) from the Shortcut's value and unit, or null if it isn't one. */

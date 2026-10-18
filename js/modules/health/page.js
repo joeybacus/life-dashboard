@@ -17,7 +17,7 @@ import { rangeInfo, rangeStart } from '../workout/analytics.js';
 import { shortcutDetails } from '../../services/sync.js';
 import { fillImages, photoStrip } from '../photos/page.js';
 import {
-  KINDS, MEASUREMENTS, bmi, bmiCategory, changeOver, deleteMeasurement, entriesOf, formatChange, formatValue, goalProgress,
+  DAILY, KINDS, MEASUREMENTS, bmi, dailySummary, bmiCategory, changeOver, deleteMeasurement, entriesOf, formatChange, formatValue, goalProgress,
   healthyRange, latestOf, loadMeasurements, restoreMeasurement, saveMeasurement, trendOf, valueOf, weeklyRate,
 } from './model.js';
 
@@ -96,6 +96,12 @@ function renderMain(records) {
       <div class="card card--pad hl-chart">${weightChart(weights, trend, goal.goalKg)}</div>
     </section>` : ''}
 
+    <section class="section" aria-labelledby="hl-act-title">
+      <div class="section__head"><h2 class="section__title" id="hl-act-title">Activity and sleep</h2>
+        <button type="button" class="text-btn" data-action="health:shortcut">Apple Health</button></div>
+      ${activityCard(records, now)}
+    </section>
+
     <div data-ph-strip></div>
 
     <section class="section" aria-labelledby="hl-goal-title">
@@ -157,6 +163,28 @@ function weightChart(weights, trendAll, goalKg) {
     legend: { points: 'Weigh-ins', trend: 'Trend', goal: 'Goal' },
     xLabels: points.length > 1 ? [fmt.format(first), fmt.format(last)] : [fmt.format(first)],
   });
+}
+
+/** Steps, sleep, resting heart rate and active energy: the latest day and the 7-day average (Apple Health, 0.10.0). */
+function activityCard(records, now) {
+  const rows = DAILY.map((kind) => ({ kind, s: dailySummary(records, kind, now) }));
+  if (!rows.some((r) => r.s)) {
+    return html`<div class="card card--pad hl-empty">${icon('footprints')}
+      <div><p><strong>Steps, sleep and heart rate</strong></p><p class="muted">An Apple Shortcut can send them from Apple Health every evening, with your body fat too.</p></div>
+      <button type="button" class="btn" data-action="health:shortcut">${icon('sparkles')}Set it up</button></div>`;
+  }
+  const dayWord = (e, kind) => {
+    const d = e.date ?? new Date(Date.parse(e.measuredAt) + 8 * 3600e3).toISOString().slice(0, 10);
+    const day = formatRelativeDay(new Date(`${d}T12:00:00+08:00`), now);
+    if (kind !== 'sleep') return day;
+    return day === 'Today' ? 'Last night' : `Night before ${day === 'Yesterday' ? 'yesterday' : day}`;
+  };
+  return html`<dl class="stat-grid hl-act">${rows.map(({ kind, s }) => html`<div class="stat stat--link">
+    <dt>${icon(KINDS[kind].icon)}${KINDS[kind].label}</dt>
+    <dd class="stat__value">${s ? formatValue(kind, valueOf(s.latest)) : '—'}</dd>
+    <dd class="stat__sub">${s ? `${dayWord(s.latest, kind)}${s.days7 > 1 ? ` · 7-day avg ${formatValue(kind, s.avg7)}` : ''}` : 'Not sent yet'}</dd>
+    <dd class="stat__hit"><button type="button" data-action="nav" data-route="workout" data-sub="health/${kind}" aria-label="${KINDS[kind].label}. Open its chart"></button></dd>
+  </div>`)}</dl>`;
 }
 
 function goalCard(goal, latest, progress, rate) {
@@ -231,7 +259,7 @@ async function shortcutSheet() {
   await openDialog({
     variant: 'sheet',
     className: 'hl-sheet hl-steps accent-workout',
-    title: 'Apple Health weight',
+    title: 'Apple Health',
     body: html`<div class="hl-steps__body">
       <p class="muted">Set this up once on your iPhone, in the <strong>Shortcuts</strong> app. Then your latest Apple Health weight is sent to your Google Sheet every morning, and appears here marked “From Apple Health”.</p>
       <div class="hl-copy">
@@ -239,7 +267,7 @@ async function shortcutSheet() {
         <button type="button" class="btn btn--sm" data-copy="token">${icon('clipboard')}Copy secret token</button>
       </div>
       <p class="hl-copy__note muted" data-copied aria-live="polite">Keep the token private — anyone with it and the URL can write to your sheet.</p>
-      <h3>1 · Make the Shortcut</h3>
+      <h3>1 · Your weight: make the Shortcut</h3>
       <ol>
         <li>Open <strong>Shortcuts</strong> → tap <strong>+</strong>. Name it “Send weight to Life Dashboard”.</li>
         <li>Add the action <strong>Find Health Samples</strong>. Set <em>Type</em> to <strong>Weight</strong>, <em>Sort by</em> <strong>Start Date</strong>, <em>Order</em> <strong>Latest First</strong>, turn on <em>Limit</em> and set it to <strong>1</strong>.</li>
@@ -261,8 +289,31 @@ async function shortcutSheet() {
         <li>In Shortcuts, open the <strong>Automation</strong> tab → <strong>+</strong> → <strong>Time of Day</strong>, e.g. 10:00 AM, <strong>Daily</strong>.</li>
         <li>Choose <strong>Run Immediately</strong>, tap <strong>Next</strong>, and pick “Send weight to Life Dashboard”.</li>
       </ol>
+      <h3>3 · Steps, sleep and more (optional)</h3>
+      ${d.version < 19 ? html`<p class="hl-note">${icon('info')} This part needs the sync script version 19 (Settings → Sync → Update the sync script).</p>` : ''}
+      <p class="muted">A second Shortcut sends the day’s steps, last night’s sleep, resting heart rate, active energy and body fat. Leave out any you don’t want.</p>
+      <ol start="9">
+        <li>Make a new Shortcut, “Send my day to Life Dashboard”.</li>
+        <li><strong>Steps:</strong> add <strong>Find Health Samples</strong> — <em>Type</em> <strong>Steps</strong>, <em>Start Date</em> <strong>is today</strong>. Then <strong>Calculate Statistics</strong> → <strong>Sum</strong> of the Health Samples.</li>
+        <li><strong>Active energy:</strong> the same with <em>Type</em> <strong>Active Energy</strong> (Sum).</li>
+        <li><strong>Sleep:</strong> <strong>Find Health Samples</strong> — <em>Type</em> <strong>Sleep</strong>, <em>Start Date</em> <strong>is in the last 1 days</strong>, <em>Value</em> <strong>is Asleep</strong> (or <em>Core</em>, <em>Deep</em> and <em>REM</em>). Then <strong>Calculate Statistics</strong> → <strong>Sum</strong> of their <strong>Duration</strong>. Hours, minutes or seconds all work.</li>
+        <li><strong>Resting heart rate</strong> and <strong>body fat:</strong> <strong>Find Health Samples</strong> of that type, <em>Latest First</em>, <em>Limit</em> <strong>1</strong>.</li>
+        <li>Add <strong>Get Contents of URL</strong> with the same URL, <em>Method</em> <strong>POST</strong>, <em>Request Body</em> <strong>JSON</strong>, and these fields:
+          <ul class="hl-fields">
+            ${field('token', 'Text', 'paste the secret token')}
+            ${field('protocol', 'Number', '1')}
+            ${field('action', 'Text', 'healthDaily')}
+            ${field('steps', 'Text', html`the Steps <strong>Statistics</strong> result`)}
+            ${field('sleep', 'Text', html`the Sleep <strong>Statistics</strong> result`)}
+            ${field('restingHeartRate', 'Text', html`that sample’s <strong>Value</strong>`)}
+            ${field('activeEnergy', 'Text', html`the Active Energy <strong>Statistics</strong> result`)}
+            ${field('bodyFat', 'Text', html`that sample’s <strong>Value</strong>`)}
+          </ul></li>
+        <li>Run it each evening: <strong>Automation</strong> → <strong>+</strong> → <strong>Time of Day</strong>, e.g. 9:30 PM, <strong>Daily</strong>, <strong>Run Immediately</strong>. Running it again later the same day updates that day’s numbers.</li>
+      </ol>
       <h3>Good to know</h3>
       <ul>
+        <li>A day’s number you delete here never comes back. Steps and energy are for the day the Shortcut runs; sleep is the night before it.</li>
         <li>A weigh-in already sent is skipped, so running it more often is fine. One you edit or delete here never comes back.</li>
         <li>Weights in pounds are changed to kg. New weigh-ins show up here after the app syncs.</li>
         <li>If you also log the same weigh-in by hand, you’ll have two entries — delete one.</li>
@@ -305,7 +356,7 @@ function entryList(shown, all, kind) {
     const i = all.indexOf(e);
     const prev = i > 0 ? all[i - 1] : null;
     return html`<li><button type="button" class="hl-entry" data-action="health:edit" data-id="${e.id}">
-      <span class="hl-entry__when"><span>${formatShortDate(new Date(e.measuredAt))}</span><small>${formatTime(new Date(e.measuredAt))}${e.source === 'health' ? ' · Apple Health' : ''}${e.sample ? ' · sample' : ''}${e.note ? ` · ${e.note}` : ''}</small></span>
+      <span class="hl-entry__when"><span>${formatShortDate(new Date(e.measuredAt))}</span><small>${KINDS[kind]?.daily ? '' : formatTime(new Date(e.measuredAt))}${e.source === 'health' ? `${KINDS[kind]?.daily ? '' : ' · '}Apple Health` : ''}${e.sample ? ' · sample' : ''}${e.note ? ` · ${e.note}` : ''}</small></span>
       <span class="hl-entry__change">${prev ? formatChange(kind, valueOf(e) - valueOf(prev)) : ''}</span>
       <span class="hl-entry__value">${formatValue(kind, valueOf(e))}</span>
     </button></li>`;
@@ -325,13 +376,13 @@ function renderKind(records, kind) {
   if (inRange.length) {
     const points = inRange.map((e) => {
       const d = new Date(e.measuredAt);
-      return { date: d, value: valueOf(e), readout: { text: `${formatShortDate(d)} · ${formatValue(kind, valueOf(e))}`, sub: formatTime(d) } };
+      return { date: d, value: valueOf(e), readout: { text: `${formatShortDate(d)} · ${formatValue(kind, valueOf(e))}`, sub: k.daily ? (e.source === 'health' ? 'From Apple Health' : 'Typed in') : formatTime(d) } };
     });
     const fmt = points.at(-1).date - points[0].date > 300 * 864e5 ? yearFormat : dayFormat;
     chart = kind === 'weight'
       ? weightChart(list, trend, state.settings.health.goalKg)
       : lineChart({
-        points, label: k.label, format: (v) => formatValue(kind, v, { unit: false }),
+        points, label: k.label, format: (v) => (kind === 'sleep' ? `${Math.round(v * 10) / 10} h` : formatValue(kind, v, { unit: false })),
         xLabels: points.length > 1 ? [fmt.format(points[0].date), fmt.format(points.at(-1).date)] : [fmt.format(points[0].date)],
       });
   }
