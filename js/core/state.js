@@ -76,9 +76,12 @@ export const DEFAULT_SETTINGS = {
     hidden: null,           // Google calendars you've hidden (ids); null = as ticked in Google Calendar
     colors: {},             // your own colour per Google calendar: { id: '#rrggbb' }
     layers: { tasks: true, workouts: true, referrals: true, habits: true }, // the app's own things shown too
+    apple: [],              // Apple Calendar public links (0.8.4): [{ id, name, url }], read by the sync script
+    newEventCal: '',        // the Google calendar new events go into (0.8.2); '' = your main calendar
   },
   backup: {
     reminders: true,        // weekly "back up your data" nudge (not shown while sync works)
+    drive: true,            // a backup in Google Drive every day (0.9.0; needs sync script 18)
   },
   sampleData: {
     enabled: true,          // show generated example data

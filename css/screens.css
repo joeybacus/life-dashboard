@@ -561,3 +561,40 @@ button.glance__tile:active { transform: scale(.97); }
   user-select: all;
   -webkit-user-select: all;
 }
+
+/* ---- Today: all-day chips (0.8.1) ---- */
+.today-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.today-chip {
+  --cal: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--cal) 12%, var(--surface));
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: transform var(--t-fast) var(--ease);
+}
+.today-chip:active { transform: scale(.96); }
+.today-chip__dot { width: 8px; height: 8px; flex: none; border-radius: 3px; background: var(--cal); }
+.today-chip__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-chip__sub { flex: none; font-weight: 500; color: var(--text-2); }
+.today-chip.is-done .today-chip__dot { opacity: .5; }
+.agenda__item.is-done .agenda__title { text-decoration: line-through; }
+.today-note { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: var(--fs-sm); color: var(--text-3); }
+.today-note .icon { width: 1rem; height: 1rem; flex: none; }
+
+/* ---- Restore from Google Drive (0.9.0) ---- */
+.drive-pick .action-item__label .faint { font-weight: 500; }
+.drive-pick__foot { margin-top: 10px; font-size: var(--fs-sm); }
+.drive-pick__foot a { color: var(--brand-ink, var(--brand)); }
+/* Choices with a line of explanation under each (Export data, Drive backups) */
+.export-pick .action-item, .drive-pick .action-item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; text-align: left;
+}
+.export-pick .action-item > .icon, .drive-pick .action-item > .icon { grid-row: 1 / span 2; }
+.export-pick .action-item__detail, .drive-pick .action-item__detail { grid-column: 2; }

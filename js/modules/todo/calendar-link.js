@@ -1,4 +1,4 @@
-/* The Google Calendar link (one way: tasks → events) — the app's side.
+/* The Google Calendar link (tasks → events, and back since 0.8.3) — the app's side.
 
    A task, or a subtask with its own date, with "Add to Google Calendar"
    switched on becomes an event made by your sync script (version 5 for tasks,
@@ -16,7 +16,12 @@
    their events straight away (otherwise the script's 30-minute check does).
    The script reports back in its "Calendar links" tab, which every device
    reads. An event deleted in Calendar is never made again: the app unlinks the
-   item and says so. Sample tasks never go to Calendar. */
+   item and says so. Sample tasks never go to Calendar.
+
+   Two-way (sync script 17): an event you move or rename in Google Calendar
+   comes back in its link (fromCal) while the item itself is unchanged; this
+   device then changes the item to match and says so, with Undo. If you changed
+   the item here too, the app wins and the event follows the item. */
 import { html, raw } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { db } from '../../core/db.js';
@@ -86,10 +91,10 @@ export const autoCalendar = (fields) => Boolean(state.settings?.tasks?.calendar?
 /* ---------- Talking to the script ---------- */
 
 /** Ask the script to bring these items' events up to date now; its answers are kept like a pull. */
-export async function syncEvents(ids = [], { all = false } = {}) {
+export async function syncEvents(ids = [], { all = false, reset = [] } = {}) {
   if (!calendarAvailability().ok) return null;
   try {
-    const res = await callSyncScript('calendarSync', { ids: [...ids].slice(0, 500), all, appUrl: appUrl() });
+    const res = await callSyncScript('calendarSync', { ids: [...ids].slice(0, 500), all, reset: [...reset].slice(0, 500), appUrl: appUrl() });
     lastError = res.error || null;
     const links = Array.isArray(res.links) ? res.links : [];
     if (links.length) {
@@ -268,10 +273,95 @@ async function unlinkDeletedEvents() {
   }
 }
 
+/* ---------- Changed in Google Calendar (sync script 17) ---------- */
+
+const fmtDay = new Intl.DateTimeFormat(undefined, { timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric' });
+const fmtTime = new Intl.DateTimeFormat(undefined, { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' });
+const isKey = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v ?? ''));
+const isTime = (v) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v ?? ''));
+let applying = false;
+
+/** What the item becomes: only the fields Calendar changed, checked. */
+function changedFields(item, change) {
+  const out = {};
+  if (typeof change.title === 'string' && change.title.trim() && change.title.trim() !== item.title) out.title = change.title.trim().slice(0, 200);
+  if (isKey(change.date) && change.date !== item.date) out.date = change.date;
+  if ('startTime' in change && (change.startTime === null || isTime(change.startTime))) out.startTime = change.startTime;
+  if ('endTime' in change && (change.endTime === null || isTime(change.endTime))) out.endTime = change.endTime;
+  if (out.startTime === null) out.endTime = null;
+  return out;
+}
+
+/** Has the item's name, day or time changed here since the script saw it? (Older scripts: by when it was saved.) */
+function changedSince(item, change) {
+  const was = change.was;
+  if (!was || typeof was !== 'object') return String(item.updatedAt ?? '') !== String(change.taskSeen ?? '');
+  const norm = (v) => (v === undefined || v === '' ? null : v);
+  return String(item.title ?? '') !== String(was.title ?? '') || norm(item.date) !== norm(was.date)
+    || norm(item.startTime) !== norm(was.startTime) || norm(item.endTime) !== norm(was.endTime);
+}
+
+function whenWords(f, item) {
+  const date = f.date ?? item.date;
+  const time = 'startTime' in f ? f.startTime : item.startTime;
+  if (!date) return '';
+  const day = fmtDay.format(new Date(`${date}T04:00:00Z`));
+  return time ? `${day}, ${fmtTime.format(new Date(`${date}T${time}:00+08:00`))}` : day;
+}
+
+/**
+ * Items whose event you moved or renamed in Google Calendar: changed here to
+ * match (once — the change is for the item as it was, so a newer edit here wins).
+ */
+async function applyCalendarChanges() {
+  if (applying) return;
+  applying = true;
+  try {
+    const links = [...(await loadLinks()).values()].filter((l) => l.fromCal && l.status === 'linked');
+    for (const l of links) {
+      const kind = l.item === 'subtask' ? 'subtask' : 'task';
+      const store = kind === 'subtask' ? 'subtasks' : 'tasks';
+      const item = await db.get(store, l.id);
+      if (!item || item.deletedAt || !item.addToCalendar || item.sample) continue;
+      if (changedSince(item, l.fromCal)) continue; // changed here since: the app wins
+      const f = changedFields(item, l.fromCal);
+      if (!Object.keys(f).length) continue;
+      const before = { title: item.title, date: item.date, startTime: item.startTime ?? null, endTime: item.endTime ?? null };
+      if (kind === 'subtask') await saveSub({ ...normalizeSub(item), ...f });
+      else await saveTask({ ...normalizeTask(item), ...f });
+      const when = 'date' in f || 'startTime' in f || 'endTime' in f ? whenWords(f, item) : '';
+      const what = f.title ? `renamed “${f.title}”` : '';
+      const message = `Changed in Google Calendar: “${before.title}” ${[what, when ? `now ${when}` : ''].filter(Boolean).join(', ')}.`;
+      toast(message, {
+        icon: 'calendar',
+        duration: 9000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            const now = await db.get(store, l.id);
+            if (!now) return;
+            if (kind === 'subtask') await saveSub({ ...normalizeSub(now), ...before });
+            else await saveTask({ ...normalizeTask(now), ...before });
+            requestSync(1500);
+            // The Sheet may already hold exactly this, so ask for the event to follow the item again
+            await syncEvents([], { reset: [l.id] });
+          },
+        },
+      });
+    }
+  } finally {
+    applying = false;
+  }
+}
+
 export function initCalendarLink() {
   on('sync:pushed', (detail) => { afterPush(detail).catch((err) => console.warn('Calendar update failed', err)); });
   on('data', (event) => {
-    if (event?.reason === 'sync' || event?.reason === 'calendar') unlinkDeletedEvents().catch((err) => console.warn(err));
+    if (event?.reason === 'sync' || event?.reason === 'calendar') {
+      unlinkDeletedEvents().catch((err) => console.warn(err));
+      applyCalendarChanges().catch((err) => console.warn(err));
+    }
   });
   unlinkDeletedEvents().catch(() => {});
+  applyCalendarChanges().catch(() => {});
 }

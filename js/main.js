@@ -25,6 +25,7 @@ import { initFocusTimer } from './modules/focus/timer.js';
 import { initFocusBar } from './modules/focus/page.js';
 import { initReminders } from './modules/todo/reminders.js';
 import { initCalendarLink } from './modules/todo/calendar-link.js';
+import { initDriveBackup } from './services/drive-backup.js';
 import { initDashboard } from './screens/dashboard.js';
 import { initSettings } from './screens/settings.js';
 import { maybeShowWelcome } from './screens/welcome.js';
@@ -102,6 +103,7 @@ async function boot() {
   afterBoot({ isSyncConnected: () => syncSnapshot().connected, connectSync }); // keeps checking a customer's code with your Sheet
   initReminders(); // to-do reminders ring while the app is open; missed ones are listed
   initCalendarLink(); // linked tasks' Google Calendar events follow their changes
+  initDriveBackup(); // the day's backup in Google Drive (sync script 18)
 
   registerServiceWorker();
   requestPersistentStorage();

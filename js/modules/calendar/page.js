@@ -7,16 +7,18 @@ import { html, raw, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { on, state, updateSettings, updateUI } from '../../core/state.js';
 import { subHead } from '../../core/components.js';
-import { openDialog, toast } from '../../core/ui.js';
+import { confirmDialog, openDialog, promptDialog, toast } from '../../core/ui.js';
 import { openPage } from '../../core/router.js';
 import { runAction } from '../../core/actions.js';
 import { formatAgo } from '../../core/dates.js';
 import { addDays, clockOf, formatClock, todayKey, weekdayOf } from '../../core/manila.js';
 import {
-  CAL_SWATCHES, calendarColor, calendarShown, gcalCalendars, gcalProblem, gcalUpdatedAt,
+  CAL_SWATCHES, appleLinks, calendarColor, calendarShown, gcalAppleErrors, gcalCalendars, gcalCanEdit, gcalProblem, gcalReloadKept, gcalUpdatedAt,
 } from '../../services/gcal.js';
+import { uid } from '../../core/ids.js';
 import { calendarItems, daysOf, layers } from './items.js';
 import { openTask } from '../todo/detail.js';
+import { openEventDetails, openEventEditor } from './editor.js';
 import { openSubtask } from '../todo/subtask-sheet.js';
 
 const VIEWS = [
@@ -140,7 +142,8 @@ async function render({ force = false } = {}) {
     : v === 'agenda' ? agendaView(list, range, today)
       : timeView(list, range, today);
   setHTML(view, html`<div class="cal-page accent-todo">
-    ${subHead({ title: 'Calendar', back: 'To Do', fallback: '', accent: 'todo', actions: html`<button type="button" class="btn btn--sm" data-cact="cals">${icon('sliders')}Calendars</button>
+    ${subHead({ title: 'Calendar', back: 'To Do', fallback: '', accent: 'todo', actions: html`<button type="button" class="btn btn--sm btn--accent" data-cact="new">${icon('plus')}Event</button>
+      <button type="button" class="btn btn--sm" data-cact="cals">${icon('sliders')}Calendars</button>
       <button type="button" class="icon-btn" data-cact="refresh" aria-label="Refresh from Google Calendar">${icon('refresh')}</button>` })}
     <div class="cal-bar">
       <div class="cal-bar__nav">
@@ -312,6 +315,12 @@ export async function handleCalendarClick(event) {
     await render({ force: true });
     if (gcalProblem() === 'failed') toast('Google Calendar didn’t answer. Showing what was saved.', { icon: 'info' });
   } else if (act === 'cals') chooseCalendars();
+  else if (act === 'new') {
+    // On the day you're looking at (today when it's on screen)
+    const [from, to] = span();
+    const today = todayKey();
+    await openEventEditor({ date: currentView() === 'day' ? anchor : today >= from && today < to ? today : from });
+  }
   else if (act === 'update') runAction('sync:update');
 }
 
@@ -340,15 +349,6 @@ export function bindCalendarSwipe(el) {
   }, { passive: true });
 }
 
-function whenText(i) {
-  if (i.allDay) {
-    const last = addDays(i.endDate ?? addDays(i.date, 1), -1);
-    return last === i.date ? `${F.long.format(noon(i.date))} · All day` : `${F.monthShort.format(noon(i.date))} – ${F.monthShort.format(noon(last))} · All day`;
-  }
-  const d = todayKey(i.start.getTime());
-  return `${F.long.format(noon(d))} · ${timeOf(i.start)} – ${timeOf(i.end)}`;
-}
-
 async function openItem(i) {
   if (!i) return;
   if (i.kind === 'task') { await openTask(i.ref); return; }
@@ -361,21 +361,7 @@ async function openItem(i) {
     runAction('ref:open', el);
     return;
   }
-  const e = i.event;
-  await openDialog({
-    variant: 'sheet',
-    className: 'cal-detail',
-    title: e.title,
-    body: html`<div class="event-detail" style="--cal: ${i.color}">
-      <p class="event-detail__row">${icon('clock')}<span>${whenText(i)}</span></p>
-      ${e.location ? html`<p class="event-detail__row">${icon('pin')}<span>${e.location}</span></p>` : ''}
-      <p class="event-detail__row">${icon('calendar')}<span class="cal-tag"><span class="cal-tag__dot" aria-hidden="true"></span>${e.calendar}</span></p>
-      ${e.description ? html`<p class="event-detail__desc prose">${e.description.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')}</p>` : ''}
-    </div>`,
-    actions: e.url
-      ? [{ label: 'Close', value: 'close', variant: 'ghost', autofocus: true }, { label: 'Open in Google Calendar', value: 'open', variant: 'primary', href: e.url }]
-      : [{ label: 'Close', value: 'close', variant: 'ghost', autofocus: true }],
-  });
+  await openEventDetails(i.event);
 }
 
 /* ---------- Calendars: which show, their colours, the app's own things ---------- */
@@ -387,18 +373,104 @@ const LAYERS = [
   { id: 'habits', label: 'Habits', iconName: 'repeat' },
 ];
 
+const APPLE_PROBLEMS = {
+  'apple-bad-link': 'That isn’t a public iCloud calendar link. Copy it again (Share Link → Copy).',
+  'apple-not-public': 'iCloud says this calendar isn’t public any more. Turn Public Calendar back on, or add its new link.',
+  'apple-needs-auth': 'The sync script needs permission to read web links: in Apps Script choose setup, click Run and allow access.',
+  'apple-failed': 'Couldn’t read it just now. It tries again by itself.',
+};
+
+/** A row for a calendar: show it or not, and its colour. */
+function calRow(c, extra = '') {
+  return html`<li class="cal-pick__row" style="--cal: ${calendarColor(c)}">
+      <label class="cal-pick__name"><input type="checkbox" class="switch" data-cal="${c.id}"${calendarShown(c) ? raw(' checked') : ''}>
+        <span>${c.name}${c.primary ? html` <span class="faint">· yours</span>` : c.tasks ? html` <span class="faint">· your to-dos</span>` : c.apple || c.owned ? '' : html` <span class="faint">· subscribed</span>`}</span></label>
+      <span class="cal-pick__swatches" role="group" aria-label="Colour for ${c.name}">${CAL_SWATCHES.map((hex) => html`<button type="button" class="cal-swatch" data-color="${hex}" data-cal-color="${c.id}" style="--sw: ${hex}"
+        aria-label="${hex}" aria-pressed="${calendarColor(c).toLowerCase() === hex ? 'true' : 'false'}"></button>`)}</span>
+      ${extra}
+    </li>`;
+}
+
+/** Apple Calendar: your public iCloud links, read by the sync script (read only). */
+function appleBody() {
+  const links = appleLinks();
+  const byId = new Map(gcalCalendars().filter((c) => c.apple).map((c) => [c.id, c]));
+  const errors = gcalAppleErrors();
+  const remove = (l) => html`<button type="button" class="btn btn--sm btn--ghost cal-pick__remove" data-apple-remove="${l.id}">${icon('trash')}Remove</button>`;
+  return html`
+    <h3 class="cal-pick__title">Apple Calendar</h3>
+    ${links.length ? html`<ul class="cal-pick__list">${links.map((l) => {
+      const id = `apple:${l.id}`;
+      const c = byId.get(id) ?? { id, name: l.name || 'Apple Calendar', apple: true, owned: false, shown: true };
+      const problem = errors[id] && (APPLE_PROBLEMS[errors[id]] ?? APPLE_PROBLEMS['apple-failed']);
+      return calRow(c, html`${problem ? html`<span class="cal-pick__problem">${icon('info')}${problem}</span>` : ''}${remove(l)}`);
+    })}</ul>` : ''}
+    ${gcalCanEdit() ? '' : html`<p class="faint cal-pick__note">Apple Calendar needs the sync script version 17 (Settings → Sync → Update the sync script).</p>`}
+    <button type="button" class="btn btn--sm" data-apple-add${appleLinks().length >= 6 ? raw(' disabled') : ''}>${icon('plus')}Add an Apple calendar</button>
+    <details class="cal-pick__how"><summary>How to get the link on your iPhone</summary>
+      <ol>
+        <li>Open the <strong>Calendar</strong> app and tap <strong>Calendars</strong> at the bottom.</li>
+        <li>Tap <strong>ⓘ</strong> next to the calendar you want.</li>
+        <li>Switch on <strong>Public Calendar</strong>, then tap <strong>Share Link…</strong> → <strong>Copy</strong>.</li>
+        <li>Come back here, tap <strong>Add an Apple calendar</strong> and paste.</li>
+      </ol>
+      <p class="faint">Shown here read-only: change those events on your iPhone or Mac. Anyone with a public link can see that calendar, so keep the link to yourself. Changes show within about 5 minutes, or tap Refresh.</p>
+    </details>`;
+}
+
+async function addAppleLink() {
+  const text = await promptDialog({
+    title: 'Add an Apple calendar',
+    label: 'Its public link (from Share Link → Copy)',
+    placeholder: 'webcal://p…-caldav.icloud.com/published/2/…',
+    confirmLabel: 'Next',
+    maxLength: 700,
+    required: true,
+    dismissible: false,
+  });
+  if (!text) return false;
+  const url = text.trim().replace(/^webcals?:\/\//i, 'https://');
+  if (!/^https:\/\/[a-z0-9.-]+\.icloud\.com\/published\/\S+$/i.test(url)) {
+    toast('That doesn’t look like a public iCloud calendar link. It starts with webcal:// and has “icloud.com/published” in it.', { icon: 'info', duration: 8000 });
+    return false;
+  }
+  if (appleLinks().some((l) => l.url.replace(/^webcals?:\/\//i, 'https://') === url)) {
+    toast('That calendar is already here.', { icon: 'info' });
+    return false;
+  }
+  const name = await promptDialog({
+    title: 'Name it',
+    label: 'Name (leave it empty to use the calendar’s own name)',
+    placeholder: 'e.g. Family',
+    confirmLabel: 'Add',
+    maxLength: 60,
+    dismissible: false,
+  });
+  if (name === null) return false;
+  await updateSettings((s) => { s.calendar.apple = [...(Array.isArray(s.calendar.apple) ? s.calendar.apple : []), { id: uid().slice(0, 8), name: name.trim(), url }]; });
+  await gcalReloadKept();
+  toast('Apple calendar added. Its events appear in a moment.', { icon: 'calendarCheck' });
+  return true;
+}
+
+async function removeAppleLink(id) {
+  const link = appleLinks().find((l) => l.id === id);
+  if (!link) return false;
+  const name = gcalCalendars().find((c) => c.id === `apple:${id}`)?.name || link.name || 'this Apple calendar';
+  if (!await confirmDialog({ title: `Remove ${name}?`, message: 'Its events stop showing in the app. Nothing changes in Apple Calendar.', confirmLabel: 'Remove', destructive: true })) return false;
+  await updateSettings((s) => { s.calendar.apple = (s.calendar.apple ?? []).filter((l) => l.id !== id); });
+  await gcalReloadKept();
+  return true;
+}
+
 function calendarsBody() {
-  const cals = gcalCalendars();
+  const cals = gcalCalendars().filter((c) => !c.apple);
   const L = layers();
   return html`<div class="cal-pick">
     <h3 class="cal-pick__title">Google Calendar</h3>
-    ${cals.length ? html`<ul class="cal-pick__list">${cals.map((c) => html`<li class="cal-pick__row" style="--cal: ${calendarColor(c)}">
-      <label class="cal-pick__name"><input type="checkbox" class="switch" data-cal="${c.id}"${calendarShown(c) ? raw(' checked') : ''}>
-        <span>${c.name}${c.primary ? html` <span class="faint">· yours</span>` : c.tasks ? html` <span class="faint">· your to-dos</span>` : c.owned ? '' : html` <span class="faint">· subscribed</span>`}</span></label>
-      <span class="cal-pick__swatches" role="group" aria-label="Colour for ${c.name}">${CAL_SWATCHES.map((hex) => html`<button type="button" class="cal-swatch" data-color="${hex}" data-cal-color="${c.id}" style="--sw: ${hex}"
-        aria-label="${hex}" aria-pressed="${calendarColor(c).toLowerCase() === hex ? 'true' : 'false'}"></button>`)}</span>
-    </li>`)}</ul>`
+    ${cals.length ? html`<ul class="cal-pick__list">${cals.map((c) => calRow(c))}</ul>`
       : html`<p class="faint">${gcalProblem() ? 'Your Google calendars appear here once the sync script can read them.' : 'Loading your calendars…'}</p>`}
+    ${appleBody()}
     <h3 class="cal-pick__title">From the app</h3>
     <ul class="cal-pick__list">${LAYERS.map((l) => html`<li class="cal-pick__row"><label class="cal-pick__name"><input type="checkbox" class="switch" data-layer="${l.id}"${L[l.id] ? raw(' checked') : ''}>
       <span>${icon(l.iconName)}${l.label}</span></label></li>`)}</ul>
@@ -414,6 +486,7 @@ async function chooseCalendars() {
     body: calendarsBody(),
     actions: [{ label: 'Done', value: 'done', variant: 'primary', autofocus: true }],
     onOpen(dlg) {
+      const stop = on('calendar', () => { if (dlg.isConnected) redraw(); else stop?.(); });
       const redraw = () => {
         const body = dlg.querySelector('.dlg__body');
         const y = dlg.querySelector('.dlg__panel').scrollTop;
@@ -433,7 +506,16 @@ async function chooseCalendars() {
           updateSettings((s) => { s.calendar.layers = { ...s.calendar.layers, [layer.dataset.layer]: layer.checked }; });
         }
       });
-      dlg.addEventListener('click', (e) => {
+      dlg.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-apple-add]')) {
+          if (await addAppleLink()) redraw();
+          return;
+        }
+        const rm = e.target.closest('[data-apple-remove]');
+        if (rm) {
+          if (await removeAppleLink(rm.dataset.appleRemove)) redraw();
+          return;
+        }
         const sw = e.target.closest('[data-cal-color]');
         if (!sw) return;
         updateSettings((s) => { s.calendar.colors = { ...s.calendar.colors, [sw.dataset.calColor]: sw.dataset.color }; });

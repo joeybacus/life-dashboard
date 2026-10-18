@@ -1,15 +1,20 @@
 /* Main dashboard — the daily command center:
-   profile + date → today's calendar (or a quote) → At a Glance → module cards. */
-import { registerScreen } from '../core/router.js';
+   profile + date → Today (Google Calendar and the app's own things, or a quote) → At a Glance → module cards. */
+import { openPage, registerScreen } from '../core/router.js';
 import { registerAction } from '../core/actions.js';
 import { state, on, updateSettings, updateUI } from '../core/state.js';
 import { html, raw, setHTML, dataAttrs } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { avatar, ring } from '../core/components.js';
 import { animateReorder, makeReorderable } from '../core/reorder.js';
-import { announce, openDialog, toast } from '../core/ui.js';
+import { announce, toast } from '../core/ui.js';
 import { getModule, getModules } from '../modules/registry.js';
 import { getAgenda } from '../services/calendar.js';
+import { calendarItems } from '../modules/calendar/items.js';
+import { openEventDetails } from '../modules/calendar/editor.js';
+import { openTask } from '../modules/todo/detail.js';
+import { openSubtask } from '../modules/todo/subtask-sheet.js';
+import { addDays as addDayKey, at, todayKey } from '../core/manila.js';
 import { backupReminderDue, snoozeBackupReminder } from '../services/backup.js';
 import { syncSnapshot, syncStatusText } from '../services/sync.js';
 import { quoteOfTheDay } from '../services/quotes.js';
@@ -27,7 +32,8 @@ let entered = false;
 let ticker = null;
 let refreshSeq = 0;
 
-const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c ?? '') ? c : '#5563ff');
+const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c ?? '') || /^var\(--[a-z0-9-]+\)$/.test(c ?? '') ? c : '#5563ff');
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export function initDashboard() {
   registerScreen('main', {
@@ -45,7 +51,8 @@ export function initDashboard() {
   registerAction('dash:toggle', (el) => toggleCard(el.closest('.mcard')));
   registerAction('dash:arrange', () => setArranging(!arranging));
   registerAction('dash:move', (el) => moveCard(el.closest('.mcard'), Number(el.dataset.dir)));
-  registerAction('dash:event', (el) => openEvent(el.dataset.eventId));
+  registerAction('dash:event', (el) => openNextEvent(el.dataset.eventId));
+  registerAction('dash:item', (el) => openTodayItem(el.dataset.itemId));
   registerAction('backup:later', async () => {
     await snoozeBackupReminder(3);
     toast('OK — I’ll remind you again in a few days.', { icon: 'bell' });
@@ -152,8 +159,9 @@ async function refresh({ cards = true } = {}) {
     toast('Couldn’t load some dashboard data. Try reopening the app.', { icon: 'info' });
     return;
   }
+  const today = await loadToday(now, agenda);
   if (seq !== refreshSeq) return; // a newer refresh has started
-  snapshot = { now, agenda, reminder, models: Object.fromEntries(modules.map((m, i) => [m.id, models[i]])) };
+  snapshot = { now, agenda, today, reminder, models: Object.fromEntries(modules.map((m, i) => [m.id, models[i]])) };
   renderHero();
   renderBanner();
   renderToday();
@@ -216,24 +224,74 @@ function renderBanner() {
   </div>`);
 }
 
-/* ---- Calendar ---- */
+/* ---- Today: Google Calendar + the app's own things ---- */
+
+const TIMED = new Set(['event', 'task', 'subtask', 'workout']);
+const RANK = { habits: 0, todos: 1, referrals: 2 };
+
+const eventItem = (e) => ({
+  id: `ev:${e.id}`, kind: 'event', title: e.title, sub: e.calendar, allDay: e.allDay,
+  start: e.start, end: e.end, color: e.color, done: false, event: e,
+});
+
+/**
+ * Today's items, as the Calendar page shows them (same calendars and layers),
+ * with two changes for the dashboard: referrals become a count (patient names
+ * stay on the Calendar page) and to-dos without a time become one "To-dos" chip.
+ */
+async function loadToday(now, agenda) {
+  const key = todayKey(now.getTime());
+  let list = [];
+  try {
+    list = await calendarItems(key, addDayKey(key, 1));
+  } catch (err) {
+    console.warn('Today’s items unavailable', err);
+  }
+  if (agenda.provider.id === 'sample') list = [...list, ...agenda.today.map(eventItem)];
+
+  const allDay = [];
+  const timed = [];
+  const todos = [];
+  let referrals = 0;
+  for (const i of list) {
+    if (i.kind === 'referral') referrals += 1;
+    else if (i.allDay && (i.kind === 'task' || i.kind === 'subtask')) todos.push(i);
+    else if (i.kind === 'habits') allDay.push({ ...i, sub: i.sub === 'All done' ? 'all done' : '' }); // "Habits 3/5" says the rest
+    else (i.allDay ? allDay : timed).push(i);
+  }
+  if (todos.length) {
+    const left = todos.filter((t) => !t.done).length;
+    allDay.push({ id: 'todos', kind: 'todos', title: plural(todos.length, 'to-do'), sub: left ? `${left} left` : 'all done', color: 'var(--todo)', done: !left });
+  }
+  if (referrals) allDay.push({ id: 'referrals', kind: 'referrals', title: 'Referrals', sub: `${referrals} to see`, color: 'var(--neuro)' });
+  allDay.sort((a, b) => (RANK[a.kind] ?? 3) - (RANK[b.kind] ?? 3));
+  timed.sort((a, b) => a.start - b.start);
+
+  // Next up: the first timed thing today not over (or done); else Google's next, up to a week ahead
+  const dayEnd = at(addDayKey(key, 1));
+  let next = timed.find((i) => TIMED.has(i.kind) && !i.done && i.end > now) ?? null;
+  if (!next && agenda.next && agenda.next.start >= dayEnd) next = eventItem(agenda.next);
+
+  const byId = new Map([...allDay, ...timed, ...(next ? [next] : [])].map((i) => [i.id, i]));
+  return { allDay, timed, next, byId, empty: !allDay.length && !timed.length };
+}
 
 function renderToday() {
-  const { agenda, now } = snapshot;
+  const { agenda, today, now } = snapshot;
   slots.calSource.textContent = agenda.provider.label;
 
-  if (agenda.error) {
-    setHTML(slots.today, html`<div class="card empty">${icon('info')}<span>Your calendar is unavailable right now.</span></div>`);
+  if (today.empty) {
+    setHTML(slots.today, agenda.error
+      ? html`<div class="card empty">${icon('info')}<span>Your calendar is unavailable right now.</span></div>`
+      : quoteCard(now, agenda));
     return;
   }
-  if (!agenda.today.length) {
-    setHTML(slots.today, quoteCard(now, agenda));
-    return;
-  }
-  const next = agenda.next;
+  const { next, allDay, timed } = today;
   setHTML(slots.today, html`
-    ${next ? nextEventCard(next, now) : html`<div class="card done-card">${icon('checkCircle')}<span>That’s everything on your calendar today.</span></div>`}
-    <ol class="agenda card" aria-label="Today’s events">${agenda.today.map((e) => agendaItem(e, now, next))}</ol>`);
+    ${next ? nextCard(next, now) : html`<div class="card done-card">${icon('checkCircle')}<span>That’s everything for today.</span></div>`}
+    ${allDay.length ? html`<div class="today-chips" role="list" aria-label="All day">${allDay.map(dayChip)}</div>` : ''}
+    ${timed.length ? html`<ol class="agenda card" aria-label="Today’s schedule">${timed.map((i) => agendaItem(i, now, next))}</ol>` : ''}
+    ${agenda.error ? html`<p class="today-note">${icon('info')}<span>Google Calendar is unavailable right now — showing the app’s own things.</span></p>` : ''}`);
 }
 
 function quoteCard(now, agenda) {
@@ -245,66 +303,86 @@ function quoteCard(now, agenda) {
       <figcaption class="quote__by">— ${q.author}</figcaption>
     </figure>
     <p class="quote__foot">${icon('calendar')}<span>${agenda.provider.connected
-      ? 'No events today'
+      ? 'Nothing on today'
       : 'No calendar connected yet — update the sync script to see Google Calendar'}</span></p>
   </div>`;
 }
 
-function nextEventCard(e, now) {
-  const ongoing = e.start <= now && e.end > now;
-  const sameDay = toDateKey(e.start) === toDateKey(now);
-  const when = ongoing ? `Ends ${formatCountdown(e.end - now)}` : `Starts ${formatCountdown(e.start - now)}`;
-  return html`<button type="button" class="next-event card" data-action="dash:event" data-event-id="${e.id}" style="--cal: ${safeColor(e.color)}">
+const KIND_LABEL = { task: 'To-do', subtask: 'Subtask', workout: '' };
+
+/** The grey line under a title: where and which calendar, or what kind of thing it is. */
+function metaOf(i) {
+  if (i.kind === 'event') return [i.event.location, i.sub].filter(Boolean).join(' · ');
+  return [KIND_LABEL[i.kind], i.sub].filter(Boolean).join(' · ');
+}
+
+function nextCard(i, now) {
+  const ongoing = i.start <= now && i.end > now;
+  const sameDay = todayKey(i.start.getTime()) === todayKey(now.getTime());
+  const when = ongoing ? `Ends ${formatCountdown(i.end - now)}` : `Starts ${formatCountdown(i.start - now)}`;
+  const e = i.event;
+  return html`<button type="button" class="next-event card" data-action="dash:item" data-item-id="${i.id}" style="--cal: ${safeColor(i.color)}">
     <span class="next-event__top">
       ${ongoing
         ? html`<span class="live-pill"><span class="live-pill__dot" aria-hidden="true"></span>Happening now</span>`
-        : html`<span class="next-event__eyebrow">${sameDay ? 'Next up' : `Next up · ${formatRelativeDay(e.start, now)}`}</span>`}
+        : html`<span class="next-event__eyebrow">${sameDay ? 'Next up' : `Next up · ${formatRelativeDay(i.start, now)}`}</span>`}
       <span class="next-event__when">${when}</span>
     </span>
-    <span class="next-event__title">${e.title}</span>
-    <span class="next-event__time">${e.allDay ? 'All day' : formatTimeRange(e.start, e.end)}</span>
+    <span class="next-event__title">${i.title}</span>
+    <span class="next-event__time">${i.allDay ? 'All day' : formatTimeRange(i.start, i.end)}</span>
     <span class="next-event__meta">
-      ${e.location ? html`<span>${icon('pin')}${e.location}</span>` : ''}
-      <span class="cal-tag"><span class="cal-tag__dot" aria-hidden="true"></span>${e.calendar}</span>
+      ${e?.location ? html`<span>${icon('pin')}${e.location}</span>` : ''}
+      ${e ? html`<span class="cal-tag"><span class="cal-tag__dot" aria-hidden="true"></span>${i.sub}</span>`
+        : html`<span class="cal-tag"><span class="cal-tag__dot" aria-hidden="true"></span>${metaOf(i) || 'Workout'}</span>`}
     </span>
-    ${ongoing ? html`<span class="next-event__progress" style="--p: ${((now - e.start) / (e.end - e.start)).toFixed(3)}" aria-hidden="true"></span>` : ''}
+    ${ongoing ? html`<span class="next-event__progress" style="--p: ${((now - i.start) / (i.end - i.start)).toFixed(3)}" aria-hidden="true"></span>` : ''}
   </button>`;
 }
 
-function agendaItem(e, now, next) {
-  const past = e.end <= now;
-  const live = e.start <= now && e.end > now;
-  const isNext = !live && next?.id === e.id;
-  return html`<li><button type="button" class="agenda__item${past ? ' is-past' : ''}" data-action="dash:event" data-event-id="${e.id}" style="--cal: ${safeColor(e.color)}">
-    <span class="agenda__time num">${e.allDay ? 'All day' : formatTime(e.start)}</span>
+function dayChip(i) {
+  return html`<button type="button" role="listitem" class="today-chip${i.done ? ' is-done' : ''}" data-action="dash:item" data-item-id="${i.id}" style="--cal: ${safeColor(i.color)}">
+    <span class="today-chip__dot" aria-hidden="true"></span>
+    <span class="today-chip__title">${i.title}</span>
+    ${i.kind === 'event' ? '' : i.sub ? html`<span class="today-chip__sub">${i.sub}</span>` : ''}
+  </button>`;
+}
+
+function agendaItem(i, now, next) {
+  const past = i.end <= now || i.done;
+  const live = i.start <= now && i.end > now && !i.done;
+  const isNext = !live && next?.id === i.id;
+  return html`<li><button type="button" class="agenda__item${past ? ' is-past' : ''}${i.done ? ' is-done' : ''}" data-action="dash:item" data-item-id="${i.id}" style="--cal: ${safeColor(i.color)}">
+    <span class="agenda__time num">${formatTime(i.start)}</span>
     <span class="agenda__bar" aria-hidden="true"></span>
     <span class="agenda__body">
-      <span class="agenda__title">${e.title}</span>
-      <span class="agenda__meta">${[e.location, e.calendar].filter(Boolean).join(' · ')}</span>
+      <span class="agenda__title">${i.title}</span>
+      <span class="agenda__meta">${metaOf(i)}</span>
     </span>
-    ${live ? html`<span class="agenda__flag">Now</span>` : isNext ? html`<span class="agenda__flag">Next</span>` : past ? html`<span class="sr-only">(finished)</span>` : ''}
+    ${live ? html`<span class="agenda__flag">Now</span>` : isNext ? html`<span class="agenda__flag">Next</span>` : i.done ? html`<span class="sr-only">(done)</span>` : past ? html`<span class="sr-only">(finished)</span>` : ''}
     ${icon('chevronRight', 'agenda__chev')}
   </button></li>`;
 }
 
-function openEvent(id) {
-  if (!snapshot) return;
-  const { agenda, now } = snapshot;
-  const e = [...agenda.today, agenda.next].find((x) => x && x.id === id);
-  if (!e) return;
-  openDialog({
-    title: e.title,
-    body: html`<div class="event-detail" style="--cal: ${safeColor(e.color)}">
-      <p class="event-detail__row">${icon('clock')}<span>${formatRelativeDay(e.start, now)} · ${e.allDay ? 'All day' : formatTimeRange(e.start, e.end)}</span></p>
-      ${e.location ? html`<p class="event-detail__row">${icon('pin')}<span>${e.location}</span></p>` : ''}
-      <p class="event-detail__row">${icon('calendar')}<span class="cal-tag"><span class="cal-tag__dot" aria-hidden="true"></span>${e.calendar}</span></p>
-      ${e.description ? html`<p class="event-detail__desc">${e.description}</p>` : ''}
-      ${e.sample ? html`<p class="note">${icon('info')}<span>This is a sample event. Once the sync script is updated (version 16), your real Google Calendar shows here instead.</span></p>` : ''}
-    </div>`,
-    actions: e.url
-      ? [{ label: 'Close', value: 'close', variant: 'ghost' }, { label: 'Open in Google Calendar', value: 'open', variant: 'primary', href: e.url }]
-      : [{ label: 'Done', value: 'close', variant: 'ghost' }],
-  });
+async function openTodayItem(id) {
+  const i = snapshot?.today.byId.get(id);
+  if (!i) return;
+  if (i.kind === 'event') openEvent(i.event);
+  else if (i.kind === 'task') await openTask(i.ref);
+  else if (i.kind === 'subtask') await openSubtask(i.ref);
+  else if (i.kind === 'workout') openPage('workout', `w/${i.ref}`);
+  else if (i.kind === 'habits') openPage('todo', 'habits');
+  else if (i.kind === 'todos') openPage('todo', '');
+  else if (i.kind === 'referrals') openPage('neurology', 'referrals');
+}
+
+/** The "Next event" tile: an event from Google Calendar (today or up to a week ahead). */
+function openNextEvent(id) {
+  const e = snapshot?.agenda.next;
+  if (e && e.id === id) openEvent(e);
+}
+
+function openEvent(e) {
+  openEventDetails(e);
 }
 
 /* ---- Today at a Glance ---- */

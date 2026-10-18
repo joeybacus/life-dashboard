@@ -382,15 +382,25 @@ function __midnight(key, tz) {
 }
 
 function MockEvent(cal, data) { this.cal = cal; this.e = data; }
+function __nowMs() { return __state.now ? Date.parse(__state.now) : Date.now(); }
+function __touch(ev) { ev.e.updated = new Date(__nowMs()).toISOString(); }
+MockEvent.prototype.getLastUpdated = function () { return new Date(this.e.updated || 0); };
+MockEvent.prototype.setLocation = function (l) { __calAuth(); this.e.location = String(l); __touch(this); return this; };
+MockEvent.prototype.setAllDayDates = function (start, end) {
+  __calAuth();
+  this.e.allDay = true; this.e.date = __dateKeyIn(start, Session.getScriptTimeZone()); this.e.endDate = __dateKeyIn(end, Session.getScriptTimeZone()); this.e.start = null; this.e.end = null;
+  __touch(this);
+  return this;
+};
 MockEvent.prototype.getId = function () { return this.e.id; };
 MockEvent.prototype.getTitle = function () { return this.e.title; };
-MockEvent.prototype.setTitle = function (t) { __calAuth(); this.e.title = String(t); return this; };
+MockEvent.prototype.setTitle = function (t) { __calAuth(); this.e.title = String(t); __touch(this); return this; };
 MockEvent.prototype.getDescription = function () { return this.e.description || ''; };
-MockEvent.prototype.setDescription = function (d) { __calAuth(); this.e.description = String(d); return this; };
+MockEvent.prototype.setDescription = function (d) { __calAuth(); this.e.description = String(d); __touch(this); return this; };
 MockEvent.prototype.isAllDayEvent = function () { return Boolean(this.e.allDay); };
 MockEvent.prototype.getStartTime = function () { return this.e.allDay ? __midnight(this.e.date, Session.getScriptTimeZone()) : new Date(this.e.start); };
 MockEvent.prototype.getEndTime = function () {
-  return this.e.allDay ? new Date(__midnight(this.e.date, Session.getScriptTimeZone()).getTime() + 864e5) : new Date(this.e.end);
+  return this.e.allDay ? (this.e.endDate ? __midnight(this.e.endDate, Session.getScriptTimeZone()) : new Date(__midnight(this.e.date, Session.getScriptTimeZone()).getTime() + 864e5)) : new Date(this.e.end);
 };
 MockEvent.prototype.getAllDayStartDate = function () {
   if (!this.e.allDay) __fail('Event is not an all-day event.');
@@ -398,12 +408,14 @@ MockEvent.prototype.getAllDayStartDate = function () {
 };
 MockEvent.prototype.setTime = function (start, end) {
   __calAuth();
-  this.e.allDay = false; this.e.date = null; this.e.start = start.toISOString(); this.e.end = end.toISOString();
+  this.e.allDay = false; this.e.date = null; this.e.endDate = null; this.e.start = start.toISOString(); this.e.end = end.toISOString();
+  __touch(this);
   return this;
 };
 MockEvent.prototype.setAllDayDate = function (date) {
   __calAuth();
-  this.e.allDay = true; this.e.date = __dateKeyIn(date, Session.getScriptTimeZone()); this.e.start = null; this.e.end = null;
+  this.e.allDay = true; this.e.date = __dateKeyIn(date, Session.getScriptTimeZone()); this.e.endDate = null; this.e.start = null; this.e.end = null;
+  __touch(this);
   return this;
 };
 MockEvent.prototype.getPopupReminders = function () { return this.e.popups.slice(); };
@@ -438,16 +450,19 @@ MockCalendar.prototype.__add = function (fields) {
   __calAuth();
   __state.eventSeq = (__state.eventSeq || 0) + 1;
   var id = 'ev' + __state.eventSeq + '@google.com';
-  var data = { id: id, title: '', description: '', start: null, end: null, allDay: false, date: null, popups: [], tags: {}, deleted: false };
+  var data = { id: id, title: '', description: '', start: null, end: null, allDay: false, date: null, popups: [], tags: {}, deleted: false, updated: new Date(__nowMs()).toISOString() };
   Object.keys(fields).forEach(function (k) { data[k] = fields[k]; });
   this.c.events[id] = data;
   return new MockEvent(this, data);
 };
 MockCalendar.prototype.createEvent = function (title, start, end, options) {
-  return this.__add({ title: String(title), description: (options && options.description) || '', start: start.toISOString(), end: end.toISOString(), popups: [30] });
+  return this.__add({ title: String(title), description: (options && options.description) || '', location: (options && options.location) || '', start: start.toISOString(), end: end.toISOString(), popups: [30] });
 };
-MockCalendar.prototype.createAllDayEvent = function (title, date, options) {
-  return this.__add({ title: String(title), description: (options && options.description) || '', allDay: true, date: __dateKeyIn(date, Session.getScriptTimeZone()), popups: [] });
+MockCalendar.prototype.createAllDayEvent = function (title, date, endOrOptions, options) {
+  var end = endOrOptions instanceof Date ? endOrOptions : null;
+  var opts = end ? options : endOrOptions;
+  return this.__add({ title: String(title), description: (opts && opts.description) || '', location: (opts && opts.location) || '', allDay: true, date: __dateKeyIn(date, Session.getScriptTimeZone()),
+    endDate: end ? __dateKeyIn(end, Session.getScriptTimeZone()) : null, popups: [] });
 };
 MockCalendar.prototype.getEventById = function (id) {
   __calAuth();
@@ -558,9 +573,14 @@ function __folder(id) {
     createFile: function (blob) {
       var d = __drive();
       var fid = 'file' + String(d.next++).padStart(8, '0') + 'abcdef';
-      d.files[fid] = { name: blob.getName(), mime: blob.getContentType(), data: blob.getBytes(), parents: [id], trashed: false, description: '' };
+      d.files[fid] = { name: blob.getName(), mime: blob.getContentType(), data: blob.getBytes(), parents: [id], trashed: false, description: '', created: new Date(__state.now ? Date.parse(__state.now) + d.next : Date.now() + d.next).toISOString() };
       return __file(fid);
     },
+    getFiles: function () {
+      var d = __drive();
+      return __iter(Object.keys(d.files).filter(function (k) { return d.files[k].parents.indexOf(id) >= 0; }).map(__file));
+    },
+    getUrl: function () { return 'https://drive.google.com/drive/folders/' + id; },
     getFilesByName: function (name) {
       var d = __drive();
       return __iter(Object.keys(d.files).filter(function (k) { return d.files[k].name === name && d.files[k].parents.indexOf(id) >= 0; }).map(__file));
@@ -578,6 +598,9 @@ function __file(id) {
     isTrashed: function () { return Boolean(f.trashed); },
     setTrashed: function (on) { f.trashed = Boolean(on); return this; },
     setDescription: function (text) { f.description = String(text); return this; },
+    getDescription: function () { return f.description || ''; },
+    getDateCreated: function () { return new Date(f.created || 0); },
+    getSize: function () { return String(f.data || '').length; },
   };
 }
 var DriveApp = {
@@ -594,7 +617,16 @@ var DriveApp = {
 Utilities.base64Decode = function (text) { return String(text); };
 Utilities.base64Encode = function (bytes) { return String(bytes); };
 Utilities.newBlob = function (bytes, mime, name) {
-  return { getBytes: function () { return bytes; }, getContentType: function () { return mime; }, getName: function () { return name; } };
+  return { getBytes: function () { return bytes; }, getContentType: function () { return mime; }, getName: function () { return name; }, getDataAsString: function () { return String(bytes); } };
+};
+
+/* Web addresses (Apple Calendar links): __state.urls[url] = { code, text }. __state.fetchNoAuth = true fails like a missing permission. */
+var UrlFetchApp = {
+  fetch: function (url) {
+    if (__state.fetchNoAuth) __fail('You do not have permission to call UrlFetchApp.fetch. Required permissions: https://www.googleapis.com/auth/script.external_request');
+    var r = (__state.urls || {})[url];
+    return { getResponseCode: function () { return r ? (r.code || 200) : 404; }, getContentText: function () { return r ? r.text : 'Not found'; } };
+  },
 };
 
 var Logger = { log: function (message) { __state.logs.push(String(message)); } };

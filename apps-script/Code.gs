@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 16;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents)
+const SCRIPT_VERSION = 18;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -158,6 +158,24 @@ function doPost(e) {
       return json_(calEvents_(props, req));
     } catch (err) {
       return json_({ ok: false, version: SCRIPT_VERSION, error: calErrorCode_(err), message: String((err && err.message) || err) });
+    }
+  }
+
+  // Adding, changing or deleting one of your events (sync script 17): only Google Calendar changes, no lock
+  if (CAL_EDIT_ACTIONS[req.action]) {
+    try {
+      return json_(CAL_EDIT_ACTIONS[req.action](props, req));
+    } catch (err) {
+      return json_({ ok: false, version: SCRIPT_VERSION, error: calErrorCode_(err), message: String((err && err.message) || err) });
+    }
+  }
+
+  // Backups to and from Google Drive (sync script 18): only Drive changes, no lock
+  if (BACKUP_ACTIONS[req.action]) {
+    try {
+      return json_(BACKUP_ACTIONS[req.action](props, req));
+    } catch (err) {
+      return json_({ ok: false, version: SCRIPT_VERSION, error: backupError_(err), message: String((err && err.message) || err) });
     }
   }
 
@@ -411,6 +429,127 @@ function photoError_(err) {
   if (/permission|authori[sz]/i.test(message)) return 'photo-needs-permission';
   if (/storage|quota|limit/i.test(message)) return 'photo-drive-full';
   return 'server';
+}
+
+/* ---------- Backups in Google Drive (version 18) ----------
+ * The app sends a backup file (the same as "Export backup") to a "Life Dashboard
+ * Backups" folder in your Drive — by itself once a day, or when you tap Back up.
+ * The last 30 are kept; older ones go to the Drive trash (recoverable for 30
+ * days). Only files the app made there are ever touched.
+ *   driveBackupSave { name, data (the backup's text), meta } → { fileId, url, trashed }
+ *   driveBackupList → { backups: [{ id, name, createdAt, size, meta }] } (newest first)
+ *   driveBackupGet  { id } → { data } — only files in that folder.
+ */
+const BACKUPS_FOLDER = 'Life Dashboard Backups';
+const BACKUP_KEEP = 30;
+const BACKUP_MAX_CHARS = 45 * 1024 * 1024;
+const BACKUP_NAME = /^LifeDashboard_Backup_[\w .()-]{1,100}\.json$/;
+
+const BACKUP_ACTIONS = {
+  driveBackupSave: driveBackupSave_,
+  driveBackupList: driveBackupList_,
+  driveBackupGet: driveBackupGet_,
+};
+
+function backupError_(err) {
+  const message = String((err && err.message) || err);
+  if (/permission|authori[sz]/i.test(message)) return 'backup-needs-permission';
+  if (/storage|quota|limit/i.test(message)) return 'backup-drive-full';
+  return 'server';
+}
+
+/** The backups folder (made the first time it's needed; made again if it was deleted). */
+function backupsFolder_(props, create) {
+  const id = props.getProperty('BACKUPS_FOLDER');
+  if (id) {
+    try {
+      const folder = DriveApp.getFolderById(id);
+      if (!folder.isTrashed()) return folder;
+    } catch (err) {
+      // deleted for good, or no longer ours
+    }
+  }
+  if (!create) return null;
+  const folder = DriveApp.createFolder(BACKUPS_FOLDER);
+  props.setProperty('BACKUPS_FOLDER', folder.getId());
+  return folder;
+}
+
+/** The app's backups in the folder, newest first. */
+function backupFiles_(folder) {
+  const out = [];
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const file = files.next();
+    if (!file.isTrashed() && BACKUP_NAME.test(file.getName())) out.push(file);
+  }
+  return out.sort(function (a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });
+}
+
+/** What the app says is inside (shown before restoring): kept in the file's description. */
+function backupMeta_(meta) {
+  const m = meta && typeof meta === 'object' ? meta : {};
+  const counts = {};
+  Object.keys(m.counts || {}).slice(0, 30).forEach(function (k) {
+    const n = Number(m.counts[k]);
+    if (/^\w{1,40}$/.test(k) && isFinite(n) && n >= 0) counts[k] = Math.round(n);
+  });
+  return {
+    exportedAt: String(m.exportedAt || '').slice(0, 40),
+    device: String(m.device || '').slice(0, 80),
+    appVersion: String(m.appVersion || '').slice(0, 20),
+    auto: Boolean(m.auto),
+    counts: counts,
+  };
+}
+
+function driveBackupSave_(props, req) {
+  const data = typeof req.data === 'string' ? req.data : '';
+  if (!data || !/^\s*\{\s*"format"\s*:\s*"life-dashboard-backup"/.test(data)) return { ok: false, version: SCRIPT_VERSION, error: 'backup-bad-request' };
+  if (data.length > BACKUP_MAX_CHARS) return { ok: false, version: SCRIPT_VERSION, error: 'backup-too-large' };
+  const name = String(req.name || '');
+  if (!BACKUP_NAME.test(name)) return { ok: false, version: SCRIPT_VERSION, error: 'backup-bad-request' };
+  const folder = backupsFolder_(props, true);
+  const file = folder.createFile(Utilities.newBlob(data, 'application/json', name));
+  const meta = backupMeta_(req.meta);
+  file.setDescription(JSON.stringify(meta));
+  let trashed = 0;
+  backupFiles_(folder).slice(BACKUP_KEEP).forEach(function (old) {
+    if (old.getId() === file.getId()) return;
+    old.setTrashed(true);
+    trashed += 1;
+  });
+  return { ok: true, version: SCRIPT_VERSION, fileId: file.getId(), url: file.getUrl(), name: name, trashed: trashed };
+}
+
+function driveBackupList_(props) {
+  const folder = backupsFolder_(props, false);
+  if (!folder) return { ok: true, version: SCRIPT_VERSION, backups: [], folderUrl: '' };
+  const backups = backupFiles_(folder).slice(0, 100).map(function (file) {
+    let meta = {};
+    try { meta = JSON.parse(file.getDescription() || '{}'); } catch (err) { /* no details */ }
+    return { id: file.getId(), name: file.getName(), createdAt: file.getDateCreated().toISOString(), size: file.getSize(), meta: backupMeta_(meta), url: file.getUrl() };
+  });
+  let folderUrl = '';
+  try { folderUrl = folder.getUrl(); } catch (err) { /* only a link */ }
+  return { ok: true, version: SCRIPT_VERSION, backups: backups, folderUrl: folderUrl };
+}
+
+function driveBackupGet_(props, req) {
+  const id = String(req.id || '');
+  const folder = backupsFolder_(props, false);
+  if (!folder || !/^[\w-]{10,100}$/.test(id)) return { ok: false, version: SCRIPT_VERSION, error: 'backup-not-found' };
+  let file;
+  try {
+    file = DriveApp.getFileById(id);
+  } catch (err) {
+    return { ok: false, version: SCRIPT_VERSION, error: 'backup-not-found' };
+  }
+  let inFolder = false;
+  const parents = file.getParents();
+  while (parents.hasNext()) if (parents.next().getId() === folder.getId()) inFolder = true;
+  if (!inFolder || file.isTrashed() || !BACKUP_NAME.test(file.getName())) return { ok: false, version: SCRIPT_VERSION, error: 'backup-not-found' };
+  return { ok: true, version: SCRIPT_VERSION, data: file.getBlob().getDataAsString('UTF-8') };
 }
 
 /* ---------- Apple Health weight (version 12) ----------
@@ -1685,6 +1824,7 @@ function calEvents_(props, req) {
       owned: Boolean(opt('isOwnedByMe', false)),
       shown: !opt('isHidden', false) && opt('isSelected', true) !== false, // ticked in Google Calendar's own list
       tasks: id === taskCal,
+      readOnly: !opt('isOwnedByMe', false),
     });
     let list;
     try {
@@ -1702,7 +1842,31 @@ function calEvents_(props, req) {
       events.push(calEventOut_(e, id, tz));
     });
   });
-  return { ok: true, version: SCRIPT_VERSION, from: from.toISOString(), to: to.toISOString(), calendars: calendars, events: events, failed: failed, truncated: truncated };
+  // Apple Calendar (sync script 17): public iCloud links the app sends, read here (read only)
+  const appleErrors = {};
+  (Array.isArray(req.apple) ? req.apple : []).slice(0, ICS_MAX_LINKS).forEach(function (link) {
+    if (!link || !link.id) return;
+    const id = 'apple:' + String(link.id).slice(0, 40);
+    let feed;
+    try {
+      feed = icsRead_(String(link.url || ''), from, to, tz);
+    } catch (err) {
+      appleErrors[id] = icsErrorCode_(err);
+      failed.push(id);
+      calendars.push({ id: id, name: String(link.name || 'Apple Calendar').slice(0, 100), color: '', primary: false, owned: false, shown: true, tasks: false, apple: true, readOnly: true });
+      return;
+    }
+    calendars.push({ id: id, name: String(link.name || feed.name || 'Apple Calendar').slice(0, 100), color: '', primary: false, owned: false, shown: true, tasks: false, apple: true, readOnly: true });
+    feed.events.forEach(function (e) {
+      if (events.length >= CAL_READ_MAX_EVENTS) {
+        truncated = true;
+        return;
+      }
+      e.cal = id;
+      events.push(e);
+    });
+  });
+  return { ok: true, version: SCRIPT_VERSION, from: from.toISOString(), to: to.toISOString(), calendars: calendars, events: events, failed: failed, truncated: truncated, appleErrors: appleErrors };
 }
 
 /** One event for the app: times as ISO moments (all-day ones as days), and a link that opens it in Google Calendar. */
@@ -1744,6 +1908,467 @@ function calEventUrl_(ev, calId, tz) {
   }
   const day = ev.date || Utilities.formatDate(new Date(ev.start), tz, 'yyyy/M/d');
   return 'https://calendar.google.com/calendar/r/day/' + String(day).replace(/-/g, '/').replace(/\/0(\d)/g, '/$1');
+}
+
+/* ---------- Adding, changing and deleting your events (sync script 17) ----------
+ * From the app's event editor. Only calendars you own can be changed. Repeating
+ * events and the events of to-dos are changed elsewhere: repeating ones in
+ * Google Calendar itself, a to-do's event by changing the to-do.
+ */
+const CAL_EDIT_ACTIONS = {
+  calendarEventSave: calSaveEvent_,
+  calendarEventDelete: calDeleteEvent_,
+};
+const CAL_EDIT_MAX_TITLE = 300;
+const CAL_EDIT_MAX_TEXT = 8000;
+const CAL_EDIT_MAX_DAYS = 366;
+
+/** The event the app means, if it can be changed here: { cal, event } or { error }. */
+function calEditable_(calId, eventId) {
+  const cal = calById_(String(calId || ''));
+  if (!cal) return { error: 'calendar-missing' };
+  let owned = true;
+  try { owned = cal.isOwnedByMe(); } catch (err) { /* assume yours */ }
+  if (!owned) return { error: 'calendar-read-only' };
+  if (!eventId) return { cal: cal, event: null };
+  const event = calAlive_(cal, String(eventId));
+  if (!event) return { error: 'event-missing' };
+  let recurring = false;
+  try { recurring = event.isRecurringEvent(); } catch (err) { /* treated as single */ }
+  if (recurring) return { error: 'event-recurring' };
+  let tag = '';
+  try { tag = String(event.getTag(CAL_TAG) || ''); } catch (err) { /* no tag */ }
+  if (tag) return { error: 'event-is-task' };
+  return { cal: cal, event: event };
+}
+
+/** What the app sent, checked: { title, allDay, start, end (Dates; all-day: noon on the first and the day after the last), location, description, alerts | null } or { error }. */
+function calEventInput_(e) {
+  if (!e || typeof e !== 'object') return { error: 'event-bad' };
+  const title = String(e.title || '').replace(/\s+/g, ' ').trim().slice(0, CAL_EDIT_MAX_TITLE);
+  if (!title) return { error: 'event-no-title' };
+  const out = {
+    title: title,
+    allDay: Boolean(e.allDay),
+    location: String(e.location || '').replace(/\s+/g, ' ').trim().slice(0, 300),
+    description: String(e.description || '').slice(0, CAL_EDIT_MAX_TEXT),
+    alerts: null,
+  };
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  if (out.allDay) {
+    if (!day.test(String(e.date || ''))) return { error: 'event-bad-time' };
+    const endDate = day.test(String(e.endDate || '')) && e.endDate > e.date ? e.endDate : addDaysKey_(e.date, 1); // the day after the last
+    out.dateKey = e.date;
+    out.endKey = endDate;
+    out.start = noonUtc_(e.date);
+    out.end = noonUtc_(endDate);
+  } else {
+    out.start = new Date(String(e.start || ''));
+    out.end = new Date(String(e.end || ''));
+    if (isNaN(out.start.getTime()) || isNaN(out.end.getTime()) || out.end <= out.start) return { error: 'event-bad-time' };
+  }
+  if (out.end - out.start > CAL_EDIT_MAX_DAYS * 864e5) return { error: 'event-bad-time' };
+  if (Array.isArray(e.alerts)) {
+    out.alerts = [];
+    e.alerts.forEach(function (m) {
+      const n = Math.round(Number(m));
+      if (isFinite(n) && n >= 0 && n <= CAL_POPUP_MAX && out.alerts.indexOf(n) < 0) out.alerts.push(n);
+    });
+    out.alerts = out.alerts.sort(function (a, b) { return a - b; }).slice(0, CAL_MAX_POPUPS);
+  }
+  return out;
+}
+
+/** Add an event (no id) or change one; moving it to another calendar makes it there and deletes the old one. */
+function calSaveEvent_(props, req) {
+  const e = req.event || {};
+  const want = calEventInput_(e);
+  if (want.error) return { ok: false, version: SCRIPT_VERSION, error: want.error };
+  const target = calEditable_(e.cal, null);
+  if (target.error) return { ok: false, version: SCRIPT_VERSION, error: target.error };
+  let event = null;
+  let old = null;
+  if (e.id) {
+    const home = calEditable_(e.fromCal || e.cal, e.id);
+    if (home.error) return { ok: false, version: SCRIPT_VERSION, error: home.error };
+    if (home.cal.getId() === target.cal.getId()) event = home.event;
+    else old = home.event; // moving: made in the new calendar first, then removed from the old one
+  }
+  const options = { description: want.description, location: want.location };
+  if (!event) {
+    event = want.allDay
+      ? (want.endKey === addDaysKey_(want.dateKey, 1)
+        ? target.cal.createAllDayEvent(want.title, want.start, options)
+        : target.cal.createAllDayEvent(want.title, want.start, want.end, options))
+      : target.cal.createEvent(want.title, want.start, want.end, options);
+  } else {
+    if (event.getTitle() !== want.title) event.setTitle(want.title);
+    if ((event.getDescription() || '') !== want.description) event.setDescription(want.description);
+    if ((event.getLocation() || '') !== want.location) event.setLocation(want.location);
+    if (want.allDay) {
+      if (want.endKey === addDaysKey_(want.dateKey, 1)) event.setAllDayDate(want.start);
+      else event.setAllDayDates(want.start, want.end);
+    } else if (event.isAllDayEvent() || event.getStartTime().getTime() !== want.start.getTime() || event.getEndTime().getTime() !== want.end.getTime()) {
+      event.setTime(want.start, want.end);
+    }
+  }
+  if (want.alerts) {
+    event.removeAllReminders();
+    want.alerts.forEach(function (m) { event.addPopupReminder(Math.max(want.allDay ? 0 : CAL_POPUP_MIN, m)); });
+  }
+  if (old) old.deleteEvent();
+  const tz = Session.getScriptTimeZone() || SHOWN_TZ;
+  const out = calEventOut_(event, target.cal.getId(), tz);
+  out.alerts = calAlertsOf_(event);
+  return { ok: true, version: SCRIPT_VERSION, event: out };
+}
+
+function calDeleteEvent_(props, req) {
+  const found = calEditable_(req.cal, req.id);
+  if (found.error) return { ok: false, version: SCRIPT_VERSION, error: found.error === 'event-missing' ? 'event-gone' : found.error };
+  found.event.deleteEvent();
+  return { ok: true, version: SCRIPT_VERSION, deleted: String(req.id) };
+}
+
+function calAlertsOf_(event) {
+  try { return event.getPopupReminders().slice().sort(function (a, b) { return a - b; }); } catch (err) { return []; }
+}
+
+/* ---------- Apple Calendar (sync script 17) ----------
+ * iPhone: Calendar → Calendars → ⓘ next to a calendar → Public Calendar → Share
+ * Link. The app sends that link; this reads it (an iCalendar file) and gives
+ * back the events between two moments — repeating ones too. Read only: nothing
+ * is ever changed in Apple Calendar.
+ */
+const ICS_MAX_LINKS = 6;
+const ICS_MAX_BYTES = 5 * 1024 * 1024;
+const ICS_MAX_STEPS = 5000;   // repeats looked at per event
+const ICS_DAYS = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+
+function icsErrorCode_(err) {
+  const text = String((err && err.message) || err);
+  if (/permission|authori[sz]/i.test(text)) return 'apple-needs-auth';
+  if (/^apple-/.test(text)) return text;
+  return 'apple-failed';
+}
+
+/** Only public iCloud calendar links (webcal:// or https://…icloud.com/published/…). */
+function icsUrl_(url) {
+  const u = String(url || '').trim().replace(/^webcals?:\/\//i, 'https://');
+  if (!/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.icloud\.com\/published\/\S{1,600}$/i.test(u)) throw new Error('apple-bad-link');
+  return u;
+}
+
+function icsRead_(url, from, to, tz) {
+  const res = UrlFetchApp.fetch(icsUrl_(url), { muteHttpExceptions: true, followRedirects: true });
+  const code = res.getResponseCode();
+  if (code === 404 || code === 403) throw new Error('apple-not-public');
+  if (code !== 200) throw new Error('apple-failed');
+  const text = res.getContentText();
+  if (text.length > ICS_MAX_BYTES || !/BEGIN:VCALENDAR/.test(text)) throw new Error('apple-failed');
+  return icsParse_(text, from, to, tz);
+}
+
+/** Lines of an iCalendar file, unfolded: [{ name, params: {}, value }]. */
+function icsLines_(text) {
+  const raw = String(text).replace(/\r\n|\r/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  return raw.filter(Boolean).map(function (line) {
+    let i = 0;
+    let quoted = false;
+    for (; i < line.length; i++) {
+      const c = line.charAt(i);
+      if (c === '"') quoted = !quoted;
+      else if (c === ':' && !quoted) break;
+    }
+    const head = line.slice(0, i).split(';');
+    const params = {};
+    head.slice(1).forEach(function (p) {
+      const k = p.indexOf('=');
+      if (k > 0) params[p.slice(0, k).toUpperCase()] = p.slice(k + 1).replace(/^"|"$/g, '');
+    });
+    return { name: head[0].toUpperCase(), params: params, value: line.slice(i + 1) };
+  });
+}
+
+function icsText_(v) {
+  return String(v || '').replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
+}
+
+/** A moment from a DATE-TIME (in its TZID, UTC with Z, or floating in the script's zone), or a day for a DATE: { day, wall: [y,m,d,h,mi,s], tz, utc } */
+function icsWhen_(line, tz) {
+  const v = String(line.value || '');
+  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/.exec(v);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!m[4] || line.params.VALUE === 'DATE') return { day: true, y: y, mo: mo, d: d, h: 0, mi: 0, s: 0, tz: tz };
+  const when = { day: false, y: y, mo: mo, d: d, h: Number(m[4]), mi: Number(m[5]), s: Number(m[6] || 0), tz: m[7] ? 'UTC' : (line.params.TZID || tz) };
+  return when;
+}
+
+/** A wall-clock time in a time zone, as a moment (two corrections, so daylight saving changes come out right). */
+function icsMoment_(w) {
+  const target = Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi, w.s);
+  if (w.tz === 'UTC') return new Date(target);
+  let zone = w.tz;
+  let t = target;
+  for (let i = 0; i < 2; i++) {
+    let shown;
+    try {
+      shown = Utilities.formatDate(new Date(t), zone, 'yyyy-MM-dd HH:mm:ss');
+    } catch (err) {
+      zone = Session.getScriptTimeZone() || SHOWN_TZ; // a time zone Google doesn't know: the script's own
+      shown = Utilities.formatDate(new Date(t), zone, 'yyyy-MM-dd HH:mm:ss');
+    }
+    const p = shown.split(/[- :]/).map(Number);
+    t -= Date.UTC(p[0], p[1] - 1, p[2], p[3], p[4], p[5]) - target;
+  }
+  return new Date(t);
+}
+
+function icsKey_(w) {
+  const pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  return w.y + '-' + pad(w.mo) + '-' + pad(w.d);
+}
+
+/** The same wall-clock time on another day. */
+function icsOnDay_(w, key) {
+  const p = key.split('-').map(Number);
+  return { day: w.day, y: p[0], mo: p[1], d: p[2], h: w.h, mi: w.mi, s: w.s, tz: w.tz };
+}
+
+function icsDuration_(v) {
+  const m = /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(String(v || ''));
+  if (!m) return null;
+  const ms = ((Number(m[2] || 0) * 7 + Number(m[3] || 0)) * 86400 + Number(m[4] || 0) * 3600 + Number(m[5] || 0) * 60 + Number(m[6] || 0)) * 1000;
+  return m[1] === '-' ? -ms : ms;
+}
+
+function icsDayNum_(key) {
+  const p = key.split('-').map(Number);
+  return Math.round(Date.UTC(p[0], p[1] - 1, p[2]) / 864e5);
+}
+
+function icsWeekday_(key) {
+  const p = key.split('-').map(Number);
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
+}
+
+function icsDaysInMonth_(y, mo) {
+  return new Date(Date.UTC(y, mo, 0)).getUTCDate();
+}
+
+/** The days a repeat rule gives, from the first day, until a day after `untilKey` (keys, first day included). */
+function icsRepeatDays_(rule, firstKey, untilKey, startOf) {
+  const r = {};
+  String(rule).split(';').forEach(function (part) {
+    const k = part.indexOf('=');
+    if (k > 0) r[part.slice(0, k).toUpperCase()] = part.slice(k + 1).toUpperCase();
+  });
+  const freq = r.FREQ;
+  if (['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].indexOf(freq) < 0) return [firstKey];
+  const interval = Math.max(1, Number(r.INTERVAL) || 1);
+  const count = r.COUNT ? Math.max(1, Number(r.COUNT)) : Infinity;
+  let until = Infinity;
+  if (r.UNTIL) {
+    const w = icsWhen_({ value: r.UNTIL, params: {} }, 'UTC');
+    if (w) until = w.day ? Date.UTC(w.y, w.mo - 1, w.d, 23, 59, 59) : icsMoment_(w).getTime();
+  }
+  const byDay = r.BYDAY ? r.BYDAY.split(',').map(function (x) {
+    const m = /^([+-]?\d+)?(SU|MO|TU|WE|TH|FR|SA)$/.exec(x);
+    return m ? { n: m[1] ? Number(m[1]) : 0, wd: ICS_DAYS[m[2]] } : null;
+  }).filter(Boolean) : [];
+  const byMonthDay = r.BYMONTHDAY ? r.BYMONTHDAY.split(',').map(Number).filter(function (n) { return n && Math.abs(n) <= 31; }) : [];
+  const byMonth = r.BYMONTH ? r.BYMONTH.split(',').map(Number).filter(function (n) { return n >= 1 && n <= 12; }) : [];
+  const first = firstKey.split('-').map(Number);
+  const out = [];
+  let made = 0;
+  const take = function (key) {
+    if (key < firstKey || made >= count) return false;
+    if (startOf(key) > until) return 'stop';
+    made += 1;
+    if (key <= untilKey) out.push(key);
+    return true;
+  };
+  const inMonth = function (y, mo) {
+    // The days of one month a monthly (or yearly) rule picks
+    const days = icsDaysInMonth_(y, mo);
+    const pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    const key = function (d) { return y + '-' + pad(mo) + '-' + pad(d); };
+    let list = [];
+    if (byMonthDay.length) {
+      byMonthDay.forEach(function (n) { const d = n > 0 ? n : days + n + 1; if (d >= 1 && d <= days) list.push(d); });
+    } else if (byDay.length) {
+      byDay.forEach(function (b) {
+        const all = [];
+        for (let d = 1; d <= days; d++) if (icsWeekday_(key(d)) === b.wd) all.push(d);
+        if (!b.n) list = list.concat(all);
+        else if (b.n > 0 && all[b.n - 1]) list.push(all[b.n - 1]);
+        else if (b.n < 0 && all[all.length + b.n]) list.push(all[all.length + b.n]);
+      });
+    } else if (first[2] <= days) {
+      list.push(first[2]);
+    }
+    return list.sort(function (a, b) { return a - b; }).filter(function (d, i, a) { return a.indexOf(d) === i; }).map(key);
+  };
+  let steps = 0;
+  if (freq === 'DAILY' || (freq === 'WEEKLY' && !byDay.length)) {
+    const stepDays = freq === 'DAILY' ? interval : interval * 7;
+    let key = firstKey;
+    if (count === Infinity) {
+      // Long-running repeats: jump to a little before the days asked for (nothing before them is shown)
+      const skipSteps = Math.floor((icsDayNum_(untilKey) - icsDayNum_(firstKey) - 400) / stepDays);
+      if (skipSteps > 0) key = addDaysKey_(firstKey, skipSteps * stepDays);
+    }
+    for (; steps < ICS_MAX_STEPS; key = addDaysKey_(key, stepDays), steps++) {
+      if (key > untilKey) break;
+      if (byMonth.length && byMonth.indexOf(Number(key.slice(5, 7))) < 0) continue;
+      const t = take(key);
+      if (t === 'stop' || made >= count) break;
+    }
+  } else if (freq === 'WEEKLY') {
+    const sunday = addDaysKey_(firstKey, -icsWeekday_(firstKey));
+    const wanted = byDay.map(function (b) { return b.wd; }).sort();
+    let week = sunday;
+    if (count === Infinity) {
+      const skipSteps = Math.floor((icsDayNum_(untilKey) - icsDayNum_(sunday) - 400) / (interval * 7));
+      if (skipSteps > 0) week = addDaysKey_(sunday, skipSteps * interval * 7);
+    }
+    for (; steps < ICS_MAX_STEPS; week = addDaysKey_(week, interval * 7), steps++) {
+      let stop = false;
+      for (let i = 0; i < wanted.length && !stop; i++) {
+        const t = take(addDaysKey_(week, wanted[i]));
+        stop = t === 'stop' || made >= count;
+      }
+      if (stop || week > untilKey) break;
+    }
+  } else {
+    let y = first[0];
+    let mo = first[1];
+    for (; steps < ICS_MAX_STEPS; steps++) {
+      const months = freq === 'YEARLY' ? (byMonth.length ? byMonth : [first[1]]) : [mo];
+      let stop = false;
+      for (let i = 0; i < months.length && !stop; i++) {
+        const days = freq === 'YEARLY' && !byDay.length && !byMonthDay.length
+          ? (first[2] <= icsDaysInMonth_(y, months[i]) ? [y + '-' + (months[i] < 10 ? '0' : '') + months[i] + '-' + (first[2] < 10 ? '0' : '') + first[2]] : [])
+          : inMonth(y, months[i]);
+        for (let j = 0; j < days.length && !stop; j++) {
+          const t = take(days[j]);
+          stop = t === 'stop' || made >= count;
+        }
+      }
+      if (stop) break;
+      const pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      if (y + '-' + pad(mo) + '-01' > untilKey) break;
+      if (freq === 'YEARLY') y += interval;
+      else {
+        mo += interval;
+        while (mo > 12) { mo -= 12; y += 1; }
+      }
+    }
+  }
+  return out;
+}
+
+/** The events of an iCalendar file between two moments, the way the Calendar page takes them. */
+function icsParse_(text, from, to, tz) {
+  const lines = icsLines_(text);
+  let name = '';
+  const vevents = [];
+  let cur = null;
+  let depth = 0;
+  lines.forEach(function (l) {
+    if (l.name === 'X-WR-CALNAME' && !name) name = icsText_(l.value).slice(0, 100);
+    if (l.name === 'BEGIN') {
+      if (String(l.value).toUpperCase() === 'VEVENT' && !cur) { cur = { props: {}, exdates: [] }; depth = 0; return; }
+      if (cur) depth += 1;
+      return;
+    }
+    if (l.name === 'END') {
+      if (cur && String(l.value).toUpperCase() === 'VEVENT' && !depth) { vevents.push(cur); cur = null; return; }
+      if (cur) depth -= 1;
+      return;
+    }
+    if (!cur || depth) return; // alarms inside an event are skipped
+    if (l.name === 'EXDATE') { String(l.value).split(',').forEach(function (v) { cur.exdates.push({ name: 'EXDATE', params: l.params, value: v }); }); return; }
+    if (!cur.props[l.name]) cur.props[l.name] = l;
+  });
+
+  const fromMs = from.getTime();
+  const toMs = to.getTime();
+  const untilKey = Utilities.formatDate(new Date(toMs + 864e5), 'UTC', 'yyyy-MM-dd');
+  const overrides = {};   // uid → { start time ms of the replaced repeat: true }
+  vevents.forEach(function (v) {
+    const rid = v.props['RECURRENCE-ID'];
+    const uid = v.props.UID ? v.props.UID.value : '';
+    if (!rid || !uid) return;
+    const w = icsWhen_(rid, tz);
+    if (!w) return;
+    (overrides[uid] = overrides[uid] || {})[w.day ? icsKey_(w) : String(icsMoment_(w).getTime())] = true;
+  });
+
+  const out = [];
+  vevents.forEach(function (v) {
+    const P = v.props;
+    if (!P.DTSTART || (P.STATUS && /CANCELLED/i.test(P.STATUS.value))) return;
+    const start = icsWhen_(P.DTSTART, tz);
+    if (!start) return;
+    const uid = P.UID ? String(P.UID.value) : Utilities.getUuid();
+    let length;
+    const end = P.DTEND ? icsWhen_(P.DTEND, tz) : null;
+    if (end) {
+      length = start.day ? Date.UTC(end.y, end.mo - 1, end.d) - Date.UTC(start.y, start.mo - 1, start.d) : icsMoment_(end).getTime() - icsMoment_(start).getTime();
+    } else {
+      length = icsDuration_(P.DURATION && P.DURATION.value);
+      if (length == null) length = start.day ? 864e5 : 0;
+    }
+    if (start.day) length = Math.max(864e5, Math.round(length / 864e5) * 864e5);
+    else length = Math.max(0, length);
+    const base = {
+      title: icsText_(P.SUMMARY && P.SUMMARY.value).replace(/\s+/g, ' ').trim().slice(0, 300),
+      location: icsText_(P.LOCATION && P.LOCATION.value).slice(0, 300),
+      description: icsText_(P.DESCRIPTION && P.DESCRIPTION.value).slice(0, CAL_READ_MAX_TEXT),
+      allDay: start.day,
+      color: '',
+      recurring: Boolean(P.RRULE),
+      task: '',
+      url: null,
+    };
+    const startOf = function (key) {
+      const w = icsOnDay_(start, key);
+      return start.day ? Date.UTC(w.y, w.mo - 1, w.d) - MANILA_OFFSET_MIN * 60000 : icsMoment_(w).getTime();
+    };
+    const firstKey = icsKey_(start);
+    const lookBack = Math.max(length, 864e5);
+    const days = P.RRULE && !P['RECURRENCE-ID'] ? icsRepeatDays_(P.RRULE.value, firstKey, untilKey, startOf) : [firstKey];
+    const skip = {};
+    v.exdates.forEach(function (x) {
+      const w = icsWhen_(x, start.tz);
+      if (w) skip[w.day ? icsKey_(w) : String(icsMoment_(w).getTime())] = true;
+    });
+    const replaced = P['RECURRENCE-ID'] ? {} : overrides[uid] || {};
+    days.forEach(function (key) {
+      const s = startOf(key);
+      if (s >= toMs || s + lookBack < fromMs - 864e5) return;
+      const mark = start.day ? key : String(s);
+      if (skip[mark] || skip[key] || replaced[mark]) return;
+      const e = Object.assign({}, base);
+      e.id = uid + '@' + key;
+      if (start.day) {
+        e.date = key;
+        e.endDate = addDaysKey_(key, Math.round(length / 864e5));
+        e.start = new Date(s).toISOString();
+        e.end = new Date(s + length).toISOString();
+      } else {
+        e.start = new Date(s).toISOString();
+        e.end = new Date(s + Math.max(length, 0)).toISOString();
+      }
+      if (Date.parse(e.end) <= fromMs && !(length === 0 && s >= fromMs)) return;
+      out.push(e);
+    });
+  });
+  return { name: name, events: out };
 }
 
 /** Which calendars you own, which one tasks go into, and whether the 30-minute check is running. */
@@ -1794,7 +2419,10 @@ function calSetup_(ss, props, req) {
 
 /** Bring linked tasks' events up to date (the app asks for this after sending task changes). */
 function calSync_(ss, props, req) {
-  return calRun_(ss, props, { budgetMs: CAL_WEB_BUDGET_MS, ids: req.ids, all: Boolean(req.all), appUrl: req.appUrl });
+  // reset (sync script 17): items whose event should follow the item again, even though the Sheet's copy didn't change —
+  // after Undo on "Changed in Google Calendar", the item is back to what the Sheet already had
+  const reset = Array.isArray(req.reset) ? req.reset.slice(0, MAX_RECORDS).map(String) : [];
+  return calRun_(ss, props, { budgetMs: CAL_WEB_BUDGET_MS, ids: (Array.isArray(req.ids) ? req.ids : []).concat(reset), reset: reset, all: Boolean(req.all), appUrl: req.appUrl });
 }
 
 /** Run by the 30-minute timer (setup starts it). */
@@ -1847,6 +2475,8 @@ function calRun_(ss, props, opts) {
   const sinceSeq = Number(props.getProperty('CAL_SEQ') || '0');
   const asked = {};
   (Array.isArray(opts.ids) ? opts.ids : []).slice(0, MAX_RECORDS).forEach(function (id) { asked[String(id)] = true; });
+  const resetIds = {};
+  (Array.isArray(opts.reset) ? opts.reset : []).forEach(function (id) { resetIds[String(id)] = true; });
   const today = shownDate_(now);
   const from = addDaysKey_(today, -CAL_CHECK_DAYS_BEFORE);
   const until = addDaysKey_(today, CAL_CHECK_DAYS_AFTER);
@@ -1920,6 +2550,12 @@ function calRun_(ss, props, opts) {
       pending = queue.length - i;
       if (c.seq > sinceSeq) doneSeq = c.seq - 1; // come back to the changes not yet handled
       break;
+    }
+    if (c.link && resetIds[c.task.id]) {
+      // The app turned down the change made in Google Calendar: the event follows the item again
+      c.link = JSON.parse(JSON.stringify(c.link));
+      c.link.fromCal = null;
+      c.link.taskWritten = '';
     }
     const next = calReconcile_(c.task, c.link, cfg, target, targetError, now, ctx, props);
     if (!next) continue;
@@ -2074,7 +2710,33 @@ function calApply_(task, link, cal, cfg, now, ctx, props) {
   }
 
   const want = calDesired_(task, cfg, ctx, props);
-  if (!event) {
+  // Two-way (sync script 17): moved or renamed in Google Calendar while the to-do stayed the same →
+  // the app is told (link.fromCal) and changes the to-do; the event is left as you made it meanwhile.
+  // When the to-do changed too, the app wins and the event follows the to-do.
+  const taskNow = String(task.updatedAt || '');
+  let leaveEvent = false;
+  if (event && link.calStamp) {
+    const stamp = calStampOf_(event);
+    const sameTask = taskNow === String(link.taskWritten || '');
+    if (sameTask && stamp > Number(link.calStamp) + 1000) {
+      const change = calChangeOf_(event, task, want, cfg);
+      link.calStamp = stamp;
+      if (change) {
+        change.at = new Date(stamp).toISOString();
+        change.taskSeen = taskNow;
+        // …and what the item said then, so a device can tell it hasn't been changed since (whatever its clock says)
+        change.was = { title: String(task.title || ''), date: task.date || null, startTime: task.startTime || null, endTime: task.endTime || null };
+        link.fromCal = change;
+      }
+      leaveEvent = true;
+    } else if (sameTask && link.fromCal) {
+      leaveEvent = true; // waiting for the app to take the change
+    }
+  }
+  if (!leaveEvent) link.fromCal = null;
+  if (leaveEvent) {
+    // as you made it in Google Calendar
+  } else if (!event) {
     event = want.kind === 'allday'
       ? cal.createAllDayEvent(want.title, want.date, { description: want.description })
       : cal.createEvent(want.title, want.start, want.end, { description: want.description });
@@ -2091,6 +2753,10 @@ function calApply_(task, link, cal, cfg, now, ctx, props) {
     }
     calSetPopups_(event, want.popups, false);
   }
+  if (!leaveEvent) {
+    link.taskWritten = taskNow;
+    link.calStamp = calStampOf_(event);
+  }
   link.kind = want.kind;
   link.status = 'linked';
   link.reason = '';
@@ -2101,6 +2767,56 @@ function calApply_(task, link, cal, cfg, now, ctx, props) {
     .concat(link.followUps.filter(function (f) { return f && f.eventId; }).map(function (f) { return Date.parse(f.at); }))
     .filter(function (t) { return t > nowMs; });
   link.nextAlertAt = alerts.length ? new Date(Math.min.apply(null, alerts)).toISOString() : '';
+}
+
+/** When Google last changed an event (ms), or 0. */
+function calStampOf_(event) {
+  try {
+    const d = event.getLastUpdated();
+    return d ? d.getTime() : 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
+/**
+ * How a to-do's event was changed in Google Calendar, as to-do fields
+ * ({ title, date, startTime, endTime } — only what's different), or null.
+ */
+function calChangeOf_(event, task, want, cfg) {
+  const clean = function (text) { return String(text || '').replace(/\s+/g, ' ').trim(); };
+  const change = {};
+  let title = clean(event.getTitle());
+  const suffix = task.item === 'subtask' && clean(task.parentTitle) ? ' (' + clean(task.parentTitle) + ')' : '';
+  if (suffix && title.slice(-suffix.length) === suffix) title = title.slice(0, -suffix.length);
+  if (title && title !== want.title && title !== clean(task.title)) change.title = title.slice(0, 200);
+  if (event.isAllDayEvent()) {
+    const day = shownDateOf_(event.getAllDayStartDate());
+    if (day !== task.date) change.date = day;
+    if (task.startTime) {
+      change.startTime = null;
+      change.endTime = null;
+    }
+  } else {
+    const start = event.getStartTime();
+    const end = event.getEndTime();
+    const same = want.start && start.getTime() === want.start.getTime() && end.getTime() === want.end.getTime();
+    if (!same) {
+      const day = shownDate_(start);
+      const clock = Utilities.formatDate(start, SHOWN_TZ, 'HH:mm');
+      if (day !== task.date) change.date = day;
+      const keptLength = end.getTime() - start.getTime() === (want.end && want.start ? want.end.getTime() - want.start.getTime() : -1);
+      if (want.kind === 'entry' && clock === cfg.defaultTime && keptLength) {
+        // a reminder-only entry moved to another day at the same time: still no time of its own
+      } else {
+        change.startTime = clock;
+        change.endTime = !task.endTime && keptLength ? null : Utilities.formatDate(end, SHOWN_TZ, 'HH:mm');
+        if (change.startTime === task.startTime && !('date' in change)) delete change.startTime;
+        if (change.endTime === (task.endTime || null)) delete change.endTime;
+      }
+    }
+  }
+  return Object.keys(change).length ? change : null;
 }
 
 /** What a task's event should look like. */

@@ -39,6 +39,8 @@ import { formatBytes, storageInfo } from '../services/storage.js';
 import { offlineLabel } from '../services/pwa.js';
 import { accessSection, initAccessSettings } from './access-settings.js';
 import { accessSyncChanged } from '../services/access.js';
+import { DRIVE_REASONS, backupToDrive, driveBackupProblem, driveBackupStatus, fetchDriveBackup, listDriveBackups } from '../services/drive-backup.js';
+import { openExportData } from '../services/exports.js';
 
 let root = null;
 let nicknameTimer = null;
@@ -100,6 +102,9 @@ export function initSettings() {
   registerAction('settings:delete', deleteAllData);
   registerAction('settings:goal', (el) => changeGoal(Number(el.dataset.dir)));
   registerAction('backup:export', runExport);
+  registerAction('backup:drive', runDriveBackup);
+  registerAction('backup:driveRestore', chooseDriveBackup);
+  registerAction('data:export', () => openExportData());
   initAccessSettings(() => { if (isVisible()) render(); });
   registerAction('sync:setup', openSyncSetup);
   registerAction('sync:update', openScriptUpdate);
@@ -151,7 +156,9 @@ function scriptUpdateFor() {
   if (version < 13) return 'progress photos in your Google Drive';
   if (version < 14) return 'NCCU/ACSU on all your devices, and bold or red logsheet text shown in bold';
   if (version < 15) return 'NCCU/ACSU on all your devices, and your Google Calendar in the app';
-  return 'your Google Calendar in the app (the Calendar page)';
+  if (version < 16) return 'your Google Calendar in the app, adding events, Apple Calendar and Google Drive backups';
+  if (version < 17) return 'adding and changing events from the app, to-dos that follow their events, Apple Calendar and Google Drive backups';
+  return 'a backup in your Google Drive every day';
 }
 
 function syncSection() {
@@ -235,9 +242,24 @@ function backupSection() {
         <input class="sr-only" type="file" accept=".json,application/json" data-field="restore">
         ${icon('chevronRight', 'row__chev')}
       </label>
-      <button type="button" class="row row--icon accent-todo" data-action="todo:export">
+      <button type="button" class="row row--icon accent-brand" data-action="backup:drive">
+        <span class="row__icon">${icon('cloudCheck')}</span>
+        <span class="row__text"><span class="row__label">Back up to Google Drive now</span><span class="row__sub" data-slot="driveStatus">The “Life Dashboard Backups” folder in your Drive</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>
+      <button type="button" class="row row--icon accent-brand" data-action="backup:driveRestore">
+        <span class="row__icon">${icon('upload')}</span>
+        <span class="row__text"><span class="row__label">Restore from Google Drive…</span><span class="row__sub">Choose one of your Drive backups</span></span>
+        ${icon('chevronRight', 'row__chev')}
+      </button>
+      <label class="row row--icon accent-brand">
+        <span class="row__icon">${icon('refresh')}</span>
+        <span class="row__text"><span class="row__label">Daily Google Drive backup</span><span class="row__sub">Once a day, by itself, when the app is open. The last 30 are kept</span></span>
+        <input type="checkbox" class="switch" switch data-field="backupDrive"${checked(state.settings.backup?.drive !== false)}>
+      </label>
+      <button type="button" class="row row--icon accent-todo" data-action="data:export">
         <span class="row__icon">${icon('download')}</span>
-        <span class="row__text"><span class="row__label">Export tasks (CSV)</span><span class="row__sub">Opens in Excel, Numbers or Google Sheets</span></span>
+        <span class="row__text"><span class="row__label">Export data…</span><span class="row__sub">Tasks, workouts, weight, habits, focus, exercise stats (CSV) and a workout summary (PDF)</span></span>
         ${icon('chevronRight', 'row__chev')}
       </button>
       <label class="row row--icon accent-brand">
@@ -721,6 +743,14 @@ async function updateLastBackup() {
   if (!el) return;
   const last = await lastBackupAt();
   el.textContent = last ? `Last backup ${formatAgo(last)}` : 'Last backup: never';
+  const drive = root?.querySelector('[data-slot="driveStatus"]');
+  if (!drive) return;
+  const problem = driveBackupProblem();
+  const status = await driveBackupStatus();
+  drive.textContent = problem === 'not-connected' ? 'Needs sync with your Google Sheet'
+    : problem === 'outdated' ? 'Needs the sync script, version 18'
+      : status.error ? `Didn’t work last time: ${DRIVE_REASONS[status.error] ?? DRIVE_REASONS.failed}`
+        : status.lastAt ? `Last Drive backup ${formatAgo(status.lastAt)}` : 'No Drive backup from this device yet';
 }
 
 /** Keep the sync row current without re-rendering the whole screen. */
@@ -946,6 +976,10 @@ async function onChange(event) {
         await setAutoSync(el.checked);
         toast(el.checked ? 'Automatic sync is on.' : 'Automatic sync is off. Use “Sync now” when you want to sync.', { icon: 'refresh' });
         break;
+      case 'backupDrive':
+        await save((s) => { s.backup = { ...s.backup, drive: el.checked }; });
+        toast(el.checked ? 'Daily Google Drive backup is on.' : 'Daily Google Drive backup is off. “Back up to Google Drive now” still works.', { icon: 'cloudCheck' });
+        break;
       case 'backupReminders':
         await save((s) => { s.backup = { ...s.backup, reminders: el.checked }; });
         emit('backup');
@@ -1104,6 +1138,75 @@ async function startRestore(input) {
     toast(err.message, { icon: 'info', duration: 6000 });
     return;
   }
+  await restoreBackup(backup);
+}
+
+/* ---------- Google Drive backups (0.9.0) ---------- */
+
+async function runDriveBackup(el) {
+  const problem = driveBackupProblem();
+  if (problem) {
+    if (problem === 'outdated') openScriptUpdate();
+    else toast(DRIVE_REASONS[problem], { icon: 'info', duration: 6000 });
+    return;
+  }
+  const sub = el?.querySelector('[data-slot="driveStatus"]');
+  if (sub) sub.textContent = 'Backing up…';
+  const res = await backupToDrive();
+  if (res.ok) toast(`Backed up to Google Drive${res.trashed ? ` (the oldest ${res.trashed === 1 ? 'one went' : `${res.trashed} went`} to the Drive trash)` : ''}.`, { icon: 'cloudCheck' });
+  else toast(DRIVE_REASONS[res.reason] ?? DRIVE_REASONS.failed, { icon: 'info', duration: 7000 });
+  updateLastBackup();
+}
+
+async function chooseDriveBackup() {
+  const problem = driveBackupProblem();
+  if (problem) {
+    if (problem === 'outdated') openScriptUpdate();
+    else toast(DRIVE_REASONS[problem], { icon: 'info', duration: 6000 });
+    return;
+  }
+  toast('Looking in your Google Drive…', { icon: 'cloud', duration: 2500 });
+  const res = await listDriveBackups();
+  if (!res.ok) {
+    toast(DRIVE_REASONS[res.reason] ?? DRIVE_REASONS.failed, { icon: 'info', duration: 7000 });
+    return;
+  }
+  if (!res.backups.length) {
+    toast('There are no backups in your Google Drive yet. Tap “Back up to Google Drive now” to make one.', { icon: 'info', duration: 7000 });
+    return;
+  }
+  const what = (b) => {
+    const c = b.meta?.counts ?? {};
+    const n = (count, one) => `${count} ${one}${count === 1 ? '' : 's'}`;
+    return [c.tasks != null ? n(c.tasks, 'task') : '', c.workouts != null ? n(c.workouts, 'workout') : '', c.measurements ? n(c.measurements, 'measurement') : ''].filter(Boolean).join(' · ');
+  };
+  const id = await openDialog({
+    variant: 'sheet',
+    className: 'drive-pick action-sheet',
+    title: 'Restore from Google Drive',
+    body: html`<p class="dlg__msg">Your last ${res.backups.length === 1 ? 'backup' : `${res.backups.length} backups`}, newest first. You’ll see what’s inside before anything changes.</p>
+      <div class="action-list">${res.backups.map((b) => html`<button type="button" class="action-item" data-dialog-value="${b.id}">
+        ${icon(b.meta?.auto ? 'refresh' : 'cloudCheck')}<span class="action-item__label">${formatDateTime(new Date(b.meta?.exportedAt || b.createdAt))}
+          <span class="faint">· ${b.meta?.device || 'Device'}${b.meta?.auto ? ' · daily' : ''}</span></span>
+        <span class="action-item__detail">${what(b)}</span>
+      </button>`)}</div>
+      ${res.folderUrl ? html`<p class="faint drive-pick__foot"><a href="${res.folderUrl}" target="_blank" rel="noopener">Open the folder in Google Drive</a> · older backups are in the Drive trash for 30 days.</p>` : ''}`,
+    actions: [{ label: 'Cancel', value: '__cancel', variant: 'ghost', autofocus: true }],
+  });
+  if (!id || id === '__cancel') return;
+  let backup;
+  try {
+    toast('Opening the backup…', { icon: 'cloud', duration: 2500 });
+    backup = await fetchDriveBackup(id);
+  } catch (err) {
+    toast(err.message, { icon: 'info', duration: 7000 });
+    return;
+  }
+  await restoreBackup(backup);
+}
+
+/** "Restore this backup?" — then Merge or Replace, with Undo. */
+async function restoreBackup(backup) {
   const choice = await openDialog({
     variant: 'modal',
     className: 'restore-dialog',
@@ -1252,7 +1355,7 @@ async function openScriptUpdate() {
     className: 'setup',
     title: 'Update the sync script',
     body: html`
-      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script links Referrals to your referral census (two-way, with Last and Next Rounds as dates, and dropdown columns like Status written in their own values), lets a patient list tick the logsheet’s checkboxes (a tick column such as column A), syncs referrals you add by hand, and lets a patient list read names, hospital numbers and rounds from the columns you choose. It includes everything before it too: your patient lists’ own columns, readable tabs for your tasks and subtasks, Google Calendar for them, and Ward Patients. Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
+      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script saves a backup in your Google Drive every day (the last 30 are kept). Version 17 adds and changes Google Calendar events from the app, moves a to-do when you move its event in Google Calendar, and reads Apple Calendar public links. Earlier versions link Referrals to your referral census (two-way, with Last and Next Rounds as dates, and dropdown columns like Status written in their own values), lets a patient list tick the logsheet’s checkboxes (a tick column such as column A), syncs referrals you add by hand, and lets a patient list read names, hospital numbers and rounds from the columns you choose. It includes everything before it too: your patient lists’ own columns, readable tabs for your tasks and subtasks, Google Calendar for them, and Ward Patients. Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
       <ol class="setup__steps">
         <li><strong>Copy the new code.</strong>
           <span class="setup__buttons">
@@ -1261,7 +1364,7 @@ async function openScriptUpdate() {
           </span>
         </li>
         <li><strong>Replace the old code.</strong> Open your Google Sheet → <strong>Extensions → Apps Script</strong>. Click in the code, select everything (<strong>⌘A</strong>), paste (<strong>⌘V</strong>), then click <strong>Save</strong>. Near the top, a line should now read <code>const SCRIPT_VERSION = ${LATEST_SCRIPT_VERSION};</code></li>
-        <li><strong>Run setup (once).</strong> In the toolbar, choose <strong>setup</strong> and click <strong>Run</strong>. If Google asks for permission (it does when you’re coming from version 4 or older): <strong>Review permissions</strong> → your account → <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> → <strong>Allow</strong>. It’s your own script; this adds the new tabs and starts the 30-minute check Google Calendar alerts need.</li>
+        <li><strong>Run setup (once).</strong> In the toolbar, choose <strong>setup</strong> and click <strong>Run</strong>. If Google asks for permission (it does when you’re coming from version 16 or older — version 17 reads Apple Calendar links from the web): <strong>Review permissions</strong> → your account → <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> → <strong>Allow</strong>. It’s your own script; this adds the new tabs and starts the 30-minute check Google Calendar alerts need.</li>
         <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>.</li>
         <li><strong>Check.</strong> Come back here and tap <strong>Check now</strong>.</li>
       </ol>

@@ -114,3 +114,29 @@
 .cal-swatch { width: 24px; height: 24px; border-radius: 50%; background: var(--sw); border: 2px solid transparent; }
 .cal-swatch[aria-pressed="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface-solid) inset; }
 .cal-pick__note { font-size: var(--fs-sm); }
+
+/* ---- Apple Calendar links (0.8.4) ---- */
+.cal-pick__problem { display: flex; align-items: flex-start; gap: 6px; font-size: var(--fs-sm); color: var(--warn, var(--text-2)); }
+.cal-pick__problem .icon { width: 1rem; height: 1rem; flex: none; margin-top: 2px; }
+.cal-pick__remove { align-self: flex-start; }
+.cal-pick__how { font-size: var(--fs-sm); color: var(--text-2); }
+.cal-pick__how summary { cursor: pointer; font-weight: 600; color: var(--text); padding: 4px 0; }
+.cal-pick__how ol { margin: 6px 0 8px; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; }
+
+/* ---- Event details and editor (0.8.2) ---- */
+.event-detail__why { display: flex; align-items: flex-start; gap: 8px; margin-top: 4px; font-size: var(--fs-sm); color: var(--text-3); }
+.event-detail__why .icon { width: 1rem; height: 1rem; flex: none; margin-top: 2px; }
+.event-detail__more { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ev-danger { color: var(--danger, #ef4444); }
+.ev-form { display: flex; flex-direction: column; gap: 14px; }
+.ev-form.is-allday .ev-time { display: none; }
+.ev-form .field-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.ev-form.is-allday .field-row { grid-template-columns: 1fr; }
+.ev-form__allday { padding: 0; }
+.ev-form__tz { font-size: var(--fs-xs); }
+.ev-cal { position: relative; display: block; }
+.ev-cal::before { content: ""; position: absolute; left: 12px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 3px; background: var(--cal); pointer-events: none; }
+.ev-cal select { padding-left: 32px; width: 100%; }
+.capture.is-event .capture__chips .cchip--priority,
+.capture.is-event .capture__chips .cchip--category,
+.capture.is-event .capture__chips .cchip--reminder { display: none; }

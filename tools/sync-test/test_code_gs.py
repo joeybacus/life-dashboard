@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 16
+SCRIPT_VERSION = 18
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -1055,6 +1055,204 @@ check('v16: a range too long is refused', gas('post', {**base, 'action': 'calend
 st = gas('dump'); st['calNoAuth'] = True; save_state(st)
 check('v16: without Calendar permission the app is told so', gas('post', {**base, 'action': 'calendarEvents', 'from': '2026-10-11T16:00:00.000Z', 'to': '2026-10-18T16:00:00.000Z'}).get('error') == 'calendar-needs-auth')
 st = gas('dump'); st['calNoAuth'] = False; save_state(st)
+
+
+# Version 17: adding, changing and deleting events; to-dos follow their events; Apple Calendar
+print('\nVersion 17: the event editor, two-way to-dos, Apple Calendar')
+set_now('2026-10-12T01:00:00.000Z')
+
+
+def save_event(**ev):
+    return gas('post', {**base, 'action': 'calendarEventSave', 'event': ev})
+
+
+def cal_event(cal_id, ev_id):
+    return gas('dump')['calendars'][cal_id]['events'].get(ev_id)
+
+
+res = save_event(cal='me@gmail.com', title='  Lunch   with Ana ', allDay=False, start='2026-10-14T04:00:00.000Z', end='2026-10-14T05:00:00.000Z',
+                 location='Cafe', description='Bring the forms', alerts=[10, 10, 60])
+new_id = res.get('event', {}).get('id', '')
+e = cal_event('me@gmail.com', new_id) or {}
+check('v17: a new event is made in the calendar you chose', res.get('ok') and e.get('title') == 'Lunch with Ana' and e.get('start') == '2026-10-14T04:00:00.000Z'
+      and e.get('location') == 'Cafe' and e.get('description') == 'Bring the forms', res)
+check('v17: …with the alerts you chose (once each)', e.get('popups') == [10, 60] and res['event'].get('alerts') == [10, 60], e.get('popups'))
+res = save_event(id=new_id, cal='me@gmail.com', title='Lunch with Ana (moved)', allDay=False, start='2026-10-15T05:00:00.000Z', end='2026-10-15T06:30:00.000Z', location='', description='')
+e = cal_event('me@gmail.com', new_id) or {}
+check('v17: changing it changes the same event', res.get('ok') and res['event']['id'] == new_id and e.get('start') == '2026-10-15T05:00:00.000Z' and e.get('end') == '2026-10-15T06:30:00.000Z'
+      and e.get('title') == 'Lunch with Ana (moved)' and e.get('location') == '' and e.get('popups') == [10, 60], e)
+res = save_event(cal='me@gmail.com', title='Conference', allDay=True, date='2026-10-20', endDate='2026-10-23')
+check('v17: an all-day event over several days (last day not included)', res.get('ok') and res['event']['date'] == '2026-10-20' and res['event']['endDate'] == '2026-10-23', res)
+res2 = save_event(id=res['event']['id'], cal='me@gmail.com', title='Conference', allDay=True, date='2026-10-21')
+check('v17: …and back to one day', res2.get('ok') and res2['event']['date'] == '2026-10-21' and res2['event']['endDate'] == '2026-10-22', res2)
+check('v17: a calendar you subscribe to can\'t be changed', save_event(cal='holidays@group.v.calendar.google.com', title='X', allDay=True, date='2026-10-20').get('error') == 'calendar-read-only')
+check('v17: a repeating event is changed in Google Calendar itself', save_event(id='ce2@google.com', cal='me@gmail.com', title='Duty', allDay=True, date='2026-10-17').get('error') == 'event-recurring')
+check('v17: a to-do\'s event is changed through the to-do', save_event(id='ce1@google.com', cal='me@gmail.com', title='X', allDay=True, date='2026-10-17').get('error') == 'event-is-task')
+check('v17: a title is needed', save_event(cal='me@gmail.com', title='  ', allDay=True, date='2026-10-17').get('error') == 'event-no-title')
+check('v17: an end before the start is refused', save_event(cal='me@gmail.com', title='X', allDay=False, start='2026-10-15T05:00:00.000Z', end='2026-10-15T04:00:00.000Z').get('error') == 'event-bad-time')
+st = gas('dump')
+st['calendars']['work@group.calendar.google.com'] = {'id': 'work@group.calendar.google.com', 'name': 'Work', 'tz': 'Asia/Manila', 'deleted': False, 'events': {}}
+save_state(st)
+res = save_event(id=new_id, fromCal='me@gmail.com', cal='work@group.calendar.google.com', title='Lunch with Ana (moved)', allDay=False, start='2026-10-15T05:00:00.000Z', end='2026-10-15T06:30:00.000Z')
+st = gas('dump')
+check('v17: moving to another calendar makes it there and removes it here', res.get('ok') and res['event']['cal'] == 'work@group.calendar.google.com'
+      and res['event']['id'] in st['calendars']['work@group.calendar.google.com']['events'] and st['calendars']['me@gmail.com']['events'][new_id]['deleted'], res)
+moved_id = res['event']['id']
+res = gas('post', {**base, 'action': 'calendarEventDelete', 'cal': 'work@group.calendar.google.com', 'id': moved_id})
+check('v17: deleting an event', res.get('ok') and cal_event('work@group.calendar.google.com', moved_id)['deleted'], res)
+check('v17: …and deleting it again says it\'s gone', gas('post', {**base, 'action': 'calendarEventDelete', 'cal': 'work@group.calendar.google.com', 'id': moved_id}).get('error') == 'event-gone')
+
+# Two-way: a to-do's event moved in Google Calendar
+push([('tasks', ctask('cal-20', title='Call the lab', date='2026-10-13', startTime='10:00', updated='2026-10-12T01:00:00.000Z'))])
+cal_sync(ids=['cal-20'])
+l20 = link('cal-20')
+ev_id = l20['eventId']
+home = next(cid for cid, c in gas('dump')['calendars'].items() if ev_id in c['events'])
+check('v17: the link remembers when it last wrote the event', l20.get('calStamp') and l20.get('taskWritten') == '2026-10-12T01:00:00.000Z', l20)
+set_now('2026-10-12T02:00:00.000Z')
+st = gas('dump')
+ev = st['calendars'][home]['events'][ev_id]
+ev.update(start='2026-10-14T06:00:00.000Z', end='2026-10-14T06:30:00.000Z', title='Call the lab (moved)', updated='2026-10-12T01:30:00.000Z')
+save_state(st)
+gas('tick')
+l20 = link('cal-20')
+fc = l20.get('fromCal') or {}
+check('v17: moved and renamed in Google Calendar → the app is told how', fc.get('date') == '2026-10-14' and fc.get('startTime') == '14:00' and fc.get('title') == 'Call the lab (moved)'
+      and 'endTime' not in fc and fc.get('taskSeen') == '2026-10-12T01:00:00.000Z'
+      and fc.get('was') == {'title': 'Call the lab', 'date': '2026-10-13', 'startTime': '10:00', 'endTime': None}, l20)
+check('v17: …and the event is left where you put it', cal_event(home, ev_id)['start'] == '2026-10-14T06:00:00.000Z' and cal_event(home, ev_id)['title'] == 'Call the lab (moved)')
+gas('tick')
+check('v17: …even on the next check, while the app hasn\'t taken it yet', cal_event(home, ev_id)['start'] == '2026-10-14T06:00:00.000Z' and link('cal-20').get('fromCal'), link('cal-20'))
+# Undo in the app: the to-do is back to what the Sheet has, so the app asks for the event to follow it again
+st = gas('dump')
+saved_state = json.loads(json.dumps(st))
+cal_sync(reset=['cal-20'])
+check('v17: Undo → the event goes back to the to-do', cal_event(home, ev_id)['start'] == '2026-10-13T02:00:00.000Z' and cal_event(home, ev_id)['title'] == 'Call the lab'
+      and not link('cal-20').get('fromCal'), (cal_event(home, ev_id), link('cal-20')))
+save_state(saved_state)  # …and back to before the Undo, for the rest of the checks
+push([('tasks', ctask('cal-20', title='Call the lab (moved)', date='2026-10-14', startTime='14:00', updated='2026-10-12T02:05:00.000Z'))])
+cal_sync()
+l20 = link('cal-20')
+check('v17: once the to-do follows, the link is back to normal', not l20.get('fromCal') and l20['taskWritten'] == '2026-10-12T02:05:00.000Z' and cal_event(home, ev_id)['start'] == '2026-10-14T06:00:00.000Z', l20)
+set_now('2026-10-12T03:00:00.000Z')
+st = gas('dump')
+st['calendars'][home]['events'][ev_id].update(start='2026-10-14T00:00:00.000Z', end='2026-10-14T00:30:00.000Z', updated='2026-10-12T02:50:00.000Z')
+save_state(st)
+push([('tasks', ctask('cal-20', title='Call the lab (moved)', date='2026-10-14', startTime='16:00', updated='2026-10-12T02:55:00.000Z'))])
+cal_sync()
+check('v17: changed in both places → the app wins', cal_event(home, ev_id)['start'] == '2026-10-14T08:00:00.000Z' and not link('cal-20').get('fromCal'), (cal_event(home, ev_id), link('cal-20')))
+st = gas('dump')
+st['calendars'][home]['events'][ev_id].update(description='my own note', updated='2026-10-12T02:58:00.000Z')
+save_state(st)
+set_now('2026-10-12T03:10:00.000Z')
+gas('tick')
+check('v17: a change that isn\'t the name or time isn\'t sent to the app', not link('cal-20').get('fromCal'), link('cal-20'))
+push([('tasks', ctask('cal-21', title='Renew licence', date='2026-10-16', updated='2026-10-12T03:00:00.000Z'))])
+cal_sync(ids=['cal-21'])
+st = gas('dump')
+e21 = link('cal-21')['eventId']
+h21 = next(cid for cid, c in st['calendars'].items() if e21 in c['events'])
+st['calendars'][h21]['events'][e21].update(date='2026-10-19', updated='2026-10-12T03:15:00.000Z')
+save_state(st)
+set_now('2026-10-12T03:16:00.000Z')
+gas('tick')
+check('v17: an all-day to-do dragged to another day', (link('cal-21').get('fromCal') or {}).get('date') == '2026-10-19' and 'startTime' not in link('cal-21')['fromCal'], link('cal-21'))
+st = gas('dump')
+st['calendars'][h21]['events'][e21].update(allDay=False, date=None, start='2026-10-19T01:00:00.000Z', end='2026-10-19T02:00:00.000Z', updated='2026-10-12T03:18:00.000Z')
+save_state(st)
+set_now('2026-10-12T03:20:00.000Z')
+gas('tick')
+fc = link('cal-21').get('fromCal') or {}
+check('v17: …and given a time there', fc.get('date') == '2026-10-19' and fc.get('startTime') == '09:00' and fc.get('endTime') == '10:00', fc)
+
+# Apple Calendar: a public iCloud link, read by the script
+ICS = '\r\n'.join([
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'X-WR-CALNAME:Family',
+    'BEGIN:VEVENT', 'UID:a1', 'DTSTART;TZID=Asia/Manila:20261013T190000', 'DTEND;TZID=Asia/Manila:20261013T200000', 'SUMMARY:Dinner\\, family', 'LOCATION:Home',
+    'DESCRIPTION:Line one\\nline', '  two', 'BEGIN:VALARM', 'TRIGGER:-PT10M', 'SUMMARY:alarm', 'END:VALARM', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:a2', 'DTSTART;VALUE=DATE:20261015', 'DTEND;VALUE=DATE:20261017', 'SUMMARY:Trip', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:a3', 'DTSTART:20260105T013000Z', 'DURATION:PT30M', 'RRULE:FREQ=WEEKLY;BYDAY=MO,WE', 'EXDATE:20261014T013000Z', 'SUMMARY:Gym', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:a3', 'RECURRENCE-ID:20261012T013000Z', 'DTSTART:20261012T023000Z', 'DURATION:PT30M', 'SUMMARY:Gym (late)', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:a4', 'DTSTART;VALUE=DATE:19900301', 'RRULE:FREQ=YEARLY', 'SUMMARY:Birthday', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:a5', 'DTSTART;TZID=America/New_York:20261001T090000', 'DTEND;TZID=America/New_York:20261001T100000', 'RRULE:FREQ=MONTHLY;BYDAY=2TU;COUNT=12', 'SUMMARY:Club', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:a6', 'STATUS:CANCELLED', 'DTSTART:20261013T010000Z', 'SUMMARY:Cancelled', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:a7', 'DTSTART:20200101T000000Z', 'RRULE:FREQ=DAILY', 'SUMMARY:Daily since 2020', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:a8', 'DTSTART;VALUE=DATE:20261001', 'RRULE:FREQ=MONTHLY;BYMONTHDAY=-1;UNTIL=20261231', 'SUMMARY:Month end', 'END:VEVENT',
+    'END:VCALENDAR', ''])
+st = gas('dump')
+st['urls'] = {'https://p01-caldav.icloud.com/published/2/ABC': {'code': 200, 'text': ICS}}
+save_state(st)
+apple = [{'id': 'fam', 'url': 'webcal://p01-caldav.icloud.com/published/2/ABC', 'name': ''},
+         {'id': 'bad', 'url': 'https://example.com/cal.ics', 'name': 'Bad'},
+         {'id': 'gone', 'url': 'https://p01-caldav.icloud.com/published/2/GONE', 'name': 'Gone'}]
+res = gas('post', {**base, 'action': 'calendarEvents', 'from': '2026-10-11T16:00:00.000Z', 'to': '2026-10-18T16:00:00.000Z', 'apple': apple})
+aev = [e for e in res.get('events', []) if e['cal'] == 'apple:fam']
+by = {}
+for e in aev:
+    by.setdefault(e['title'], []).append(e)
+cals = {c['id']: c for c in res.get('calendars', [])}
+check('v17: Apple Calendar comes in as a read-only calendar, named from the file', cals.get('apple:fam', {}).get('name') == 'Family' and cals['apple:fam']['readOnly'] and cals['apple:fam']['apple'], cals.get('apple:fam'))
+check('v17: Apple: a timed event in its time zone, with place and notes', by.get('Dinner, family', [{}])[0].get('start') == '2026-10-13T11:00:00.000Z' and by['Dinner, family'][0]['end'] == '2026-10-13T12:00:00.000Z'
+      and by['Dinner, family'][0]['location'] == 'Home' and by['Dinner, family'][0]['description'] == 'Line one\nline two', by.get('Dinner, family'))
+check('v17: Apple: an all-day trip over two days', by.get('Trip', [{}])[0].get('date') == '2026-10-15' and by['Trip'][0]['endDate'] == '2026-10-17' and by['Trip'][0]['allDay'], by.get('Trip'))
+check('v17: Apple: a weekly repeat, with a skipped day and a moved one', 'Gym' not in by and [e['start'] for e in by.get('Gym (late)', [])] == ['2026-10-12T02:30:00.000Z'], {k: [e['start'] for e in v] for k, v in by.items()})
+check('v17: Apple: "second Tuesday" in New York time', [e['start'] for e in by.get('Club', [])] == ['2026-10-13T13:00:00.000Z'], by.get('Club'))
+check('v17: Apple: a daily repeat that started years ago still shows', len(by.get('Daily since 2020', [])) == 7, len(by.get('Daily since 2020', [])))
+check('v17: Apple: cancelled and out-of-range ones are left out', 'Cancelled' not in by and 'Birthday' not in by and 'Month end' not in by, list(by))
+res2 = gas('post', {**base, 'action': 'calendarEvents', 'from': '2026-10-20T16:00:00.000Z', 'to': '2026-12-01T16:00:00.000Z', 'apple': apple[:1]})
+ends = sorted(e['date'] for e in res2['events'] if e['title'] == 'Month end')
+check('v17: Apple: "last day of the month"', ends == ['2026-10-31', '2026-11-30'], ends)
+check('v17: Apple: a link that isn\'t a public iCloud calendar, or no longer public, is reported', res['appleErrors'].get('apple:bad') == 'apple-bad-link'
+      and res['appleErrors'].get('apple:gone') == 'apple-not-public' and 'apple:gone' in res['failed'], res.get('appleErrors'))
+check('v17: Apple: Google events still come with them', any(e['id'] == 'ce1@google.com' for e in res['events']))
+st = gas('dump'); st['fetchNoAuth'] = True; save_state(st)
+res = gas('post', {**base, 'action': 'calendarEvents', 'from': '2026-10-11T16:00:00.000Z', 'to': '2026-10-18T16:00:00.000Z', 'apple': apple[:1]})
+check('v17: Apple: no permission yet to read web links → the app is told, Google still works', res.get('ok') and res['appleErrors'].get('apple:fam') == 'apple-needs-auth' and any(e['id'] == 'ce1@google.com' for e in res['events']), res.get('appleErrors'))
+st = gas('dump'); st['fetchNoAuth'] = False; save_state(st)
+
+
+# Version 18: backups in Google Drive
+print('\nVersion 18: backups in Google Drive')
+set_now('2026-10-19T01:00:00.000Z')
+
+
+def backup_text(n):
+    return json.dumps({'format': 'life-dashboard-backup', 'formatVersion': 1, 'n': n, 'data': {'tasks': [{'id': 't', 'title': 'Ünïcode “quotes”'}]}})
+
+
+meta = {'exportedAt': '2026-10-19T01:00:00.000Z', 'device': 'iPhone', 'appVersion': '0.9.0', 'auto': True, 'counts': {'tasks': 12, 'workouts': 3, 'bad key!': 5}}
+res = gas('post', {**base, 'action': 'driveBackupSave', 'name': 'LifeDashboard_Backup_2026-10-19_0900 iPhone.json', 'data': backup_text(0), 'meta': meta})
+st = gas('dump')
+folders = [f for f in st['drive']['folders'].values() if f['name'] == 'Life Dashboard Backups']
+check('v18: the first backup makes the "Life Dashboard Backups" folder', res.get('ok') and len(folders) == 1 and res.get('trashed') == 0, res)
+lst = gas('post', {**base, 'action': 'driveBackupList'})
+b0 = (lst.get('backups') or [{}])[0]
+check('v18: the list says what\'s inside', b0.get('name') == 'LifeDashboard_Backup_2026-10-19_0900 iPhone.json' and b0['meta']['counts'] == {'tasks': 12, 'workouts': 3}
+      and b0['meta']['device'] == 'iPhone' and b0['meta']['auto'] is True, b0)
+got = gas('post', {**base, 'action': 'driveBackupGet', 'id': b0.get('id', '')})
+check('v18: a backup comes back exactly as it was sent', got.get('data') == backup_text(0), got)
+check('v18: only backup files are taken', gas('post', {**base, 'action': 'driveBackupSave', 'name': 'evil.json', 'data': backup_text(1)}).get('error') == 'backup-bad-request'
+      and gas('post', {**base, 'action': 'driveBackupSave', 'name': 'LifeDashboard_Backup_x.json', 'data': '{"hello": 1}'}).get('error') == 'backup-bad-request')
+photo_id = next((k for k, f in st['drive']['files'].items() if 'Backup' not in f['name']), None)
+check('v18: files outside the backups folder can\'t be read', gas('post', {**base, 'action': 'driveBackupGet', 'id': photo_id or 'file00000000abcdef'}).get('error') == 'backup-not-found')
+# Someone's own file in the folder is never touched
+st = gas('dump')
+fid = folders and next(k for k, f in st['drive']['folders'].items() if f['name'] == 'Life Dashboard Backups')
+st['drive']['files']['mynotes0000abcdef'] = {'name': 'my notes.txt', 'mime': 'text/plain', 'data': 'hi', 'parents': [fid], 'trashed': False, 'description': '', 'created': '2020-01-01T00:00:00.000Z'}
+save_state(st)
+for i in range(1, 32):
+    r = gas('post', {**base, 'action': 'driveBackupSave', 'name': f'LifeDashboard_Backup_2026-10-{i:02d}_0900 Mac.json', 'data': backup_text(i), 'meta': meta})
+lst = gas('post', {**base, 'action': 'driveBackupList'})
+st = gas('dump')
+names = [b['name'] for b in lst['backups']]
+check('v18: the last 30 are kept, older ones go to the Drive trash', len(names) == 30 and names[0].startswith('LifeDashboard_Backup_2026-10-31') and r.get('trashed') == 1
+      and sum(1 for f in st['drive']['files'].values() if 'Backup' in f['name'] and f['trashed']) == 2, (len(names), names[:2], r))
+check('v18: …and your own files there are left alone', not st['drive']['files']['mynotes0000abcdef']['trashed'])
+trashed_id = next(k for k, f in st['drive']['files'].items() if 'Backup' in f['name'] and f['trashed'])
+check('v18: a backup in the trash can\'t be restored from the app', gas('post', {**base, 'action': 'driveBackupGet', 'id': trashed_id}).get('error') == 'backup-not-found')
+st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
+check('v18: no Drive permission → the app is told', gas('post', {**base, 'action': 'driveBackupSave', 'name': 'LifeDashboard_Backup_z.json', 'data': backup_text(9)}).get('error') == 'backup-needs-permission')
+st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

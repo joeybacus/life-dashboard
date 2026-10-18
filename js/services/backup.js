@@ -1,6 +1,7 @@
 /* Backups: one-tap JSON export, restore (merge or replace), and the weekly
    reminder. With Google Sheets sync on, the Sheet is the everyday backup and
-   these files are an extra safety copy. */
+   these files are an extra safety copy — saved to Google Drive by itself every
+   day since 0.9.0 (drive-backup.js). */
 import { db, tx, promisify } from '../core/db.js';
 import { BACKUP_STORES, DB_VERSION } from '../core/schema.js';
 import { isPristine, noteChange } from '../core/records.js';
@@ -14,7 +15,7 @@ import { isWardMeta } from '../modules/ward/store.js';
 
 /** Settings kept on this device only — never written to backup files (the sync token lives here,
     and each patient list's logsheet link and patients: 'ward', 'wardCache', 'ward:<list>'…). */
-const LOCAL_ONLY_KEYS = new Set(['sync', 'backup', 'ui', 'restTimer']);
+const LOCAL_ONLY_KEYS = new Set(['sync', 'backup', 'driveBackup', 'ui', 'restTimer']);
 const LOCAL_ONLY_META = { has: (key) => LOCAL_ONLY_KEYS.has(key) || isWardMeta(key) };
 const DATA_STORES = BACKUP_STORES.filter((name) => name !== 'meta');
 const WEEK = 7 * 864e5;
@@ -109,7 +110,7 @@ export async function snoozeBackupReminder(days = 3) {
 }
 
 /** Anything worth backing up yet? (Sample data doesn't count.) */
-async function hasRealData() {
+export async function hasRealData() {
   const stores = ['tasks', 'workouts', 'templates', 'bodyMeasurements', 'progressPhotos'];
   const all = await readAll(stores);
   return stores.some((name) => all[name].some((r) => !r.sample && !r.deletedAt));

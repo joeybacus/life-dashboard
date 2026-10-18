@@ -5,7 +5,9 @@
    defaults (the day of the view you're in, your default priority or category);
    tap one to drop it. When something could mean two things ("3/10", "at 8") the
    box asks before adding. Enter or Add adds the task; Details opens the full
-   task sheet with everything filled in; "?" explains the words it knows. */
+   task sheet with everything filled in; "?" explains the words it knows.
+   Starting with "event" ("event lunch with Ana Friday 1pm") opens the event
+   editor instead, filled in, for Google Calendar (0.8.2). */
 import { html, setHTML } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { registerAction } from '../../core/actions.js';
@@ -18,6 +20,10 @@ import { parseTask } from './parse.js';
 import { createTask, loadTodo, softDelete } from './store.js';
 import { checkDuplicate } from './task-actions.js';
 import { openNewTask } from './detail.js';
+import { openEventEditor } from '../calendar/editor.js';
+
+/** Words at the start that make it an event for Google Calendar, not a to-do. */
+const EVENT_WORDS = /^\s*event\b[\s:–-]*/i;
 
 let boxes = 0;
 
@@ -105,6 +111,11 @@ export function bindCapture(form, { defaults = () => ({}), onAdded = () => {}, k
     st.parsed = text.trim() ? parseTask(text, { categories: st.categories, ignore: [...st.ignore], choices: st.choices }) : null;
     actionsEl.hidden = !text.trim();
     form.classList.toggle('has-text', Boolean(text.trim()));
+    const eventMode = EVENT_WORDS.test(text) && text.replace(EVENT_WORDS, '').trim() !== '';
+    if (eventMode !== form.classList.contains('is-event')) {
+      form.classList.toggle('is-event', eventMode);
+      setHTML(form.querySelector('[data-capture-add]'), html`${icon(eventMode ? 'calendar' : 'plus')}${eventMode ? 'Add event…' : 'Add'}`);
+    }
     if (!st.parsed) {
       setHTML(chipsEl, '');
       setHTML(askEl, '');
@@ -167,6 +178,23 @@ export function bindCapture(form, { defaults = () => ({}), onAdded = () => {}, k
       form.classList.remove('is-asking');
       void form.offsetWidth;
       form.classList.add('is-asking');
+      return;
+    }
+    if (EVENT_WORDS.test(input.value)) {
+      const f = fields();
+      st.adding = true;
+      input.blur();
+      try {
+        const saved = await openEventEditor({
+          title: p.title.replace(EVENT_WORDS, '').trim().replace(/^\p{Ll}/u, (c) => c.toUpperCase()), date: f.date ?? null, startTime: f.startTime ?? null, endTime: f.endTime ?? null, allDay: Boolean(f.date && !f.startTime),
+        });
+        if (saved) {
+          reset();
+          onAdded(null);
+        }
+      } finally {
+        st.adding = false;
+      }
       return;
     }
     st.adding = true; // one task per tap, however fast
@@ -263,6 +291,7 @@ const EXAMPLES = [
   ['Tags', '@paper @home'],
   ['Reminders', 'remind me 30 min before · remind me an hour before · remind me 1 day before · “Remind me to call mom 7pm” → “Call mom” at 7:00 PM, with a reminder then.'],
   ['Calendar', 'add to calendar · cal — puts it in Google Calendar, so its reminders ring even on a locked phone.'],
+  ['Events', 'Start with “event” — event lunch with Ana Friday 1pm — to add a Google Calendar event instead of a to-do (you check it before it’s added).'],
   ['Repeats', 'every day · every other day · every 3 days · every weekday · every Monday · every Mon and Thu · every other Friday · every 2 weeks · every month · every 15th · every first Monday · every year. Without a day it starts on the first day it’s due.'],
   ['It asks', 'when something could mean two things — “3/10” (March 10 or October 3?) or “at 8” (morning or evening?).'],
 ];
