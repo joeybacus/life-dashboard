@@ -8,6 +8,8 @@
      meta 'ward' / 'ward:<list id>'            its logsheet link: { url, spreadsheetId, tab, title, linkedAt, test, roundsHere }
      meta 'wardCache' / 'wardCache:<list id>'  the last patient list loaded, for when you're offline
      meta 'wardEdits:<list id>'                what you edited, the last three days: { "<HN key>|<column>": { <date>: { before, after } } }
+     meta 'wardSeen:<list id>'                 what each box said the last time the list loaded, on each of the last four days
+                                               (for reports): { <date>: { cols: [<column>…], rows: { "<HN key>": { <column>: text } } } }
      wardQueue    changes waiting to be saved to a logsheet: { key: "<list id>|<HN key>|<column or 'rounds'>", list, … }
      wardDays     the rounds history, one record per Manila date:
                   { date, updatedAt, lists: { <list id>: {
@@ -40,7 +42,7 @@ const linkKey = (list) => (list === DEFAULT_LIST_ID ? 'ward' : `ward:${list}`);
 const cacheKey = (list) => (list === DEFAULT_LIST_ID ? 'wardCache' : `wardCache:${list}`);
 
 /** Meta keys that belong to Ward Patients (kept on this device only). */
-export const isWardMeta = (key) => /^ward(Cache|Edits)?(:|$)/.test(String(key));
+export const isWardMeta = (key) => /^ward(Cache|Edits|Seen)?(:|$)/.test(String(key));
 
 export const loadLink = async (list) => (await db.get('meta', linkKey(list)))?.value ?? null;
 export const saveLink = (list, link) => db.put('meta', { key: linkKey(list), value: link });
@@ -51,6 +53,10 @@ export const saveCache = (list, cache) => db.put('meta', { key: cacheKey(list), 
 const editsKey = (list) => `wardEdits:${list}`;
 export const loadEdits = async (list) => (await db.get('meta', editsKey(list)))?.value ?? {};
 export const saveEdits = (list, edits) => db.put('meta', { key: editsKey(list), value: edits });
+
+const seenKey = (list) => `wardSeen:${list}`;
+export const loadSeen = async (list) => (await db.get('meta', seenKey(list)))?.value ?? {};
+export const saveSeen = (list, seen) => db.put('meta', { key: seenKey(list), value: seen });
 
 /* ---------- Changes waiting to be saved ---------- */
 
@@ -78,12 +84,13 @@ export async function upgradeQueue() {
   return [...items.filter((item) => item.list), ...moved];
 }
 
-/** Forget a list's logsheet on this device: its link, patient list, unsaved changes and which cells you edited (the rounds history stays). */
+/** Forget a list's logsheet on this device: its link, patient list, unsaved changes, which cells you edited and what it saw each day (the rounds history stays). */
 export function clearLogsheet(list) {
   return tx(['meta', 'wardQueue'], 'readwrite', (s) => {
     s.meta.delete(linkKey(list));
     s.meta.delete(cacheKey(list));
     s.meta.delete(editsKey(list));
+    s.meta.delete(seenKey(list));
     return promisify(s.wardQueue.getAll()).then((items) => {
       items.filter((item) => item.list === list).forEach((item) => s.wardQueue.delete(item.key));
     });

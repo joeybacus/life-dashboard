@@ -39,6 +39,7 @@ const STUCK_CODES = new Set(['bad-response', 'server']);
 // How long to wait for Google when sending changes (Apps Script itself may run for up to 6 minutes)
 const WRITE_TIMEOUT_MS = 180_000;
 const SLOW = /took too long/i; // a change set aside by an older version only because Google was slow
+const SEEN_DAYS = 4; // days of what each box said, kept for reports (today and the three before)
 // The first list is the same on every device (a fixed, old date, so a renamed copy always wins)
 const SEEDED_AT = '2020-01-01T00:00:00.000Z';
 export const CENSUS_ID = 'census';
@@ -129,6 +130,7 @@ class WardList {
     this.cache = null;      // the last list loaded
     this.queue = new Map(); // queue key → change waiting to be saved
     this.edits = {};        // "<HN key>|<column>" → { <day>: { before, after } }: what you changed in it (the last three days)
+    this.seen = {};         // <day> → { cols, rows: { "<HN key>": { <column>: text } } }: what each box said the last time the list loaded that day (the last four days, for reports)
     this.phase = 'idle';    // 'idle' | 'loading'
     this.error = null;      // WardError from the last request, or null
     this.running = null;
@@ -141,11 +143,15 @@ class WardList {
   }
 
   async load(items) {
-    const [link, cache, edits] = await Promise.all([store.loadLink(this.id), store.loadCache(this.id), store.loadEdits(this.id)]);
+    const [link, cache, edits, seen] = await Promise.all([store.loadLink(this.id), store.loadCache(this.id), store.loadEdits(this.id), store.loadSeen(this.id)]);
     this.link = link;
     this.edits = upgradeEdits(edits);
+    this.seen = seen && typeof seen === 'object' ? seen : {};
     this.cache = link && cache?.spreadsheetId === link.spreadsheetId ? upgradeCache(cache) : null;
     items.forEach((item) => this.queue.set(item.key, item));
+    // The list kept from the last time it loaded is what that day ended with (from before reports, too)
+    const fetched = Date.parse(this.cache?.fetchedAt ?? '');
+    if (Number.isFinite(fetched) && !this.seen[manilaDateKey(fetched)]) await this.noteSeen(manilaDateKey(fetched));
   }
 
   dispose() {
@@ -589,6 +595,7 @@ class WardList {
       await this.recordLogsheetRounds(rows, date);
       await this.recordResetTicks(res.reset ?? [], date);
     }
+    await this.noteSeen();
   }
 
   /**
@@ -661,6 +668,7 @@ class WardList {
     if (Object.keys(set).every((c) => sameCell(c, expect[c], set[c]))) {
       // Back to what the logsheet already has: nothing to save
       if (existing) await this.removeItem(key);
+      if (kind !== 'rounds') await this.noteSeen();
       return null;
     }
     const item = {
@@ -683,6 +691,7 @@ class WardList {
     };
     this.queue.set(key, item);
     await store.saveQueueItem(item);
+    if (kind !== 'rounds') await this.noteSeen();
     return item;
   }
 
@@ -709,6 +718,33 @@ class WardList {
     else delete edits[cell];
     this.edits = edits;
     await store.saveEdits(this.id, edits);
+  }
+
+  /**
+   * Remember what every patient's boxes show now (your unsaved edits included)
+   * as what they said on this day, so a report can tell what changed since —
+   * also in the logsheet itself or on another device. Each day keeps its last
+   * look; only the last four days are kept.
+   */
+  async noteSeen(day = manilaDateKey()) {
+    if (!this.cache || this.isCensus) return;
+    let oldest = manilaDateKey();
+    for (let i = 1; i < SEEN_DAYS; i++) oldest = previousDateKey(oldest);
+    if (day < oldest) return;
+    const cols = this.textCols().filter((c) => this.cache.cols?.includes(c));
+    const rows = {};
+    for (const r of this.cache.rows ?? []) {
+      if (!r.key || rows[r.key]) continue; // two rows with one number: the first
+      rows[r.key] = Object.fromEntries(cols.map((c) => {
+        const item = this.queue.get(queueKey(this.id, r.key, c));
+        return [c, item ? String(item.set[c] ?? '') : r.cells?.[c] ?? ''];
+      }));
+    }
+    const seen = Object.fromEntries(Object.entries(this.seen).filter(([d]) => d >= oldest && d !== day));
+    seen[day] = { cols, rows };
+    if (Object.keys(seen).length === Object.keys(this.seen).length && JSON.stringify(seen[day]) === JSON.stringify(this.seen[day])) return;
+    this.seen = seen;
+    await store.saveSeen(this.id, seen);
   }
 
   /* ---------- What you do ---------- */
@@ -931,6 +967,7 @@ class WardList {
       this.cache = null;
       this.queue.clear();
       this.edits = {};
+      this.seen = {};
     }
     this.link = { url: check.url, spreadsheetId: check.spreadsheetId, tab: check.tab, title: check.title, linkedAt: nowISO(), test, roundsHere };
     this.error = null;
@@ -960,6 +997,7 @@ class WardList {
     this.cache = null;
     this.queue.clear();
     this.edits = {};
+    this.seen = {};
     this.error = null;
     await store.clearLogsheet(this.id);
     publish(this.id);

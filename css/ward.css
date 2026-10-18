@@ -1073,3 +1073,60 @@ button.wbadge { cursor: pointer; }
   .ward-edits-by { flex-wrap: wrap; }
   .ward-edits-by .segmented { flex-basis: 100%; max-width: none; }
 }
+
+/* ---- Reports: the daily summary and one patient's referral (report-page.js) ---- */
+.ward-report .ptb__main.rpt { max-width: 920px; }
+.rpt__days .segmented { max-width: 24rem; }
+.rpt__opts { display: flex; flex-direction: column; gap: 12px; }
+.rpt__opts:empty { display: none; }
+.rpt__note { display: flex; gap: 8px; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); }
+.rpt__note > .icon { flex-shrink: 0; width: 1rem; height: 1rem; margin-top: 2px; color: var(--accent-ink); }
+.rpt__note--warn { padding: 10px 12px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--workout) 13%, transparent); color: var(--text); }
+.rpt__note--warn > .icon { color: var(--workout-ink); }
+.rpt__who { border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); }
+.rpt__who > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px;
+  font-size: var(--fs-md);
+  cursor: pointer;
+  list-style: none;
+}
+.rpt__who > summary::-webkit-details-marker { display: none; }
+.rpt__who > summary > span { flex: 1 1 auto; }
+.rpt__who > summary .icon { flex-shrink: 0; width: 1.1rem; height: 1.1rem; color: var(--text-2); transition: transform var(--t) var(--ease); }
+.rpt__who[open] > summary > .icon:last-child { transform: rotate(180deg); }
+.rpt__picks { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 10px; }
+.rpt__list { margin: 0; padding: 0 6px 6px; list-style: none; }
+.rpt__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 14px; padding: 8px; border-top: 1px solid var(--border); }
+.rpt__pick { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; flex: 1 1 14rem; min-width: 0; min-height: 36px; cursor: pointer; }
+.rpt__pick input { flex: none; width: 1.2rem; height: 1.2rem; margin: 0; accent-color: var(--neuro); }
+.rpt__who-name { font-weight: 600; overflow-wrap: anywhere; }
+.rpt__meta { font-size: var(--fs-sm); font-weight: 400; color: var(--text-3); }
+.rpt__earlier { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--text-2); cursor: pointer; }
+.rpt__switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: var(--fs-md);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.rpt__text { min-height: 20rem; line-height: 1.5; resize: vertical; }
+@media (min-width: 700px) { .rpt__text { height: max(22rem, 100dvh - 24rem); } }
+.rpt__acts { display: flex; flex-wrap: wrap; gap: 10px; }
+.rpt__acts .btn { flex: 1 1 10rem; }
+.rpt__foot { display: flex; gap: 8px; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-3); }
+.rpt__foot > .icon { flex-shrink: 0; width: 1rem; height: 1rem; margin-top: 2px; }
+.ward-report-setup .dlg__panel { width: min(100%, 560px); }
+.rpt__status { display: flex; align-items: center; gap: 8px; margin-top: -4px; font-size: var(--fs-md); font-weight: 600; color: var(--neuro-ink); }
+.rpt__status::before { content: "✓"; }
+.rpt__status.is-bad { color: var(--workout-ink); }
+.rpt__status.is-bad::before { content: "!"; }
+.rpt__status[hidden] { display: none; }

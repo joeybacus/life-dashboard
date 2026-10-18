@@ -25,6 +25,7 @@ import { openArrange } from './arrange.js';
 import { boardOf, changeTile, savedBoard, withCols } from './board.js';
 import { removeList, renameList } from './manage.js';
 import { keepNotes, mountNotes, notesSlot } from './notes.js';
+import { openReferral, openReport, openReportSetup } from './report-page.js';
 
 const AUTO_REFRESH_MS = 3 * 60 * 1000;
 const FRESH_MS = 15_000; // opening the screen again within this doesn't reload
@@ -305,6 +306,7 @@ function statusLine(v) {
     <p class="ward-status__text" aria-live="polite">${loading ? 'Updating…' : v.cache ? `Last updated ${wardStamp(v.cache.fetchedAt)}` : ''}${
       pending > 0 ? html` · <span class="ward-status__pending">${icon('cloud')}${pending} not synced</span>` : ''}</p>
     <div class="ward-status__tools">
+      ${v.cache && v.patients.length ? html`<button type="button" class="btn btn--sm" data-action="ward:report" data-focus="report">${icon('clipboard')}Report</button>` : ''}
       <button type="button" class="btn btn--sm btn--ghost" data-action="ward:arrange" data-focus="arrange">${icon('sort')}Arrange rows</button>
       <button type="button" class="btn btn--sm btn--ghost" data-action="ward:columns" data-focus="columns">${icon('columns')}Columns</button>
     </div>
@@ -747,6 +749,7 @@ function detailBody(p, v, { editing = false } = {}) {
         ${badges(p, v, { detail: true })}
       </div>
       <div class="ptb__acts">
+        ${editing ? '' : html`<button type="button" class="btn btn--sm" data-dact="referral" data-focus="b-referral">${icon('share')}Referral</button>`}
         <button type="button" class="btn btn--sm${editing ? ' btn--accent' : ''}" data-dact="customize" data-focus="b-customize" aria-pressed="${editing ? 'true' : 'false'}">${icon(editing ? 'check' : 'sliders')}${editing ? 'Done' : 'Customize'}</button>
         <button type="button" class="btn btn--sm" data-dialog-value="close" autofocus>${icon('x')}Close</button>
       </div>
@@ -852,6 +855,8 @@ async function openPatient(openId) {
         if (!act || !now) return;
         if (act === 'go') {
           await go(button.dataset.id);
+        } else if (act === 'referral') {
+          await openReferral(listId, now.id);
         } else if (act === 'customize') {
           editing = !editing;
           redraw();
@@ -1229,6 +1234,7 @@ async function openMenu() {
       link ? { label: 'Refresh now', value: 'refresh', icon: 'refresh' } : null,
       { label: 'Rename list', value: 'rename', icon: 'edit' },
       { label: 'Columns', value: 'columns', icon: 'columns', detail: 'Rename, add, remove' },
+      { label: 'Report setup', value: 'report-setup', icon: 'clipboard', detail: 'Which columns go in reports' },
       link ? { label: 'Arrange rows', value: 'arrange', icon: 'sort' } : null,
       { label: 'Rounds history', value: 'history', icon: 'history' },
       link ? { label: 'Open in Google Sheets', value: 'open', icon: 'external' } : null,
@@ -1241,6 +1247,7 @@ async function openMenu() {
   if (choice === 'refresh') list.refresh();
   else if (choice === 'rename') renameList(list.id);
   else if (choice === 'columns') openColumns(list.id);
+  else if (choice === 'report-setup') openReportSetup(list.id);
   else if (choice === 'arrange') openArrange(list.id);
   else if (choice === 'history') openPage('neurology', `list/${list.id}/history`);
   else if (choice === 'open') window.open(link.url, '_blank', 'noopener');
@@ -1311,6 +1318,7 @@ registerAction('ward:menu', () => openMenu());
 registerAction('ward:refresh', (el) => listFor(el)?.refresh());
 registerAction('ward:columns', () => openColumns(listId));
 registerAction('ward:arrange', () => openArrange(listId));
+registerAction('ward:report', () => openReport(listId));
 registerAction('ward:rename-col', (el) => renameColumn(listId, el.dataset.colId));
 
 /** Arrange the list by priority or by location (the first time, choose which column holds locations). */
