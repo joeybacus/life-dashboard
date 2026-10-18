@@ -18,7 +18,7 @@ import { LATEST_SCRIPT_VERSION, syncScriptVersion, syncSnapshot } from '../../se
 import { checkLogsheet, updateList, wardList } from './engine.js';
 import {
   FIXED_HEADINGS, LOAD_PROBLEMS, MAX_LOCATION, MAX_TEXT, PRIORITY_LEVELS, WRITE_PROBLEMS, cleanLocation, formatSpan, fromSheetTime,
-  locationKey, roundsCols, sortPatients, wardDayLong, wardStamp, wardTime,
+  locationKey, manilaDateKey, previousDateKey, roundsCols, sortPatients, wardDayLong, wardStamp, wardTime,
 } from './model.js';
 import { openColumns, renameColumn, setupLocation } from './columns.js';
 import { openArrange } from './arrange.js';
@@ -35,6 +35,7 @@ let listId = null;       // the list on screen
 let refreshTimer = null;
 let renderQueued = false;
 const expanded = new Set(); // "id|C" opened with Show more
+let editsDay = 0;            // Show edits: 0 off, 1 today, 2 yesterday, 3 two days ago
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const current = () => wardList(listId);
@@ -153,6 +154,7 @@ function linkedBody(v) {
     ${notesSlot('list')}
     ${statusLine(v)}
     ${v.cache && v.patients.length ? arrangeBar(v) : ''}
+    ${v.cache && v.patients.length ? editsBar(v) : ''}
     ${v.cache ? patientTable(v) : html`<div class="card empty">${icon(v.phase === 'loading' ? 'refresh' : 'sheet')}<span>${v.phase === 'loading' ? 'Loading your logsheet…' : 'The list will appear here once the logsheet loads.'}</span></div>`}
     ${v.link.test ? html`<p class="ward-foot">${icon('sparkles')}<span>This is the practice logsheet with made-up patients (it’s in your Google Drive). When you’re ready, choose ${icon('more')} → <strong>Change logsheet</strong> and paste your real one.</span></p>` : ''}`;
 }
@@ -322,6 +324,39 @@ function arrangeBar(v) {
   </div>`;
 }
 
+/* ---------- Show edits: today, yesterday or 2 days ago, in red ---------- */
+
+const EDIT_DAYS = ['Off', 'Today', 'Yesterday', '2 days ago'];
+
+/** The Manila date Show edits is on, or null when it's off. */
+function editsDate() {
+  if (!editsDay) return null;
+  let date = manilaDateKey();
+  for (let i = 1; i < editsDay; i++) date = previousDateKey(date);
+  return date;
+}
+
+/** Whether you edited this patient's column on the day Show edits is on. */
+const editedOn = (p, col) => {
+  const date = editsDate();
+  return Boolean(date && p.edited?.[col]?.includes(date));
+};
+const editedClass = (p, col) => (editedOn(p, col) ? ' is-edited' : '');
+const editedNote = (p, col) => (editedOn(p, col) ? html`<span class="sr-only"> (edited ${EDIT_DAYS[editsDay].toLowerCase()})</span>` : '');
+
+function editsBar(v) {
+  const date = editsDate();
+  const count = date ? v.patients.reduce((n, p) => n + v.columns.filter((c) => p.edited?.[c.col]?.includes(date)).length, 0) : 0;
+  const opt = (i) => html`<label class="segmented__opt"><input type="radio" name="ward-edits" value="${i}" data-focus="edits-${i}"${raw(editsDay === i ? ' checked' : '')}><span>${EDIT_DAYS[i]}</span></label>`;
+  return html`<div class="ward-arrange-by ward-edits-by">
+    <span class="ward-arrange-by__label" id="ward-edits-label">Show edits</span>
+    <div class="segmented" role="radiogroup" aria-labelledby="ward-edits-label">${[0, 1, 2, 3].map(opt)}</div>
+  </div>
+  ${date ? html`<p class="ward-edits-by__note" aria-live="polite">${count
+    ? html`<span class="ward-edits-by__swatch" aria-hidden="true"></span>${plural(count, 'box', 'boxes')} you edited ${EDIT_DAYS[editsDay].toLowerCase()} ${count === 1 ? 'is' : 'are'} in red.`
+    : `You didn’t edit anything ${EDIT_DAYS[editsDay].toLowerCase()} on this device.`}</p>` : ''}`;
+}
+
 /** The table's column widths (iPad landscape and Mac), for the columns shown. */
 function tableStyle(count, hidden) {
   const cols = [
@@ -456,8 +491,8 @@ function checkCell(p, c) {
   const on = isTicked(p.cells[c.col]);
   const item = p.items[c.col];
   const can = p.tickable && c.readable;
-  return html`<div class="pt__field pt__field--check">
-    <p class="pt__label">${c.label}</p>
+  return html`<div class="pt__field pt__field--check${editedClass(p, c.col)}">
+    <p class="pt__label">${c.label}${editedNote(p, c.col)}</p>
     ${can ? html`<button type="button" class="pt__tick pt__tick--col${item ? ' is-unsynced' : ''}" role="checkbox" aria-checked="${on ? 'true' : 'false'}"
         aria-label="${c.label}: ${p.name}" data-action="ward:check" data-id="${p.id}" data-col="${c.col}" data-focus="check-${p.id}-${c.col}"
         title="${on ? 'Ticked' : 'Not ticked'} in column ${c.col}${item ? ' · not synced yet' : ''}"><span class="pt__box">${icon('check')}</span></button>`
@@ -468,16 +503,16 @@ function checkCell(p, c) {
 function clampText(p, c, v) {
   if (c.type === 'check') return checkCell(p, c);
   if (c.col === v.locationCol) {
-    return html`<div class="pt__field pt__field--loc">
-      <p class="pt__label">${c.label}</p>
+    return html`<div class="pt__field pt__field--loc${editedClass(p, c.col)}">
+      <p class="pt__label">${c.label}${editedNote(p, c.col)}</p>
       <p class="pt__text${p.location ? '' : ' pt__text--empty'}">${p.location || 'None'}</p>
     </div>`;
   }
   const id = `${p.id}|${c.col}`;
   const open = expanded.has(id);
   const text = p.cells[c.col];
-  return html`<div class="pt__field">
-    <p class="pt__label">${c.label}</p>
+  return html`<div class="pt__field${editedClass(p, c.col)}">
+    <p class="pt__label">${c.label}${editedNote(p, c.col)}</p>
     ${!c.readable ? html`<p class="pt__text pt__text--empty">${c.loading ? 'Loading…' : 'Update the sync script to see this'}</p>`
       : text
         ? html`<div class="pt__text${open ? '' : ' is-clamped'}" data-clamp="${id}">${cellText(p, c.col)}</div>
@@ -580,7 +615,7 @@ function tileBody(p, c, t) {
       : ''}<span>${isTicked(p.cells[c.col]) ? `Ticked in column ${c.col} of the logsheet` : `Not ticked in column ${c.col}`}</span></div>`;
   }
   return p.cells[c.col]
-    ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}">${cellText(p, c.col)}</div>`
+    ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}${editedClass(p, c.col)}">${cellText(p, c.col)}${editedNote(p, c.col)}</div>`
     : html`<p class="faint">Empty in the logsheet.</p>`;
 }
 
@@ -1258,6 +1293,11 @@ async function arrangeBy(value) {
 }
 document.addEventListener('change', (event) => {
   if (showing === 'list' && event.target.name === 'ward-arrange' && view?.contains(event.target)) arrangeBy(event.target.value);
+  if (showing === 'list' && event.target.name === 'ward-edits' && view?.contains(event.target)) {
+    editsDay = Number(event.target.value) || 0;
+    render();
+    announce(editsDay ? `Showing what you edited ${EDIT_DAYS[editsDay].toLowerCase()} in red.` : 'Edits not shown.');
+  }
 });
 registerAction('ward:open', (el) => openPatient(el.dataset.id));
 registerAction('ward:tick', (el) => {

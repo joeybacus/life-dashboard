@@ -1059,3 +1059,19 @@ button.wbadge { cursor: pointer; }
 .ucats__row .input { flex: 1 1 auto; min-width: 0; }
 .units-page .sub-head__bar { flex-wrap: wrap; row-gap: 8px; }
 .units-page .sub-head__actions { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+
+/* Show edits: the boxes you edited on the chosen day, in red */
+.ward-edits-by { margin-top: 8px; }
+.ward-edits-by .segmented__opt span { padding-inline: 4px; }
+.ward-edits-by__note { display: flex; align-items: center; gap: 8px; margin: 8px 4px 0; font-size: var(--fs-sm); color: var(--text-2); }
+.ward-edits-by__swatch { flex: none; width: .7rem; height: .7rem; border-radius: 50%; background: var(--danger-ink); }
+.pt__field.is-edited .pt__label { color: var(--danger-ink); }
+.pt__field.is-edited .pt__text,
+.pt__field.is-edited .pt__mark,
+.ptt__text.is-edited,
+.ptt__text.is-edited .pt__mark { color: var(--danger-ink); }
+.pt__field--check.is-edited .pt__box { box-shadow: 0 0 0 2px var(--danger-ink); }
+@media (max-width: 400px) {
+  .ward-edits-by { flex-wrap: wrap; }
+  .ward-edits-by .segmented { flex-basis: 100%; max-width: none; }
+}

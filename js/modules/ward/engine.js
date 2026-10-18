@@ -128,6 +128,7 @@ class WardList {
     this.link = null;       // this device's logsheet for it (see store.js)
     this.cache = null;      // the last list loaded
     this.queue = new Map(); // queue key → change waiting to be saved
+    this.edits = {};        // "<HN key>|<column>" → the days you edited that cell (the last three)
     this.phase = 'idle';    // 'idle' | 'loading'
     this.error = null;      // WardError from the last request, or null
     this.running = null;
@@ -140,8 +141,9 @@ class WardList {
   }
 
   async load(items) {
-    const [link, cache] = await Promise.all([store.loadLink(this.id), store.loadCache(this.id)]);
+    const [link, cache, edits] = await Promise.all([store.loadLink(this.id), store.loadCache(this.id), store.loadEdits(this.id)]);
     this.link = link;
+    this.edits = edits;
     this.cache = link && cache?.spreadsheetId === link.spreadsheetId ? upgradeCache(cache) : null;
     items.forEach((item) => this.queue.set(item.key, item));
   }
@@ -268,7 +270,9 @@ class WardList {
       const cells = {};
       const items = {};
       const marks = {};
+      const edited = {};
       for (const c of columns) {
+        if (r.key && this.edits[`${r.key}|${c.col}`]) edited[c.col] = this.edits[`${r.key}|${c.col}`];
         const item = r.key ? this.queue.get(queueKey(this.id, r.key, c.col)) ?? null : null;
         items[c.col] = item;
         cells[c.col] = item ? item.set[c.col] : r.cells?.[c.col] ?? '';
@@ -291,6 +295,7 @@ class WardList {
         cells,     // column letter → text (your unsaved edit if there is one)
         items,     // column letter → change waiting to be saved, or null
         marks,     // column letter → [[text, 1 | 0], …]: its bold or red parts in the logsheet (sync script 14)
+        edited,    // column letter → the days (of the last three) you edited it here
         roundsItem,
         duplicate: counts.get(r.key) > 1,
         tickable: Boolean(r.key) && counts.get(r.key) === 1,
@@ -654,6 +659,7 @@ class WardList {
     if (Object.keys(set).every((c) => sameCell(c, expect[c], set[c]))) {
       // Back to what the logsheet already has: nothing to save
       if (existing) await this.removeItem(key);
+      if (kind !== 'rounds') await this.noteEdit(r.key, kind, existing ? false : null);
       return null;
     }
     const item = {
@@ -676,7 +682,31 @@ class WardList {
     };
     this.queue.set(key, item);
     await store.saveQueueItem(item);
+    if (kind !== 'rounds') await this.noteEdit(r.key, kind, true);
     return item;
+  }
+
+  /**
+   * Remember that you edited a patient's cell today (on: true), or forget today's
+   * edit (on: false — you put back what the logsheet had). null changes nothing.
+   * Only the last three days are kept.
+   */
+  async noteEdit(key, col, on) {
+    if (on == null || !key) return;
+    const today = manilaDateKey();
+    const keep = new Set([today, previousDateKey(today), previousDateKey(previousDateKey(today))]);
+    const cell = `${key}|${col}`;
+    const edits = {};
+    for (const [k, dates] of Object.entries(this.edits)) {
+      const recent = dates.filter((d) => keep.has(d));
+      if (recent.length) edits[k] = recent;
+    }
+    const dates = (edits[cell] ?? []).filter((d) => d !== today);
+    if (on) dates.push(today);
+    if (dates.length) edits[cell] = dates;
+    else delete edits[cell];
+    this.edits = edits;
+    await store.saveEdits(this.id, edits);
   }
 
   /* ---------- What you do ---------- */
@@ -898,6 +928,7 @@ class WardList {
       await store.clearLogsheet(this.id);
       this.cache = null;
       this.queue.clear();
+      this.edits = {};
     }
     this.link = { url: check.url, spreadsheetId: check.spreadsheetId, tab: check.tab, title: check.title, linkedAt: nowISO(), test, roundsHere };
     this.error = null;
@@ -926,6 +957,7 @@ class WardList {
     this.link = null;
     this.cache = null;
     this.queue.clear();
+    this.edits = {};
     this.error = null;
     await store.clearLogsheet(this.id);
     publish(this.id);
