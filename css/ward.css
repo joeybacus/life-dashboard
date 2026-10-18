@@ -1065,11 +1065,9 @@ button.wbadge { cursor: pointer; }
 .ward-edits-by .segmented__opt span { padding-inline: 4px; }
 .ward-edits-by__note { display: flex; align-items: center; gap: 8px; margin: 8px 4px 0; font-size: var(--fs-sm); color: var(--text-2); }
 .ward-edits-by__swatch { flex: none; width: .7rem; height: .7rem; border-radius: 50%; background: var(--danger-ink); }
-.pt__field.is-edited .pt__label { color: var(--danger-ink); }
-.pt__field.is-edited .pt__text,
-.pt__field.is-edited .pt__mark,
-.ptt__text.is-edited,
-.ptt__text.is-edited .pt__mark { color: var(--danger-ink); }
+.pt__edit, .pt__mark.pt__edit, .pt__field.is-edited .pt__text { color: var(--danger-ink); }
+.pt__removed { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: var(--fs-xs, .8rem); font-weight: 600; color: var(--danger-ink); }
+.pt__removed .icon { width: .85rem; height: .85rem; }
 .pt__field--check.is-edited .pt__box { box-shadow: 0 0 0 2px var(--danger-ink); }
 @media (max-width: 400px) {
   .ward-edits-by { flex-wrap: wrap; }

@@ -7,7 +7,7 @@
    On this device only (never synced or backed up), for each list:
      meta 'ward' / 'ward:<list id>'            its logsheet link: { url, spreadsheetId, tab, title, linkedAt, test, roundsHere }
      meta 'wardCache' / 'wardCache:<list id>'  the last patient list loaded, for when you're offline
-     meta 'wardEdits:<list id>'                which cells you edited, and on which days (the last three): { "<HN key>|<column>": [date, …] }
+     meta 'wardEdits:<list id>'                what you edited, the last three days: { "<HN key>|<column>": { <date>: { before, after } } }
      wardQueue    changes waiting to be saved to a logsheet: { key: "<list id>|<HN key>|<column or 'rounds'>", list, … }
      wardDays     the rounds history, one record per Manila date:
                   { date, updatedAt, lists: { <list id>: {

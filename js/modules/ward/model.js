@@ -315,3 +315,58 @@ export const LOAD_PROBLEMS = {
   'ward-bad-layout': 'The columns chosen for the name, hospital number and rounds don’t fit together. Check them in Columns → Where things are.',
   'ward-needs-auth': 'Your sync script needs permission to open other spreadsheets: in Apps Script, choose “setup”, click Run and allow access, then deploy a new version.',
 };
+
+/* ---------- Show edits: which words you changed ---------- */
+
+// Words, numbers (3.1, 12/10, 10:30 whole), single punctuation marks and spaces, so adding a comma later
+// doesn't hide the word before it
+const words = (text) => String(text ?? '').match(/\s+|[\p{L}\p{N}]+(?:[.,:/]\p{N}+)*|[^\s\p{L}\p{N}]/gu) ?? [];
+const MAX_DIFF = 4e6; // word pairs compared; longer texts show all of their text as edited
+
+/** For each word of b, the index of the same word in a (keeping their order), or -1. Null when too long to compare. */
+function alignWords(a, b) {
+  const out = new Array(b.length).fill(-1);
+  let start = 0;
+  while (start < a.length && start < b.length && a[start] === b[start]) { out[start] = start; start++; }
+  let endA = a.length;
+  let endB = b.length;
+  while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) { endA--; endB--; out[endB] = endA; }
+  const n = endA - start;
+  const m = endB - start;
+  if (!n || !m) return out;
+  if (n * m > MAX_DIFF) return null;
+  // Longest common run of words, from the end, so it can be read forwards
+  const w = m + 1;
+  const len = new Uint16Array((n + 1) * w);
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      len[i * w + j] = a[start + i] === b[start + j] ? len[(i + 1) * w + j + 1] + 1 : Math.max(len[(i + 1) * w + j], len[i * w + j + 1]);
+    }
+  }
+  for (let i = 0, j = 0; i < n && j < m;) {
+    if (a[start + i] === b[start + j]) { out[start + j] = start + i; i++; j++; }
+    else if (len[(i + 1) * w + j] >= len[i * w + j + 1]) i++;
+    else j++;
+  }
+  return out;
+}
+
+/**
+ * Which characters of `current` you wrote in an edit that changed `before` into
+ * `after` (later edits may have changed it again): a 1 per character, else 0.
+ * Null when there's nothing to compare (all of it counts as edited).
+ */
+export function editedChars(before, after, current) {
+  const [b, a, c] = [words(before), words(after), words(current)];
+  const added = alignWords(b, a);
+  const now = String(current ?? '') === String(after ?? '') ? a.map((_, i) => i) : alignWords(a, c);
+  if (!added || !now) return null;
+  const flags = new Uint8Array(String(current ?? '').length);
+  let at = 0;
+  c.forEach((word, k) => {
+    const i = now[k];
+    if (i >= 0 && added[i] < 0 && /\S/.test(word)) flags.fill(1, at, at + word.length);
+    at += word.length;
+  });
+  return flags;
+}

@@ -128,7 +128,7 @@ class WardList {
     this.link = null;       // this device's logsheet for it (see store.js)
     this.cache = null;      // the last list loaded
     this.queue = new Map(); // queue key → change waiting to be saved
-    this.edits = {};        // "<HN key>|<column>" → the days you edited that cell (the last three)
+    this.edits = {};        // "<HN key>|<column>" → { <day>: { before, after } }: what you changed in it (the last three days)
     this.phase = 'idle';    // 'idle' | 'loading'
     this.error = null;      // WardError from the last request, or null
     this.running = null;
@@ -143,7 +143,7 @@ class WardList {
   async load(items) {
     const [link, cache, edits] = await Promise.all([store.loadLink(this.id), store.loadCache(this.id), store.loadEdits(this.id)]);
     this.link = link;
-    this.edits = edits;
+    this.edits = upgradeEdits(edits);
     this.cache = link && cache?.spreadsheetId === link.spreadsheetId ? upgradeCache(cache) : null;
     items.forEach((item) => this.queue.set(item.key, item));
   }
@@ -295,7 +295,7 @@ class WardList {
         cells,     // column letter → text (your unsaved edit if there is one)
         items,     // column letter → change waiting to be saved, or null
         marks,     // column letter → [[text, 1 | 0], …]: its bold or red parts in the logsheet (sync script 14)
-        edited,    // column letter → the days (of the last three) you edited it here
+        edited,    // column letter → { <day>: { before, after } | null }: what you changed in it here (the last three days)
         roundsItem,
         duplicate: counts.get(r.key) > 1,
         tickable: Boolean(r.key) && counts.get(r.key) === 1,
@@ -656,10 +656,11 @@ class WardList {
     const expect = existing?.expect ?? (kind === 'rounds'
       ? { E: Boolean(r.rounded), F: r.start ?? '', G: r.end ?? '' }
       : { [kind]: r.cells?.[kind] ?? '' });
+    // What the app showed before this change (for Show edits)
+    if (kind !== 'rounds') await this.noteEdit(r.key, kind, existing ? existing.set[kind] : r.cells?.[kind] ?? '', set[kind]);
     if (Object.keys(set).every((c) => sameCell(c, expect[c], set[c]))) {
       // Back to what the logsheet already has: nothing to save
       if (existing) await this.removeItem(key);
-      if (kind !== 'rounds') await this.noteEdit(r.key, kind, existing ? false : null);
       return null;
     }
     const item = {
@@ -682,28 +683,29 @@ class WardList {
     };
     this.queue.set(key, item);
     await store.saveQueueItem(item);
-    if (kind !== 'rounds') await this.noteEdit(r.key, kind, true);
     return item;
   }
 
   /**
-   * Remember that you edited a patient's cell today (on: true), or forget today's
-   * edit (on: false — you put back what the logsheet had). null changes nothing.
-   * Only the last three days are kept.
+   * Remember what you changed in a patient's cell today: the text before your
+   * first edit today and after your latest one. Putting back what it held at the
+   * start of the day forgets today's edit. Only the last three days are kept.
    */
-  async noteEdit(key, col, on) {
-    if (on == null || !key) return;
+  async noteEdit(key, col, before, after) {
+    if (!key) return;
     const today = manilaDateKey();
     const keep = new Set([today, previousDateKey(today), previousDateKey(previousDateKey(today))]);
     const cell = `${key}|${col}`;
     const edits = {};
-    for (const [k, dates] of Object.entries(this.edits)) {
-      const recent = dates.filter((d) => keep.has(d));
-      if (recent.length) edits[k] = recent;
+    for (const [k, byDay] of Object.entries(this.edits)) {
+      const recent = Object.fromEntries(Object.entries(byDay).filter(([d]) => keep.has(d)));
+      if (Object.keys(recent).length) edits[k] = recent;
     }
-    const dates = (edits[cell] ?? []).filter((d) => d !== today);
-    if (on) dates.push(today);
-    if (dates.length) edits[cell] = dates;
+    const byDay = { ...edits[cell] };
+    const start = byDay[today] ? byDay[today].before : String(before ?? '');
+    if (String(after ?? '') === start) delete byDay[today];
+    else byDay[today] = { before: start, after: String(after ?? '') };
+    if (Object.keys(byDay).length) edits[cell] = byDay;
     else delete edits[cell];
     this.edits = edits;
     await store.saveEdits(this.id, edits);
@@ -985,6 +987,12 @@ class WardList {
   namesByKey() {
     return new Map((this.cache?.rows ?? []).filter((r) => r.key).map((r) => [r.key, r.name]));
   }
+}
+
+/** Edits noted by 0.8.0.9 kept only their days (no text): their whole cell shows as edited. */
+function upgradeEdits(edits) {
+  return Object.fromEntries(Object.entries(edits ?? {}).map(([cell, byDay]) => [cell,
+    Array.isArray(byDay) ? Object.fromEntries(byDay.map((d) => [d, null])) : byDay]));
 }
 
 /** A list saved before 0.4.3.1 had labs and recs instead of cells. */

@@ -18,7 +18,7 @@ import { LATEST_SCRIPT_VERSION, syncScriptVersion, syncSnapshot } from '../../se
 import { checkLogsheet, updateList, wardList } from './engine.js';
 import {
   FIXED_HEADINGS, LOAD_PROBLEMS, MAX_LOCATION, MAX_TEXT, PRIORITY_LEVELS, WRITE_PROBLEMS, cleanLocation, formatSpan, fromSheetTime,
-  locationKey, manilaDateKey, previousDateKey, roundsCols, sortPatients, wardDayLong, wardStamp, wardTime,
+  editedChars, locationKey, manilaDateKey, previousDateKey, roundsCols, sortPatients, wardDayLong, wardStamp, wardTime,
 } from './model.js';
 import { openColumns, renameColumn, setupLocation } from './columns.js';
 import { openArrange } from './arrange.js';
@@ -336,24 +336,41 @@ function editsDate() {
   return date;
 }
 
-/** Whether you edited this patient's column on the day Show edits is on. */
-const editedOn = (p, col) => {
+/** What you changed in this patient's column on the day Show edits is on: { before, after },
+    null (noted before 0.8.0.10, without the text) or undefined (not edited that day). */
+const editOn = (p, col) => {
   const date = editsDate();
-  return Boolean(date && p.edited?.[col]?.includes(date));
+  return date ? p.edited?.[col]?.[date] : undefined;
 };
+const editedOn = (p, col) => editOn(p, col) !== undefined;
+/** Red for a whole box (locations, tick boxes): its words don't say what changed. */
 const editedClass = (p, col) => (editedOn(p, col) ? ' is-edited' : '');
 const editedNote = (p, col) => (editedOn(p, col) ? html`<span class="sr-only"> (edited ${EDIT_DAYS[editsDay].toLowerCase()})</span>` : '');
 
+/** The characters of a cell's text you wrote on the Show edits day (1 each), or null for none. */
+function redChars(p, col) {
+  const edit = editOn(p, col);
+  if (edit === undefined) return null;
+  const text = String(p.cells[col] ?? '');
+  return (edit && editedChars(edit.before, edit.after, text)) || new Uint8Array(text.length).fill(1);
+}
+
+/** "Text removed" under a box whose edit that day only took words out. */
+function removedNote(p, col) {
+  const red = editedOn(p, col) ? redChars(p, col) : null;
+  return red && !red.includes(1) ? html`<p class="pt__removed">${icon('edit')}Text removed ${EDIT_DAYS[editsDay].toLowerCase()}</p>` : '';
+}
+
 function editsBar(v) {
   const date = editsDate();
-  const count = date ? v.patients.reduce((n, p) => n + v.columns.filter((c) => p.edited?.[c.col]?.includes(date)).length, 0) : 0;
+  const count = date ? v.patients.reduce((n, p) => n + v.columns.filter((c) => p.edited?.[c.col]?.[date] !== undefined).length, 0) : 0;
   const opt = (i) => html`<label class="segmented__opt"><input type="radio" name="ward-edits" value="${i}" data-focus="edits-${i}"${raw(editsDay === i ? ' checked' : '')}><span>${EDIT_DAYS[i]}</span></label>`;
   return html`<div class="ward-arrange-by ward-edits-by">
     <span class="ward-arrange-by__label" id="ward-edits-label">Show edits</span>
     <div class="segmented" role="radiogroup" aria-labelledby="ward-edits-label">${[0, 1, 2, 3].map(opt)}</div>
   </div>
   ${date ? html`<p class="ward-edits-by__note" aria-live="polite">${count
-    ? html`<span class="ward-edits-by__swatch" aria-hidden="true"></span>${plural(count, 'box', 'boxes')} you edited ${EDIT_DAYS[editsDay].toLowerCase()} ${count === 1 ? 'is' : 'are'} in red.`
+    ? html`<span class="ward-edits-by__swatch" aria-hidden="true"></span>What you changed ${EDIT_DAYS[editsDay].toLowerCase()} is in red (${plural(count, 'box', 'boxes')}).`
     : `You didn’t edit anything ${EDIT_DAYS[editsDay].toLowerCase()} on this device.`}</p>` : ''}`;
 }
 
@@ -480,8 +497,26 @@ function badges(p, v, { detail = false } = {}) {
   return out.some(Boolean) ? html`<p class="pt__badges">${out}</p>` : '';
 }
 
-/** A cell's text, with the parts that are bold or red in the logsheet in bold. */
-const cellText = (p, col) => (p.marks?.[col] ? p.marks[col].map(([t, on]) => (on ? html`<strong class="pt__mark">${t}</strong>` : t)) : p.cells[col]);
+/** A cell's text, with the parts that are bold or red in the logsheet in bold, and what you
+    changed on the Show edits day in red. */
+function cellText(p, col) {
+  const text = String(p.cells[col] ?? '');
+  const marks = p.marks?.[col];
+  const red = redChars(p, col);
+  if (!red) return marks ? marks.map(([t, on]) => (on ? html`<strong class="pt__mark">${t}</strong>` : t)) : text;
+  const bold = new Uint8Array(text.length);
+  let at = 0;
+  (marks ?? []).forEach(([t, on]) => { if (on) bold.fill(1, at, at + t.length); at += t.length; });
+  const out = [];
+  for (let i = 0; i < text.length;) {
+    let j = i + 1;
+    while (j < text.length && bold[j] === bold[i] && red[j] === red[i]) j++;
+    const t = text.slice(i, j);
+    out.push(bold[i] ? html`<strong class="pt__mark${red[i] ? ' pt__edit' : ''}">${t}</strong>` : red[i] ? html`<span class="pt__edit">${t}</span>` : t);
+    i = j;
+  }
+  return out;
+}
 
 /** A tick-box cell (TRUE / FALSE in the logsheet). */
 const isTicked = (text) => /^(true|yes|y|1|✓|✔|x)$/i.test(String(text ?? '').trim());
@@ -511,13 +546,14 @@ function clampText(p, c, v) {
   const id = `${p.id}|${c.col}`;
   const open = expanded.has(id);
   const text = p.cells[c.col];
-  return html`<div class="pt__field${editedClass(p, c.col)}">
+  return html`<div class="pt__field">
     <p class="pt__label">${c.label}${editedNote(p, c.col)}</p>
     ${!c.readable ? html`<p class="pt__text pt__text--empty">${c.loading ? 'Loading…' : 'Update the sync script to see this'}</p>`
       : text
         ? html`<div class="pt__text${open ? '' : ' is-clamped'}" data-clamp="${id}">${cellText(p, c.col)}</div>
           <button type="button" class="pt__more" data-action="ward:more" data-clamp-id="${id}" aria-expanded="${open ? 'true' : 'false'}"${open ? '' : raw(' hidden')}>${open ? 'Show less' : 'Show more'}</button>`
         : html`<p class="pt__text pt__text--empty">None</p>`}
+    ${removedNote(p, c.col)}
   </div>`;
 }
 
@@ -615,8 +651,8 @@ function tileBody(p, c, t) {
       : ''}<span>${isTicked(p.cells[c.col]) ? `Ticked in column ${c.col} of the logsheet` : `Not ticked in column ${c.col}`}</span></div>`;
   }
   return p.cells[c.col]
-    ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}${editedClass(p, c.col)}">${cellText(p, c.col)}${editedNote(p, c.col)}</div>`
-    : html`<p class="faint">Empty in the logsheet.</p>`;
+    ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}">${cellText(p, c.col)}${editedNote(p, c.col)}</div>${removedNote(p, c.col)}`
+    : html`<p class="faint">Empty in the logsheet.</p>${removedNote(p, c.col)}`;
 }
 
 /** The buttons under a tile while you customize: move it, its text size, two columns, hide. */
