@@ -23,6 +23,7 @@ import { initReferrals } from './modules/referrals/store.js';
 import { initUnits } from './modules/units/store.js';
 import { initFocusTimer } from './modules/focus/timer.js';
 import { initFocusBar } from './modules/focus/page.js';
+import { initChimeClock } from './modules/chime/clock.js';
 import { initReminders } from './modules/todo/reminders.js';
 import { initCalendarLink } from './modules/todo/calendar-link.js';
 import { initDriveBackup } from './services/drive-backup.js';
@@ -93,6 +94,7 @@ async function boot() {
   await initWorkout(); // the workout in progress, rest timer and workout bar
   await initFocusTimer(); // a focus session running on this device
   initFocusBar();
+  await initChimeClock(); // the Neurology tab's chime clock (in place of the + button)
   initDashboard();
   initSettings();
   initRouter();

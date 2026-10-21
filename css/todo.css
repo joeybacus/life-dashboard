@@ -1076,3 +1076,14 @@ kbd {
 .hab-edit__times { display: inline-flex; align-items: center; gap: 10px; }
 .page-head__aside:has(.todo-focus-btn) { display: flex; align-items: center; gap: 4px; }
 .hab-month__day { display: grid; place-items: center; padding: 0; }
+
+/* ---- Chime clock (Neurology tab, in place of the + button) ---- */
+.chime-sheet { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.chime-ring { width: min(64vw, 230px); }
+.chime-sheet__section { align-self: stretch; display: flex; flex-direction: column; gap: 8px; }
+.chime-sheet__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chime-sheet__custom { display: flex; align-items: center; gap: 8px; }
+.chime-sheet__custom .input { width: 7.5em; }
+.chime-sheet__silent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--text-2); }
+.chime-sheet__silent small { flex-basis: 100%; padding-left: 24px; margin-top: -4px; }
+.chime-sheet__btns { align-self: stretch; }

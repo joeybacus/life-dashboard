@@ -9,7 +9,11 @@
    away, inside the tap itself — the only way an iPhone opens its keyboard for a web
    app. Only its Close and Add buttons close it — never a tap outside or Esc — so a
    half-typed task can't be lost. The button hides inside pop-up sheets and on the
-   workout logging screen. */
+   workout logging screen.
+
+   A tab can put its own button there instead (Neurology: the chime clock):
+     registerFab(tab, { icon, label, accent, action, paint(fab) })  paint() runs on
+       every refreshFab() — for a live label like a countdown */
 import { html, setHTML } from './html.js';
 import { icon } from './icons.js';
 import { registerAction } from './actions.js';
@@ -26,21 +30,39 @@ export function registerQuickAdd(item) {
 }
 
 let fab = null;
+const tabFabs = new Map();
+
+export function registerFab(tab, def) {
+  tabFabs.set(tab, def);
+  if (fab) refreshFab();
+}
+
+/** Draw the button for the tab that's showing (call when a tab's own button changes). */
+export function refreshFab() {
+  if (!fab) return;
+  const own = tabFabs.get(currentRoute());
+  const kind = own ? currentRoute() : 'quick';
+  if (fab.dataset.kind !== kind) {
+    fab.dataset.kind = kind;
+    fab.className = `fab accent-${own?.accent ?? 'todo'}`;
+    fab.dataset.action = own?.action ?? 'quick:open';
+    fab.setAttribute('aria-label', own?.label ?? 'Quick Add — new task, or start a workout');
+    fab.title = own?.label ?? 'Quick Add (N)';
+    setHTML(fab, icon(own?.icon ?? 'plus'));
+  }
+  own?.paint?.(fab);
+}
 
 export function initQuickAdd() {
   fab = document.createElement('button');
   fab.type = 'button';
-  fab.className = 'fab accent-todo';
-  fab.dataset.action = 'quick:open';
-  fab.setAttribute('aria-label', 'Quick Add — new task, or start a workout');
-  fab.title = 'Quick Add (N)';
-  setHTML(fab, icon('plus'));
   document.body.append(fab);
 
   const place = (tab, prev, sub) => {
     const hidden = HIDDEN_ON.some(([t, s]) => t === tab && s === sub);
     fab.hidden = hidden;
     document.documentElement.classList.toggle('has-fab', !hidden);
+    refreshFab();
   };
   onRoute(place);
   place(currentRoute(), null, currentSubRoute());

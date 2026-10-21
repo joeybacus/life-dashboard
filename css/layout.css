@@ -191,6 +191,13 @@
 .fab .icon { width: 27px; height: 27px; stroke-width: 2.4; }
 .fab:active { transform: scale(.9); }
 @media (hover: hover) { .fab:hover { filter: brightness(1.07); } }
+/* Neurology's chime clock while it runs: time to the next chime, with a ring filling up */
+.fab--clock-on { background: conic-gradient(var(--accent-2) calc(var(--p, 0) * 360deg), color-mix(in srgb, var(--accent) 55%, #0b1410) 0); }
+.fab--clock-on::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000)); }
+.fab--clock-on.is-paused::before { background: var(--text-3); }
+.fab--clock-on .icon { display: none; }
+.fab__time { position: relative; font-family: var(--font-rounded); font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+
 /* Out of the way while a sheet is open (the sheet dims everything behind it anyway) */
 html.has-dialog .fab { opacity: 0; visibility: hidden; }
 /* Above the workout bar while a workout is on */
