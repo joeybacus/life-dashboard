@@ -24,6 +24,19 @@ function blocker(list) {
   return null;
 }
 
+/** Ask about whatever stops rows moving (and offer the fix). True when nothing does. */
+async function clear(list) {
+  const blocked = blocker(list);
+  if (!blocked) return true;
+  const go = await confirmDialog({ title: blocked.title, message: blocked.message, confirmLabel: blocked.action?.[0] ?? 'OK', cancelLabel: blocked.action ? 'Cancel' : 'Close' });
+  if (go && blocked.action) {
+    const el = document.createElement('span');
+    el.dataset.list = list.id;
+    runAction(blocked.action[1], el);
+  }
+  return false;
+}
+
 const snapshot = (list) => (list.cache?.rows ?? []).map((r) => ({ row: r.row, name: r.name, hn: r.hn }));
 
 function rowsList(rows, hnLabel) {
@@ -39,16 +52,7 @@ function rowsList(rows, hnLabel) {
 export async function openArrange(listId) {
   const list = wardList(listId);
   if (!list) return;
-  const blocked = blocker(list);
-  if (blocked) {
-    const go = await confirmDialog({ title: blocked.title, message: blocked.message, confirmLabel: blocked.action?.[0] ?? 'OK', cancelLabel: blocked.action ? 'Cancel' : 'Close' });
-    if (go && blocked.action) {
-      const el = document.createElement('span');
-      el.dataset.list = listId;
-      runAction(blocked.action[1], el);
-    }
-    return;
-  }
+  if (!(await clear(list))) return;
   const hn = list.headings().hn === 'Hospital No.' ? 'HN' : list.headings().hn;
 
   await openDialog({
@@ -149,4 +153,47 @@ export async function openArrange(listId) {
       if (list.error) showError(`${list.error.message} This is the order from ${list.cache ? 'the last time the list loaded' : 'before'}.`);
     },
   });
+}
+
+/**
+ * Sync Order: put the logsheet's rows in the order the list shows right now
+ * (by priority or by location). shownRows(list) gives the row numbers on screen,
+ * top to bottom; rows not on screen keep their place after them. If the
+ * logsheet changed meanwhile, the app reloads it and tries once more.
+ */
+export async function syncOrder(listId, shownRows) {
+  const list = wardList(listId);
+  if (!list || !(await clear(list))) return;
+  const where = `${list.link.title ? `“${list.link.title}”` : 'your logsheet'} · ${list.link.tab}`;
+  if (!(await confirmDialog({
+    title: 'Sync the order to your logsheet?',
+    message: `The patients' rows in ${where} move into the order shown on this page, top to bottom (whole rows, every column). Blank rows stay where they are.`,
+    confirmLabel: 'Sync Order',
+  }))) return;
+
+  toast('Syncing the order…', { icon: 'refresh' });
+  let result = { status: 'invalid' };
+  for (let tries = 0; tries < 2; tries++) {
+    await list.flush(); // the latest rows, so the move matches the logsheet
+    const fresh = wardList(listId);
+    if (!fresh) return;
+    const expect = snapshot(fresh);
+    const known = new Set(expect.map((r) => r.row));
+    const shown = shownRows(fresh).filter((row) => known.has(row));
+    const order = [...new Set(shown), ...expect.map((r) => r.row).filter((row) => !shown.includes(row))];
+    if (expect.length < 2) {
+      result = { status: 'same' };
+      break;
+    }
+    result = await fresh.moveRows(expect, order);
+    if (result.status !== 'changed') break;
+  }
+  if (result.status === 'ok') {
+    toast('Logsheet rows now match the order on screen.', { icon: 'checkCircle' });
+    await list.flush(); // read back the new row numbers
+  } else if (result.status === 'same') {
+    toast('Your logsheet is already in this order.', { icon: 'checkCircle' });
+  } else {
+    await confirmDialog({ title: 'Couldn’t sync the order', message: STRUCTURE_PROBLEMS[result.status] ?? list.error?.message ?? STRUCTURE_PROBLEMS.invalid, confirmLabel: 'OK', cancelLabel: 'Close' });
+  }
 }

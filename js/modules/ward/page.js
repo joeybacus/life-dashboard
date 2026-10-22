@@ -21,7 +21,7 @@ import {
   editedChars, locationKey, manilaDateKey, previousDateKey, roundsCols, sortPatients, wardDayLong, wardStamp, wardTime,
 } from './model.js';
 import { openColumns, renameColumn, setupLocation } from './columns.js';
-import { openArrange } from './arrange.js';
+import { openArrange, syncOrder } from './arrange.js';
 import { boardOf, changeTile, savedBoard, withCols } from './board.js';
 import { removeList, renameList } from './manage.js';
 import { keepNotes, mountNotes, notesSlot } from './notes.js';
@@ -306,6 +306,7 @@ function statusLine(v) {
     <p class="ward-status__text" aria-live="polite">${loading ? 'Updating…' : v.cache ? `Last updated ${wardStamp(v.cache.fetchedAt)}` : ''}${
       pending > 0 ? html` · <span class="ward-status__pending">${icon('cloud')}${pending} not synced</span>` : ''}</p>
     <div class="ward-status__tools">
+      ${v.cache && v.patients.length > 1 ? html`<button type="button" class="btn btn--sm btn--ghost" data-action="ward:sync-order" data-focus="sync-order" title="Put the rows in your Google Sheet in the order shown here">${icon('upload')}Sync Order</button>` : ''}
       ${v.cache && v.patients.length ? html`<button type="button" class="btn btn--sm" data-action="ward:report" data-focus="report">${icon('clipboard')}Report</button>` : ''}
       <button type="button" class="btn btn--sm btn--ghost" data-action="ward:arrange" data-focus="arrange">${icon('sort')}Arrange rows</button>
       <button type="button" class="btn btn--sm btn--ghost" data-action="ward:columns" data-focus="columns">${icon('columns')}Columns</button>
@@ -1319,6 +1320,7 @@ registerAction('ward:refresh', (el) => listFor(el)?.refresh());
 registerAction('ward:columns', () => openColumns(listId));
 registerAction('ward:arrange', () => openArrange(listId));
 registerAction('ward:report', () => openReport(listId));
+registerAction('ward:sync-order', () => syncOrder(listId, (list) => tableOrder(list.view()).map(({ p }) => p.row)));
 registerAction('ward:rename-col', (el) => renameColumn(listId, el.dataset.colId));
 
 /** Arrange the list by priority or by location (the first time, choose which column holds locations). */
