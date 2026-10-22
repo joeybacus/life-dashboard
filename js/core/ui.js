@@ -132,6 +132,23 @@ export function openDialog({ title = '', body = '', actions = [], variant = 'she
         nudge();
       });
     }
+    // ⌘Enter (Ctrl+Enter on Windows) presses the pop-up's Save / Add / main button,
+    // even inside a big text box where Enter alone starts a new line
+    dlg.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey) || event.altKey || event.isComposing || event.defaultPrevented) return;
+      const usable = (b) => b && !b.disabled && b.offsetParent !== null;
+      const form = event.target.closest?.('form');
+      const submit = form && [...form.querySelectorAll('button[type="submit"], input[type="submit"]')].find(usable);
+      if (submit) {
+        event.preventDefault();
+        form.requestSubmit(submit);
+        return;
+      }
+      const main = [...dlg.querySelectorAll('.dlg__actions .btn--primary, .dlg__actions .btn--accent, .btn--primary[data-dialog-value], button[type="submit"]')].find(usable);
+      if (!main) return;
+      event.preventDefault();
+      main.click();
+    });
     // The browser can still close it by itself (Chrome does on a second Escape): tidy up the same way
     dlg.addEventListener('close', () => {
       if (settled) return;
