@@ -194,6 +194,7 @@
 /* Neurology's chime clock while it runs: time to the next chime, with a ring filling up */
 .fab--clock-on { background: conic-gradient(var(--accent-2) calc(var(--p, 0) * 360deg), color-mix(in srgb, var(--accent) 55%, #0b1410) 0); }
 .fab--clock-on::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000)); }
+.fab--clock-on.is-rest { background: conic-gradient(var(--success) calc(var(--p, 0) * 360deg), color-mix(in srgb, var(--success) 40%, #0b1410) 0); }
 .fab--clock-on.is-paused::before { background: var(--text-3); }
 .fab--clock-on .icon { display: none; }
 .fab__time { position: relative; font-family: var(--font-rounded); font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
