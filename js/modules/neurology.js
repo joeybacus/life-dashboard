@@ -8,6 +8,7 @@
      list/<id>/history      its rounds history
      referrals              patients referred to your service (with a calendar)
      units                  NCCU/ACSU: a box per bed with your duty to-dos
+     study                  Study tracker (temporary): a picture, notes and to-dos
      ward, ward/history     older addresses of Ward Patients (they still work) */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
@@ -24,14 +25,15 @@ import { handleReferralClick, referralsPage } from './referrals/page.js';
 import { referralPatients, referralSummary } from './referrals/patients.js';
 import { handleUnitsClick, unitsPage } from './units/page.js';
 import { unitsSummary } from './units/store.js';
+import { studyPage, wireStudy } from './study/page.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
-// What the module is designed to hold later (nothing here is built yet)
+// What the module is designed to hold later (a tool with `sub` has a page already)
 const PLANNED_TOOLS = [
   { name: 'Daily quizzes', icon: 'help' },
   { name: 'Question bank', icon: 'layers' },
-  { name: 'Study tracker', icon: 'calendarCheck' },
+  { name: 'Study tracker', icon: 'calendarCheck', sub: 'study' },
   { name: 'Flashcards', icon: 'cards' },
   { name: 'Notes', icon: 'note' },
   { name: 'Guidelines', icon: 'book' },
@@ -203,7 +205,8 @@ function showHome(el) {
     </section>
     <section class="section accent-neuro" aria-labelledby="neuro-tools-title">
       <div class="section__head"><h2 class="section__title" id="neuro-tools-title">Planned tools</h2></div>
-      <ul class="tool-grid">${PLANNED_TOOLS.map((t) => html`
+      <ul class="tool-grid">${PLANNED_TOOLS.map((t) => t.sub ? html`
+        <li><a class="tool tool--open" href="#/neurology/${t.sub}" data-action="nav" data-route="neurology" data-sub="${t.sub}"><span class="tool__icon">${icon(t.icon)}</span><span class="tool__name">${t.name}</span><span class="tool__status">Open ${icon('arrowRight')}</span></a></li>` : html`
         <li class="tool"><span class="tool__icon">${icon(t.icon)}</span><span class="tool__name">${t.name}</span><span class="tool__status">Planned</span></li>`)}
       </ul>
     </section>`);
@@ -216,6 +219,7 @@ const ROUTES = [
   [/^list\/([\w-]+)\/history$/, historyPage],
   [/^referrals$/, referralsPage],
   [/^units$/, unitsPage],
+  [/^study$/, studyPage],
 ];
 const OLD_ROUTES = { ward: 'list/ward', 'ward/history': 'list/ward/history' };
 
@@ -248,6 +252,7 @@ registerScreen('neurology', {
     el.addEventListener('click', handleCardClick);
     el.addEventListener('click', handleReferralClick);
     el.addEventListener('click', handleUnitsClick);
+    wireStudy(el);
   },
   onShow(el, sub) {
     visible = true;

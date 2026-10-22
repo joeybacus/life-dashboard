@@ -14,8 +14,8 @@ import { syncSnapshot } from './sync.js';
 import { isWardMeta } from '../modules/ward/store.js';
 
 /** Settings kept on this device only — never written to backup files (the sync token lives here,
-    and each patient list's logsheet link and patients: 'ward', 'wardCache', 'ward:<list>'…). */
-const LOCAL_ONLY_KEYS = new Set(['sync', 'backup', 'driveBackup', 'ui', 'restTimer']);
+    and each patient list's logsheet link and patients: 'ward', 'wardCache', 'ward:<list>'…, and the Study tracker picture). */
+const LOCAL_ONLY_KEYS = new Set(['sync', 'backup', 'driveBackup', 'ui', 'restTimer', 'studyPhoto']);
 const LOCAL_ONLY_META = { has: (key) => LOCAL_ONLY_KEYS.has(key) || isWardMeta(key) };
 const DATA_STORES = BACKUP_STORES.filter((name) => name !== 'meta');
 const WEEK = 7 * 864e5;
