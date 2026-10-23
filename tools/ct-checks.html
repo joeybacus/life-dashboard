@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CT viewer check</title>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/workout.css">
+  <link rel="stylesheet" href="../css/ward.css">
+  <style>
+    body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); }
+    .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    .bar .input { width: 12rem; }
+  </style>
+</head>
+<body class="accent-neuro">
+  <h1 style="font-size: 20px">CT viewer check (0.10.7)</h1>
+  <p class="faint">The CT box from a patient's page, on its own. Open with the preview server running:
+    <code>http://localhost:8000/tools/ct-checks.html</code>. Type a hospital number, then choose your CT_Downloads folder in the box.
+    Nothing is uploaded or changed.</p>
+  <div class="bar">
+    <label for="hn">Hospital no.</label>
+    <input id="hn" class="input" value="1129023">
+    <button type="button" class="btn btn--sm" id="show">Show</button>
+  </div>
+  <div id="page"></div>
+  <script type="module">
+    import { setHTML } from '../js/core/html.js';
+    import { ctSlot, keepCt, mountCt } from '../js/modules/ct/viewer.js';
+
+    const page = document.getElementById('page');
+    const show = () => {
+      keepCt(page);
+      setHTML(page, ctSlot());
+      mountCt(page, { hn: document.getElementById('hn').value });
+    };
+    document.getElementById('show').addEventListener('click', show);
+    show();
+  </script>
+</body>
+</html>

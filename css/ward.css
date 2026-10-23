@@ -1157,3 +1157,53 @@ a.tool--open:active { transform: scale(.98); }
 .study-todo .utodo__tick .pt__box { width: 22px; height: 22px; }
 .study-todo .utodo__text { font-size: var(--fs-base); }
 .study-todo__del { flex-shrink: 0; width: 36px; height: 36px; color: var(--text-3); }
+
+/* CT scans on a patient's page: their downloaded CT, read from this computer (js/modules/ct) */
+.ctv {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.ctv__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ctv__title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.ctv__title .icon { width: 1rem; height: 1rem; color: var(--accent-ink); }
+.ctv__count { font-size: var(--fs-xs); color: var(--text-3); }
+.ctv__acts { display: flex; gap: 6px; margin-left: auto; }
+.ctv__setup { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 62ch; }
+.ctv__setup p { margin: 0; line-height: 1.5; }
+.ctv__hint { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-xs); color: var(--text-3); }
+.ctv__hint .icon { width: .85rem; height: .85rem; flex: none; }
+.ctv__keys { margin: 0; font-size: var(--fs-xs); }
+.ctv__tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.ctv__tools .chip-toggle { min-width: 0; }
+.ctv__more { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ctv__grid { display: grid; gap: 10px; }
+.ctv__grid--1 { grid-template-columns: minmax(0, 720px); justify-content: center; }
+.ctv__grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 760px) { .ctv__grid--2 { grid-template-columns: minmax(0, 1fr); } }
+.ctv-pane { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 6px; border-radius: var(--r-sm); border: 1px solid var(--border); background: #000; }
+.ctv-pane[hidden] { display: none; }
+.ctv-pane.is-active { border-color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.ctv-pane__bar { display: flex; gap: 6px; }
+.ctv-pane__bar .input { width: auto; min-width: 0; padding-block: 6px; font-size: var(--fs-sm); }
+.ctv-pane__study { flex: 1 1 auto; }
+.ctv-pane__cut { flex: 0 0 auto; }
+.ctv-pane__view { position: relative; aspect-ratio: 1 / 1; background: #000; overflow: hidden; cursor: ns-resize; user-select: none; -webkit-user-select: none; touch-action: none; border-radius: 6px; }
+.ctv-pane__view:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ctv-pane__view canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
+.ctv-ov { position: absolute; font-size: 11px; line-height: 1.35; color: #e6e9f0; text-shadow: 0 0 3px #000, 0 0 2px #000; pointer-events: none; font-variant-numeric: tabular-nums; }
+.ctv-ov--tl { top: 6px; left: 8px; }
+.ctv-ov--tr { top: 6px; right: 8px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.ctv-ov--bl { bottom: 6px; left: 8px; }
+.ctv-ov--br { bottom: 6px; right: 8px; text-align: right; }
+.ctv-ov--mid { inset: 0; display: flex; align-items: center; justify-content: center; color: #8a90a0; font-size: var(--fs-sm); text-shadow: none; }
+.ctv-ov--mid[hidden] { display: none; }
+.ctv-q { padding: 1px 6px; border-radius: 4px; font-weight: 700; background: color-mix(in srgb, var(--accent) 30%, #000); border: 1px solid var(--accent); color: #fff; }
+.ctv-q--low { background: #5c3a0c; border-color: #f59e0b; }
+.ctv-q__note { color: #fbbf24; font-size: 10px; }
+.ctv-pane__load { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); transition: width .2s; }
+.ctv-pane__slider { width: 100%; margin: 2px 0; accent-color: var(--accent); }

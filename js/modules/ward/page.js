@@ -26,6 +26,7 @@ import { boardOf, changeTile, savedBoard, withCols } from './board.js';
 import { removeList, renameList } from './manage.js';
 import { keepNotes, mountNotes, notesSlot } from './notes.js';
 import { openReferral, openReport, openReportSetup } from './report-page.js';
+import { ctClosed, ctSlot, keepCt, mountCt } from '../ct/viewer.js';
 
 const AUTO_REFRESH_MS = 3 * 60 * 1000;
 const FRESH_MS = 15_000; // opening the screen again within this doesn't reload
@@ -767,6 +768,7 @@ function detailBody(p, v, { editing = false } = {}) {
           return html`<div class="ptb__col">${tiles}${editing && !tiles.length ? html`<p class="ptb__empty">Column ${k + 1} is empty — move tiles here with ${icon('arrowLeft')} ${icon('arrowRight')}</p>` : ''}</div>`;
         })}</div>
       </div>
+      ${p.hn ? ctSlot() : ''}
       <button type="button" class="btn btn--block ptb__close" data-dialog-value="close">Close</button>
     </div>`;
 }
@@ -787,8 +789,11 @@ async function openPatient(openId) {
     if (!body || !dialog.open || !v) return;
     const focused = document.activeElement?.closest?.('[data-focus]')?.dataset.focus;
     keepNotes(body);
-    setHTML(body, detailBody(v.patients.find((x) => x.id === id) ?? null, v, { editing }));
+    keepCt(body);
+    const shown = v.patients.find((x) => x.id === id) ?? null;
+    setHTML(body, detailBody(shown, v, { editing }));
     mountNotes(body, listId);
+    mountCt(body, { hn: shown?.hn });
     if (focused) {
       const again = body.querySelector(`[data-focus="${focused}"]`);
       (again && !again.disabled ? again : body.querySelector('[data-dact="customize"]'))?.focus({ preventScroll: true });
@@ -839,6 +844,7 @@ async function openPatient(openId) {
       dialog = dlg;
       dlg.setAttribute('aria-labelledby', 'ptb-title');
       mountNotes(dlg.querySelector('.dlg__body'), listId);
+      mountCt(dlg.querySelector('.dlg__body'), { hn: p.hn });
       dlg.addEventListener('click', async (event) => {
         const tool = event.target.closest('[data-bact]');
         if (tool) {
@@ -881,6 +887,7 @@ async function openPatient(openId) {
     },
   });
   stop();
+  ctClosed();
   document.removeEventListener('keydown', onKey);
   const last = findPatient(id);
   if (last?.tickable) await current()?.notePatientClosed(last.key); // closing their page pauses their timer
