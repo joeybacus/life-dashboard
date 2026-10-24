@@ -1073,7 +1073,7 @@ async function openConflict(key) {
 
 /* ---------- Linking the logsheet ---------- */
 
-function setupFeedback(state) {
+function setupFeedback(state, readOnly = false) {
   if (!state) return '';
   if (state.error) {
     const e = state.error;
@@ -1091,7 +1091,7 @@ function setupFeedback(state) {
     const seen = c.headers.values.map((val, i) => `${cols[i]}1 ${val ? `“${val}”` : '(empty)'}`).join(' · ');
     notes.push(html`<p class="note ward-note--warn">${icon('info')}<span><strong>Columns ${cols[0]}–${cols[2]} are already in use</strong> (${seen}${c.headers.dataBelow ? ', with data below' : ''}). The app won’t overwrite them, so ticks would be kept on this device only. If those columns are unused, clear them in the logsheet and tap Check again.</span></p>`);
   }
-  if (c.canEdit === false) notes.push(html`<p class="note ward-note--warn">${icon('lock')}<span><strong>View only.</strong> Your Google account can see this logsheet but not edit it, so ticks and edits couldn’t be saved to it. Ask its owner for edit access.</span></p>`);
+  if (c.canEdit === false && !readOnly) notes.push(html`<p class="note ward-note--warn">${icon('lock')}<span><strong>View only.</strong> Your Google account can see this logsheet but not edit it, so ticks and edits couldn’t be saved to it. Ask its owner for edit access.</span></p>`);
   if (!c.patients) notes.push(html`<p class="note ward-note--warn">${icon('info')}<span>No patients found from row 2 of “${c.tab}”. Is it the right tab?</span></p>`);
   return html`<div class="ward-setup__found">
     <p class="ward-setup__ok">${icon('checkCircle')}<span>Found <strong>${c.title}</strong> · ${c.tab} · ${plural(c.patients, 'patient')}</span></p>
@@ -1121,7 +1121,7 @@ export async function openSetup(id = listId) {
     className: 'setup ward-setup accent-neuro',
     title: link ? `Change logsheet · ${list.name}` : `Link a logsheet · ${list.name}`,
     body: html`
-      <p class="setup__lead">Paste the link to the ${list.isCensus ? 'referral census' : `ward logsheet for “${list.name}”`} (a Google Sheet): open it, then copy the address — or use <strong>Share → Copy link</strong>.</p>
+      <p class="setup__lead">Paste the link to the ${list.isCensus ? 'referral census' : list.isDuty ? 'duty patients sheet' : `ward logsheet for “${list.name}”`} (a Google Sheet): open it, then copy the address — or use <strong>Share → Copy link</strong>.</p>
       ${outdated ? html`<p class="note">${icon('sparkles')}<span>${LOAD_PROBLEMS['script-outdated']} <button type="button" class="link-inline" data-action="sync:update">Show me how</button></span></p>` : ''}
       <form class="setup__form" data-link novalidate>
         <label class="field"><span class="field__label">Logsheet link</span>
@@ -1136,8 +1136,8 @@ export async function openSetup(id = listId) {
           <button type="submit" class="btn btn--primary" data-submit>Check logsheet</button>
         </div>
       </form>
-      <p class="note">${icon('lock')}<span>Saved on this device only — never synced, backed up or written into the app. Patients are read from row 2: ${list.layout().name} Name · ${list.layout().hn} Hospital Number${columns ? ` · ${columns}` : ''}${list.layout().rounds ? `. Rounds go in columns ${roundsSpan(list.layout())}` : ''}, and your edits go back to their own columns. Names and hospital numbers are never changed. ${list.isCensus ? '(You can choose the columns next.)' : '(Different columns? Link it, then choose them in Columns → Where things are.)'}</span></p>
-      ${(!link || link.test) && !list.isCensus ? html`<div class="ward-setup__test">
+      <p class="note">${icon('lock')}<span>Saved on this device only — never synced, backed up or written into the app. Patients are read from row 2: ${list.layout().name} Name · ${list.layout().hn} Hospital Number${columns ? ` · ${columns}` : ''}${list.layout().rounds ? `. Rounds go in columns ${roundsSpan(list.layout())}` : ''}${list.isDuty ? '. The app only reads it — nothing is written to it' : ', and your edits go back to their own columns. Names and hospital numbers are never changed'}. ${list.ownPage ? '(You can choose the columns next.)' : '(Different columns? Link it, then choose them in Columns → Where things are.)'}</span></p>
+      ${(!link || link.test) && !list.ownPage ? html`<div class="ward-setup__test">
         <p>${link?.test ? 'Practice logsheet in use.' : 'Want to try it first?'} A practice logsheet with made-up patients can be created in your Google Drive.</p>
         <button type="button" class="btn btn--sm" data-test>${icon('sparkles')}Create a practice logsheet</button>
       </div>` : ''}`,
@@ -1149,7 +1149,7 @@ export async function openSetup(id = listId) {
       let check = null;
 
       const show = (state) => {
-        setHTML(feedback, setupFeedback(state));
+        setHTML(feedback, setupFeedback(state, list.isDuty));
         firstActions.hidden = Boolean(state?.check);
       };
       const run = async () => {

@@ -1207,3 +1207,36 @@ a.tool--open:active { transform: scale(.98); }
 .ctv-q__note { color: #fbbf24; font-size: 10px; }
 .ctv-pane__load { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); transition: width .2s; }
 .ctv-pane__slider { width: 100%; margin: 2px 0; accent-color: var(--accent); }
+
+/* ---------- Duty Patients (0.10.8) ---------- */
+.duty__list { display: flex; flex-direction: column; gap: 12px; }
+.duty-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.duty-card__open { display: flex; align-items: center; gap: 10px; width: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.duty-card__name { flex: 1; min-width: 0; font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.duty-card__go { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: var(--fs-sm); font-weight: 600; color: var(--accent); }
+.duty-card__go .icon { width: 1rem; height: 1rem; }
+@media (hover: hover) { .duty-card:hover { border-color: var(--border-2); } }
+/* Row 1: age / gender, hospital number, arrival */
+.duty-info { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.duty-info__item { min-width: 0; padding: 8px 10px; border-radius: var(--r-sm); background: var(--surface-2, rgba(255,255,255,.04)); border: 1px solid var(--border); }
+.duty-info dt { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+.duty-info dd { margin: 2px 0 0; font-size: var(--fs-md); font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .duty-info { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .duty-info__item:last-child { grid-column: 1 / -1; } }
+/* Row 2: laboratory results */
+.duty-labs { display: flex; flex-direction: column; gap: 6px; }
+.duty-labs__title { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-sm); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+.duty-labs__title .icon { width: 1rem; height: 1rem; color: var(--accent); }
+.duty-labs__text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.duty-card .duty-labs__text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+.duty-labs--full { padding: 14px 16px; border-radius: var(--r-md, 14px); border: 1px solid var(--border); }
+.duty-page { display: flex; flex-direction: column; gap: 16px; }
+/* Row 3: imaging — CT plain | CT with contrast | chest X-ray */
+.ctv__grid--duty { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .ctv__grid--duty { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ctv__grid--duty .ctv-pane--soon { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .ctv__grid--duty { grid-template-columns: minmax(0, 1fr); } }
+.ctv-pane__label { margin: 0; padding: 2px 4px; font-size: var(--fs-sm); font-weight: 700; color: #e6e9f0; }
+.ctv-pane--soon { background: transparent; border-style: dashed; }
+.ctv-soon { flex: 1; min-height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; color: var(--text-3); }
+.ctv-soon .icon { width: 32px; height: 32px; }
+.ctv-soon p { margin: 0; font-weight: 600; color: var(--text-2); }
+.ctv__grid--duty .ctv-pane--soon .ctv-pane__label { color: var(--text); }

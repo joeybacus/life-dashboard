@@ -54,6 +54,16 @@ export const CENSUS_ROLES = [
   { role: 'waiting', label: 'Waiting for', col: '' },
   { role: 'notes', label: 'Notes', col: '' },
 ];
+export const DUTY_ID = 'duty';
+
+/** Duty Patients' sheet columns at first (A Name, B Age/Gender, C Hospital No., D Arrival, E Labs); you can change them. */
+export const DUTY_ROLES = [
+  { role: 'age', label: 'Age / Gender', col: 'B' },
+  { role: 'sex', label: 'Gender', col: '' },
+  { role: 'arrival', label: 'Date and time of arrival', col: 'D' },
+  { role: 'labs', label: 'Laboratory results', col: 'E' },
+];
+export const DUTY_LAYOUT = Object.freeze({ name: 'A', hn: 'C', rounds: '' });
 export const censusColumns = (roles) => roles.filter((r) => r.col).map((r) => ({
   id: r.role, col: r.col, label: r.label, role: r.role, ...(r.role === 'location' ? { location: true } : {}),
 }));
@@ -176,11 +186,17 @@ class WardList {
   /** Rounded, Name and Hospital No. hidden in the app: { rounded, name, hn }. One of Name and Hospital No. always shows. */
   hidden() {
     const h = this.def.hidden ?? {};
-    return { rounded: Boolean(h.rounded) || this.isCensus, name: Boolean(h.name) && !h.hn, hn: Boolean(h.hn) };
+    return { rounded: Boolean(h.rounded) || this.ownPage, name: Boolean(h.name) && !h.hn, hn: Boolean(h.hn) };
   }
 
   /** The referral census (Referrals): no rounds columns, days in its Last / Next rounds columns. */
   get isCensus() { return this.def.kind === 'referrals'; }
+
+  /** Duty Patients: read from its sheet only (no rounds, nothing written back). */
+  get isDuty() { return this.def.kind === 'duty'; }
+
+  /** A sheet with its own page (Referrals, Duty Patients), not one of the patient lists. */
+  get ownPage() { return this.isCensus || this.isDuty; }
 
   /** The values a column takes: its dropdown (sync script 10), else the ones already in it. */
   choicesFor(col) {
@@ -727,7 +743,7 @@ class WardList {
    * look; only the last four days are kept.
    */
   async noteSeen(day = manilaDateKey()) {
-    if (!this.cache || this.isCensus) return;
+    if (!this.cache || this.ownPage) return;
     let oldest = manilaDateKey();
     for (let i = 1; i < SEEN_DAYS; i++) oldest = previousDateKey(oldest);
     if (day < oldest) return;
@@ -1044,9 +1060,11 @@ function upgradeCache(cache) {
 const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0) || String(a.createdAt).localeCompare(String(b.createdAt));
 
 /** The patient lists (not deleted), in order — not the referral census, which has its own page. */
-export const wardLists = () => order.map((id) => lists.get(id)).filter((l) => l && !l.isCensus);
+export const wardLists = () => order.map((id) => lists.get(id)).filter((l) => l && !l.ownPage);
 /** The referral census behind Referrals. */
 export const censusList = () => lists.get(CENSUS_ID) ?? null;
+/** The sheet behind Duty Patients. */
+export const dutyList = () => lists.get(DUTY_ID) ?? null;
 /** One list, or null. */
 export const wardList = (id) => lists.get(id) ?? null;
 /** Summaries of every list, in order. */
@@ -1199,6 +1217,12 @@ export async function initWard() {
   await store.seedList({
     id: CENSUS_ID, kind: 'referrals', name: 'Referral census', order: 999, headings: {},
     layout: { name: 'I', hn: 'J', rounds: '' }, columns: censusColumns(CENSUS_ROLES), hidden: { rounded: true },
+    createdAt: SEEDED_AT, updatedAt: SEEDED_AT, deletedAt: null,
+  });
+  // Duty Patients: the link to your duty sheet, read only (each device links it itself; its columns sync)
+  await store.seedList({
+    id: DUTY_ID, kind: 'duty', name: 'Duty Patients', order: 998, headings: {},
+    layout: { ...DUTY_LAYOUT }, columns: censusColumns(DUTY_ROLES), hidden: { rounded: true },
     createdAt: SEEDED_AT, updatedAt: SEEDED_AT, deletedAt: null,
   });
   await store.upgradeQueue();

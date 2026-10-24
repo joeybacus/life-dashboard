@@ -8,6 +8,7 @@
      list/<id>/history      its rounds history
      referrals              patients referred to your service (with a calendar)
      units                  NCCU/ACSU: a box per bed with your duty to-dos
+     duty                   Duty Patients: your patients on duty from a sheet, with labs and CT scans
      study                  Study tracker (temporary): a picture, notes and to-dos
      ward, ward/history     older addresses of Ward Patients (they still work) */
 import { registerModule } from './registry.js';
@@ -26,6 +27,7 @@ import { referralPatients, referralSummary } from './referrals/patients.js';
 import { handleUnitsClick, unitsPage } from './units/page.js';
 import { unitsSummary } from './units/store.js';
 import { studyPage, wireStudy } from './study/page.js';
+import { dutyPage, dutySummary } from './duty/page.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -82,6 +84,24 @@ function unitsLink({ compact = false } = {}) {
     <span class="ward-entry__text"><span class="ward-entry__title">NCCU/ACSU</span><span class="ward-entry__sub">${unitsSub()}</span></span>
     ${icon('chevronRight', 'ward-entry__chev')}`;
   const attrs = 'href="#/neurology/units" data-action="nav" data-route="neurology" data-sub="units"';
+  return compact
+    ? html`<a class="ward-entry ward-entry--compact" ${raw(attrs)}>${inner}</a>`
+    : html`<div class="card ward-entry ward-entry--solo"><a class="ward-entry__link" ${raw(attrs)}>${inner}</a></div>`;
+}
+
+/** "6 patients" */
+function dutySub() {
+  const d = dutySummary();
+  if (!d.linked) return 'Link your duty sheet';
+  if (!d.loaded) return 'Open to load the sheet';
+  return d.total ? `${d.total} ${d.total === 1 ? 'patient' : 'patients'} · labs and CT scans` : 'No patients yet';
+}
+
+function dutyLink({ compact = false } = {}) {
+  const inner = html`<span class="ward-entry__icon">${icon('pulse')}</span>
+    <span class="ward-entry__text"><span class="ward-entry__title">Duty Patients</span><span class="ward-entry__sub">${dutySub()}</span></span>
+    ${icon('chevronRight', 'ward-entry__chev')}`;
+  const attrs = 'href="#/neurology/duty" data-action="nav" data-route="neurology" data-sub="duty"';
   return compact
     ? html`<a class="ward-entry ward-entry--compact" ${raw(attrs)}>${inner}</a>`
     : html`<div class="card ward-entry ward-entry--solo"><a class="ward-entry__link" ${raw(attrs)}>${inner}</a></div>`;
@@ -172,6 +192,7 @@ registerModule({
     ${all.map(listLink)}
     ${referralsLink({ compact: true })}
     ${unitsLink({ compact: true })}
+    ${dutyLink({ compact: true })}
     ${todaysReferrals()}
     <p class="neuro-note">${MESSAGE}</p>
     <div class="tag-cloud">${PLANNED_TOOLS.slice(0, 6).map((t) => html`<span class="tag">${t.name}</span>`)}</div>
@@ -197,6 +218,10 @@ function showHome(el) {
       <h2 class="ward-lists__title" id="neuro-units-title">NCCU/ACSU</h2>
       ${unitsLink()}
     </section>
+    <section class="ward-lists ward-lists--refs accent-neuro" aria-labelledby="neuro-duty-title">
+      <h2 class="ward-lists__title" id="neuro-duty-title">Duty Patients</h2>
+      ${dutyLink()}
+    </section>
     <section class="card placeholder accent-neuro" aria-label="Coming soon">
       <div class="placeholder__orb">${icon('brain')}</div>
       <h2 class="placeholder__title">More coming in a future update</h2>
@@ -219,6 +244,7 @@ const ROUTES = [
   [/^list\/([\w-]+)\/history$/, historyPage],
   [/^referrals$/, referralsPage],
   [/^units$/, unitsPage],
+  [/^duty$/, dutyPage],
   [/^study$/, studyPage],
 ];
 const OLD_ROUTES = { ward: 'list/ward', 'ward/history': 'list/ward/history' };

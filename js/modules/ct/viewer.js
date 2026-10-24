@@ -14,6 +14,10 @@
    redraws (it redraws often while the logsheet syncs): the page draws ctSlot()
    and calls mountCt(); keepCt() takes it out before a redraw.
 
+   Duty Patients mounts it with mode 'duty': three columns side by side — the
+   plain CT, the contrast CT (of the newest study that has each) and chest
+   X-rays (not available yet).
+
    For looking at the downloaded scans, not a diagnostic workstation. */
 import { html } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
@@ -61,6 +65,7 @@ const V = {
   active: 0,
   playing: null,
   panes: [],
+  mode: 'ward',   // 'duty': plain | contrast | CXR in three columns
   ...loadPrefs(),
 };
 
@@ -105,8 +110,8 @@ function makeBox() {
   return box;
 }
 
-/** Put the viewer into a page's slot, showing this patient's scans. */
-export function mountCt(root, { hn } = {}) {
+/** Put the viewer into a page's slot, showing this patient's scans ('duty': in three columns). */
+export function mountCt(root, { hn, mode = 'ward' } = {}) {
   const slot = root?.querySelector('[data-ct-slot]');
   if (!slot) return;
   if (!V.el) {
@@ -115,8 +120,16 @@ export function mountCt(root, { hn } = {}) {
   }
   slot.replaceWith(V.el);
   const key = hnFolder(hn);
+  if (mode !== V.mode) {
+    V.mode = mode;
+    V.el.querySelector('.ctv__title span').textContent = mode === 'duty' ? 'Imaging' : 'CT scans';
+    if (key === V.hn) setPatient(key); // the panes are made again for the other layout
+  }
   if (key !== V.hn) setPatient(key);
 }
+
+/** How many panes show: Duty Patients always has plain and contrast. */
+const paneCount = () => (V.mode === 'duty' ? 2 : V.layout);
 
 /** Take the viewer out of a page before it redraws, so it goes back in untouched. */
 export function keepCt(root) {
@@ -222,21 +235,25 @@ function chip(attr, value, label, on, title = '') {
 function toolbar() {
   const qualities = [...new Set(V.studies.flatMap((s) => s.cuts.map((c) => c.quality)))].sort((a, b) => b - a);
   const pairs = V.studies.some((s) => s.cuts.some((c) => c.kind === 'contrast') && s.cuts.some((c) => c.kind === 'plain'));
+  const duty = V.mode === 'duty';
   return html`<div class="ctv__tools">
-    <span class="chips chips--sm" role="group" aria-label="Panes">${chip('layout', 1, '1 pane', V.layout === 1)}${chip('layout', 2, '2 panes', V.layout === 2)}</span>
+    ${duty ? '' : html`<span class="chips chips--sm" role="group" aria-label="Panes">${chip('layout', 1, '1 pane', V.layout === 1)}${chip('layout', 2, '2 panes', V.layout === 2)}</span>`}
     <span class="chips chips--sm" role="group" aria-label="Window">${Object.entries(PRESETS).map(([k, p]) => chip('preset', k, p.label, V.preset === k, `Width ${p.width} · Level ${p.centre}`))}</span>
     ${qualities.length > 1 ? html`<span class="chips chips--sm" role="group" aria-label="Quality">${qualities.map((q) => chip('quality', q, q === 100 ? 'Full' : `${q}%`, V.quality === q, q === 100 ? 'Synapse’s original slices' : `The ${q}% downloads: smaller, quicker to open`))}</span>` : ''}
     <span class="ctv__more">
-      ${pairs ? html`<button type="button" class="btn btn--sm" data-ct="pair" title="Plain and contrast of the study in the active pane, side by side">Plain | Contrast</button>` : ''}
-      ${V.studies.length > 1 ? html`<button type="button" class="btn btn--sm" data-ct="older" title="The study before the active one, side by side">Compare older</button>` : ''}
+      ${pairs && !duty ? html`<button type="button" class="btn btn--sm" data-ct="pair" title="Plain and contrast of the study in the active pane, side by side">Plain | Contrast</button>` : ''}
+      ${V.studies.length > 1 && !duty ? html`<button type="button" class="btn btn--sm" data-ct="older" title="The study before the active one, side by side">Compare older</button>` : ''}
       ${chip('link', 1, html`${icon('link')}Link`, V.linked, 'Scroll both panes together, at the same level of the head')}
       <button type="button" class="btn btn--sm" data-ct="play" aria-pressed="false">${icon('play')}Play</button>
     </span>
   </div>`;
 }
 
+const DUTY_LABEL = ['CT · Plain', 'CT · With contrast'];
+
 function paneHtml(i) {
   return html`<div class="ctv-pane" data-pane="${i}">
+    ${V.mode === 'duty' ? html`<h3 class="ctv-pane__label">${DUTY_LABEL[i]}</h3>` : ''}
     <div class="ctv-pane__bar">
       <select class="input ctv-pane__study" data-pick="study" aria-label="Study in pane ${i + 1}">${V.studies.map((s) => html`<option value="${s.folder}">${studyName(s)}</option>`)}</select>
       <select class="input ctv-pane__cut" data-pick="cut" aria-label="Series in pane ${i + 1}"></select>
@@ -255,7 +272,11 @@ function paneHtml(i) {
 function buildViewer(body) {
   stopPlay();
   V.panes.forEach(detach);
-  body.innerHTML = String(html`${toolbar()}<div class="ctv__grid ctv__grid--${V.layout}">${[0, 1].map(paneHtml)}</div>
+  const cxr = html`<div class="ctv-pane ctv-pane--soon">
+    <h3 class="ctv-pane__label">Chest X-ray</h3>
+    <div class="ctv-soon">${icon('image')}<p>CXR viewer</p><span class="badge">Coming in a future update</span></div>
+  </div>`;
+  body.innerHTML = String(html`${toolbar()}<div class="ctv__grid ${V.mode === 'duty' ? 'ctv__grid--duty' : `ctv__grid--${V.layout}`}">${[0, 1].map(paneHtml)}${V.mode === 'duty' ? cxr : ''}</div>
     <p class="ctv__keys faint">Scroll: mouse wheel or drag on a scan, the slider, or ↑ ↓ (PgUp / PgDn = 10, Home / End). Space = play. Click a pane to make it lead.</p>`);
   V.built = V.studies;
   V.panes = [0, 1].map((i) => makePane(i, body.querySelector(`[data-pane="${i}"]`)));
@@ -312,7 +333,7 @@ function makePane(i, el) {
   return p;
 }
 
-const visible = () => V.panes.slice(0, V.layout);
+const visible = () => V.panes.slice(0, paneCount());
 const findStudy = (folder) => V.studies?.find((s) => s.folder === folder) ?? null;
 const sameStudy = (a, b) => a.study && b.study && a.study.folder === b.study.folder;
 
@@ -339,6 +360,7 @@ function detach(p) {
 /** Show `kind` of `study` in pane p. */
 function choose(p, study, kind) {
   if (!study) return;
+  p.none = false;
   p.study = study;
   p.kind = kind;
   p.studySel.value = study.folder;
@@ -481,7 +503,7 @@ function overlay(p) {
 
 function setActive(i) {
   V.active = i;
-  V.panes.forEach((p, k) => p.el.classList.toggle('is-active', k === i && V.layout > 1));
+  V.panes.forEach((p, k) => p.el.classList.toggle('is-active', k === i && paneCount() > 1));
 }
 
 function pressed(attr, value) {
@@ -490,9 +512,9 @@ function pressed(attr, value) {
 
 function showLayout() {
   const grid = V.el.querySelector('.ctv__grid');
-  if (grid) grid.className = `ctv__grid ctv__grid--${V.layout}`;
-  V.panes.forEach((p, k) => { p.el.hidden = k >= V.layout; });
-  if (V.active >= V.layout) setActive(0);
+  if (grid && V.mode !== 'duty') grid.className = `ctv__grid ctv__grid--${V.layout}`;
+  V.panes.forEach((p, k) => { p.el.hidden = k >= paneCount(); });
+  if (V.active >= paneCount()) setActive(0);
   pressed('layout', V.layout);
 }
 
@@ -500,8 +522,26 @@ function showLayout() {
 function startPanes() {
   if (!V.seen || !V.studies?.length || V.built !== V.studies) return;
   const [a, b] = V.panes;
+  if (V.mode === 'duty') {
+    // The newest plain CT on the left, the newest contrast CT beside it
+    const has = (kind) => V.studies.find((s) => s.cuts.some((c) => c.kind === kind));
+    if (!a.series && !a.none) showOrNone(a, has('plain'), 'plain', 'No plain CT downloaded.');
+    if (!b.series && !b.none) showOrNone(b, has('contrast'), 'contrast', 'No contrast CT downloaded.');
+    return;
+  }
   if (!a.series) choose(a, V.studies[0], 'plain');
   if (V.layout > 1 && !b.series) fillSecond();
+}
+
+/** Duty Patients: a pane with its scan, or saying there's none (its menus still pick any study). */
+function showOrNone(p, study, kind, message) {
+  if (study) { choose(p, study, kind); return; }
+  p.none = true;
+  p.study = null;
+  p.studySel.value = '';
+  p.cutSel.innerHTML = '';
+  p.mid.textContent = message;
+  p.mid.hidden = false;
 }
 
 function fillSecond() {

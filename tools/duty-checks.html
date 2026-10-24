@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Duty Patients check</title>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/workout.css">
+  <link rel="stylesheet" href="../css/ward.css">
+  <style>
+    body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); }
+    .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    .bar .input { width: 12rem; }
+    #page { display: flex; flex-direction: column; gap: 24px; }
+  </style>
+</head>
+<body class="accent-neuro">
+  <h1 style="font-size: 20px">Duty Patients check (0.10.8)</h1>
+  <p class="faint">A made-up patient's card and page, with the CT viewer in its three columns. Open with the preview server running:
+    <code>http://localhost:8000/tools/duty-checks.html</code>. Type a hospital number that has scans in CT_Downloads, then choose the folder in the box.
+    Nothing is uploaded or changed.</p>
+  <div class="bar">
+    <label for="hn">Hospital no.</label>
+    <input id="hn" class="input">
+    <button type="button" class="btn btn--sm" id="show">Show</button>
+  </div>
+  <div id="page"></div>
+  <script type="module">
+    import { html, setHTML } from '../js/core/html.js';
+    import { keepCt, mountCt } from '../js/modules/ct/viewer.js';
+    import { card, detailBody } from '../js/modules/duty/page.js';
+
+    const page = document.getElementById('page');
+    const hnBox = document.getElementById('hn');
+    hnBox.value = new URLSearchParams(location.search).get('hn') ?? '';
+    const show = () => {
+      const p = { id: 'x', name: 'Juan Dela Cruz (made up)', hn: hnBox.value, age: '67 / M', arrival: '10/24/2026 3:15 PM',
+        labs: 'CBC: Hgb 132, WBC 11.2, Plt 245\nNa 138, K 3.9, Crea 88\nRBS 7.8' };
+      keepCt(page);
+      setHTML(page, html`<div class="duty__list">${card(p)}</div><div class="card" style="padding:0">${detailBody(p, [p])}</div>`);
+      mountCt(page, { hn: p.hn, mode: 'duty' });
+    };
+    document.getElementById('show').addEventListener('click', show);
+    show();
+  </script>
+</body>
+</html>
