@@ -25,6 +25,7 @@ import { openArrange, syncOrder } from './arrange.js';
 import { boardOf, changeTile, savedBoard, withCols } from './board.js';
 import { removeList, renameList } from './manage.js';
 import { keepNotes, mountNotes, notesSlot } from './notes.js';
+import { historyClosed, historySlot, keepHistory, mountHistory } from './history.js';
 import { openReferral, openReport, openReportSetup } from './report-page.js';
 import { ctClosed, ctSlot, keepCt, mountCt } from '../ct/viewer.js';
 
@@ -768,6 +769,7 @@ function detailBody(p, v, { editing = false } = {}) {
           return html`<div class="ptb__col">${tiles}${editing && !tiles.length ? html`<p class="ptb__empty">Column ${k + 1} is empty — move tiles here with ${icon('arrowLeft')} ${icon('arrowRight')}</p>` : ''}</div>`;
         })}</div>
       </div>
+      ${historySlot()}
       ${p.hn ? ctSlot() : ''}
       <button type="button" class="btn btn--block ptb__close" data-dialog-value="close">Close</button>
     </div>`;
@@ -789,10 +791,12 @@ async function openPatient(openId) {
     if (!body || !dialog.open || !v) return;
     const focused = document.activeElement?.closest?.('[data-focus]')?.dataset.focus;
     keepNotes(body);
+    keepHistory(body);
     keepCt(body);
     const shown = v.patients.find((x) => x.id === id) ?? null;
     setHTML(body, detailBody(shown, v, { editing }));
     mountNotes(body, listId);
+    mountHistory(body, shown);
     mountCt(body, { hn: shown?.hn });
     if (focused) {
       const again = body.querySelector(`[data-focus="${focused}"]`);
@@ -844,6 +848,7 @@ async function openPatient(openId) {
       dialog = dlg;
       dlg.setAttribute('aria-labelledby', 'ptb-title');
       mountNotes(dlg.querySelector('.dlg__body'), listId);
+      mountHistory(dlg.querySelector('.dlg__body'), p);
       mountCt(dlg.querySelector('.dlg__body'), { hn: p.hn });
       dlg.addEventListener('click', async (event) => {
         const tool = event.target.closest('[data-bact]');
@@ -887,6 +892,7 @@ async function openPatient(openId) {
     },
   });
   stop();
+  historyClosed();
   ctClosed();
   document.removeEventListener('keydown', onKey);
   const last = findPatient(id);

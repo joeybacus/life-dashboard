@@ -509,6 +509,14 @@ button.wbadge { cursor: pointer; }
 .wnotes__hint { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--text-3); }
 .wnotes__hint .icon { width: .85rem; height: .85rem; }
 
+/* History & admitting PE: two halves side by side, above the CT scans (history.js) */
+.phx { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); }
+.phx__halves { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.phx__half { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.phx__label { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-2); }
+.phx__text { min-height: 9rem; }
+@media (max-width: 759px) { .phx__halves { grid-template-columns: minmax(0, 1fr); } }
+
 /* The tiles: across the top, then the columns (stacked on a phone) */
 .ptb { display: flex; flex-direction: column; gap: 14px; }
 .ptb__top { display: flex; flex-wrap: wrap; gap: 14px; }

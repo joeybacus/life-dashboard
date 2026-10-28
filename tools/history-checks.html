@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>History box check</title>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/ward.css">
+  <style>
+    body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); }
+    .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  </style>
+</head>
+<body class="accent-neuro">
+  <h1 style="font-size: 20px">History &amp; admitting PE check (0.10.9)</h1>
+  <p class="faint">The box from a patient's page, on its own, for two made-up patients. Use a preview origin with no
+    Google Sheet linked: what you type is saved in this browser's app data.</p>
+  <div class="bar">
+    <button type="button" class="btn btn--sm" data-who="0">Patient A</button>
+    <button type="button" class="btn btn--sm" data-who="1">Patient B (no hospital no.)</button>
+    <button type="button" class="btn btn--sm" id="redraw">Redraw</button>
+  </div>
+  <div id="page" class="ptb__main"></div>
+  <script type="module">
+    import { setHTML } from '../js/core/html.js';
+    import { historySlot, keepHistory, mountHistory } from '../js/modules/ward/history.js';
+
+    const people = [{ name: 'TEST, PATIENT A', hn: '0000001' }, { name: 'TEST, PATIENT B', hn: '' }];
+    let who = people[0];
+    const page = document.getElementById('page');
+    const show = () => {
+      keepHistory(page);
+      setHTML(page, historySlot());
+      mountHistory(page, who);
+    };
+    document.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('click', () => { who = people[b.dataset.who]; show(); }));
+    document.getElementById('redraw').addEventListener('click', show);
+    show();
+  </script>
+</body>
+</html>
