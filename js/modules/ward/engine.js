@@ -55,6 +55,8 @@ export const CENSUS_ROLES = [
   { role: 'notes', label: 'Notes', col: '' },
 ];
 export const DUTY_ID = 'duty';
+/** The History & admitting PE box on a patient's page saves in these logsheet columns. */
+export const HISTORY_COLS = Object.freeze({ history: 'P', pe: 'Q' });
 
 /** Duty Patients' sheet columns at first (A Name, B Age/Gender, C Hospital No., D Arrival, E Labs); you can change them. */
 export const DUTY_ROLES = [
@@ -246,9 +248,15 @@ class WardList {
     });
   }
 
+  /** Where the History & admitting PE box saves: { history: 'P', pe: 'Q' } (patient lists only). */
+  historyCols() {
+    if (this.ownPage) return null;
+    return { ...HISTORY_COLS, ...this.def.historyCols };
+  }
+
   /** Letters to ask the logsheet for. */
   textCols() {
-    return [...new Set((this.def.columns ?? []).map((c) => c.col))];
+    return [...new Set([...(this.def.columns ?? []).map((c) => c.col), ...Object.values(this.historyCols() ?? {})])];
   }
 
   rowByKey(key) {
@@ -285,6 +293,7 @@ class WardList {
     const priorityCol = columns.find((c) => c.priority)?.col ?? null;
     const locationCol = columns.find((c) => c.location && c.readable)?.col ?? null;
     const rows = this.cache?.rows ?? [];
+    const hxCols = this.historyCols();
     const counts = new Map();
     rows.forEach((r) => { if (r.key) counts.set(r.key, (counts.get(r.key) ?? 0) + 1); });
 
@@ -301,6 +310,11 @@ class WardList {
         const runs = item ? null : r.marks?.[c.col];
         if (runs && runs.map((x) => x[0]).join('') === cells[c.col]) marks[c.col] = runs;
       }
+      // The History & admitting PE box: its two columns, with your unsaved typing
+      const hx = Object.fromEntries(Object.entries(hxCols ?? {}).map(([part, col]) => {
+        const item = r.key ? this.queue.get(queueKey(this.id, r.key, col)) ?? null : null;
+        return [part, { col, text: item ? item.set[col] : r.cells?.[col] ?? '', item }];
+      }));
       const roundsItem = r.key ? this.queue.get(queueKey(this.id, r.key, 'rounds')) ?? null : null;
       const entry = r.key ? part.patients[r.key] : null;
       const rounded = Boolean(entry?.rounded);
@@ -317,6 +331,7 @@ class WardList {
         cells,     // column letter → text (your unsaved edit if there is one)
         items,     // column letter → change waiting to be saved, or null
         marks,     // column letter → [[text, 1 | 0], …]: its bold or red parts in the logsheet (sync script 14)
+        hx,        // { history, pe } → { col, text, item }: the History & admitting PE box
         edited,    // column letter → { <day>: { before, after } | null }: what you changed in it here (the last three days)
         roundsItem,
         duplicate: counts.get(r.key) > 1,
@@ -346,6 +361,9 @@ class WardList {
       columns,
       locationCol,
       locations: locationsOf(patients),
+      // The History & admitting PE box's columns, and whether the last load read them (only then can it be typed in)
+      historyCols: hxCols,
+      historyReady: Boolean(hxCols) && Object.values(hxCols).every((c) => (this.cache?.cols ?? []).includes(c)),
       // 'location' groups the list by where patients are (once a column is marked location)
       board: this.def.board ?? null, // how the patient dashboard is laid out (board.js)
       arrange: this.def.arrange === 'location' && columns.some((c) => c.location) ? 'location' : 'rounds',
@@ -861,6 +879,18 @@ class WardList {
     if (!r) return null;
     const label = this.def.columns.find((c) => c.col === col)?.label ?? `column ${col}`;
     await this.queueChange(r, col, { [col]: on ? 'TRUE' : 'FALSE' }, label);
+    publish(this.id);
+    this.sendSoon();
+    return true;
+  }
+
+  /** Save what's typed in the History & admitting PE box (a moment after you stop typing, without waiting). */
+  async saveHistory(key, col, text) {
+    const r = this.rowByKey(key);
+    if (!r) return false;
+    const part = Object.entries(this.historyCols() ?? {}).find(([, c]) => c === col)?.[0];
+    if (!part) return false;
+    await this.queueChange(r, col, { [col]: cleanText(text).slice(0, MAX_TEXT) }, part === 'pe' ? 'Admitting PE & other data' : 'History');
     publish(this.id);
     this.sendSoon();
     return true;

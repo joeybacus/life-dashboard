@@ -515,6 +515,8 @@ button.wbadge { cursor: pointer; }
 .phx__half { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .phx__label { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-2); }
 .phx__text { min-height: 9rem; }
+.phx__col { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+.phx__text:disabled { opacity: .6; }
 @media (max-width: 759px) { .phx__halves { grid-template-columns: minmax(0, 1fr); } }
 
 /* The tiles: across the top, then the columns (stacked on a phone) */

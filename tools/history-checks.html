@@ -14,30 +14,53 @@
   </style>
 </head>
 <body class="accent-neuro">
-  <h1 style="font-size: 20px">History &amp; admitting PE check (0.10.9)</h1>
-  <p class="faint">The box from a patient's page, on its own, for two made-up patients. Use a preview origin with no
-    Google Sheet linked: what you type is saved in this browser's app data.</p>
-  <div class="bar">
-    <button type="button" class="btn btn--sm" data-who="0">Patient A</button>
-    <button type="button" class="btn btn--sm" data-who="1">Patient B (no hospital no.)</button>
-    <button type="button" class="btn btn--sm" id="redraw">Redraw</button>
-  </div>
+  <h1 style="font-size: 20px">History &amp; admitting PE check (0.10.10)</h1>
+  <p class="faint">The box from a patient's page, on its own, saving to columns P and Q of a practice logsheet.
+    Only with the pretend Google script (tools/sync-test/mock_server.py) and made-up patients:
+    <code>?mock=http://127.0.0.1:8142</code>. Patient buttons appear once the practice logsheet has loaded.</p>
+  <div class="bar" id="bar"></div>
   <div id="page" class="ptb__main"></div>
   <script type="module">
-    import { setHTML } from '../js/core/html.js';
-    import { historySlot, keepHistory, mountHistory } from '../js/modules/ward/history.js';
+    import { html, setHTML } from '../js/core/html.js';
+    import { on } from '../js/core/events.js';
+    import { connectSync, initSync, syncSnapshot } from '../js/services/sync.js';
+    import { initWard, wardList } from '../js/modules/ward/engine.js';
+    import { historyClosed, historySlot, keepHistory, mountHistory } from '../js/modules/ward/history.js';
 
-    const people = [{ name: 'TEST, PATIENT A', hn: '0000001' }, { name: 'TEST, PATIENT B', hn: '' }];
-    let who = people[0];
+    const mock = new URLSearchParams(location.search).get('mock');
     const page = document.getElementById('page');
+    let id = null;
+    const list = () => wardList('ward');
     const show = () => {
+      const v = list()?.view();
+      if (!v) return;
+      setHTML(document.getElementById('bar'), html`${v.patients.map((p) => html`<button type="button" class="btn btn--sm" data-id="${p.id}">${p.name || p.hn}</button>`)}`);
+      const p = v.patients.find((x) => x.id === id) ?? null;
       keepHistory(page);
       setHTML(page, historySlot());
-      mountHistory(page, who);
+      mountHistory(page, p, v);
     };
-    document.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('click', () => { who = people[b.dataset.who]; show(); }));
-    document.getElementById('redraw').addEventListener('click', show);
-    show();
+    document.getElementById('bar').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-id]');
+      if (!b) return;
+      historyClosed();
+      id = b.dataset.id;
+      show();
+    });
+    on('ward', show);
+    window.checks = { list, show };
+    (async () => {
+      if (!mock || !/^http:\/\/127\.0\.0\.1:\d+$/.test(mock)) { page.textContent = 'Add ?mock=http://127.0.0.1:<port> (the pretend Google script).'; return; }
+      await initSync();
+      if (!syncSnapshot().connected) {
+        const { token } = await (await fetch(`${mock}/__setup`)).json();
+        await connectSync({ url: `${mock}/macros/s/TEST/exec`, token });
+      }
+      await initWard();
+      if (!list().link) await list().createTestLogsheet();
+      await list().refresh();
+      show();
+    })().catch((err) => { page.textContent = `Error: ${err.message}`; });
   </script>
 </body>
 </html>

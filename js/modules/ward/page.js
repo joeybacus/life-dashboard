@@ -796,7 +796,7 @@ async function openPatient(openId) {
     const shown = v.patients.find((x) => x.id === id) ?? null;
     setHTML(body, detailBody(shown, v, { editing }));
     mountNotes(body, listId);
-    mountHistory(body, shown);
+    mountHistory(body, shown, v);
     mountCt(body, { hn: shown?.hn });
     if (focused) {
       const again = body.querySelector(`[data-focus="${focused}"]`);
@@ -848,7 +848,7 @@ async function openPatient(openId) {
       dialog = dlg;
       dlg.setAttribute('aria-labelledby', 'ptb-title');
       mountNotes(dlg.querySelector('.dlg__body'), listId);
-      mountHistory(dlg.querySelector('.dlg__body'), p);
+      mountHistory(dlg.querySelector('.dlg__body'), p, list.view());
       mountCt(dlg.querySelector('.dlg__body'), { hn: p.hn });
       dlg.addEventListener('click', async (event) => {
         const tool = event.target.closest('[data-bact]');
