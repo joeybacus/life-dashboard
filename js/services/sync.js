@@ -63,9 +63,11 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    Progress photos tab, and the photos themselves in a Google Drive folder: photoUpload, photoDownload); 14
    sends which words of a patient list's cells are bold or red in the logsheet, so the app shows them in bold; 15 keeps NCCU/ACSU (beds and duty to-dos, the NCCU-ACSU tab); 16 reads your Google Calendar events for
    the Calendar page (calendarEvents); 17 adds, changes and deletes events, sends back to-dos' events moved in Google
-   Calendar, and reads Apple Calendar public links; 18 keeps backups in your Google Drive (the last 30); 19 takes steps, sleep, resting heart rate, active energy and body fat from an Apple Shortcut. */
-export const LATEST_SCRIPT_VERSION = 19;
-const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8, focusSessions: 5, habits: 5, habitLogs: 5, progressPhotos: 13, units: 15 };
+   Calendar, and reads Apple Calendar public links; 18 keeps backups in your Google Drive (the last 30); 19 takes steps, sleep, resting heart rate, active energy and body fat from an Apple Shortcut; 20 keeps
+   Neurology guidelines and teaching cases (the Guidelines and Cases tabs, and guideline PDFs in a Google Drive folder:
+   guideUpload, guideDownload). */
+export const LATEST_SCRIPT_VERSION = 20;
+const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8, focusSessions: 5, habits: 5, habitLogs: 5, progressPhotos: 13, units: 15, guidelines: 20, cases: 20 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 /* A device that synced with an older app skipped the kinds of data that app
    didn't know yet (their changes were pulled and ignored). The first sync

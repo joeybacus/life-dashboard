@@ -158,8 +158,9 @@ function scriptUpdateFor() {
   if (version < 15) return 'NCCU/ACSU on all your devices, and your Google Calendar in the app';
   if (version < 16) return 'your Google Calendar in the app, adding events, Apple Calendar and Google Drive backups';
   if (version < 17) return 'adding and changing events from the app, to-dos that follow their events, Apple Calendar and Google Drive backups';
-  if (version < 18) return 'a backup in your Google Drive every day, and steps and sleep from Apple Health';
-  return 'steps, sleep, heart rate and energy from Apple Health';
+  if (version < 18) return 'a backup in your Google Drive every day, steps and sleep from Apple Health, and Neurology guidelines and cases';
+  if (version < 19) return 'steps, sleep, heart rate and energy from Apple Health, and Neurology guidelines and cases';
+  return 'Neurology guidelines and cases on all your devices, and guideline PDFs in your Google Drive';
 }
 
 function syncSection() {
@@ -1356,7 +1357,7 @@ async function openScriptUpdate() {
     className: 'setup',
     title: 'Update the sync script',
     body: html`
-      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script takes your steps, sleep, resting heart rate, active energy and body fat from an Apple Shortcut. Version 18 saves a backup in your Google Drive every day (the last 30 are kept). Version 17 adds and changes Google Calendar events from the app, moves a to-do when you move its event in Google Calendar, and reads Apple Calendar public links. Earlier versions link Referrals to your referral census (two-way, with Last and Next Rounds as dates, and dropdown columns like Status written in their own values), lets a patient list tick the logsheet’s checkboxes (a tick column such as column A), syncs referrals you add by hand, and lets a patient list read names, hospital numbers and rounds from the columns you choose. It includes everything before it too: your patient lists’ own columns, readable tabs for your tasks and subtasks, Google Calendar for them, and Ward Patients. Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
+      <p class="setup__lead">Version ${LATEST_SCRIPT_VERSION} of the sync script keeps your Neurology guidelines and teaching cases on all your devices (new Guidelines and Cases tabs), with guideline PDFs in a “Life Dashboard Guidelines” folder of your Google Drive. Version 19 takes your steps, sleep, resting heart rate, active energy and body fat from an Apple Shortcut. Version 18 saves a backup in your Google Drive every day (the last 30 are kept). Version 17 adds and changes Google Calendar events from the app, moves a to-do when you move its event in Google Calendar, and reads Apple Calendar public links. Earlier versions link Referrals to your referral census (two-way, with Last and Next Rounds as dates, and dropdown columns like Status written in their own values), lets a patient list tick the logsheet’s checkboxes (a tick column such as column A), syncs referrals you add by hand, and lets a patient list read names, hospital numbers and rounds from the columns you choose. It includes everything before it too: your patient lists’ own columns, readable tabs for your tasks and subtasks, Google Calendar for them, and Ward Patients. Until you update, everything else keeps syncing and anything new stays safely on this device. It’s easiest on a Mac.</p>
       <ol class="setup__steps">
         <li><strong>Copy the new code.</strong>
           <span class="setup__buttons">

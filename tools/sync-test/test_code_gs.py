@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 19
+SCRIPT_VERSION = 20
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -1292,6 +1292,56 @@ check('v19: several days at once; minutes, seconds and "h:mm" for sleep; no futu
 res = gas('post', {**base, 'action': 'healthDaily', 'restingHeartRate': '900', 'steps': 'lots'})
 check('v19: numbers that can\'t be right are refused, with the reason', not res.get('ok') and res.get('error') == 'bad-health' and len(res['problems']) == 2, res)
 check('v19: weights still work as before', gas('post', {**base, 'action': 'healthWeight', 'value': '78.4', 'unit': 'kg', 'date': '2026-10-19T07:00:00+08:00'}).get('ok'))
+
+print('\nGuidelines and cases (version 20)')
+gu = lambda **f: gas('post', {**base, 'action': 'guideUpload', **f})
+res = gu(id='gl-1', key='k1', name='AHA stroke 2019.pdf', data='UERGMQ==')
+drive = gas('dump')['drive']
+gfolder = next((fid for fid, f in drive['folders'].items() if f['name'] == 'Life Dashboard Guidelines'), None)
+check('v20: a PDF is uploaded to a "Life Dashboard Guidelines" folder in Drive', res.get('ok') and gfolder and drive['files'][res['fileId']]['parents'] == [gfolder], res)
+pdf1 = res['fileId']
+check('v20: …named after the guideline and its file key, with the PDF\'s name in the description',
+      drive['files'][pdf1]['name'] == 'gl-1-k1.pdf' and 'AHA stroke 2019.pdf' in drive['files'][pdf1]['description'] and drive['files'][pdf1]['mime'] == 'application/pdf', drive['files'][pdf1])
+check('v20: sending the same PDF again returns the one already there', gu(id='gl-1', key='k1', data='UERGMQ==').get('fileId') == pdf1)
+res = gas('post', {**base, 'action': 'guideDownload', 'fileId': pdf1})
+check('v20: another device downloads it', res.get('ok') and res.get('data') == 'UERGMQ==', res)
+check('v20: files outside the guidelines folder can\'t be downloaded (not even photos)', gas('post', {**base, 'action': 'guideDownload', 'fileId': 'outsider000001'}).get('error') == 'guide-not-found'
+      and gas('post', {**base, 'action': 'guideDownload', 'fileId': orig}).get('error') == 'guide-not-found')
+check('v20: bad requests are refused', gu(id='../x', key='k', data='QQ==').get('error') == 'guide-bad-request' and gu(id='gl-2', key='k').get('error') == 'guide-bad-request')
+check('v20: a PDF that\'s too large is refused', gu(id='gl-2', key='k', data='A' * (36 * 1024 * 1024 + 4)).get('error') == 'guide-too-large')
+g1 = rec('gl-1', '2026-10-29T01:00:00.000Z', title='AHA/ASA Acute Ischemic Stroke 2019', topic='Stroke', url='https://www.ahajournals.org/doi/10.1161/STR.0000000000000211',
+         notes='Alteplase 0.9 mg/kg', fileName='AHA stroke 2019.pdf', fileMime='application/pdf', fileSize=6, fileKey='k1', fileId=pdf1)
+res = push([('guidelines', g1)])
+row = readable(gas('dump'), 'Guidelines', 'gl-1')
+check('v20: guidelines sync in their own tab, readable', res.get('results', {}).get('guidelines:gl-1') == 'applied'
+      and row.get('Title') == 'AHA/ASA Acute Ischemic Stroke 2019' and row.get('Topic') == 'Stroke' and row.get('PDF') == 'AHA stroke 2019.pdf' and pdf1 in row.get('PDF in Drive', ''), row)
+pdf2 = gu(id='gl-1', key='k2', name='AHA stroke 2026.pdf', data='UERGMg==')['fileId']
+push([('guidelines', {**g1, 'fileKey': 'k2', 'fileId': pdf2, 'fileName': 'AHA stroke 2026.pdf', 'updatedAt': '2026-10-29T02:00:00.000Z'})])
+files = gas('dump')['drive']['files']
+check('v20: a replaced PDF goes to the Drive trash; the new one stays', files[pdf1]['trashed'] and not files[pdf2]['trashed'], (files[pdf1], files[pdf2]))
+other = gu(id='gl-10', key='k1', data='T1RIRVI=')['fileId']
+push([('guidelines', {**g1, 'fileKey': '', 'fileId': '', 'fileName': '', 'updatedAt': '2026-10-29T03:00:00.000Z'})])
+files = gas('dump')['drive']['files']
+check('v20: removing the PDF trashes it, and leaves other guidelines\' PDFs alone (gl-10 isn\'t gl-1)', files[pdf2]['trashed'] and not files[other]['trashed'], (files[pdf2], files[other]))
+push([('guidelines', {**g1, 'fileKey': 'k2', 'fileId': pdf2, 'updatedAt': '2026-10-29T04:00:00.000Z'})])
+check('v20: Undo brings it back out of the trash', not gas('dump')['drive']['files'][pdf2]['trashed'])
+push([('guidelines', {**g1, 'fileKey': 'k2', 'fileId': pdf2, 'deletedAt': '2026-10-29T05:00:00.000Z', 'updatedAt': '2026-10-29T05:00:00.000Z'})])
+check('v20: deleting a guideline trashes its PDF (not gone for good)', gas('dump')['drive']['files'][pdf2]['trashed'] and pdf2 in gas('dump')['drive']['files'])
+check('v20: …and a trashed PDF isn\'t downloaded', gas('post', {**base, 'action': 'guideDownload', 'fileId': pdf2}).get('error') == 'guide-trashed')
+res = push([('guidelines', {**g1, 'fileKey': 'k1', 'fileId': pdf1, 'updatedAt': '2026-10-29T00:30:00.000Z'})])
+check('v20: an older version from another device changes nothing in Drive', res.get('results', {}).get('guidelines:gl-1') == 'stale' and gas('dump')['drive']['files'][pdf1]['trashed'], res)
+c1 = rec('cs-1', '2026-10-29T01:00:00.000Z', title='Wake-up stroke', date='2026-10-28', diagnosis='Left M1 occlusion', tags=['stroke', 'thrombectomy'],
+         story='Found at 6 AM with aphasia.', learning='Use DWI–FLAIR mismatch.')
+res = push([('cases', c1)])
+row = readable(gas('dump'), 'Cases', 'cs-1')
+check('v20: cases sync in their own tab, readable', res.get('results', {}).get('cases:cs-1') == 'applied' and row.get('Tags') == 'stroke, thrombectomy'
+      and row.get('What I learned') == 'Use DWI–FLAIR mismatch.' and row.get('Diagnosis') == 'Left M1 occlusion', row)
+pulled = gas('post', {**base, 'action': 'pull', 'sinceSeq': 0}).get('changes', [])
+check('v20: other devices get guidelines and cases', any(c['store'] == 'cases' and c['record']['id'] == 'cs-1' for c in pulled) and any(c['store'] == 'guidelines' for c in pulled))
+st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
+check('v20: without Drive permission the app is told so', gu(id='gl-3', key='k', data='QQ==').get('error') == 'guide-needs-permission')
+st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
+check('v20: the script says it\'s version 20', gas('post', {**base, 'action': 'ping'}).get('version') == 20)
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

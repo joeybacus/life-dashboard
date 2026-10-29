@@ -111,7 +111,7 @@ export async function snoozeBackupReminder(days = 3) {
 
 /** Anything worth backing up yet? (Sample data doesn't count.) */
 export async function hasRealData() {
-  const stores = ['tasks', 'workouts', 'templates', 'bodyMeasurements', 'progressPhotos'];
+  const stores = ['tasks', 'workouts', 'templates', 'bodyMeasurements', 'progressPhotos', 'guidelines', 'cases'];
   const all = await readAll(stores);
   return stores.some((name) => all[name].some((r) => !r.sample && !r.deletedAt));
 }

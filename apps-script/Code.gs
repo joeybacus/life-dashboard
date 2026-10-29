@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 19;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily)
+const SCRIPT_VERSION = 20;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -43,6 +43,8 @@ const STORES = {
   wardLists: 'Ward lists', // names and columns of your patient lists — never patients (they stay in the logsheet)
   referrals: 'Referrals',  // patients referred to your service: name, hospital number, location, next rounds, what you're waiting for, notes
   units: 'NCCU-ACSU',      // a box per NCCU/ACSU bed: the patient's name and your duty to-dos (and your subcategories)
+  guidelines: 'Guidelines', // your saved guidelines: title, topic, link, notes; their PDFs are files in the "Life Dashboard Guidelines" Drive folder
+  cases: 'Cases',           // your teaching cases (no patient names): title, date, diagnosis, tags, the case, what you learned
 };
 
 // Tabs this script fills in itself. The app reads them but never sends them.
@@ -52,7 +54,8 @@ const SCRIPT_STORES = {
 
 // Saved in this order, so names used by later tabs (categories, task titles) are up to date
 const SAVE_ORDER = ['profile', 'settings', 'taskCategories', 'tasks', 'subtasks', 'habits', 'habitLogs', 'focusSessions',
-  'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'units'];
+  'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'units',
+  'guidelines', 'cases'];
 
 // Fixed columns on every data tab. "json" holds the complete item; the
 // columns after it are a readable copy for you and are ignored by the app.
@@ -179,6 +182,15 @@ function doPost(e) {
     }
   }
 
+  // Guideline PDFs go to and from Google Drive (sync script 20), like progress photos: no lock
+  if (GUIDE_ACTIONS[req.action]) {
+    try {
+      return json_(GUIDE_ACTIONS[req.action](props, req));
+    } catch (err) {
+      return json_({ ok: false, version: SCRIPT_VERSION, error: guideError_(err), message: String((err && err.message) || err) });
+    }
+  }
+
   // Progress photos go to and from Google Drive (no lock: a big photo shouldn't hold up sync)
   if (PHOTO_ACTIONS[req.action]) {
     try {
@@ -296,6 +308,11 @@ function push_(ss, props, req) {
   // A progress photo deleted (or brought back with Undo): its Drive files follow it to the trash (and back)
   (byStore.progressPhotos || []).forEach(function (record) {
     if (results['progressPhotos:' + record.id] === 'applied') photoTrashFiles_(props, record);
+  });
+
+  // A guideline deleted, brought back, or given a new PDF (or none): only its current PDF stays out of the Drive trash
+  (byStore.guidelines || []).forEach(function (record) {
+    if (results['guidelines:' + record.id] === 'applied') guideTidyFiles_(props, record);
   });
 
   // Versions a device replaced when it first joined sync
@@ -451,6 +468,110 @@ const BACKUP_ACTIONS = {
   driveBackupList: driveBackupList_,
   driveBackupGet: driveBackupGet_,
 };
+
+/* ---------- Guideline PDFs (version 20) ----------
+ * Each guideline is a row in the Guidelines tab (synced like the rest). Its PDF
+ * is a file in the "Life Dashboard Guidelines" folder of your Google Drive,
+ * named <guideline id>-<file key>.pdf (a new key for every PDF chosen):
+ *   guideUpload   { id, key, name, data (base64) } → { fileId, url }. Sending the same PDF again returns the one already there.
+ *   guideDownload { fileId } → { data } — only files in that folder.
+ * When a guideline is deleted, or its PDF replaced or removed, the PDFs it no longer
+ * uses go to the Drive trash (recoverable for 30 days); Undo takes them out again.
+ * Nothing here ever deletes a file for good.
+ */
+const GUIDES_FOLDER = 'Life Dashboard Guidelines';
+const GUIDE_MAX_CHARS = 36 * 1024 * 1024; // base64 characters in one upload (a 25 MB PDF, with room to spare)
+
+const GUIDE_ACTIONS = {
+  guideUpload: guideUpload_,
+  guideDownload: guideDownload_,
+};
+
+/** The guidelines folder (made the first time it's needed; made again if it was deleted). */
+function guidesFolder_(props, create) {
+  const id = props.getProperty('GUIDES_FOLDER');
+  if (id) {
+    try {
+      const folder = DriveApp.getFolderById(id);
+      if (!folder.isTrashed()) return folder;
+    } catch (err) {
+      // deleted for good, or no longer ours: make a new one
+    }
+  }
+  if (create === false) return null;
+  const folder = DriveApp.createFolder(GUIDES_FOLDER);
+  props.setProperty('GUIDES_FOLDER', folder.getId());
+  return folder;
+}
+
+function guideUpload_(props, req) {
+  const id = String(req.id || '');
+  const key = String(req.key || '');
+  const data = typeof req.data === 'string' ? req.data : '';
+  if (!/^[\w-]{1,80}$/.test(id) || !/^[\w-]{1,80}$/.test(key) || !data) return { ok: false, version: SCRIPT_VERSION, error: 'guide-bad-request' };
+  if (data.length > GUIDE_MAX_CHARS) return { ok: false, version: SCRIPT_VERSION, error: 'guide-too-large' };
+  const folder = guidesFolder_(props);
+  const name = id + '-' + key + '.pdf';
+  const same = folder.getFilesByName(name);
+  while (same.hasNext()) {
+    const file = same.next();
+    if (!file.isTrashed()) return { ok: true, version: SCRIPT_VERSION, fileId: file.getId(), url: file.getUrl(), existed: true };
+  }
+  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(data), 'application/pdf', name));
+  file.setDescription('Life Dashboard guideline' + (req.name ? ' · ' + String(req.name).slice(0, 200) : ''));
+  return { ok: true, version: SCRIPT_VERSION, fileId: file.getId(), url: file.getUrl() };
+}
+
+function guideDownload_(props, req) {
+  const file = guideFile_(props, req.fileId);
+  if (!file) return { ok: false, version: SCRIPT_VERSION, error: 'guide-not-found' };
+  if (file.isTrashed()) return { ok: false, version: SCRIPT_VERSION, error: 'guide-trashed' };
+  return { ok: true, version: SCRIPT_VERSION, data: Utilities.base64Encode(file.getBlob().getBytes()) };
+}
+
+/** A file in the guidelines folder, or null (the app can't reach any other file in your Drive). */
+function guideFile_(props, fileId) {
+  const id = String(fileId || '');
+  if (!/^[\w-]{10,100}$/.test(id)) return null;
+  const folderId = props.getProperty('GUIDES_FOLDER');
+  if (!folderId) return null;
+  let file;
+  try {
+    file = DriveApp.getFileById(id);
+  } catch (err) {
+    return null;
+  }
+  const parents = file.getParents();
+  while (parents.hasNext()) if (parents.next().getId() === folderId) return file;
+  return null;
+}
+
+/** Only the guideline's current PDF stays out of the trash (none when it's deleted or has no PDF). */
+function guideTidyFiles_(props, record) {
+  try {
+    const folder = guidesFolder_(props, false);
+    if (!folder) return;
+    const prefix = record.id + '-';
+    const keep = !record.deletedAt && record.fileKey ? prefix + record.fileKey + '.pdf' : null;
+    const files = folder.getFiles();
+    while (files.hasNext()) {
+      const file = files.next();
+      const name = file.getName();
+      if (name.indexOf(prefix) !== 0 || !/^[\w-]+\.pdf$/.test(name.slice(prefix.length))) continue;
+      const trash = name !== keep;
+      if (file.isTrashed() !== trash) file.setTrashed(trash);
+    }
+  } catch (err) {
+    Logger.log('Couldn’t update a guideline’s PDF in Drive: ' + ((err && err.message) || err));
+  }
+}
+
+function guideError_(err) {
+  const message = String((err && err.message) || err);
+  if (/permission|authori[sz]/i.test(message)) return 'guide-needs-permission';
+  if (/storage|quota|limit/i.test(message)) return 'guide-drive-full';
+  return 'server';
+}
 
 function backupError_(err) {
   const message = String((err && err.message) || err);
@@ -1634,6 +1755,26 @@ const LAYOUTS = {
     Minutes: function (f) { return f.start && f.end ? Math.round((Date.parse(f.end) - Date.parse(f.start)) / 60000) : ''; },
     'Planned minutes': function (f) { return f.plannedMinutes == null ? '' : f.plannedMinutes; },
     Completed: function (f) { return f.completed ? 'Yes' : 'No'; },
+  },
+  guidelines: {
+    Title: function (g) { return g.title || ''; },
+    Topic: function (g) { return g.topic || ''; },
+    Link: function (g) { return g.url || ''; },
+    PDF: function (g) { return g.fileKey ? (g.fileName || 'PDF') : ''; },
+    'PDF in Drive': function (g) { return g.fileId ? 'https://drive.google.com/file/d/' + g.fileId + '/view' : ''; },
+    Notes: function (g) { return g.notes || ''; },
+    Updated: function (g) { return shownTime_(g.updatedAt); },
+    Deleted: function (g) { return shownTime_(g.deletedAt); },
+  },
+  cases: {
+    Title: function (c) { return c.title || ''; },
+    Date: function (c) { return c.date || ''; },
+    Diagnosis: function (c) { return c.diagnosis || ''; },
+    Tags: function (c) { return list_(c.tags).join(', '); },
+    'The case': function (c) { return c.story || ''; },
+    'What I learned': function (c) { return c.learning || ''; },
+    Updated: function (c) { return shownTime_(c.updatedAt); },
+    Deleted: function (c) { return shownTime_(c.deletedAt); },
   },
   calendarLinks: {
     Task: function (l, ctx) {

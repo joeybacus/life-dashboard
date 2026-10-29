@@ -66,7 +66,8 @@ Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-   Near the top, a line should now read `const SCRIPT_VERSION = 11;`.
+   Near the top, a line should now read `const SCRIPT_VERSION = 20;` (v0.11.0 brings version 20: Neurology
+   guidelines and teaching cases on all your devices, and guideline PDFs in your Google Drive).
 3. **Once, after pasting:** in the toolbar choose **setup** and click **Run** (it keeps your token, so your devices
    stay connected). If Google asks for permission (coming from version 4 or older it will, now including Google
    Calendar): **Review permissions** → your account → **Advanced** → **Go to … (unsafe)** → **Allow**. This also
@@ -74,7 +75,7 @@ Settings → Sync (tap it for these steps):
 4. **Deploy → Manage deployments** → pencil (**Edit**) → Version: **New version** → **Deploy**.
    (Don't make a *new deployment* — that would change the Web app URL.)
 5. Back in the app, tap **Check now**. To double-check, open the Web app URL in Safari: it should end with
-   `"version":11`.
+   `"version":20`.
 
 ## Backups
 
@@ -307,6 +308,26 @@ workout (the "Workout saved" message and the finished workout's page).
   habit for things you want a streak on. Either turns into the other: a habit's sheet → **Turn into a repeating task**
   (the habit is paused, its history kept); a task's sheet → **Turn into a habit** (the task goes to Recently deleted).
 - Both sync (Focus sessions, Habits and Habit log tabs) and are in backups. Turn either off in Settings.
+
+## Clinical tools (Neurology tab, 0.11.0)
+
+**Neurology → Clinical tools** has three pages:
+
+- **Score calculators:** NIHSS, ASPECTS, ABCD², thrombolysis dose (alteplase and tenecteplase by weight), ICH
+  score, ICH volume (ABC/2), Hunt & Hess, WFNS, modified Fisher, GCS, mRS, CHA₂DS₂-VASc, HAS-BLED and
+  Spetzler–Martin. Tap an answer for each item; the score and its meaning stay in view at the bottom, with
+  **Copy** (one line for your notes) and **Clear**. Answers are kept while the app is open and never saved or
+  synced. Each scale names its source — always check against the original and your hospital's protocol.
+- **Guidelines:** a title, topic, link, PDF (up to 25 MB) and notes, grouped by topic, with a search box. A PDF
+  opens inside the app, even offline, with **Share** to send it to Files or Books on iPhone. PDFs are copied to a
+  **Life Dashboard Guidelines** folder in your Google Drive and downloaded by your other devices; a deleted or
+  replaced PDF goes to the Drive trash (30 days).
+- **Cases:** your teaching cases — title, date, diagnosis, tags, the case and what you learned — newest first,
+  with search and tag filters. **Leave out names, hospital numbers and birthdays**: cases sync to the Cases tab
+  of your Google Sheet and go into backup files.
+
+Guidelines and cases sync through the **Guidelines** and **Cases** tabs (sync script version 20), are in
+backups, and show up in search everywhere.
 
 ## Referrals (Neurology tab, 0.4.4.3)
 

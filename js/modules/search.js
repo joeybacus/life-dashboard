@@ -1,5 +1,6 @@
 /* Search everywhere (0.10.0): one box for tasks and subtasks, workouts,
-   exercises, templates, habits, categories and your calendar events. Opens from
+   exercises, templates, habits, categories, your calendar events, and Neurology
+   guidelines and teaching cases (0.11.0). Opens from
    the search button on the dashboard, Search on the + button, ⌘K (or Ctrl+K),
    and "/" anywhere except the To Do list (which has its own search).
 
@@ -15,7 +16,7 @@ import { openDialog } from '../core/ui.js';
 import { openPage, currentRoute, currentSubRoute } from '../core/router.js';
 import { registerQuickAdd } from '../core/quick-add.js';
 import { toDateKey } from '../core/dates.js';
-import { addDays, formatDay, todayKey } from '../core/manila.js';
+import { addDays, formatDay, formatDayYear, todayKey } from '../core/manila.js';
 import { foldText } from './todo/model.js';
 import { parseTask } from './todo/parse.js';
 import { loadTodo } from './todo/store.js';
@@ -27,6 +28,9 @@ import { loadHabits } from './habits/store.js';
 import { scheduleText } from './habits/model.js';
 import { gcalEvents } from '../services/gcal.js';
 import { openEventDetails } from './calendar/editor.js';
+import { allGuides } from './clinical/guides.js';
+import { showGuide } from './clinical/guides-page.js';
+import { allCases } from './clinical/cases.js';
 
 const PER_GROUP = 6;
 const GROUPS = [
@@ -37,11 +41,14 @@ const GROUPS = [
   { id: 'template', label: 'Templates', icon: 'clipboard' },
   { id: 'habit', label: 'Habits', icon: 'flame' },
   { id: 'category', label: 'Categories', icon: 'layers' },
+  { id: 'guideline', label: 'Guidelines', icon: 'book' },
+  { id: 'case', label: 'Cases', icon: 'clipboard' },
 ];
 // Words that find a whole kind: "workout", "template", "habit"…
 const KIND_WORDS = {
   task: 'task tasks todo to-do to-dos subtask', workout: 'workout workouts', event: 'event events calendar meeting',
   exercise: 'exercise exercises', template: 'template templates routine', habit: 'habit habits', category: 'category categories',
+  guideline: 'guideline guidelines', case: 'case cases',
 };
 const fmtDay = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -95,6 +102,14 @@ export async function loadSearchData() {
     items.push({ kind: 'event', id: e.id, title: e.title, date: day, sub: [formatDay(day), e.allDay ? 'All day' : null, e.location, e.calendar].filter(Boolean).join(' · '),
       text: [e.title, e.location, e.description, e.calendar].join(' '), sort: day, event: e });
   }
+  for (const g of allGuides()) {
+    items.push({ kind: 'guideline', id: g.id, title: g.title, date: null, sub: [g.topic, g.fileKey ? 'PDF' : '', g.url ? 'Link' : ''].filter(Boolean).join(' · ') || 'Guideline',
+      text: [g.title, g.topic, g.notes, g.fileName].join(' '), sort: '' });
+  }
+  for (const c of allCases()) {
+    items.push({ kind: 'case', id: c.id, title: c.title, date: c.date || null, sub: [c.date ? formatDayYear(c.date) : '', c.diagnosis].filter(Boolean).join(' · ') || 'Case',
+      text: [c.title, c.diagnosis, c.tags.join(' '), c.story, c.learning].join(' '), sort: c.date ?? '' });
+  }
   return items.map((i) => ({ ...i, hay: foldText(`${i.title} \n ${i.text} \n ${KIND_WORDS[i.kind]}`), fold: foldText(i.title) }));
 }
 
@@ -140,7 +155,7 @@ export function searchAll(items, query) {
 
 function resultsMarkup(results, query, showAll) {
   if (!query.trim()) {
-    return html`<p class="srch__hint">${icon('search')}<span>Tasks, workouts, exercises, templates, habits, categories and your calendar. Try “bench press”, “MBA” or “Sep 10 workout”.</span></p>`;
+    return html`<p class="srch__hint">${icon('search')}<span>Tasks, workouts, exercises, templates, habits, categories, your calendar, guidelines and cases. Try “bench press”, “MBA” or “Sep 10 workout”.</span></p>`;
   }
   if (!results.length) return html`<p class="srch__hint">${icon('info')}<span>Nothing matches “${query.trim()}”. Patient lists aren’t searched here — use the Neurology tab.</span></p>`;
   return results.map(({ group, items, total }) => html`<section class="srch__group" aria-label="${group.label}">
@@ -160,6 +175,8 @@ async function openResult(kind, id, { subtask = false, items = [] } = {}) {
   if (kind === 'template') return openPage('workout', `template/${id}`);
   if (kind === 'habit') return openPage('todo', 'habits');
   if (kind === 'category') return openPage('todo', 'categories');
+  if (kind === 'guideline') { showGuide(id); return openPage('neurology', 'guidelines'); }
+  if (kind === 'case') return openPage('neurology', `cases/${id}`);
   if (kind === 'event') return openEventDetails(items.find((i) => i.kind === 'event' && i.id === id)?.event);
   return null;
 }

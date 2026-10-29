@@ -10,6 +10,9 @@
      units                  NCCU/ACSU: a box per bed with your duty to-dos
      duty                   Duty Patients: your patients on duty from a sheet, with labs and CT scans
      study                  Study tracker (temporary): a picture, notes and to-dos
+     scores, scores/<id>    score calculators (NIHSS, GCS, ICH score…) — see clinical/
+     guidelines             your guidelines: links and PDFs, by topic
+     cases, cases/<id>      your teaching cases
      ward, ward/history     older addresses of Ward Patients (they still work) */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
@@ -28,6 +31,12 @@ import { handleUnitsClick, unitsPage } from './units/page.js';
 import { unitsSummary } from './units/store.js';
 import { studyPage, wireStudy } from './study/page.js';
 import { dutyPage, dutySummary } from './duty/page.js';
+import { CALCULATORS } from './clinical/scores.js';
+import { scoresPage, wireScores } from './clinical/scores-page.js';
+import { allGuides } from './clinical/guides.js';
+import { guidesPage, wireGuides } from './clinical/guides-page.js';
+import { allCases } from './clinical/cases.js';
+import { casesPage, wireCases } from './clinical/cases-page.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -38,11 +47,31 @@ const PLANNED_TOOLS = [
   { name: 'Study tracker', icon: 'calendarCheck', sub: 'study' },
   { name: 'Flashcards', icon: 'cards' },
   { name: 'Notes', icon: 'note' },
-  { name: 'Guidelines', icon: 'book' },
-  { name: 'Cases', icon: 'clipboard' },
-  { name: 'Residency tools', icon: 'briefcase' },
   { name: 'Study analytics', icon: 'chart' },
 ];
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+// Clinical tools (0.11.0), each with its own page
+const CLINICAL_TOOLS = [
+  { sub: 'scores', name: 'Score calculators', icon: 'sliders', line: () => `${CALCULATORS.length} scales · NIHSS, GCS, ICH score, ASPECTS…` },
+  { sub: 'guidelines', name: 'Guidelines', icon: 'book', line: () => {
+    const all = allGuides();
+    const pdfs = all.filter((g) => g.fileKey).length;
+    return all.length ? `${plural(all.length, 'guideline')}${pdfs ? ` · ${plural(pdfs, 'PDF')}` : ''}` : 'Links and PDFs, by topic';
+  } },
+  { sub: 'cases', name: 'Cases', icon: 'clipboard', line: () => (allCases().length ? plural(allCases().length, 'teaching case') : 'Your teaching cases') },
+];
+
+function toolLink(t, { compact = false } = {}) {
+  const inner = html`<span class="ward-entry__icon">${icon(t.icon)}</span>
+    <span class="ward-entry__text"><span class="ward-entry__title">${t.name}</span><span class="ward-entry__sub">${t.line()}</span></span>
+    ${icon('chevronRight', 'ward-entry__chev')}`;
+  const attrs = `href="#/neurology/${t.sub}" data-action="nav" data-route="neurology" data-sub="${t.sub}"`;
+  return compact
+    ? html`<a class="ward-entry ward-entry--compact" ${raw(attrs)}>${inner}</a>`
+    : html`<div class="card ward-entry ward-entry--solo"><a class="ward-entry__link" ${raw(attrs)}>${inner}</a></div>`;
+}
 
 function entrySub(s) {
   if (!s.linked) return 'Link a logsheet to get started';
@@ -222,6 +251,10 @@ function showHome(el) {
       <h2 class="ward-lists__title" id="neuro-duty-title">Duty Patients</h2>
       ${dutyLink()}
     </section>
+    <section class="ward-lists ward-lists--refs accent-neuro" aria-labelledby="neuro-clinical-title">
+      <h2 class="ward-lists__title" id="neuro-clinical-title">Clinical tools</h2>
+      <div class="neuro-tools">${CLINICAL_TOOLS.map((t) => toolLink(t))}</div>
+    </section>
     <section class="card placeholder accent-neuro" aria-label="Coming soon">
       <div class="placeholder__orb">${icon('brain')}</div>
       <h2 class="placeholder__title">More coming in a future update</h2>
@@ -246,6 +279,11 @@ const ROUTES = [
   [/^units$/, unitsPage],
   [/^duty$/, dutyPage],
   [/^study$/, studyPage],
+  [/^scores$/, scoresPage],
+  [/^scores\/([\w-]+)$/, scoresPage],
+  [/^guidelines$/, guidesPage],
+  [/^cases$/, casesPage],
+  [/^cases\/([\w-]+)$/, casesPage],
 ];
 const OLD_ROUTES = { ward: 'list/ward', 'ward/history': 'list/ward/history' };
 
@@ -279,6 +317,9 @@ registerScreen('neurology', {
     el.addEventListener('click', handleReferralClick);
     el.addEventListener('click', handleUnitsClick);
     wireStudy(el);
+    wireScores(el);
+    wireGuides(el);
+    wireCases(el);
   },
   onShow(el, sub) {
     visible = true;
@@ -298,3 +339,5 @@ registerScreen('neurology', {
 on('ward', () => { if (visible && page === HOME) showHome(view); });
 on('referrals', () => { if (visible && page === HOME) showHome(view); });
 on('units', () => { if (visible && page === HOME) showHome(view); });
+on('guides', () => { if (visible && page === HOME) showHome(view); });
+on('cases', () => { if (visible && page === HOME) showHome(view); });

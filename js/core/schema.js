@@ -120,15 +120,27 @@ const MIGRATIONS = [
   (db) => {
     db.createObjectStore('calendarCache', { keyPath: 'key' });
   },
+  // v13 — Neurology clinical tools (0.11.0): your guidelines ({ id, title, topic, url, notes, fileName, fileMime,
+  // fileSize, fileId }) and teaching cases ({ id, title, date, diagnosis, tags, story, learning }) — both synced
+  // (the Guidelines and Cases tabs, sync script 20) and in backups — and each guideline's PDF on this device
+  // ({ id: <guideline id>, blob }), never synced or backed up: the PDF lives in your Google Drive, and every
+  // device keeps its own copy.
+  (db) => {
+    for (const name of ['guidelines', 'cases']) {
+      const store = db.createObjectStore(name, { keyPath: 'id' });
+      store.createIndex('updatedAt', 'updatedAt');
+    }
+    db.createObjectStore('guidelineFiles', { keyPath: 'id' });
+  },
 ];
 
 export const DB_VERSION = MIGRATIONS.length;
 
 /** Stores included in JSON backups, in export order. */
-export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'focusSessions', 'habits', 'habitLogs'];
+export const BACKUP_STORES = ['meta', 'profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'focusSessions', 'habits', 'habitLogs', 'guidelines', 'cases'];
 
-/** Image files kept on this device only (progress photos and the profile picture's original). */
-export const DEVICE_FILE_STORES = ['photoFiles'];
+/** Files kept on this device only (progress photos, the profile picture's original, guideline PDFs). */
+export const DEVICE_FILE_STORES = ['photoFiles', 'guidelineFiles'];
 
 /** Ward Patients data kept on this device only (see migration v4; the lists themselves sync — v7). */
 export const WARD_STORES = ['wardDays', 'wardQueue'];
@@ -140,7 +152,7 @@ export const SCRIPT_STORES = ['calendarLinks'];
 export const STORE_NAMES = [...BACKUP_STORES, 'referrals', 'units', 'outbox', ...WARD_STORES, ...SCRIPT_STORES, ...DEVICE_FILE_STORES, 'calendarCache'];
 
 /** Stores that sync with Google Sheets — one tab each (see apps-script/Code.gs). */
-export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'units', 'focusSessions', 'habits', 'habitLogs'];
+export const SYNC_STORES = ['profile', 'settings', 'tasks', 'subtasks', 'taskCategories', 'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'units', 'focusSessions', 'habits', 'habitLogs', 'guidelines', 'cases'];
 
 /** Stores that may contain generated sample records. */
 export const SAMPLE_STORES = ['tasks', 'subtasks', 'workouts', 'bodyMeasurements'];
