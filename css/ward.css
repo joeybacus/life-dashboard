@@ -552,6 +552,28 @@ button.wbadge { cursor: pointer; }
 .ptt--s2 { --ptt-scale: 1.32; }
 .ptt__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; }
 .ptt__edit { flex-shrink: 0; }
+.ptt__view { flex-shrink: 0; margin-left: auto; }
+.ptt__view + .ptt__edit { margin-left: -4px; }
+
+/* Lab results as tables (labtable.js, 0.11.1): a flowsheet per heading. */
+.labt { display: flex; flex-direction: column; gap: 16px; }
+.labt__sec { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.labt__title { margin: 0; font-size: .9em; font-weight: 700; color: var(--text-2); }
+.labt__scroll { overflow-x: auto; max-width: 100%; width: fit-content; border: 1px solid var(--border); border-radius: var(--r-sm, 8px); -webkit-overflow-scrolling: touch; }
+.labt__scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.labt__table { border-collapse: separate; border-spacing: 0; font-size: .92em; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.labt__table th, .labt__table td { padding: 6px 10px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; text-align: left; }
+.labt__table tr > :last-child { border-right: 0; }
+.labt__table tbody tr:last-child > * { border-bottom: 0; }
+.labt__table thead th { background: var(--surface-2); font-weight: 700; vertical-align: bottom; }
+.labt__date, .labt__v { min-width: 5.5em; }
+.labt__date small { display: block; font-weight: 500; font-size: .82em; color: var(--text-2); }
+.labt__corner, .labt__test { position: sticky; left: 0; z-index: 1; background: linear-gradient(var(--surface-2), var(--surface-2)), var(--surface-solid); font-weight: 600; }
+.labt__corner, .labt__test { min-width: 4.5em; }
+.labt__corner { z-index: 2; color: var(--text-2); font-weight: 600; }
+.labt__table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+.labt__v.is-flag strong { font-weight: 800; }
+.labt__note { margin: 0; font-size: .9em; color: var(--text-2); }
 .ptt__text { font-size: calc(var(--fs-base) * var(--ptt-scale)); line-height: 1.55; color: var(--text); }
 @media (min-width: 560px) {
   .ptt__text--flow { column-count: 2; column-gap: 28px; column-rule: 1px solid var(--border); }

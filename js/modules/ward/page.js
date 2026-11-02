@@ -23,6 +23,7 @@ import {
 import { openColumns, renameColumn, setupLocation } from './columns.js';
 import { openArrange, syncOrder } from './arrange.js';
 import { boardOf, changeTile, savedBoard, withCols } from './board.js';
+import { hasLabTable, labTables } from './labtable.js';
 import { removeList, renameList } from './manage.js';
 import { keepNotes, mountNotes, notesSlot } from './notes.js';
 import { historyClosed, historySlot, keepHistory, mountHistory } from './history.js';
@@ -655,6 +656,9 @@ function tileBody(p, c, t) {
       ? html`<button type="button" class="pt__tick" role="checkbox" aria-checked="${isTicked(p.cells[c.col]) ? 'true' : 'false'}" aria-label="${c.label}" data-action="ward:check" data-id="${p.id}" data-col="${c.col}"><span class="pt__box">${icon('check')}</span></button>`
       : ''}<span>${isTicked(p.cells[c.col]) ? `Ticked in column ${c.col} of the logsheet` : `Not ticked in column ${c.col}`}</span></div>`;
   }
+  if (p.cells[c.col] && t.table && hasLabTable(p.cells[c.col])) {
+    return html`<div class="ptt__text">${labTables(p.cells[c.col])}${editedNote(p, c.col)}</div>${removedNote(p, c.col)}`;
+  }
   return p.cells[c.col]
     ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}">${cellText(p, c.col)}${editedNote(p, c.col)}</div>${removedNote(p, c.col)}`
     : html`<p class="faint">Empty in the logsheet.</p>${removedNote(p, c.col)}`;
@@ -688,6 +692,7 @@ function boardTile(p, v, c, t, at, board, editing) {
   return html`<section class="ptt${size}" aria-labelledby="ptd-${c.col}">
     <div class="ptt__head">
       <h3 class="ptd__title" id="ptd-${c.col}">${c.label}</h3>
+      ${c.readable && c.type !== 'check' && hasLabTable(p.cells[c.col]) ? html`<button type="button" class="btn btn--sm btn--ghost ptt__view" data-bact="table" data-col="${c.col}" data-focus="b-table-${c.col}" aria-pressed="${t.table ? 'true' : 'false'}" aria-label="${t.table ? 'Show as text' : 'Show as a table'}: ${c.label}">${icon(t.table ? 'note' : 'columns')}${t.table ? 'Text' : 'Table'}</button>` : ''}
       ${canEdit ? html`<button type="button" class="btn btn--sm ptt__edit" data-dact="edit" data-col="${c.col}" aria-label="Edit ${c.label}">${icon('edit')}Edit</button>` : ''}
     </div>
     ${tileBody(p, c, t)}

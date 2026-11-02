@@ -6,10 +6,11 @@
    def.board = {
      cols: 1 | 2 | 3,        // columns on a wide screen (iPhone always stacks them)
      wide: 0 | 1 | 2 | 3,    // the column made wider, 0 for even widths
-     tiles: { <letter>: { zone, order, size, flow, hidden } },
+     tiles: { <letter>: { zone, order, size, flow, hidden, table } },
    }
    zone 0 = across the top, 1–3 = the columns. size −2…+2 = smaller…larger
-   text. flow 2 = the tile's text in two columns (for long labs). Columns with
+   text. flow 2 = the tile's text in two columns (for long labs). table = dated
+   lab lines shown as tables (labtable.js, 0.11.1). Columns with
    no tile yet (new ones) take turns between the columns. */
 
 export const MAX_COLS = 3;
@@ -37,8 +38,9 @@ export function boardOf(saved, columns) {
         size: clampInt(t.size, MIN_SIZE, MAX_SIZE, 0),
         flow: t.flow === 2 ? 2 : 1,
         hidden: Boolean(t.hidden),
+        table: Boolean(t.table),
       }
-      : { col: c.col, zone: (fresh++ % cols) + 1, order: 1000 + i, size: 0, flow: 1, hidden: false };
+      : { col: c.col, zone: (fresh++ % cols) + 1, order: 1000 + i, size: 0, flow: 1, hidden: false, table: false };
     zones[tile.zone].push(tile);
   });
   zones.forEach((z) => z.sort((a, b) => a.order - b.order));
@@ -49,7 +51,7 @@ export function boardOf(saved, columns) {
 export function savedBoard(board) {
   const tiles = {};
   board.zones.forEach((zone, z) => zone.forEach((t, order) => {
-    tiles[t.col] = { zone: z, order, size: t.size, flow: t.flow, hidden: t.hidden };
+    tiles[t.col] = { zone: z, order, size: t.size, flow: t.flow, hidden: t.hidden, ...(t.table ? { table: true } : {}) };
   }));
   return { cols: board.cols, wide: board.wide, tiles };
 }
@@ -64,7 +66,7 @@ const find = (board, col) => {
 
 /**
  * One change to the layout, returning the new one (the old one is untouched).
- * op: 'up' | 'down' | 'left' | 'right' | 'top' | 'bigger' | 'smaller' | 'flow' | 'hide' | 'show'
+ * op: 'up' | 'down' | 'left' | 'right' | 'top' | 'bigger' | 'smaller' | 'flow' | 'hide' | 'show' | 'table'
  */
 export function changeTile(board, col, op) {
   const next = { ...board, zones: board.zones.map((z) => z.map((t) => ({ ...t }))) };
@@ -86,6 +88,7 @@ export function changeTile(board, col, op) {
   else if (op === 'flow') tile.flow = tile.flow === 2 ? 1 : 2;
   else if (op === 'hide') tile.hidden = true;
   else if (op === 'show') tile.hidden = false;
+  else if (op === 'table') tile.table = !tile.table;
   return next;
 }
 
