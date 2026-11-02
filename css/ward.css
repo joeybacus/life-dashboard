@@ -1205,6 +1205,10 @@ a.tool--open:active { transform: scale(.98); }
 .ctv__title .icon { width: 1rem; height: 1rem; color: var(--accent-ink); }
 .ctv__count { font-size: var(--fs-xs); color: var(--text-3); }
 .ctv__acts { display: flex; gap: 6px; margin-left: auto; }
+.ctv__acts:empty { display: none; }
+.ctv__toggle { flex-shrink: 0; }
+.ctv__acts:empty + .ctv__toggle { margin-left: auto; }
+.ctv.is-hidden .ctv__body, .ctv.is-hidden .ctv__hint { display: none; }
 .ctv__setup { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 62ch; }
 .ctv__setup p { margin: 0; line-height: 1.5; }
 .ctv__hint { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-xs); color: var(--text-3); }

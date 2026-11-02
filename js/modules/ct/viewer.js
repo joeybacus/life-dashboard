@@ -8,7 +8,9 @@
    "Compare older" set up the usual pairs. The window buttons (Brain, Subdural,
    Stroke, Soft, Bone) change the picture at once — every slice is kept as CT
    numbers. Your choices (panes, window, quality, link) are remembered on this
-   device.
+   device. "Hide" (0.11.2) folds the box down to its title until you tap "View
+   CT scans" — remembered too (separately for Duty Patients), and nothing is
+   read from the folder while it's hidden.
 
    Like the notes box, the viewer is one real element kept between the page's
    redraws (it redraws often while the logsheet syncs): the page draws ctSlot()
@@ -49,9 +51,10 @@ function loadPrefs() {
       quality: p.quality === 50 || p.quality === 75 ? p.quality : 100,
       linked: p.linked !== false,
       fps: [5, 10, 15, 20, 30].includes(p.fps) ? p.fps : 15,
+      hide: Array.isArray(p.hide) ? p.hide.filter((m) => m === 'ward' || m === 'duty') : [],
     };
   } catch {
-    return { layout: 2, preset: 'brain', quality: 100, linked: true, fps: 15 };
+    return { layout: 2, preset: 'brain', quality: 100, linked: true, fps: 15, hide: [] };
   }
 }
 
@@ -71,7 +74,7 @@ const V = {
 
 function savePrefs() {
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ layout: V.layout, preset: V.preset, quality: V.quality, linked: V.linked, fps: V.fps }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ layout: V.layout, preset: V.preset, quality: V.quality, linked: V.linked, fps: V.fps, hide: V.hide }));
   } catch { /* storage unavailable */ }
 }
 
@@ -89,6 +92,7 @@ function makeBox() {
       <h2 class="ctv__title" id="ctv-title">${icon('image')}<span>CT scans</span></h2>
       <span class="ctv__count"></span>
       <span class="ctv__acts"></span>
+      <button type="button" class="btn btn--sm ctv__toggle" data-ct="hide" aria-expanded="true"></button>
     </div>
     <div class="ctv__body"></div>
     <input type="file" class="ctv__picker" webkitdirectory multiple hidden aria-hidden="true" tabindex="-1">
@@ -101,7 +105,7 @@ function makeBox() {
   });
   // Scans are only read once the viewer scrolls into sight
   V.io = new IntersectionObserver((entries) => {
-    if (entries.some((e) => e.isIntersecting) && !V.seen) {
+    if (entries.some((e) => e.isIntersecting) && !V.seen && !hidden()) {
       V.seen = true;
       startPanes();
     }
@@ -126,6 +130,20 @@ export function mountCt(root, { hn, mode = 'ward' } = {}) {
     if (key === V.hn) setPatient(key); // the panes are made again for the other layout
   }
   if (key !== V.hn) setPatient(key);
+}
+
+/** Whether the box is folded down on this page (ward or duty). */
+const hidden = () => V.hide.includes(V.mode);
+
+/** Hide the scans until "View CT scans" is tapped, or show them again. */
+function setHidden(onOff) {
+  V.hide = onOff ? [...new Set([...V.hide, V.mode])] : V.hide.filter((m) => m !== V.mode);
+  savePrefs();
+  render();
+  if (!onOff && V.built === V.studies) {
+    if (!V.seen && inView()) V.seen = true;
+    startPanes();
+  }
 }
 
 /** How many panes show: Duty Patients always has plain and contrast. */
@@ -189,6 +207,19 @@ function render() {
   const count = V.el.querySelector('.ctv__count');
   const acts = V.el.querySelector('.ctv__acts');
   const { state, name } = folderState();
+  const folded = hidden();
+  const what = V.mode === 'duty' ? 'imaging' : 'CT scans';
+  V.el.classList.toggle('is-hidden', folded);
+  const toggle = V.el.querySelector('.ctv__toggle');
+  toggle.setAttribute('aria-expanded', String(!folded));
+  toggle.innerHTML = String(folded ? html`${icon('eye')}View ${what}` : html`${icon('eye')}Hide`);
+  toggle.title = folded ? `Show ${what}` : `Hide ${what} until you tap View`;
+  if (folded) {
+    stopPlay();
+    count.textContent = '';
+    acts.innerHTML = '';
+    return;
+  }
   count.textContent = state === 'ready' && V.studies?.length ? `${V.studies.length} ${V.studies.length === 1 ? 'study' : 'studies'} · ${name}` : '';
   acts.innerHTML = state === 'ready' ? String(html`
     <button type="button" class="btn btn--sm btn--ghost" data-ct="rescan" title="Look for new downloads">${icon('refresh')}<span class="sr-only">Look for new downloads</span></button>
@@ -642,6 +673,7 @@ async function onClick(event) {
     else if (act === 'pair') pairPlainContrast();
     else if (act === 'older') compareOlder();
     else if (act === 'play') togglePlay();
+    else if (act === 'hide') setHidden(!hidden());
   } catch (err) {
     toast(err.message, { icon: 'info' });
   }
