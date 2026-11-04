@@ -574,6 +574,11 @@ button.wbadge { cursor: pointer; }
 .labt__table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
 .labt__v.is-flag strong { font-weight: 800; }
 .labt__note { margin: 0; font-size: .9em; color: var(--text-2); }
+/* Cultures (0.11.3): one row, a column per date, the text wraps inside it. */
+.labt__table--cx td.labt__cx { white-space: normal; vertical-align: top; min-width: 13em; max-width: 22em; }
+.labt__cxi { margin: 0 0 4px; font-weight: 600; }
+.labt__cxn { margin: 6px 0 0; font-size: .92em; color: var(--text-2); }
+.labt__cx > :last-child { margin-bottom: 0; }
 .ptt__text { font-size: calc(var(--fs-base) * var(--ptt-scale)); line-height: 1.55; color: var(--text); }
 @media (min-width: 560px) {
   .ptt__text--flow { column-count: 2; column-gap: 28px; column-rule: 1px solid var(--border); }
