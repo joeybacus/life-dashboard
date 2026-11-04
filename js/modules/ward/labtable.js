@@ -17,7 +17,11 @@
    Cultures (0.11.3): a section headed Culture (or whose lines are all "Blood CS",
    "Urine C/S"…) is one row, not a row per test — a column per date, the date as
    its header, each culture on its own line in it and the lines under it
-   (R: …, S: …) at the bottom of that column. */
+   (R: …, S: …) at the bottom of that column.
+
+   Trends (0.11.4): a section with repeat results on one line, each with its
+   time and an arrow ("Na 147.10H (1:11am) > 148.50H (5:55am)"), stays as the
+   text, line by line — a table would make a row for every time. */
 
 import { html } from '../../core/html.js';
 
@@ -32,6 +36,8 @@ const HEADING = /^[^,:;]{1,24}$/;
 const CULTURE_TITLE = /cultur|\bc\/?s\b|sensitiv/i;
 const CULTURE_LINE = /\b(?:c\/?s|cultures?)\b/i;
 // Where one culture ends and the next starts on the same line: before "Blood CS", "Urine culture"…
+// A trend: a time in brackets followed by an arrow, "(1:11am) >".
+const TREND = /\([^()]*\d[^()]*\)\s*(?:>|→|->)/;
 const CULTURE_SPLIT = /\s+(?=[A-Za-z]+\s+(?:c\/?s|cultures?)\b)/i;
 
 /** One dated line's tests: [{ name, value }], test names in the order written. */
@@ -59,7 +65,7 @@ export function labSections(text) {
   let lastDated = false;
   let lastBlank = true;
   const start = (title) => {
-    section = { title, cols: [], tests: [], keys: new Map(), notes: [] };
+    section = { title, cols: [], tests: [], keys: new Map(), notes: [], lines: [] };
     sections.push(section);
   };
   String(text ?? '').split(/\r?\n/).forEach((raw) => {
@@ -78,12 +84,14 @@ export function labSections(text) {
         values.set(key, value);
       });
       section.cols.push({ date: dated[1], time: time?.[1] ?? '', values, text: dated[2], notes: [] });
+      section.lines.push(line);
       lastDated = true;
     } else if (!section || lastBlank || (lastDated && HEADING.test(line))) {
       start(line);
       lastDated = false;
     } else {
       section.notes.push(line);
+      section.lines.push(line);
       section.cols.at(-1)?.notes.push(line);
     }
     lastBlank = false;
@@ -166,6 +174,12 @@ function table(s) {
 /** The tile's text as tables, one per heading. */
 export function labTables(text) {
   return html`<div class="labt">${labSections(text).map((s) => {
+    if (s.cols.some((c) => TREND.test(c.text))) {
+      return html`<section class="labt__sec">
+    ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
+    ${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}
+  </section>`;
+    }
     const cx = s.cols.length > 0 && isCulture(s);
     // In a culture table the lines under a result sit in its column; lines before any date stay below.
     const notes = cx ? s.notes.filter((n) => !s.cols.some((c) => c.notes.includes(n))) : s.notes;
