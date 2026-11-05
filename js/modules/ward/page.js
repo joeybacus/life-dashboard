@@ -716,23 +716,71 @@ function boardSetup(v, board, byCol) {
   </div>`;
 }
 
-/** Previous and next patient, in the table's order, under the rounds box. */
+/** "Bed 3" from "… ACUTE STROKE UNIT) BED 3"; the unit is what comes before it. */
+const BED_RE = /\b(bed|bd|rm|room|bay|cubicle)\s*[#.:-]?\s*([a-z]?\d+[a-z]?)\s*$/i;
+const BED_WORDS = { bd: 'Bed', rm: 'Room' };
+function bedOf(location) {
+  const m = BED_RE.exec(location);
+  if (!m) return { bed: '', unit: location };
+  const word = BED_WORDS[m[1].toLowerCase()] ?? m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+  return { bed: `${word} ${m[2].toUpperCase()}`, unit: location.slice(0, m.index).replace(/[\s,;:–—-]+$/, '').trim() };
+}
+
+/** Words at the start that every text shares (to drop "PHASE 9 3F …" from every box). */
+function commonWords(texts) {
+  if (texts.length < 2) return 0;
+  const split = texts.map((t) => t.split(' '));
+  let n = 0;
+  while (split.every((w) => w.length > n + 1 && w[n].toUpperCase() === split[0][n].toUpperCase())) n += 1;
+  return n;
+}
+
+/** Every patient by location (A to Z, then no location), each with a short label for the boxes. */
+function locationOrder(v) {
+  const keyIndex = new Map(v.locations.map((loc, i) => [loc.key, i]));
+  const place = (p) => (p.location ? keyIndex.get(locationKey(p.location)) ?? v.locations.length : v.locations.length + 1);
+  const order = [...v.patients].sort((a, b) => place(a) - place(b) || a.row - b.row).map((p) => ({ p, ...bedOf(p.location || '') }));
+  const beds = order.filter((x) => x.bed);
+  const units = [...new Set(beds.map((x) => x.unit.toUpperCase()))];
+  const unitCut = commonWords(beds.map((x) => x.unit));
+  const shortUnit = (unit) => unit.split(' ').slice(unitCut).join(' ').replace(/\s*\(.*$/, '').replace(/^[\s,;:–—-]+/, '') || unit;
+  const bareCut = commonWords(order.filter((x) => x.p.location && !x.bed).map((x) => x.p.location));
+  return order.map((x) => {
+    const surname = (x.p.name || x.p.hn || '').split(',')[0].trim();
+    if (!x.p.location) return { ...x, label: surname || '—', tag: '', where: 'No location' };
+    const label = x.bed || x.p.location.split(' ').slice(bareCut).join(' ');
+    const tag = units.length > 1 && x.bed ? shortUnit(x.unit) : '';
+    return { ...x, label, tag, where: x.p.location };
+  });
+}
+
+/** Previous / next, then a row of boxes, one per patient by location; this patient's box is lit. */
 function patientNav(p, v) {
-  const order = tableOrder(v);
+  const order = locationOrder(v);
   const at = order.findIndex((x) => x.p.id === p.id);
   if (at < 0 || order.length < 2) return '';
-  const side = (x, dir) => {
-    if (!x) return html`<span class="ptn__side ptn__side--${dir} is-end" aria-hidden="true"></span>`;
-    const label = dir === 'prev' ? 'Previous patient' : 'Next patient';
-    return html`<button type="button" class="ptn__side ptn__side--${dir}" data-dact="go" data-id="${x.p.id}" data-focus="n-${dir}" aria-label="${label}: ${x.p.name || x.p.hn}, ${x.where}" title="${label}${dir === 'prev' ? ' (←)' : ' (→)'}">
-      <span class="ptn__arrow">${icon(dir === 'prev' ? 'chevronLeft' : 'chevronRight')}</span>
-      <span class="ptn__who"><span class="ptn__dir">${dir === 'prev' ? 'Previous' : 'Next'}</span><span class="ptn__name">${x.p.name || x.p.hn}</span><span class="ptn__where">${icon(x.p.location ? 'pin' : 'circle')}<span>${x.where}</span></span></span>
+  const who = (x) => x.p.name || x.p.hn;
+  const step = (x, dir) => {
+    const label = dir === 'prev' ? 'Previous' : 'Next';
+    const arrow = icon(dir === 'prev' ? 'chevronLeft' : 'chevronRight');
+    if (!x) return html`<button type="button" class="btn btn--sm ptn__step ptn__side--${dir}" disabled>${dir === 'prev' ? arrow : ''}${label}${dir === 'next' ? arrow : ''}</button>`;
+    return html`<button type="button" class="btn btn--sm ptn__step ptn__side--${dir}" data-dact="go" data-id="${x.p.id}" data-focus="n-${dir}" aria-label="${label} patient: ${who(x)}, ${x.where}" title="${label}: ${who(x)} (${dir === 'prev' ? '←' : '→'})">${dir === 'prev' ? arrow : ''}${label}${dir === 'next' ? arrow : ''}</button>`;
+  };
+  const box = (x, i) => {
+    const here = i === at;
+    const cls = `ptn__box${here ? ' is-here' : ''}${x.p.rounded && !v.hidden.rounded ? ' is-done' : ''}${x.p.location ? '' : ' is-none'}`;
+    const tip = `${who(x)} · ${x.where}${x.p.rounded && !v.hidden.rounded ? ' · rounded' : ''}`;
+    return html`<button type="button" class="${cls}"${here ? raw(' aria-current="true"') : ''} data-dact="go" data-id="${x.p.id}" data-focus="n-box-${x.p.id}" aria-label="${i + 1} of ${order.length}: ${tip}" title="${tip}">
+      ${x.tag ? html`<span class="ptn__tag">${x.tag}</span>` : ''}<span class="ptn__bed">${x.label}</span>
     </button>`;
   };
-  return html`<nav class="ptn" aria-label="Other patients">
-    ${side(order[at - 1], 'prev')}
-    <span class="ptn__pos">${at + 1} of ${order.length}</span>
-    ${side(order[at + 1], 'next')}
+  return html`<nav class="ptn" aria-label="Patients by location">
+    <div class="ptn__bar">
+      ${step(order[at - 1], 'prev')}
+      <span class="ptn__pos"><strong>${at + 1}</strong> of ${order.length}</span>
+      ${step(order[at + 1], 'next')}
+    </div>
+    <div class="ptn__boxes" style="--n:${order.length}">${order.map(box)}</div>
   </nav>`;
 }
 
