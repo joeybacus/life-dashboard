@@ -54,8 +54,12 @@ const saveAll = () => Promise.all([...timers.keys()].map(save));
 export const historySlot = () => html`<div class="phx-slot" data-history-slot></div>`;
 
 function fit(area) {
+  // Growing the box briefly shrinks it to measure; keep the page where it was
+  const scroller = area.closest('.dlg__panel');
+  const top = scroller?.scrollTop;
   area.style.height = 'auto';
   area.style.height = `${area.scrollHeight + 2}px`;
+  if (scroller && scroller.scrollTop !== top) scroller.scrollTop = top;
 }
 
 /** Show the logsheet's text, unless you're typing in that half. */

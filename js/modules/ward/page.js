@@ -838,11 +838,16 @@ async function openPatient(openId) {
   let dialog = null;
   let editing = false;
   let saving = Promise.resolve();
+  let keepAt = null; // where the page was scrolled before the last redraw
   const redraw = () => {
     const body = dialog?.querySelector('.dlg__body');
     const v = current()?.view();
     if (!body || !dialog.open || !v) return;
     const focused = document.activeElement?.closest?.('[data-focus]')?.dataset.focus;
+    // The page is briefly shorter while it's drawn again, which used to scroll it
+    // up after every save (e.g. typing in the History box): keep your place.
+    const scroller = dialog.querySelector('.dlg__panel');
+    const top = scroller?.scrollTop ?? 0;
     keepNotes(body);
     keepHistory(body);
     keepCt(body);
@@ -854,6 +859,14 @@ async function openPatient(openId) {
     if (focused) {
       const again = body.querySelector(`[data-focus="${focused}"]`);
       (again && !again.disabled ? again : body.querySelector('[data-dact="customize"]'))?.focus({ preventScroll: true });
+    }
+    if (scroller) {
+      scroller.scrollTop = top;
+      keepAt = top;
+      requestAnimationFrame(() => {
+        if (keepAt === top && Math.abs(scroller.scrollTop - top) > 1) scroller.scrollTop = top;
+        keepAt = null;
+      });
     }
   };
   /** Change the dashboard's layout (saved on the list, one change after another). */
@@ -877,6 +890,7 @@ async function openPatient(openId) {
     if (leaving?.tickable) await current()?.notePatientClosed(leaving.key);
     if (next.tickable) await current()?.notePatientOpened(next.key);
     redraw();
+    keepAt = null; // another patient: start at the top
     dialog.querySelector('.dlg__panel')?.scrollTo?.({ top: 0 });
     dialog.scrollTo?.({ top: 0 });
     announce(`${next.name}`);
