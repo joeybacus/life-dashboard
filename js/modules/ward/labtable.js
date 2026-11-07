@@ -25,7 +25,11 @@
 
    Timed tests (0.11.8): "ABG (18:00): pH 7.501H pCO2 29.4L" — a time in brackets
    inside a test's name — is the row "pH", and the cell "7.501H (18:00)", so
-   blood gases taken at different times share one pH row. */
+   blood gases taken at different times share one pH row.
+
+   Write-ups (0.11.9): a section headed Urinalysis / UA (or whose dated lines hold
+   no values, only lines under them) shows each date as one card the width of the
+   section, every line of that result in it — swipe sideways for the other dates. */
 
 import { html } from '../../core/html.js';
 
@@ -44,6 +48,8 @@ const CULTURE_LINE = /\b(?:c\/?s|cultures?)\b/i;
 const TREND = /\([^()]*\d[^()]*\)\s*(?:>|→|->)/;
 // A time inside a test's name: "ABG (18:00): pH" → the test "pH", taken at 18:00.
 const NAME_TIME = /^(.*?)\s*\((\d{1,2}[:.]\d{2}\s*(?:[ap]\.?m\.?)?)\)\s*:?\s*(.*)$/i;
+// A result written out in lines under its date, not test-value pairs.
+const WRITEUP_TITLE = /urinalysis|\bu\/?a\b|fecalysis|stool exam|urine (?:exam|re\b)/i;
 const CULTURE_SPLIT = /\s+(?=[A-Za-z]+\s+(?:c\/?s|cultures?)\b)/i;
 
 /** One dated line's tests: [{ name, value }], test names in the order written. */
@@ -96,7 +102,7 @@ export function labSections(text) {
       section.cols.push({ date: dated[1], time: time?.[1] ?? '', values, times, text: dated[2], notes: [] });
       section.lines.push(line);
       lastDated = true;
-    } else if (!section || lastBlank || (lastDated && HEADING.test(line))) {
+    } else if (!section || lastBlank || (lastDated && HEADING.test(line) && !WRITEUP_TITLE.test(section.title))) {
       start(line);
       lastDated = false;
     } else {
@@ -148,6 +154,29 @@ function cultureCols(s) {
   return [...byDate.values()];
 }
 
+function isWriteup(s) {
+  if (WRITEUP_TITLE.test(s.title)) return true;
+  return s.cols.some((c) => c.notes.length) && s.cols.every((c) => [...c.values.values()].every((v) => !v));
+}
+
+/** One card per date, as wide as the section; swipe for the others. */
+function writeupCards(s) {
+  const cols = cultureCols(s);
+  // "2026-11-06 UA" under the heading Urinalysis: the "UA" adds nothing.
+  const bare = (t) => t.toLowerCase().replace(/[^a-z]/g, '');
+  const sameAsTitle = (t) => bare(t) === bare(s.title) || /^(?:ua|urinalysis)$/.test(bare(t));
+  return html`<div class="labt__cards" tabindex="0" role="region" aria-label="${s.title || 'Results'}${cols.length > 1 ? ` — ${cols.length} dates, scroll sideways` : ''}">
+    ${cols.map((c, i) => html`<article class="labt__card">
+      <header class="labt__cardhead">
+        <span class="labt__carddate" title="${c.date}">${shortDate(c.date)}${c.time ? html` <small>${c.time}</small>` : ''}</span>
+        ${cols.length > 1 ? html`<span class="labt__cardpos">${i + 1} of ${cols.length}${i < cols.length - 1 ? ' ›' : ''}</span>` : ''}
+      </header>
+      ${c.items.filter((t) => !sameAsTitle(t)).map((t) => html`<p class="labt__cxi">${t}</p>`)}
+      ${c.notes.map((n) => html`<p class="labt__cardline">${n}</p>`)}
+    </article>`)}
+  </div>`;
+}
+
 function cultureTable(s) {
   const cols = cultureCols(s);
   return html`<div class="labt__scroll" tabindex="0" role="region" aria-label="${s.title || 'Cultures'}">
@@ -191,12 +220,13 @@ export function labTables(text) {
     ${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}
   </section>`;
     }
-    const cx = s.cols.length > 0 && isCulture(s);
-    // In a culture table the lines under a result sit in its column; lines before any date stay below.
-    const notes = cx ? s.notes.filter((n) => !s.cols.some((c) => c.notes.includes(n))) : s.notes;
+    const wu = s.cols.length > 0 && isWriteup(s);
+    const cx = !wu && s.cols.length > 0 && isCulture(s);
+    // In a culture table or write-up card the lines under a result sit with it; lines before any date stay below.
+    const notes = cx || wu ? s.notes.filter((n) => !s.cols.some((c) => c.notes.includes(n))) : s.notes;
     return html`<section class="labt__sec">
     ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
-    ${cx ? cultureTable(s) : s.cols.length && s.tests.length ? table(s) : ''}
+    ${wu ? writeupCards(s) : cx ? cultureTable(s) : s.cols.length && s.tests.length ? table(s) : ''}
     ${notes.map((n) => html`<p class="labt__note">${n}</p>`)}
   </section>`;
   })}</div>`;

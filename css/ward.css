@@ -595,6 +595,16 @@ button.wbadge { cursor: pointer; }
 .labt__cxn { margin: 6px 0 0; font-size: .92em; color: var(--text-2); }
 .labt__line { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .labt__cx > :last-child { margin-bottom: 0; }
+/* Urinalysis and other write-ups (0.11.9): a card per date, the section's width; swipe for the others. */
+.labt__cards { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.labt__cards:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.labt__card { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm, 8px); background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+.labt__cardhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: -10px -12px 8px; padding: 6px 12px; border-bottom: 1px solid var(--border); border-radius: var(--r-sm, 8px) var(--r-sm, 8px) 0 0; background: var(--surface-2); }
+.labt__carddate { font-weight: 700; font-variant-numeric: tabular-nums; }
+.labt__carddate small { font-weight: 500; font-size: .82em; color: var(--text-2); }
+.labt__cardpos { font-size: .82em; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.labt__cardline { margin: 0 0 4px; overflow-wrap: anywhere; }
+.labt__card > :last-child { margin-bottom: 0; }
 .ptt__text { font-size: calc(var(--fs-base) * var(--ptt-scale)); line-height: 1.55; color: var(--text); }
 @media (min-width: 560px) {
   .ptt__text--flow { column-count: 2; column-gap: 28px; column-rule: 1px solid var(--border); }
