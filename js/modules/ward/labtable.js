@@ -21,7 +21,11 @@
 
    Trends (0.11.4): a section with repeat results on one line, each with its
    time and an arrow ("Na 147.10H (1:11am) > 148.50H (5:55am)"), stays as the
-   text, line by line — a table would make a row for every time. */
+   text, line by line — a table would make a row for every time.
+
+   Timed tests (0.11.8): "ABG (18:00): pH 7.501H pCO2 29.4L" — a time in brackets
+   inside a test's name — is the row "pH", and the cell "7.501H (18:00)", so
+   blood gases taken at different times share one pH row. */
 
 import { html } from '../../core/html.js';
 
@@ -38,6 +42,8 @@ const CULTURE_LINE = /\b(?:c\/?s|cultures?)\b/i;
 // Where one culture ends and the next starts on the same line: before "Blood CS", "Urine culture"…
 // A trend: a time in brackets followed by an arrow, "(1:11am) >".
 const TREND = /\([^()]*\d[^()]*\)\s*(?:>|→|->)/;
+// A time inside a test's name: "ABG (18:00): pH" → the test "pH", taken at 18:00.
+const NAME_TIME = /^(.*?)\s*\((\d{1,2}[:.]\d{2}\s*(?:[ap]\.?m\.?)?)\)\s*:?\s*(.*)$/i;
 const CULTURE_SPLIT = /\s+(?=[A-Za-z]+\s+(?:c\/?s|cultures?)\b)/i;
 
 /** One dated line's tests: [{ name, value }], test names in the order written. */
@@ -78,12 +84,16 @@ export function labSections(text) {
       const time = TIME.exec(rest);
       if (time) rest = rest.slice(0, time.index);
       const values = new Map();
-      pairs(rest).forEach(({ name, value }) => {
+      const times = new Map();
+      pairs(rest).forEach(({ name: written, value }) => {
+        const timed = NAME_TIME.exec(written);
+        const name = timed ? timed[3] || timed[1] || written : written;
         const key = name.toLowerCase();
         if (!section.keys.has(key)) { section.keys.set(key, name); section.tests.push(key); }
         values.set(key, value);
+        if (timed) times.set(key, timed[2]);
       });
-      section.cols.push({ date: dated[1], time: time?.[1] ?? '', values, text: dated[2], notes: [] });
+      section.cols.push({ date: dated[1], time: time?.[1] ?? '', values, times, text: dated[2], notes: [] });
       section.lines.push(line);
       lastDated = true;
     } else if (!section || lastBlank || (lastDated && HEADING.test(line))) {
@@ -110,11 +120,12 @@ function shortDate(date) {
   return m ? `${Number(m[2])}/${Number(m[3])}` : date;
 }
 
-function cell(value) {
+function cell(value, time = '') {
   if (!value) return html`<td class="labt__v is-empty"></td>`;
+  const at = time ? html` <span class="labt__at">(${time})</span>` : '';
   return FLAG.test(value)
-    ? html`<td class="labt__v is-flag"><strong>${value}</strong></td>`
-    : html`<td class="labt__v">${value}</td>`;
+    ? html`<td class="labt__v is-flag"><strong>${value}</strong>${at}</td>`
+    : html`<td class="labt__v">${value}${at}</td>`;
 }
 
 function isCulture(s) {
@@ -164,7 +175,7 @@ function table(s) {
       <tbody>
         ${s.tests.map((key) => html`<tr>
           <th scope="row" class="labt__test">${s.keys.get(key)}</th>
-          ${s.cols.map((c) => cell(c.values.get(key)))}
+          ${s.cols.map((c) => cell(c.values.get(key), c.times?.get(key)))}
         </tr>`)}
       </tbody>
     </table>

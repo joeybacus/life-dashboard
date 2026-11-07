@@ -586,6 +586,8 @@ button.wbadge { cursor: pointer; }
 .labt__corner { z-index: 2; color: var(--text-2); font-weight: 600; }
 .labt__table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
 .labt__v.is-flag strong { font-weight: 800; }
+/* The time a test was taken, after its value: "7.501H (18:00)" (0.11.8) */
+.labt__at { font-weight: 400; color: var(--text-2); }
 .labt__note { margin: 0; font-size: .9em; color: var(--text-2); }
 /* Cultures (0.11.3): one row, a column per date, the text wraps inside it. */
 .labt__table--cx td.labt__cx { white-space: normal; vertical-align: top; min-width: 13em; max-width: 22em; }
