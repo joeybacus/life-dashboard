@@ -3,7 +3,16 @@
    ========================================================================== */
 
 .neuro-tools { display: grid; gap: 12px; }
-@media (min-width: 900px) { .neuro-tools { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 700px) { .neuro-tools { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1280px) { .neuro-tools { grid-template-columns: repeat(4, 1fr); } }
+
+/* ---- Ocular Motor Atlas (0.11.10): a self-contained page in a frame ---- */
+.atlas-wrap { margin-top: 12px; }
+.atlas-frame {
+  display: block; width: 100%;
+  height: calc(100dvh - var(--tabbar-h) - var(--tabbar-gap) - 190px); min-height: 520px;
+  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-solid);
+}
 
 /* ---- Score calculators ---- */
 .sc-page { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }

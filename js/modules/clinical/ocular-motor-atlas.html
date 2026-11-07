@@ -1,0 +1,1870 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Shown inside the Life Dashboard: hide the atlas's own title and follow the app's light/dark choice. */
+(function () {
+  var d = document.documentElement;
+  try {
+    if (window.parent === window) return;
+    d.classList.add("embed");
+    var p = window.parent.document.documentElement;
+    var sync = function () { if (p.dataset.theme) d.dataset.theme = p.dataset.theme; };
+    sync();
+    new MutationObserver(sync).observe(p, { attributes: true, attributeFilter: ["data-theme"] });
+  } catch (e) { /* not the same site: keep the system theme */ }
+})();
+</script>
+<title>Ocular Motor Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: an atlas plate. Lesion index on the left; the specimen (stained section) and the patient (eyes) side by side; findings underneath. */
+:root{
+  --bg:#f2f3f7; --panel:#ffffff; --panel-2:#e9ebf2; --fg:#1a1d2b; --muted:#5a5f75; --line:#d5d8e3;
+  --accent:#3b3896; --accent-weak:#e7e6f6; --lesion:#cc2858; --lesion-weak:#fbe3ea;
+  --tissue:#d3d6e6; --basis:#c7cbe0; --gm:#eeedf3; --nuc:#faf8f4; --rn:#ecd8de; --tract:#454a7c; --tract-line:#8d92b8;
+  --csf:#f7f9fd; --nigra:#2e3047; --n3:#3b3896; --n4:#0d7a77; --n6:#b25f07; --n7:#8a4aa6; --n12:#5a6a2a;
+  --symp:#c27c00; --artery:#c03a3a; --sinus:#cfdcef; --bone:#e3ddd0; --cortex:#e4e5ee; --sulcus:#9da2c2;
+  --sclera:#fcfcfe; --iris:#4b7c87; --iris-ring:#2b4c55; --pupil:#10121a; --lid:#d0d3de;
+  --f-display:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-label:"IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+    --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28;
+    --tissue:#2b2e40; --basis:#33374c; --gm:#3c4054; --nuc:#535870; --rn:#5b4552; --tract:#7d82c8; --tract-line:#5d6290;
+    --csf:#11121a; --nigra:#c9cbe6; --n3:#a9a6ff; --n4:#4fd1c9; --n6:#f0a14a; --n7:#d29af0; --n12:#b5c97a;
+    --symp:#f2b544; --artery:#ff7a7a; --sinus:#2c3a55; --bone:#4a4538; --cortex:#262a3a; --sulcus:#5f6590;
+    --sclera:#e8e9f0; --iris:#6fa5b1; --iris-ring:#2b4c55; --pupil:#0b0c12; --lid:#555a6e;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+  --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28;
+  --tissue:#2b2e40; --basis:#33374c; --gm:#3c4054; --nuc:#535870; --rn:#5b4552; --tract:#7d82c8; --tract-line:#5d6290;
+  --csf:#11121a; --nigra:#c9cbe6; --n3:#a9a6ff; --n4:#4fd1c9; --n6:#f0a14a; --n7:#d29af0; --n12:#b5c97a;
+  --symp:#f2b544; --artery:#ff7a7a; --sinus:#2c3a55; --bone:#4a4538; --cortex:#262a3a; --sulcus:#5f6590;
+  --sclera:#e8e9f0; --iris:#6fa5b1; --iris-ring:#2b4c55; --pupil:#0b0c12; --lid:#555a6e;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+#fieldsSvg svg{display:block;width:100%;height:auto;max-width:560px;margin:0 auto}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1360px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+header.top{background:var(--panel);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:26px 0}
+.kicker{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--lesion)}
+h1{font-family:var(--f-display);font-weight:500;font-size:clamp(32px,4.4vw,48px);line-height:1.02;letter-spacing:-.015em;margin:6px 0 0;text-wrap:balance}
+h1 em{font-style:italic;color:var(--accent)}
+.lede{color:var(--muted);max-width:66ch;margin:10px 0 18px;font-size:15.5px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-bottom:-1px}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{font-family:var(--f-label);font-weight:600;font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:12px 15px 11px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;white-space:nowrap}
+nav.tabs a:hover{color:var(--fg)}
+nav.tabs a[aria-current="page"]{background:var(--bg);border-color:var(--line);color:var(--fg)}
+main.wrap{padding-block:24px 56px}
+
+/* ---------- atlas ---------- */
+.atlas{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start}
+.index{position:sticky;top:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px);min-width:0}
+.map{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px}
+.map svg{display:block;width:100%;height:auto}
+.map .dot{fill:var(--muted);opacity:.45;cursor:pointer;transition:opacity .15s}
+.map .dot:hover{opacity:1}
+.map .dot.lat{fill:none;stroke:var(--muted);stroke-width:2}
+.map .dot.sel{fill:var(--lesion);opacity:1;stroke:var(--panel);stroke-width:2}
+.map .ring{fill:none;stroke:var(--lesion);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:ring 1.8s ease-out infinite}
+@keyframes ring{from{opacity:.9;transform:scale(.6)}to{opacity:0;transform:scale(2.2)}}
+.search input{width:100%;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg)}
+#lesionSelect{display:none;width:100%;font:inherit;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg)}
+.list{overflow:auto;padding-right:4px;min-height:0}
+.grp h3{font-family:var(--f-label);font-weight:600;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:14px 8px 4px}
+.grp:first-child h3{margin-top:4px}
+.item{display:block;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:6px 8px;font:inherit;font-size:14px;line-height:1.3;color:var(--fg);cursor:pointer}
+.item small{display:block;color:var(--muted);font-family:var(--f-label);font-size:12px;margin-top:1px}
+.item:hover{background:var(--panel-2)}
+.item[aria-current="true"]{background:var(--accent-weak);color:var(--accent)}
+.item[aria-current="true"] small{color:var(--accent)}
+.empty{color:var(--muted);font-size:13px;padding:8px}
+
+.crumb{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--lesion)}
+.lname{font-family:var(--f-display);font-weight:500;font-size:clamp(28px,3.2vw,38px);line-height:1.08;margin:4px 0 8px;text-wrap:balance;letter-spacing:-.01em}
+.summary{font-size:16.5px;max-width:68ch;margin:0}
+.locbox{display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px 18px;margin-top:16px;padding-block:14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.loclabel{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.locbox p{margin:0;font-family:var(--f-display);font-size:18px;line-height:1.45;max-width:72ch}
+
+.viz{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:18px;margin-top:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px 16px;min-width:0}
+.ptitle{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-bottom:8px}
+.ptitle h3{margin:0;font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.11em;text-transform:uppercase}
+.chip{font-family:var(--f-label);font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;background:var(--lesion-weak);color:var(--lesion);white-space:nowrap}
+.cap{color:var(--muted);font-size:13px;margin:8px 0 0;line-height:1.45}
+.cap b{color:var(--fg);font-weight:600}
+.dia-title{font-family:var(--f-display);font-size:17px;margin:0}
+.dia-sub{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:0 0 6px}
+.dia{overflow-x:auto}
+.dia svg{display:block;width:100%;min-width:480px;height:auto}
+
+/* svg anatomy */
+.tissue{fill:var(--tissue);stroke:var(--tract-line);stroke-width:1.2}
+.basis{fill:var(--basis)}
+.tract{fill:var(--tract)}
+.gm{fill:var(--gm);stroke:var(--tract-line);stroke-width:.8}
+.gm2{fill:var(--gm);stroke:var(--tract-line);stroke-width:.8}
+.nuc{fill:var(--nuc);stroke:var(--tract);stroke-width:1}
+.rn{fill:var(--rn);stroke:var(--tract-line);stroke-width:1}
+.csf{fill:var(--csf);stroke:var(--tract-line);stroke-width:1}
+.nigra{fill:none;stroke:var(--nigra);stroke-width:7;stroke-linecap:round;opacity:.85}
+.olive{fill:var(--nuc);stroke:var(--tract);stroke-width:1.4}
+.pprf{fill:var(--accent-weak);stroke:var(--accent);stroke-width:1;stroke-dasharray:2 2}
+.ghost{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:3 2}
+.ghostline{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-dasharray:4 3}
+.fib{fill:none;stroke:var(--tract-line);stroke-width:1;opacity:.7}
+.f3,.f4,.f6,.f7,.f12{fill:none;stroke-width:2.4;stroke-linecap:round}
+.f3{stroke:var(--n3)} .f4{stroke:var(--n4)} .f6{stroke:var(--n6)} .f7{stroke:var(--n7)} .f12{stroke:var(--n12)}
+.symp{fill:var(--symp)}
+.vermis{fill:var(--basis);opacity:.7}
+.zone{fill:none;stroke:var(--tract);stroke-width:1;stroke-dasharray:3 2}
+.folia{fill:none;stroke:var(--tract-line);stroke-width:.9;opacity:.8}
+.fissure{fill:none;stroke:var(--tract);stroke-width:1.4;stroke-dasharray:6 3}
+.deep{fill:var(--nuc);stroke:var(--tract);stroke-width:1.1;stroke-dasharray:3 2}
+.cortex{fill:var(--cortex);stroke:var(--tract-line);stroke-width:1.4}
+.sulcus{fill:none;stroke:var(--sulcus);stroke-width:1.6;stroke-linecap:round}
+.callosum{fill:none;stroke:var(--tract);stroke-width:11;stroke-linecap:round;opacity:.8}
+.area{fill:var(--accent-weak);stroke:var(--accent);stroke-width:1.2}
+.area.dash{stroke-dasharray:3 2}
+.lvl{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;opacity:.6}
+.lvl.on{stroke:var(--lesion);opacity:1;stroke-width:1.6}
+.orbit{fill:var(--panel-2);stroke:var(--tract-line);stroke-width:1}
+.globe{fill:var(--sclera);stroke:var(--tract-line);stroke-width:1.2}
+.optic{fill:none;stroke:var(--muted);stroke-width:5;stroke-linecap:round;opacity:.6}
+.sinus{fill:var(--sinus);stroke:var(--tract-line);stroke-width:1}
+.bone{fill:var(--bone);stroke:var(--tract-line);stroke-width:1;opacity:.9}
+.bonestroke{fill:none;stroke:var(--tract-line);stroke-width:3}
+.artery{fill:none;stroke:var(--artery);stroke-width:3;stroke-linecap:round;opacity:.8}
+.artery.thin{stroke-width:2}
+.station{fill:var(--panel);stroke:var(--fg);stroke-width:1.2}
+.musc{fill:var(--rn);stroke:var(--tract-line);stroke-width:1}
+.fat{fill:var(--gm);stroke:none}
+.inset{fill:var(--panel-2);stroke:var(--line);stroke-width:1}
+.ves{fill:var(--panel);stroke:var(--accent);stroke-width:1.4}
+.achr{fill:var(--accent)}
+.band{fill:none;stroke:var(--tract);stroke-width:9;stroke-linecap:round;opacity:.55}
+.rad{fill:none;stroke:var(--tract-line);stroke-width:6;stroke-linecap:round;opacity:.7}
+.fx-t{fill:none;stroke:var(--n4);stroke-width:2;stroke-linecap:round}
+.fx-n{fill:none;stroke:var(--n3);stroke-width:2;stroke-linecap:round}
+.fbg{fill:var(--panel-2);stroke:var(--line);stroke-width:1}
+.fcell{fill:var(--fg)}
+.fmer{stroke:var(--muted);stroke-width:.8;opacity:.6}
+.ftitle{font-family:var(--f-label);font-size:12px;font-weight:600;fill:var(--fg);text-anchor:middle;letter-spacing:.06em}
+.fside{font-family:var(--f-label);font-size:10.5px;fill:var(--muted)}
+.lbl{font-family:var(--f-label);font-size:11px;font-weight:500;fill:var(--fg);paint-order:stroke;stroke:var(--panel);stroke-width:3px;stroke-linejoin:round}
+.lbl.sm{font-size:10px;fill:var(--muted)}
+.lbl.it{font-style:italic}
+.lob{font-family:var(--f-label);font-size:10.5px;font-weight:600;fill:var(--tract);text-anchor:middle}
+.lead{stroke:var(--muted);stroke-width:.8}
+.lead-dot{fill:var(--fg)}
+.rl{font-family:var(--f-label);font-size:11px;font-weight:600;fill:var(--muted);text-anchor:middle}
+.rlc{fill:none;stroke:var(--muted);stroke-width:1}
+.hl{stroke:var(--lesion);stroke-width:2;stroke-dasharray:5 3}
+.hatch-bg{fill:var(--lesion);fill-opacity:.16}
+.hatch-ln{stroke:var(--lesion);stroke-opacity:.6;stroke-width:2.2}
+.hl-pulse{animation:hlp 2.4s ease-in-out infinite}
+@keyframes hlp{50%{opacity:.55}}
+
+/* eyes */
+.eyes-big{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px}
+.eyes-big figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:2px}
+.eye{display:block;width:100%;height:auto}
+.eye.big{max-width:200px}
+.sclera{fill:var(--sclera)}
+.iris-c{fill:var(--iris)}
+.iris-ring{fill:none;stroke:var(--iris-ring);stroke-width:1.2}
+.mark{stroke:var(--iris-ring);stroke-width:1.8;stroke-linecap:round}
+.pupil{fill:var(--pupil)}
+.glint{fill:#ffffff;opacity:.85}
+.lid{fill:var(--lid)}
+.lid-line{fill:none;stroke:var(--fg);stroke-width:1.8}
+.eye-outline{fill:none;stroke:var(--fg);stroke-width:1.5}
+.eye-lab{font-family:var(--f-label);font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.eye-lab .tag{color:var(--lesion);letter-spacing:.04em}
+.fp{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-label);font-size:12px;color:var(--lesion);min-height:18px}
+.fp svg{width:16px;height:16px}
+.fp line,.fp path{stroke:var(--lesion);stroke-width:2;fill:none;stroke-linecap:round}
+.ctrls{display:flex;flex-wrap:wrap;gap:6px}
+.seg{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
+.seg span{font-family:var(--f-label);font-size:11px;color:var(--muted);padding:0 6px 0 8px;text-transform:uppercase;letter-spacing:.08em}
+.seg button{border:0;background:none;color:var(--fg);padding:4px 11px;border-radius:999px;font-family:var(--f-label);font-weight:600;font-size:12.5px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.pad{position:relative;margin-top:10px;aspect-ratio:2.6/1;max-width:100%;border:1px solid var(--line);border-radius:8px;cursor:crosshair;touch-action:none;
+  background:
+    linear-gradient(var(--line),var(--line)) center/1px 100% no-repeat,
+    linear-gradient(var(--line),var(--line)) center/100% 1px no-repeat,
+    var(--panel-2)}
+.pad .pl{position:absolute;font-family:var(--f-label);font-size:11px;color:var(--muted);pointer-events:none}
+.pad .pl.l{left:8px;top:50%;transform:translateY(-120%)}
+.pad .pl.r{right:8px;top:50%;transform:translateY(-120%)}
+.pad .pl.u{left:50%;top:5px;transform:translateX(6px)}
+.pad .pl.d{left:50%;bottom:5px;transform:translateX(6px)}
+.pad .dot{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--lesion);box-shadow:0 0 0 4px var(--lesion-weak);pointer-events:none}
+.padline{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-family:var(--f-label);font-size:12px;color:var(--muted);margin-top:5px}
+.nine-head{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.nine{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.nine button{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--panel-2);border:1px solid transparent;border-radius:6px;padding:5px 4px 4px;cursor:pointer;color:var(--muted);font-family:var(--f-label);font-size:10.5px}
+.nine button:hover{border-color:var(--line)}
+.nine .pair{display:flex;gap:2px;width:100%}
+.nine .eye{width:50%}
+
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px 30px;margin-top:24px}
+.fact h4{margin:0 0 4px;font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.fact ul{margin:0;padding-left:18px}
+.fact li{margin:3px 0}
+.fact.eyesf h4{color:var(--lesion)}
+.pearl{grid-column:1/-1;background:var(--accent-weak);border-radius:10px;padding:14px 18px;display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px 18px}
+.pearl h4{color:var(--accent);margin:0;padding-top:3px}
+.pearl p{margin:0;font-family:var(--f-display);font-size:17.5px;line-height:1.45;font-style:italic}
+
+/* ---------- other views ---------- */
+.vhead{margin:0 0 18px;max-width:72ch}
+.vhead h2{font-family:var(--f-display);font-weight:500;font-size:clamp(26px,3vw,34px);margin:0 0 6px;line-height:1.1}
+.vhead p{margin:0;color:var(--muted)}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:30px}
+.rule{background:var(--panel);padding:14px 16px}
+.rule b{display:block;font-family:var(--f-display);font-weight:500;font-size:17px;margin-bottom:3px}
+.rule p{margin:0;font-size:14px;color:var(--muted)}
+.sys{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.sys article{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.sys h3{font-family:var(--f-display);font-weight:500;font-size:22px;margin:0}
+.sys .job{margin:2px 0 0}
+.sys .stat{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:2px 0 10px;font-variant-numeric:tabular-nums}
+.chain{list-style:none;display:flex;flex-wrap:wrap;gap:6px 4px;padding:0;margin:0 0 10px}
+.chain li{font-family:var(--f-label);font-size:12.5px;background:var(--panel-2);padding:3px 8px;border-radius:4px;display:flex;align-items:center}
+.chain li:not(:last-child)::after{content:"→";margin:0 -2px 0 8px;color:var(--muted)}
+.sys .extra{font-size:14px;margin:0 0 8px}
+.sys ul{margin:0;padding-left:18px;font-size:14px}
+.sys .test{font-size:13.5px;color:var(--muted);margin:10px 0 0}
+.sys .test b{color:var(--fg);font-weight:600}
+.nerve-dia{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:22px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.ncols{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+.ncol{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.ncol h3{font-family:var(--f-display);font-weight:500;font-size:22px;margin:0 0 2px;display:flex;align-items:center;gap:10px}
+.ncol h3 i{width:22px;height:4px;border-radius:2px;display:inline-block}
+.ncol .sub{font-size:13.5px;color:var(--muted);margin:0 0 10px}
+.stations{list-style:none;margin:0;padding:0;counter-reset:st}
+.stations li{counter-increment:st;position:relative;padding:0 0 12px 34px}
+.stations li::before{content:counter(st);position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);font-family:var(--f-label);font-size:12px;font-weight:600;display:grid;place-items:center;color:var(--muted);font-variant-numeric:tabular-nums}
+.stations li:not(:last-child)::after{content:"";position:absolute;left:11px;top:26px;bottom:2px;width:1px;background:var(--line)}
+.stations b{display:block;font-weight:600;font-size:14.5px}
+.stations p{margin:2px 0 0;font-size:13.5px}
+.stations .les{color:var(--muted)}
+.stations a{font-family:var(--f-label);font-size:12.5px;font-weight:600;text-decoration:none}
+.tblw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:820px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-bottom:1px solid var(--line)}
+th{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--f-display);font-size:16.5px;white-space:nowrap}
+td.where{font-weight:500}
+td a{font-family:var(--f-label);font-weight:600;font-size:12.5px;text-decoration:none;white-space:nowrap}
+.quiz{max-width:780px}
+.qmeta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-family:var(--f-label);font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-variant-numeric:tabular-nums}
+.qcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+.qcard .case{font-family:var(--f-display);font-size:19px;line-height:1.5;margin:0 0 16px}
+.qcard .q{font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;font:inherit;font-size:15px;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:#2f8a57;background:color-mix(in srgb,#2f8a57 14%,var(--panel))}
+.opt.wrong{border-color:var(--lesion);background:var(--lesion-weak)}
+.fb{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.fb .verdict{font-family:var(--f-label);font-weight:600;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase}
+.fb .verdict.ok{color:#2f8a57}
+.fb .verdict.no{color:var(--lesion)}
+.fb p{margin:6px 0 12px}
+.qbtns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font-family:var(--f-label);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:8px;border:1px solid var(--fg);background:var(--fg);color:var(--panel);cursor:pointer;text-decoration:none}
+.btn.ghost{background:none;color:var(--fg);border-color:var(--line)}
+footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
+
+@media (max-width:1180px){ .viz{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:960px){
+  .atlas{grid-template-columns:minmax(0,1fr)}
+  .index{position:static;max-height:none}
+  .map{max-width:420px}
+  .list{display:none}
+  .search{display:none}
+  #lesionSelect{display:block}
+}
+@media (max-width:560px){
+  .locbox,.pearl{grid-template-columns:minmax(0,1fr)}
+  .seg span{display:none}
+  .qcard{padding:16px}
+}
+@media (prefers-reduced-motion: reduce){
+  .map .ring,.hl-pulse{animation:none}
+}
+</style>
+<style>
+body{margin:0}
+.embed .kicker,.embed h1,.embed .lede{display:none}
+.embed header.top .wrap{padding-block:10px 0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="kicker">Neuro-ophthalmology · lesion localization</div>
+    <h1>Ocular Motor <em>Atlas</em></h1>
+    <p class="lede">Where eye movement signs come from. Pick a lesion to see exactly where it sits, from cortex to eye muscle and along the visual pathway, and what the patient’s eyes do because of it.</p>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#atlas" data-tab="atlas">Lesion atlas</a>
+      <a href="#systems" data-tab="systems">Gaze systems</a>
+      <a href="#nerves" data-tab="nerves">Nerve pathways</a>
+      <a href="#nystagmus" data-tab="nystagmus">Nystagmus</a>
+      <a href="#quiz" data-tab="quiz">Case quiz</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="view" data-view="atlas">
+    <div class="atlas">
+      <aside class="index">
+        <div class="map" id="map"></div>
+        <label class="search"><span class="sr">Filter lesions</span><input id="filter" type="search" placeholder="Filter: pons, INO, Horner, pupil…" autocomplete="off"></label>
+        <select id="lesionSelect" aria-label="Choose a lesion"></select>
+        <div class="list" id="list"></div>
+      </aside>
+
+      <article class="lesion" aria-live="polite">
+        <div class="crumb" id="crumb"></div>
+        <h2 class="lname" id="lname"></h2>
+        <p class="summary" id="lsummary"></p>
+        <div class="locbox"><div class="loclabel">Exact location</div><p id="lloc"></p></div>
+
+        <div class="viz">
+          <section class="panel">
+            <div class="ptitle"><h3>Where</h3><span class="chip" id="sideChip"></span></div>
+            <p class="dia-title" id="diaTitle"></p>
+            <p class="dia-sub" id="diaSub"></p>
+            <div class="dia" id="where"></div>
+            <p class="cap" id="whereCap"></p>
+          </section>
+
+          <section class="panel">
+            <div class="ptitle">
+              <h3 id="eyesTitle">What you see</h3>
+              <div class="ctrls">
+                <div class="seg" role="group" aria-label="Lesion side"><span>Side</span><button id="sideR" type="button">Right</button><button id="sideL" type="button">Left</button></div>
+                <div class="seg" role="group" aria-label="Eye movement test" id="modeSeg"><button id="modeV" type="button">Voluntary</button><button id="modeD" type="button">Doll’s head</button></div>
+              </div>
+            </div>
+            <div id="fieldsBox" hidden><div id="fieldsSvg"></div><p class="cap">Charts are drawn as the patient sees them, left eye on the left. Dark squares: not seen. Grey: partly seen. The dark spot in each temporal field is the normal blind spot. Eye movements are normal.</p></div>
+            <div id="eyeSim">
+            <div class="eyes-big">
+              <figure><div id="bigR"></div><figcaption class="eye-lab">Right eye · OD <span class="tag" id="tagR"></span></figcaption><span class="fp" id="fpR"></span></figure>
+              <figure><div id="bigL"></div><figcaption class="eye-lab">Left eye · OS <span class="tag" id="tagL"></span></figcaption><span class="fp" id="fpL"></span></figure>
+            </div>
+            <div class="pad" id="pad" tabindex="0" role="application" aria-label="Gaze target. Move the pointer over it, or use the arrow keys, to direct the patient’s gaze.">
+              <span class="pl l">Patient’s right</span><span class="pl r">Patient’s left</span><span class="pl u">Up</span><span class="pl d">Down</span>
+              <span class="dot" id="padDot"></span>
+            </div>
+            <div class="padline"><span id="gazeTxt">Gaze: primary</span><span id="srcTxt">Auto sweep</span></div>
+            <p class="cap" id="eyeNote"></p>
+            <div class="nine-head">Nine positions of gaze · examiner’s view</div>
+            <div class="nine" id="nine"></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="facts" id="facts"></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="view" data-view="systems" hidden>
+    <div class="vhead"><h2>Gaze systems and their circuits</h2><p>Each eye movement type has its own generator. Knowing which circuit a sign belongs to is half of localizing it.</p></div>
+    <div class="rules" id="rules"></div>
+    <div class="sys" id="sys"></div>
+  </section>
+
+  <section class="view" data-view="nerves" hidden>
+    <div class="vhead"><h2>Nerve pathways, nucleus to muscle</h2><p>The same nerve gives different company signs at each point on its route. Stations are listed in anatomical order.</p></div>
+    <div class="nerve-dia">
+      <p class="dia-title">Course of CN III, IV and VI</p>
+      <p class="dia-sub">Schematic lateral view · front of the head to the left · not to scale</p>
+      <div class="dia" id="nerveDia"></div>
+      <div class="legend"><span><i style="background:var(--n3)"></i>CN III oculomotor</span><span><i style="background:var(--n4)"></i>CN IV trochlear</span><span><i style="background:var(--n6)"></i>CN VI abducens</span><span><i style="background:var(--artery)"></i>Arteries</span></div>
+    </div>
+    <div class="ncols" id="ncols"></div>
+  </section>
+
+  <section class="view" data-view="nystagmus" hidden>
+    <div class="vhead"><h2>Nystagmus and intrusions by location</h2><p>Describe the direction of the fast phase, when it appears and what makes it worse. The pattern often names the site.</p></div>
+    <div class="tblw"><table id="nysTable"></table></div>
+  </section>
+
+  <section class="view" data-view="quiz" hidden>
+    <div class="vhead"><h2>Localize the lesion</h2><p>Read the findings, pick the site. Each answer links back to its atlas entry.</p></div>
+    <div class="quiz" id="quizBox"></div>
+  </section>
+</main>
+<footer class="wrap">Educational reference. Drawings are schematic and not to scale; check clinical decisions against current sources.</footer>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const mq = matchMedia("(prefers-reduced-motion: reduce)");
+let RM = mq.matches;
+try { mq.addEventListener("change", e => { RM = e.matches; }); } catch (e) {}
+
+/* ================= Eye model =================
+   Each lesion defines two eyes: ipsi (on the lesion side) and contra.
+   a = abduction (+) / adduction (-), v = up (+) / down (-), in units of full range. */
+const SPD = 9;
+function E(o) {
+  o = o || {};
+  const r = Object.assign({abd:1, add:1, up:1, down:1, ptosis:0, pupil:1, nys:null, fn:null, dyn:null}, o);
+  r.off = Object.assign({a:0, v:0}, o.off || {});
+  r.speed = Object.assign({abd:SPD, add:SPD, up:SPD, down:SPD}, o.speed || {});
+  return r;
+}
+const SYM = o => ({ipsi:o, contra:o});
+const GEH = k => a => Math.abs(a) > .35 ? {a: Math.sign(a), amp: k * Math.abs(a), freq: 2.2} : null;
+const GEV = k => (a, v) => Math.abs(v) > .35 ? {v: Math.sign(v), amp: k * Math.abs(v), freq: 2.2} : null;
+const ABDN = a => a > .3 ? {a: 1, amp: .14 * a, freq: 2.6} : null;
+const CR = (a, v) => v > .3 ? {a: -1, amp: .16, freq: 2.4} : null;
+const DOWNBEAT = (a, v) => ({v: -1, amp: .06 + Math.abs(a) * .05 + Math.max(0, -v) * .06, freq: 2.3});
+const UPBEAT = (a, v) => ({v: 1, amp: .06 + Math.max(0, v) * .08, freq: 2.2});
+const BOB = () => ({v: -1, amp: .55, freq: .42, kind: "bob"});
+const PAN = sign => (a, v, t) => {
+  const c = (t % 14) / 14; let dir = 0, env = 0;
+  if (c < .45) { dir = 1; env = Math.sin(Math.PI * c / .45); }
+  else if (c >= .5 && c < .95) { dir = -1; env = Math.sin(Math.PI * (c - .5) / .45); }
+  if (!dir || env < .1) return null;
+  return {a: dir * sign, amp: .04 + .12 * env, freq: 2.4};
+};
+const III = {off:{a:.55, v:-.3}, abd:.45, add:0, up:0, down:.1, ptosis:.85, pupil:1.55};
+const SO = (a, v) => ({y: .13 + (a < 0 ? -a * .16 : 0) + (v < 0 ? -v * .1 : 0)});
+
+/* ================= Lesions ================= */
+const REGIONS = ["Hemispheres & thalamus", "Midbrain", "Pons", "Medulla", "Cerebellum", "Nerves, skull base & orbit", "Muscle & neuromuscular junction", "Visual pathway"];
+const LESIONS = [
+{
+  id:"fef", region:"Hemispheres & thalamus", level:"Frontal lobe", name:"Frontal eye field", short:"Gaze deviation toward the lesion",
+  section:"lateral", pt:[205,92], lat:true, hl:[["e",374,100,24,19]],
+  summary:"Acute damage pushes both eyes toward the side of the lesion, away from the weak arm and leg.",
+  location:"Posterior end of the middle frontal gyrus, in and just in front of the precentral sulcus where it meets the superior frontal sulcus (Brodmann area 8 / 6), on the lateral surface of the frontal lobe.",
+  structures:["Frontal eye field: drives voluntary saccades to the opposite side", "Often the adjacent motor cortex or the corticospinal fibers beneath it"],
+  eyes:["Conjugate gaze deviation toward the lesion (acute)", "The deviation is overcome by the doll’s-head maneuver or cold calorics, because the brainstem gaze centers are intact", "Later: slow, delayed or hypometric voluntary saccades to the opposite side, and errors on antisaccades", "Usually resolves within days to weeks"],
+  other:["Contralateral hemiparesis: the eyes look away from the weak side", "Aphasia (dominant hemisphere) or neglect (non-dominant)"],
+  causes:["MCA territory infarct", "Frontal hemorrhage", "Tumor", "Traumatic contusion"],
+  pearl:"A seizure reverses the sign: an irritative focus drives the eyes away from the firing hemisphere. A pontine lesion also differs: there the eyes deviate toward the hemiparesis.",
+  m:{ipsi:{off:{a:.55}, add:.25}, contra:{off:{a:-.55}, abd:.25}},
+  vor:{ipsi:{off:{a:0}, add:1}, contra:{off:{a:0}, abd:1}},
+  note:"Switch to doll’s head: rotating the head brings the eyes across the midline, which proves the brainstem is intact."
+},
+{
+  id:"pef", region:"Hemispheres & thalamus", level:"Parietal and temporo-occipital cortex", name:"Parietal eye field and MT/V5", short:"Pursuit toward the lesion breaks up",
+  section:"lateral", pt:[430,98], lat:true, hl:[["e",222,116,28,15],["e",160,192,21,16]],
+  summary:"Damage here leaves the range of movement full. It slows tracking toward the side of the lesion and degrades visually guided saccades.",
+  location:"Parietal eye field: the intraparietal sulcus of the posterior parietal lobe. MT/V5 and MST: the temporo-occipital junction near the ascending limb of the inferior temporal sulcus (Brodmann 19/37/39).",
+  structures:["Parietal eye field: reflexive, visually triggered saccades", "MT/V5: visual motion", "MST: the drive for smooth pursuit", "Often the underlying optic radiation"],
+  eyes:["Smooth pursuit toward the lesion breaks into catch-up saccades (ipsilateral pursuit deficit)", "Asymmetric optokinetic response: weaker when the stripes move toward the side of the lesion (Cogan’s sign)", "Delayed reflexive saccades toward the opposite side", "Bilateral parieto-occipital damage: Balint syndrome (psychic paralysis of gaze, optic ataxia, simultanagnosia)"],
+  other:["Contralateral homonymous field defect", "Neglect (right parietal)"],
+  causes:["MCA or PCA territory infarct; watershed infarct", "Tumor", "Posterior cortical atrophy (Balint)", "Hypoxic injury (bilateral watershed)"],
+  pearl:"A hemianopia with symmetric OKN suggests an occipital lesion; a hemianopia with asymmetric OKN suggests a deep parietal one.",
+  m:{ipsi:{speed:{abd:1.6}}, contra:{speed:{add:1.6}}},
+  note:"The range is full. Sweep the target slowly toward the lesion side: the eyes lag, because pursuit toward that side is weak."
+},
+{
+  id:"thalamus", region:"Hemispheres & thalamus", level:"Medial thalamus", name:"Medial thalamic hemorrhage", short:"Eyes down and in, small pupils",
+  section:"sagittal", pt:[318,224], bilateralEyes:true, hl:[["e",322,228,32,20]],
+  summary:"Blood in the medial thalamus spreads onto the top of the midbrain. The eyes turn down and in, as if peering at the tip of the nose.",
+  location:"Medial (paramedian) thalamus at its junction with the rostral midbrain, often extending into the posterior commissure and pretectum. Supplied by the thalamoperforating (paramedian) branches of the P1 segment of the posterior cerebral artery.",
+  structures:["Medial thalamus", "Posterior commissure and riMLF (vertical gaze)", "Descending sympathetic fibers (small pupils)", "Adjacent internal capsule"],
+  eyes:["Both eyes deviated down and inward (“peering at the nose”)", "Upgaze palsy", "Small, poorly reactive pupils", "Thalamic esotropia (pseudo-abducens palsy)", "Occasionally “wrong-way eyes”: horizontal deviation away from the lesion, toward the hemiparesis"],
+  other:["Contralateral hemisensory loss and hemiparesis", "Reduced consciousness", "Aphasia or neglect"],
+  causes:["Hypertensive thalamic hemorrhage", "Artery of Percheron infarct (both paramedian thalami, with or without the rostral midbrain)", "Tumor"],
+  pearl:"Wrong-way eyes are the exception to the hemispheric rule. Most supratentorial lesions push the eyes toward the lesion; a medial thalamic bleed can push them away.",
+  m:SYM({off:{a:-.3, v:-.45}, up:0, pupil:.6}),
+  note:"Primary position already shows both eyes down and in."
+},
+{
+  id:"parinaud", region:"Midbrain", level:"Dorsal rostral midbrain", name:"Dorsal midbrain (Parinaud) syndrome", short:"Upgaze palsy, light-near dissociation",
+  section:"midbrainR", pt:[372,268], bilateral:true, hl:[["e",280,56,64,38]],
+  summary:"Pressure on the posterior commissure and pretectum abolishes upgaze, splits the pupil’s light and near responses, and retracts the lids.",
+  location:"Dorsal surface of the rostral midbrain at the level of the superior colliculi and posterior commissure (pretectal area), just above the cerebral aqueduct. Usually compressed from behind by a pineal region mass.",
+  structures:["Posterior commissure: carries up-gaze signals crossing from the riMLF and INC", "Pretectal nuclei: pupillary light reflex", "Periaqueductal grey and cerebral aqueduct", "Supranuclear lid control (lid retraction)"],
+  eyes:["Supranuclear upgaze palsy: Bell’s phenomenon and doll’s eyes may still elevate the eyes early on", "Convergence-retraction nystagmus on attempted upgaze (best seen with downward-moving OKN stripes)", "Light-near dissociation: large pupils, poor light reaction, brisk near reaction", "Lid retraction (Collier sign)", "Skew deviation; downgaze can follow later", "“Setting-sun” eyes in infants with hydrocephalus"],
+  other:["Headache, vomiting and papilledema from obstructive hydrocephalus (aqueduct compressed)"],
+  causes:["Pineal germinoma or pineocytoma (adolescent boys)", "Obstructive hydrocephalus or shunt failure", "Midbrain or thalamic stroke or hemorrhage", "MS, trauma", "Tectal glioma"],
+  pearl:"A teenager with new upgaze palsy and light-near dissociation needs imaging of the pineal region.",
+  m:SYM({up:.05, ptosis:-.35, pupil:1.4, nys:CR}),
+  vor:{both:{up:.8, nys:null}},
+  note:"Look up: the eyes jerk inward (convergence-retraction). Doll’s head restores much of the upward range."
+},
+{
+  id:"rimlf", region:"Midbrain", level:"Mesodiencephalic junction", name:"riMLF: vertical saccade generator", short:"Vertical gaze palsy, down worse",
+  section:"midbrainR", pt:[330,258], bilateral:true, hl:[["e",264,142,12,11],["e",296,142,12,11]],
+  summary:"Bilateral damage to the rostral interstitial nucleus of the MLF slows or stops vertical saccades, often worst for downgaze.",
+  location:"Rostral midbrain at the mesodiencephalic junction, dorsomedial to the rostral pole of the red nucleus, in the prerubral field just rostral to the oculomotor nucleus and the interstitial nucleus of Cajal.",
+  structures:["riMLF burst neurons for vertical and torsional saccades", "Up-burst neurons project to both sides through the posterior commissure", "Down-burst neurons project to the same side only"],
+  eyes:["Bilateral lesion: lost or slowed vertical saccades, usually downgaze worse than upgaze", "Unilateral lesion: loss of torsional quick phases toward the lesion side, torsional nystagmus; vertical range near normal", "Vertical doll’s-head (VOR) movement preserved: the palsy is supranuclear"],
+  other:["With an artery of Percheron infarct: drowsiness, amnesia, confusion (bilateral paramedian thalami)", "PSP: early falls backward, axial rigidity"],
+  causes:["Artery of Percheron infarct", "Progressive supranuclear palsy (PSP)", "Wernicke encephalopathy", "Whipple disease", "Niemann–Pick type C (vertical saccade palsy in young adults)"],
+  pearl:"Each riMLF sends down-gaze signals only to its own side, so an isolated downgaze palsy needs lesions on both sides. Up-gaze signals cross in the posterior commissure, so one dorsal lesion can stop upgaze.",
+  m:SYM({down:.12, up:.45, speed:{up:2.5, down:1.3}}),
+  vor:{both:{down:.95, up:.95, speed:{up:SPD, down:SPD}}},
+  note:"Voluntary vertical saccades are small and slow. Switch to doll’s head and the vertical range returns."
+},
+{
+  id:"inc", region:"Midbrain", level:"Rostral midbrain tegmentum", name:"Interstitial nucleus of Cajal", short:"Vertical gaze-holding failure, skew",
+  section:"midbrainR", pt:[344,262], hl:[["e",254,110,11,10]],
+  summary:"The vertical gaze-holding center. Damage lets upward and downward gaze drift back, and tilts the head and eyes away from the lesion.",
+  location:"Rostral midbrain, in the periaqueductal tegmentum just lateral to the MLF and the rostral end of the oculomotor nucleus, slightly caudal to the riMLF.",
+  structures:["Vertical and torsional neural integrator", "Relay for otolith (graviceptive) pathways ascending in the MLF", "Fibers into the posterior commissure"],
+  eyes:["Vertical gaze-evoked nystagmus; poor vertical gaze holding", "Torsional nystagmus", "Contraversive ocular tilt reaction: head tilts away from the lesion and the eye on the lesion side sits higher (skew deviation)", "Bilateral lesions: reduced vertical range for all movements, including the VOR"],
+  other:["Head tilt (ocular tilt reaction)"],
+  causes:["Midbrain infarct", "MS", "Tumor", "Trauma"],
+  pearl:"Skew deviation localizes by which eye is higher. Above the pontine crossing of the otolith pathway (INC, MLF) the eye on the lesion side is higher; at the vestibular nucleus or lateral medulla it is lower.",
+  m:{ipsi:{off:{v:.12}, nys:GEV(.1)}, contra:{nys:GEV(.1)}},
+  note:"The eye on the lesion side is higher. Look up or down to bring out vertical gaze-evoked nystagmus."
+},
+{
+  id:"iii-nuclear", region:"Midbrain", level:"Rostral midbrain, CN III nucleus", name:"Oculomotor nucleus", short:"III palsy + other eye’s elevation",
+  section:"midbrainR", pt:[350,274], hl:[["e",273,112,15,15]],
+  summary:"A nuclear third nerve palsy gives itself away in the other eye: weak elevation on that side and droopy lids on both.",
+  location:"Rostral midbrain at the level of the superior colliculus, in the midline just ventral to the periaqueductal grey and cerebral aqueduct, with the MLF along its ventrolateral border. The Edinger–Westphal nucleus sits dorsomedially.",
+  structures:["Subnuclei for the same-side medial rectus, inferior rectus and inferior oblique", "Superior rectus subnucleus: its fibers cross, so it supplies the opposite superior rectus", "Central caudal nucleus: one midline nucleus for both levators", "Edinger–Westphal nucleus: pupil and accommodation"],
+  eyes:["Same-side eye down and out: no adduction, elevation or depression", "Weak elevation of the opposite eye (crossed superior rectus)", "Ptosis on both sides (central caudal nucleus), or no ptosis if the lesion spares it", "Pupil may be dilated (Edinger–Westphal)"],
+  other:["Often isolated; nearby MLF or red nucleus can add an INO or ataxia"],
+  causes:["Small paramedian midbrain infarct (perforators from the basilar tip and P1)", "Hemorrhage", "MS", "Metastasis"],
+  pearl:"A unilateral third nerve palsy with a normal superior rectus on the other side cannot be nuclear. Isolated bilateral ptosis can be the only sign of a central caudal nucleus lesion.",
+  m:{ipsi:Object.assign({}, III, {ptosis:.8, pupil:1.5}), contra:{up:.3, ptosis:.8}}
+},
+{
+  id:"weber", region:"Midbrain", level:"Ventral midbrain", name:"Weber syndrome", short:"III palsy + crossed hemiparesis",
+  section:"midbrainR", pt:[302,282], hl:[["e",240,234,34,19]],
+  summary:"Third nerve fascicle plus cerebral peduncle: an eye that turns down and out on one side, a weak arm and leg on the other.",
+  location:"Ventromedial midbrain at the level of the superior colliculus: the medial cerebral peduncle (crus cerebri), where the oculomotor fascicles pass through it toward the interpeduncular fossa.",
+  structures:["CN III fascicle", "Corticospinal and corticobulbar fibers in the cerebral peduncle", "Sometimes the substantia nigra"],
+  eyes:["Same-side complete or partial third nerve palsy: ptosis, eye down and out, often a dilated pupil"],
+  other:["Contralateral hemiparesis", "Contralateral lower face and tongue weakness (corticobulbar)"],
+  causes:["Infarct of paramedian branches of the PCA or basilar tip", "Hemorrhage", "Tumor", "Uncal herniation pressing on the peduncle"],
+  pearl:"Fascicular third nerve palsies can be partial and mimic a divisional palsy, because the fibers for each muscle already run in separate bundles.",
+  m:{ipsi:III, contra:{}}
+},
+{
+  id:"benedikt", region:"Midbrain", level:"Midbrain tegmentum", name:"Benedikt syndrome", short:"III palsy + crossed tremor",
+  section:"midbrainR", pt:[326,284], hl:[["e",254,168,26,28]],
+  summary:"Third nerve fascicle plus red nucleus: a third nerve palsy with tremor and involuntary movement on the opposite side.",
+  location:"Ventral midbrain tegmentum at the level of the superior colliculus, where the oculomotor fascicles pass through the red nucleus; it can extend ventrally into the peduncle.",
+  structures:["CN III fascicle", "Red nucleus", "Crossed dentatorubrothalamic fibers (superior cerebellar peduncle)", "Sometimes the cerebral peduncle or medial lemniscus"],
+  eyes:["Same-side third nerve palsy"],
+  other:["Contralateral rubral (Holmes) tremor, chorea or hemiballismus", "Contralateral ataxia", "Sometimes contralateral hemiparesis or sensory loss"],
+  causes:["Paramedian midbrain infarct (P1 or basilar perforators)", "Hemorrhage", "Tumor", "Tuberculoma"],
+  pearl:"Claude syndrome is the more dorsal variant: third nerve fascicle plus superior cerebellar peduncle fibers, giving contralateral ataxia without hemiparesis or tremor.",
+  m:{ipsi:III, contra:{}}
+},
+{
+  id:"webino", region:"Midbrain", level:"Paramedian midbrain", name:"Bilateral MLF in the midbrain (WEBINO)", short:"Both eyes out, no adduction",
+  section:"midbrainR", pt:[352,280], bilateral:true, hl:[["e",280,122,36,13]],
+  summary:"Wall-eyed bilateral internuclear ophthalmoplegia: both eyes turn out, neither adducts, and convergence is lost.",
+  location:"Paramedian dorsal midbrain tegmentum at the level of the oculomotor nucleus, involving both MLFs where they reach the medial rectus subnuclei.",
+  structures:["Both MLFs", "Sometimes the medial rectus subnuclei and convergence neurons"],
+  eyes:["Exotropia in primary position (both eyes)", "Adduction fails on both sides", "Abducting nystagmus in whichever eye abducts", "Convergence lost (rostral lesion)", "Vertical gaze-evoked nystagmus and poor vertical pursuit and VOR (vertical signals also run in the MLF)"],
+  other:["Often other midbrain signs"],
+  causes:["Multiple sclerosis", "Midbrain infarct", "Tumor", "Wernicke encephalopathy"],
+  pearl:"Bilateral INO in a young adult is multiple sclerosis until proven otherwise.",
+  m:SYM({off:{a:.35}, add:.1, abd:.65, nys:ABDN})
+},
+{
+  id:"iv-nuclear", region:"Midbrain", level:"Caudal midbrain, CN IV nucleus", name:"Trochlear nucleus and fascicle", short:"Opposite superior oblique palsy",
+  section:"midbrainC", pt:[358,294], hl:[["e",244,124,38,17]],
+  summary:"The only crossed motor nerve. A lesion of the trochlear nucleus weakens the superior oblique of the opposite eye.",
+  location:"Caudal midbrain at the level of the inferior colliculus, in the ventral periaqueductal grey, dorsal to the MLF (the nucleus indents it). Its fascicles curve dorsally around the aqueduct and cross in the superior medullary velum before leaving the back of the brainstem just below the inferior colliculi.",
+  structures:["Trochlear nucleus or fascicle (before the crossing)", "Descending sympathetic fibers in the nearby lateral tegmentum", "Sometimes the MLF or brachium of the superior colliculus"],
+  eyes:["Opposite superior oblique palsy: that eye sits higher (hypertropia)", "Hypertropia is worse on gaze toward the lesion side (when the weak eye adducts) and on downgaze", "Worse with head tilt toward the weak eye (Bielschowsky)", "Can come with a same-side Horner syndrome or INO"],
+  other:["Vertical or diagonal diplopia, worse reading or going downstairs", "Head tilt away from the weak eye"],
+  causes:["Midbrain infarct or hemorrhage", "MS", "Trauma", "Tumor (pineal, tectal)"],
+  pearl:"Horner syndrome on one side plus superior oblique palsy on the other points to the trochlear nucleus or fascicle on the Horner side.",
+  m:{ipsi:{ptosis:.25, pupil:.65}, contra:{fn:SO}},
+  note:"The eye opposite the lesion is high, most in down-and-in gaze. The lesion-side eye shows a mild Horner."
+},
+{
+  id:"abducens-nucleus", region:"Pons", level:"Dorsal caudal pons", name:"Abducens nucleus (Foville syndrome)", short:"Horizontal gaze palsy + VII",
+  section:"pons", pt:[360,344], hl:[["e",250,88,22,19]],
+  summary:"Destroying the abducens nucleus takes away horizontal gaze to that side for both eyes, not just abduction of one.",
+  location:"Dorsal caudal pons in the floor of the fourth ventricle, under the facial colliculus, encircled by the genu of the facial nerve. Paramedian, just lateral to the MLF.",
+  structures:["Abducens motoneurons: same-side lateral rectus", "Abducens internuclear neurons: cross at once and climb the opposite MLF to the medial rectus subnucleus", "Facial nerve genu", "Foville syndrome adds PPRF, corticospinal tract, spinal trigeminal nucleus and sympathetic fibers"],
+  eyes:["Same-side horizontal gaze palsy: neither eye moves toward the lesion", "Not overcome by doll’s head or calorics (nuclear lesion)", "Vertical movement and convergence spared", "Eyes may rest deviated away from the lesion, toward the hemiparesis"],
+  other:["Same-side lower motor neuron facial palsy (genu)", "Foville: contralateral hemiparesis, same-side facial numbness, Horner syndrome, deafness"],
+  causes:["Pontine infarct (paramedian or short circumferential basilar branches, AICA)", "MS", "Pontine glioma", "Wernicke encephalopathy", "Möbius syndrome (congenital, with facial diplegia)"],
+  pearl:"An isolated abduction deficit is a nerve problem. A horizontal gaze palsy is a nucleus or PPRF problem: the abducens nucleus never produces an isolated lateral rectus palsy.",
+  m:{ipsi:{abd:0}, contra:{add:0}},
+  note:"Neither eye reaches the lesion side, and doll’s head does not help."
+},
+{
+  id:"pprf", region:"Pons", level:"Paramedian pontine tegmentum", name:"PPRF: horizontal saccade generator", short:"Saccade palsy, VOR spared",
+  section:"pons", pt:[352,340], hl:[["e",263,124,13,17]],
+  summary:"Loss of the paramedian pontine reticular formation stops fast eye movements toward the lesion, while the VOR can still get through.",
+  location:"Paramedian pontine tegmentum, ventral and lateral to the MLF, running from the abducens nucleus rostrally toward the trochlear nucleus. The excitatory burst neurons lie in the nucleus reticularis pontis caudalis, just rostral to the abducens nucleus.",
+  structures:["Excitatory burst neurons for same-side horizontal saccades", "Output to the same-side abducens nucleus", "Inhibitory burst neurons for the antagonist lie just caudal, in the rostral medulla"],
+  eyes:["Same-side horizontal saccade palsy, or very slow saccades toward the lesion", "Doll’s head can still drive the eyes toward the lesion: the VOR reaches the abducens nucleus by a separate route", "Acutely the eyes may rest deviated away from the lesion", "Bilateral lesions: horizontal saccades lost both ways; vertical saccades can slow too"],
+  other:["Contralateral hemiparesis if the lesion reaches the basis pontis"],
+  causes:["Paramedian pontine infarct", "MS", "Hemorrhage", "Tumor"],
+  pearl:"Test with and without the doll’s-head maneuver. A spared VOR points to the PPRF; a lost VOR points to the abducens nucleus.",
+  m:{ipsi:{abd:0}, contra:{add:0}},
+  vor:{ipsi:{abd:1}, contra:{add:1}},
+  note:"Voluntary gaze toward the lesion fails. Switch to doll’s head: the eyes now reach that side."
+},
+{
+  id:"ino", region:"Pons", level:"Paramedian dorsal pons", name:"Internuclear ophthalmoplegia (MLF)", short:"Weak adduction, abducting nystagmus",
+  section:"pons", pt:[358,330], hl:[["e",271,94,9,8]],
+  summary:"The eye on the side of the MLF lesion will not adduct on horizontal gaze, though it still converges.",
+  location:"Medial longitudinal fasciculus in the paramedian dorsal tegmentum of the pons (or midbrain), just beneath the floor of the fourth ventricle beside the midline, between the abducens and oculomotor nuclei.",
+  structures:["MLF axons from the opposite abducens internuclear neurons, carrying the command to the same-side medial rectus subnucleus", "Vertical VOR, pursuit and otolith fibers"],
+  eyes:["Adduction weak or slow on the lesion side (a slow adducting saccade is the most sensitive sign)", "Abducting nystagmus of the opposite eye (dissociated nystagmus)", "Convergence preserved if the midbrain is spared", "Skew deviation, eye on the lesion side higher", "Vertical gaze-evoked nystagmus and impaired vertical pursuit"],
+  other:["Often none in an isolated INO"],
+  causes:["Multiple sclerosis (young, often bilateral)", "Brainstem infarct (older, usually unilateral)", "Trauma, tumor, Wernicke, infection", "Mimic: ocular myasthenia (pseudo-INO)"],
+  pearl:"An INO is named for the side of the adduction deficit, which is the side of the MLF lesion, not the side of the nystagmus.",
+  m:{ipsi:{add:.15, off:{v:.08}, speed:{add:2}}, contra:{nys:ABDN}},
+  note:"Look away from the lesion side: the adducting eye lags and stops short while the abducting eye beats."
+},
+{
+  id:"one-and-a-half", region:"Pons", level:"Dorsal caudal pons", name:"One-and-a-half syndrome", short:"Only the other eye can abduct",
+  section:"pons", pt:[362,352], hl:[["e",258,90,26,21]],
+  summary:"Gaze palsy plus INO on the same side. The only horizontal movement left is abduction of the opposite eye.",
+  location:"Dorsal caudal pontine tegmentum on one side, taking in the abducens nucleus (or PPRF) and the adjacent same-side MLF beneath the floor of the fourth ventricle.",
+  structures:["Abducens nucleus or PPRF: the “one”, a same-side gaze palsy", "Same-side MLF: the “half”, a same-side INO", "Sometimes the facial genu or fascicle: “eight-and-a-half” (1½ + CN VII)"],
+  eyes:["No horizontal movement of the same-side eye", "The opposite eye can only abduct, with abducting nystagmus", "Sometimes paralytic pontine exotropia: the opposite eye turns out in primary position", "Vertical movement and convergence usually spared"],
+  other:["Eight-and-a-half syndrome: same-side lower motor neuron facial palsy", "Sometimes contralateral hemiparesis"],
+  causes:["Multiple sclerosis", "Pontine infarct or hemorrhage", "Tumor", "Trauma"],
+  pearl:"Eight-and-a-half syndrome (one-and-a-half plus facial palsy) reliably places the lesion in the dorsal caudal pontine tegmentum, at the facial colliculus.",
+  m:{ipsi:{abd:0, add:0}, contra:{add:0, nys:ABDN}},
+  note:"Only one movement survives: the eye opposite the lesion abducting, with nystagmus."
+},
+{
+  id:"millard-gubler", region:"Pons", level:"Ventral caudal pons", name:"Millard–Gubler and Raymond syndromes", short:"VI (± VII) + crossed hemiparesis",
+  section:"pons", pt:[282,350], hl:[["p","M160,206 C190,196 238,196 262,206 C266,234 256,262 238,270 C210,268 176,252 160,232 Z"]],
+  summary:"The sixth nerve fascicle crosses the corticospinal tract on its way out: lateral rectus palsy on one side, hemiparesis on the other.",
+  location:"Ventral (basis) pons at its caudal end near the pontomedullary junction, where the abducens fascicles pass through the corticospinal bundles. Millard–Gubler extends laterally to the facial fascicle.",
+  structures:["CN VI fascicle", "Corticospinal tract", "CN VII fascicle (Millard–Gubler only)"],
+  eyes:["Same-side abduction deficit with esotropia: a single lateral rectus palsy, not a gaze palsy", "Horizontal diplopia, worse looking toward the lesion"],
+  other:["Contralateral hemiparesis", "Same-side lower motor neuron facial palsy in Millard–Gubler; absent in Raymond syndrome"],
+  causes:["Paramedian basilar branch infarct", "Pontine hemorrhage", "Tumor", "MS"],
+  pearl:"Abduction deficit with crossed hemiparesis puts the lesion in the ventral pons. Gaze palsy with crossed hemiparesis puts it dorsal and larger (Foville).",
+  m:{ipsi:{abd:.15, off:{a:-.22}}, contra:{}}
+},
+{
+  id:"omnipause", region:"Pons", level:"Midline caudal pons", name:"Omnipause neurons", short:"Slow saccades in every direction",
+  section:"pons", pt:[346,348], bilateral:true, hl:[["e",280,124,8,13]],
+  summary:"Midline pause cells keep the saccade generators quiet between saccades. Damage slows all saccades; disinhibition is one proposed cause of opsoclonus and flutter.",
+  location:"Midline of the caudal pons, in the nucleus raphe interpositus at the level of the abducens nuclei, between the two PPRFs.",
+  structures:["Omnipause neurons (glycinergic): inhibit burst neurons in both PPRFs and both riMLFs"],
+  eyes:["Slow saccades in all directions, horizontal and vertical", "Range, pursuit and VOR preserved", "Proposed mechanism for ocular flutter and opsoclonus (together with fastigial circuits)"],
+  other:["Usually none"],
+  causes:["After cardiac surgery with cardiopulmonary bypass", "Paraneoplastic or post-infectious brainstem encephalitis", "Small midline pontine lesions"],
+  pearl:"Slow saccades in both planes after heart surgery, with a full range on doll’s head: think of omnipause neuron injury.",
+  m:SYM({speed:{abd:2, add:2, up:2, down:2}}),
+  note:"The range is full. Move the target and watch every saccade crawl."
+},
+{
+  id:"pontine-bleed", region:"Pons", level:"Central pons", name:"Pontine hemorrhage", short:"Pinpoint pupils, ocular bobbing",
+  section:"pons", pt:[322,336], bilateral:true, hl:[["e",280,168,78,62]],
+  summary:"A large central bleed removes horizontal gaze in both directions, shrinks the pupils to pinpoints and can produce ocular bobbing.",
+  location:"Central pons, usually starting at the junction of tegmentum and basis pontis (paramedian perforators of the basilar artery) and spreading across both sides.",
+  structures:["Both abducens nuclei, PPRFs and MLFs", "Descending sympathetic pathways on both sides", "Corticospinal tracts", "Reticular activating system"],
+  eyes:["Bilateral horizontal gaze palsy, with no horizontal doll’s eyes", "Pinpoint pupils that still react under magnification", "Ocular bobbing: a fast downward jerk, then a slow drift back up", "Skew deviation"],
+  other:["Coma", "Quadriplegia, decerebrate posturing", "Hyperthermia, irregular breathing"],
+  causes:["Hypertensive hemorrhage", "Cavernous malformation", "Basilar thrombosis (bobbing also occurs)"],
+  pearl:"Typical bobbing (fast down, slow up) points to the pons. Its variants (dipping, reverse bobbing) localize less well and also follow anoxic or metabolic injury.",
+  m:SYM({abd:0, add:0, pupil:.35, nys:BOB}),
+  note:"No horizontal movement either way. Watch for the fast-down, slow-up bob."
+},
+{
+  id:"locked-in", region:"Pons", level:"Ventral pons, both sides", name:"Locked-in syndrome", short:"Only vertical gaze and blinks",
+  section:"pons", pt:[284,330], bilateral:true, hl:[["p","M140,206 C190,196 370,196 420,206 C410,240 380,264 330,274 C300,279 260,279 230,274 C180,264 150,240 140,206 Z"]],
+  summary:"Infarction of both halves of the basis pontis leaves the patient awake but unable to move anything except the eyes vertically and the lids.",
+  location:"Ventral (basis) pons on both sides, sparing the dorsal tegmentum with its reticular activating system. The midbrain, which runs vertical gaze, is spared.",
+  structures:["Corticospinal tracts (both)", "Corticobulbar tracts (both)", "Abducens fascicles or PPRF if the infarct reaches the tegmentum"],
+  eyes:["Vertical eye movements and blinking preserved: the only channel of communication", "Horizontal gaze often lost (fascicles or PPRF involved)", "Ocular bobbing or skew possible"],
+  other:["Quadriplegia, anarthria, facial diplegia", "Consciousness and sensation preserved"],
+  causes:["Basilar artery thrombosis", "Pontine hemorrhage", "Osmotic demyelination (central pontine myelinolysis)", "Trauma"],
+  pearl:"In any apparently comatose patient with a pontine lesion, ask them to look up and to blink.",
+  m:SYM({abd:.1, add:.1}),
+  note:"Horizontal movement is gone; up and down still work."
+},
+{
+  id:"wallenberg", region:"Medulla", level:"Dorsolateral medulla", name:"Lateral medullary (Wallenberg) syndrome", short:"Ipsipulsion, skew, Horner",
+  section:"medulla", pt:[348,392], hl:[["p","M152,92 C168,74 206,74 232,90 C236,128 226,170 214,200 C196,204 172,202 160,194 C144,164 140,124 152,92 Z"]],
+  summary:"A dorsolateral medullary infarct pulls saccades toward the lesion, skews the eyes and adds a Horner syndrome on the same side.",
+  location:"Dorsolateral rostral medulla at the level of the inferior olive: the wedge behind the olive and in front of the inferior cerebellar peduncle, lateral to the hypoglossal nucleus. Territory of the PICA or the intracranial vertebral artery.",
+  structures:["Vestibular nuclei (lateral, inferior and medial parts)", "Inferior cerebellar peduncle (olivocerebellar fibers)", "Descending sympathetic fibers", "Spinal trigeminal nucleus and tract", "Nucleus ambiguus (IX, X)", "Lateral spinothalamic tract"],
+  eyes:["Ipsipulsion: saccades overshoot toward the lesion and undershoot away; the eyes drift toward the lesion under closed lids", "Horizontal-torsional nystagmus, usually beating away from the lesion", "Skew deviation with the same-side eye lower and the head tilted toward the lesion (ipsiversive ocular tilt reaction)", "Same-side Horner syndrome: mild ptosis and a small pupil"],
+  other:["Vertigo and vomiting", "Loss of pain and temperature on the same side of the face and the opposite side of the body", "Dysphagia, hoarseness, weak palate (nucleus ambiguus)", "Same-side limb ataxia; hiccups"],
+  causes:["Vertebral artery occlusion or dissection (most common)", "PICA occlusion", "MS or tumor (rare)"],
+  pearl:"Ipsipulsion comes from the inferior cerebellar peduncle. Without climbing-fiber input, Purkinje cells over-inhibit the same-side fastigial nucleus, so saccades overshoot toward the lesion.",
+  m:{ipsi:{off:{v:-.1}, ptosis:.3, pupil:.6, nys:() => ({a:-1, t:-1, amp:.06, freq:2.2})}, contra:{nys:() => ({a:1, t:1, amp:.06, freq:2.2})}},
+  note:"Same-side eye lower, smaller pupil and droopier lid; nystagmus beats away from the lesion with a torsional component."
+},
+{
+  id:"medial-medulla", region:"Medulla", level:"Paramedian medulla", name:"Perihypoglossal nuclei and medial medulla", short:"Upbeat nystagmus",
+  section:"medulla", pt:[334,398], hl:[["p","M262,90 L279,90 L279,268 L262,268 C252,258 246,240 250,220 C256,180 258,130 262,90 Z"]],
+  summary:"Lesions near the midline of the medulla produce upbeat nystagmus in primary gaze. A medial medullary infarct adds tongue and limb signs.",
+  location:"Dorsal paramedian caudal medulla, in the perihypoglossal nuclei (nucleus intercalatus, nucleus of Roller) just under the floor of the fourth ventricle. The medial medullary syndrome extends ventrally through the medial lemniscus to the pyramid.",
+  structures:["Nucleus intercalatus and perihypoglossal nuclei (vertical gaze holding, upward VOR pathway)", "Hypoglossal nucleus or fascicle", "Medial lemniscus", "Pyramid"],
+  eyes:["Upbeat nystagmus in primary position, increasing on upgaze", "Little change with lateral gaze"],
+  other:["Medial medullary (Dejerine) syndrome: same-side tongue weakness (tongue deviates toward the lesion), contralateral hemiparesis sparing the face, contralateral loss of vibration and position sense"],
+  causes:["Medial medullary infarct (anterior spinal or vertebral branches)", "MS", "Wernicke encephalopathy", "Tumor"],
+  pearl:"Upbeat nystagmus localizes less tightly than downbeat: think caudal medulla, pontomesencephalic junction or anterior vermis, and always Wernicke.",
+  m:SYM({nys:UPBEAT}),
+  note:"Upbeating in primary gaze, stronger looking up."
+},
+{
+  id:"nph", region:"Medulla", level:"Pontomedullary junction", name:"Nucleus prepositus hypoglossi and medial vestibular nucleus", short:"Horizontal gaze-evoked nystagmus",
+  section:"medulla", pt:[356,370], hl:[["e",242,90,32,14]],
+  summary:"The horizontal neural integrator. Without it, eccentric gaze cannot be held and the eyes drift back toward the center.",
+  location:"Dorsomedial medulla near the pontomedullary junction, just beneath the floor of the fourth ventricle: the nucleus prepositus hypoglossi lies rostral to the hypoglossal nucleus, with the medial vestibular nucleus immediately lateral.",
+  structures:["NPH–MVN complex: integrates horizontal velocity commands into position", "Connections with the flocculus and the abducens nucleus"],
+  eyes:["Horizontal gaze-evoked nystagmus: the eyes drift back to center and fast phases beat toward the direction of gaze", "Unilateral lesions can add a spontaneous nystagmus and asymmetric gaze holding", "Vertical gaze holding relatively spared (its integrator is the INC)"],
+  other:["Vertigo and imbalance"],
+  causes:["Infarct (PICA or AICA perforators)", "MS", "Tumor", "Drugs and alcohol impair the same integrator diffusely"],
+  pearl:"Gaze-evoked nystagmus is the most common nystagmus, and its most common cause is medication (antiseizure drugs, sedatives) or alcohol rather than a focal lesion.",
+  m:SYM({nys:GEH(.1)}),
+  note:"Primary gaze is steady. Look to either side and the eyes beat in the direction of gaze."
+},
+{
+  id:"flocculus", region:"Cerebellum", level:"Vestibulocerebellum", name:"Flocculus and paraflocculus", short:"Downbeat nystagmus",
+  section:"cerebellum", pt:[400,372], bilateral:true, hl:[["e",176,256,28,15],["e",384,256,28,15]],
+  summary:"The classic source of downbeat nystagmus, often from a problem at the craniocervical junction.",
+  location:"Flocculus and paraflocculus on the inferior surface of each cerebellar hemisphere, next to the middle cerebellar peduncle at the cerebellopontine angle and close to the foramen magnum.",
+  structures:["Floccular Purkinje cells, which inhibit the vestibular nuclei (more for upward pathways)", "Paraflocculus (pursuit)", "Connections to the vestibular nuclei and NPH"],
+  eyes:["Downbeat nystagmus in primary gaze, worse looking down and to the sides", "Gaze-evoked and rebound nystagmus", "Saccadic, broken-up smooth pursuit", "Cannot suppress the VOR during combined eye-head tracking"],
+  other:["Oscillopsia and imbalance", "With Chiari: occipital headache on coughing, lower cranial nerve signs"],
+  causes:["Chiari I malformation", "Spinocerebellar ataxia type 6 and other degenerations", "Lithium, antiseizure drugs", "Magnesium deficiency, Wernicke, alcohol", "MS, infarct, paraneoplastic"],
+  pearl:"Downbeat nystagmus worse on lateral and downgaze: get a sagittal MRI of the craniocervical junction before calling it idiopathic.",
+  m:SYM({nys:DOWNBEAT}),
+  note:"Downbeating in primary gaze, strongest looking down and to the side."
+},
+{
+  id:"vermis", region:"Cerebellum", level:"Oculomotor cerebellum", name:"Dorsal vermis and fastigial nucleus", short:"Saccadic dysmetria",
+  section:"cerebellum", pt:[470,320], bilateral:true, hl:[["p","M258,114 L302,114 L302,158 L258,158 Z"],["e",270,176,10,12],["e",290,176,10,12]],
+  summary:"The cerebellum calibrates saccade size. Damage makes saccades miss: short from the vermis, long from the fastigial nucleus.",
+  location:"Oculomotor vermis: lobules VI and VII of the dorsal vermis, on the midline just behind the primary fissure. Its output goes to the caudal fastigial nucleus (the fastigial oculomotor region), the most medial deep cerebellar nucleus, in the roof of the fourth ventricle.",
+  structures:["Dorsal vermis lobules VI–VII: saccade amplitude and pursuit calibration", "Caudal fastigial nucleus: projects across the midline to the brainstem burst neurons"],
+  eyes:["Dorsal vermis lesion: hypometric saccades (undershoot), worse toward the lesion; poor saccade adaptation", "Fastigial nucleus lesion: hypermetric saccades (overshoot); both sides damaged, overshoot in all directions", "Square-wave jerks, ocular flutter and opsoclonus when the circuit is disinhibited", "Impaired pursuit"],
+  other:["Truncal and gait ataxia (midline cerebellum)", "Dysarthria"],
+  causes:["Cerebellar infarct, hemorrhage or tumor (medulloblastoma in children)", "Degenerations, alcohol", "Opsoclonus–myoclonus: neuroblastoma (children), anti-Ri (breast, gynecological cancer), small-cell lung cancer, post-infectious"],
+  pearl:"Overshoot localizes to the fastigial nucleus or its pathways, including the ipsipulsion of the lateral medullary syndrome; undershoot is less specific.",
+  m:SYM({dyn:"over"}),
+  note:"The range is full. Move the target: each saccade overshoots and settles back (fastigial pattern)."
+},
+{
+  id:"nodulus", region:"Cerebellum", level:"Inferior vermis", name:"Nodulus and ventral uvula", short:"Periodic alternating nystagmus",
+  section:"cerebellum", pt:[404,350], bilateral:true, hl:[["p","M258,198 L302,198 L302,262 L258,262 Z"]],
+  summary:"The controller of velocity storage. Damage produces periodic alternating nystagmus, which reverses direction every one to two minutes.",
+  location:"Midline inferior vermis: the nodulus (lobule X) and ventral uvula (lobule IX), forming the roof of the fourth ventricle above the vestibular nuclei.",
+  structures:["Nodulus and uvula Purkinje cells (control velocity storage and tilt responses)", "Connections to the vestibular nuclei"],
+  eyes:["Periodic alternating nystagmus: horizontal jerk nystagmus beating one way for about 90–120 s, a brief null, then the other way", "Prolonged post-rotatory nystagmus; loss of tilt suppression", "Positional downbeat nystagmus"],
+  other:["Truncal ataxia"],
+  causes:["Chiari malformation", "MS", "Cerebellar degeneration or tumor", "Antiseizure drugs", "Congenital; acquired after bilateral visual loss"],
+  pearl:"Periodic alternating nystagmus responds to baclofen. Watch for at least two minutes before calling a horizontal nystagmus one-directional.",
+  m:{ipsi:{nys:PAN(1)}, contra:{nys:PAN(-1)}},
+  note:"The cycle is compressed to 14 s here; in a patient each half-cycle lasts about 90–120 s."
+},
+{
+  id:"pcomm", region:"Nerves, skull base & orbit", level:"Subarachnoid CN III", name:"Third nerve compression (PComm aneurysm)", short:"Pupil-involving III palsy",
+  section:"nerve", pt:[288,272], hl:[["c",412,92,22]],
+  summary:"A posterior communicating artery aneurysm compresses the third nerve from outside, so the pupil goes first.",
+  location:"Subarachnoid segment of CN III after it leaves the interpeduncular fossa: it passes between the posterior cerebral and superior cerebellar arteries, then runs beside the posterior communicating artery near its junction with the internal carotid, below the tentorial edge and medial to the uncus.",
+  structures:["CN III, with its pupillomotor (parasympathetic) fibers on the superficial, superomedial surface"],
+  eyes:["Same-side ptosis, eye down and out", "Dilated, poorly reactive pupil: the surface fibers are hit first", "Often painful"],
+  other:["Headache; thunderclap headache if the aneurysm ruptures", "Uncal herniation: blown pupil, falling consciousness, and sometimes same-side hemiparesis (Kernohan notch)"],
+  causes:["PComm aneurysm", "Basilar tip or superior cerebellar artery aneurysm", "Uncal (transtentorial) herniation", "Meningitis, tumor"],
+  pearl:"A painful, pupil-involving third nerve palsy is an aneurysm until CTA or MRA shows otherwise. It is a neurosurgical emergency.",
+  m:{ipsi:Object.assign({}, III, {pupil:1.65}), contra:{}}
+},
+{
+  id:"micro-iii", region:"Nerves, skull base & orbit", level:"Core of the CN III trunk", name:"Microvascular third nerve palsy", short:"Pupil-sparing III palsy",
+  section:"nerve", pt:[276,264], hl:[["e",360,101,42,14]],
+  summary:"Ischemia infarcts the core of the nerve and spares the pupil fibers on its surface.",
+  location:"Inside the trunk of CN III, usually its subarachnoid or intracavernous portion. The infarct is central in the nerve and spares the peripheral pupillomotor fibers.",
+  structures:["Central motor fibers of CN III (levator and extraocular muscles)"],
+  eyes:["Same-side ptosis and a down-and-out eye", "Pupil normal or barely larger in most cases", "Periorbital pain is common"],
+  other:["Vascular risk factors: diabetes, hypertension, high cholesterol, smoking, age over 50"],
+  causes:["Diabetic or hypertensive microvascular ischemia", "Giant cell arteritis (check ESR and CRP in older patients)"],
+  pearl:"Expect recovery in 8–12 weeks. Image if the patient is young, the pupil becomes involved, other nerves join in, or it does not improve. Aberrant regeneration never follows a microvascular palsy and implies compression.",
+  m:{ipsi:Object.assign({}, III, {pupil:1}), contra:{}}
+},
+{
+  id:"iv-nerve", region:"Nerves, skull base & orbit", level:"Peripheral CN IV", name:"Trochlear nerve palsy", short:"Same-side hypertropia",
+  section:"nerve", pt:[380,300], hl:[["c",532,104,20]],
+  summary:"The thin trochlear nerve leaves the back of the brainstem and is easily hurt by head trauma. After its crossing, the weak superior oblique is on the same side as the damaged nerve.",
+  location:"Peripheral course of CN IV: exit from the dorsal midbrain below the inferior colliculus (both nerves cross in the superior medullary velum here), around the cerebral peduncle under the tentorial edge, through the lateral wall of the cavernous sinus, and through the superior orbital fissure to the superior oblique.",
+  structures:["CN IV after its crossing: supplies the same-side superior oblique", "The longest intracranial course of any cranial nerve"],
+  eyes:["Same-side hypertropia", "Worse on gaze to the opposite side and on downgaze", "Worse with head tilt toward the affected side (Bielschowsky)", "Excyclotorsion; the patient tilts the head away from the affected side"],
+  other:["Vertical or diagonal diplopia when reading or walking downstairs"],
+  causes:["Head trauma, the most common acquired cause; often bilateral after severe injury at the superior medullary velum", "Decompensated congenital palsy (large vertical fusion range; old photos show a head tilt)", "Microvascular ischemia", "Tumor or aneurysm (rare)"],
+  pearl:"Parks–Bielschowsky three-step test: which eye is higher, is it worse looking right or left, is it worse tilting right or left. Superior oblique palsy: hypertropia, worse on opposite gaze, worse on same-side tilt.",
+  m:{ipsi:{fn:SO}, contra:{}},
+  note:"The affected eye rides high, most in down-and-in gaze."
+},
+{
+  id:"vi-dorello", region:"Nerves, skull base & orbit", level:"Petrous apex", name:"Sixth nerve at the petrous apex", short:"Abduction deficit, false-localizing",
+  section:"nerve", pt:[286,322], hl:[["c",354,160,20]],
+  summary:"The sixth nerve bends sharply over the petrous apex, where raised pressure or local inflammation can stretch it. It is the classic false-localizing sign.",
+  location:"After leaving the brainstem at the pontomedullary junction, CN VI climbs the clivus in the prepontine cistern, pierces the dura and crosses the petrous apex beneath the petroclinoid (Gruber) ligament in Dorello’s canal, then enters the cavernous sinus.",
+  structures:["CN VI where it is tethered at the petrous apex"],
+  eyes:["Same-side abduction deficit with esotropia, worse at distance and looking toward the affected side", "Often bilateral with raised intracranial pressure"],
+  other:["Raised pressure: headache, papilledema", "Gradenigo syndrome: sixth nerve palsy, same-side facial or retro-orbital pain (V1) and ear discharge (petrous apicitis)"],
+  causes:["Raised intracranial pressure (idiopathic intracranial hypertension, tumor, hydrocephalus), or low pressure after lumbar puncture", "Petrous apicitis from complicated otitis media", "Clival chordoma, nasopharyngeal carcinoma, meningioma", "Basal skull fracture", "Microvascular ischemia"],
+  pearl:"A sixth nerve palsy can mean only that pressure is high. It does not show where the lesion is.",
+  m:{ipsi:{abd:.12, off:{a:-.25}}, contra:{}}
+},
+{
+  id:"cavernous", region:"Nerves, skull base & orbit", level:"Parasellar", name:"Cavernous sinus syndrome", short:"III, IV, VI + V1/V2 + Horner",
+  section:"nerve", pt:[262,286], hl:[["e",256,131,64,42]],
+  summary:"Several ocular motor nerves fail together with forehead and cheek numbness and a Horner pupil: the lesion is in the cavernous sinus.",
+  location:"The paired venous sinus beside the sella turcica and sphenoid body. CN III, IV, V1 and V2 run in its lateral wall, top to bottom; CN VI runs free inside the sinus next to the internal carotid artery, joined briefly by the oculosympathetic fibers.",
+  structures:["CN III, IV and VI", "V1 and V2 (V3 leaves through the foramen ovale and is spared)", "Third-order oculosympathetic fibers on the carotid", "Cavernous segment of the internal carotid artery"],
+  eyes:["Painful ophthalmoplegia of one eye in any combination of III, IV and VI", "Pupil small, large, or mid-sized and fixed (both sympathetic and parasympathetic fibers hit)", "Sixth nerve palsy with Horner syndrome (Parkinson sign) is specific", "Carotid-cavernous fistula: proptosis, chemosis, corkscrew conjunctival vessels, bruit, raised eye pressure"],
+  other:["Numb forehead and cheek (V1, V2) and a reduced corneal reflex"],
+  causes:["Carotid-cavernous fistula", "Cavernous carotid aneurysm", "Pituitary adenoma or apoplexy, meningioma, metastasis, nasopharyngeal carcinoma", "Septic cavernous sinus thrombosis (facial or sinus infection)", "Tolosa–Hunt syndrome (granulomatous inflammation, steroid-responsive)", "Mucormycosis (diabetic ketoacidosis)"],
+  pearl:"CN VI floats inside the sinus beside the carotid, so it is often the first nerve affected by a cavernous aneurysm.",
+  m:{ipsi:{abd:.15, add:.15, up:.1, down:.1, ptosis:.75, pupil:1.05}, contra:{}}
+},
+{
+  id:"orbital-apex", region:"Nerves, skull base & orbit", level:"Back of the orbit", name:"Orbital apex and superior orbital fissure", short:"Ophthalmoplegia ± vision loss",
+  section:"nerve", pt:[188,262], hl:[["e",156,126,26,32]],
+  summary:"At the back of the orbit all the eye’s motor nerves sit next to the optic nerve. Vision loss separates an apex lesion from a fissure lesion.",
+  location:"The superior orbital fissure (between the greater and lesser wings of the sphenoid) and the adjacent optic canal at the orbital apex, inside the tendinous ring (annulus of Zinn).",
+  structures:["CN III (superior and inferior divisions), IV, VI and V1 through the superior orbital fissure", "Optic nerve and ophthalmic artery in the optic canal (apex syndrome)", "Sympathetic fibers"],
+  eyes:["Ophthalmoplegia with ptosis", "Proptosis with an orbital mass", "Apex syndrome: optic neuropathy, reduced acuity, relative afferent pupillary defect", "Superior orbital fissure syndrome: the same motor signs without visual loss", "Divisional third nerve palsy possible: superior division (ptosis, weak elevation) or inferior division (weak adduction and depression, dilated pupil)"],
+  other:["Forehead numbness (V1)", "Pain"],
+  causes:["Invasive fungal sinusitis (mucormycosis, aspergillosis)", "Orbital cellulitis or inflammation (IgG4-related disease, sarcoidosis)", "Metastasis, lymphoma, meningioma", "Orbital fracture", "Herpes zoster ophthalmicus"],
+  pearl:"Ophthalmoplegia with vision loss suggests the orbital apex. Ophthalmoplegia with cheek (V2) numbness and normal vision suggests the cavernous sinus.",
+  m:{ipsi:{abd:.1, add:.1, up:.1, down:.1, ptosis:.7, pupil:1.35}, contra:{}}
+},
+{
+  id:"argyll-robertson", region:"Midbrain", level:"Periaqueductal rostral midbrain", name:"Argyll Robertson pupils", short:"Small pupils, light-near dissociation",
+  section:"midbrainR", pt:[362,262], bilateral:true, hl:[["e",280,96,32,16]],
+  summary:"Small, often irregular pupils that do not react to light but constrict normally for near. The classic sign of neurosyphilis.",
+  location:"Dorsal rostral midbrain around the cerebral aqueduct, between the pretectal nuclei and the Edinger–Westphal nuclei. The light-reflex fibers pass here dorsally; the near-response input reaches the Edinger–Westphal nucleus by a more ventral route and is spared.",
+  structures:["Pretectal to Edinger–Westphal fibers of the light reflex (periaqueductal)", "Near-response pathway (spared)"],
+  eyes:["Both pupils small (often under 3 mm) and irregular", "No reaction to light, brisk reaction to near (light-near dissociation)", "Poor dilation in the dark and with dilating drops (iris atrophy)", "Vision normal, unlike the light-near dissociation of a blind eye", "Eye movements normal"],
+  other:["Tabes dorsalis: lightning pains, sensory ataxia, absent reflexes", "General paresis: cognitive decline"],
+  causes:["Neurosyphilis (classic)", "Diabetes (pseudo-Argyll Robertson)", "Other midbrain lesions: sarcoidosis, MS, tumor"],
+  pearl:"Light-near dissociation has a short list: dorsal midbrain (mid-sized to large pupils), Argyll Robertson (small pupils), Adie or aberrant regeneration (one large tonic pupil), and severe vision loss.",
+  m:SYM({pupil:.5}),
+  note:"Eye movements are normal; both pupils are small. The light reaction cannot be shown here: it is absent, while the near reaction is brisk."
+},
+{
+  id:"miller-fisher", region:"Nerves, skull base & orbit", level:"Ocular motor nerves, both sides", name:"Miller Fisher syndrome", short:"Ophthalmoplegia, ataxia, areflexia",
+  section:"nerve", pt:[298,302], bilateral:true, hl:[["c",444,92,15],["c",430,118,15],["c",420,186,15],["c",300,124,15]],
+  summary:"A post-infectious antibody attack on the ocular motor nerves produces a rapidly evolving ophthalmoplegia on both sides, with ataxia and lost reflexes.",
+  location:"Paranodal regions of the oculomotor, trochlear and abducens nerves on both sides, which are rich in GQ1b ganglioside; also muscle spindle afferents and dorsal root ganglia.",
+  structures:["CN III, IV and VI on both sides (GQ1b-rich)", "Sometimes pupillary fibers (internal ophthalmoplegia) and the facial nerve", "Large-fiber sensory neurons (ataxia, areflexia)"],
+  eyes:["Ophthalmoplegia on both sides developing over days, often abduction first", "Ptosis", "Pupils may be large and sluggish", "Can mimic a bilateral INO or a vertical gaze palsy"],
+  other:["Ataxia and areflexia: the classic triad", "Diarrhea or a respiratory infection 1–3 weeks earlier (Campylobacter jejuni)", "Overlaps with Guillain–Barré syndrome (limb weakness) and Bickerstaff encephalitis (drowsiness)"],
+  causes:["Post-infectious anti-GQ1b IgG antibodies, positive in about 85–90%"],
+  pearl:"Ophthalmoplegia with ataxia and absent reflexes a week or two after an infection: send anti-GQ1b antibodies. Most patients recover over a few months.",
+  m:SYM({abd:.15, add:.3, up:.25, down:.35, ptosis:.35, pupil:1.25}),
+  note:"All movements are limited in both eyes, with ptosis and large pupils."
+},
+{
+  id:"adie", region:"Nerves, skull base & orbit", level:"Ciliary ganglion", name:"Adie tonic pupil", short:"One large, slow pupil",
+  section:"nerve", pt:[178,240], hl:[["c",128,136,14]],
+  summary:"Damage to the ciliary ganglion leaves one pupil large and poorly reactive to light. It constricts slowly and holds for near, then redilates slowly.",
+  location:"The ciliary ganglion in the back of the orbit, lateral to the optic nerve between it and the lateral rectus, or the short ciliary nerves running from it to the iris sphincter and ciliary muscle.",
+  structures:["Postganglionic parasympathetic neurons for the iris sphincter and ciliary muscle (roughly 30 times more go to the ciliary muscle)", "Misdirected regrowth of accommodation fibers into the sphincter"],
+  eyes:["One dilated pupil with a poor or absent light reaction", "Slow, sustained (tonic) constriction for near and slow redilation: light-near dissociation", "Segmental, worm-like sphincter movements on the slit lamp", "Blurred near vision early (weak accommodation)", "Constricts to dilute pilocarpine 0.1% (denervation supersensitivity)", "Gets smaller over years", "Eye movements and lids normal"],
+  other:["Holmes–Adie syndrome: reduced or absent tendon reflexes", "Ross syndrome: patchy loss of sweating as well"],
+  causes:["Idiopathic (most; young women)", "Viral infection, orbital trauma or surgery, herpes zoster", "Diabetes and other autonomic neuropathies", "Giant cell arteritis, syphilis (rare)"],
+  pearl:"A large pupil with normal eye movements and normal lids is not a third nerve palsy. Dilute pilocarpine constricts an Adie pupil; it does not constrict a pupil dilated by drops.",
+  m:{ipsi:{pupil:1.6}, contra:{}},
+  note:"Eye movements and lids are normal; only the pupil on the lesion side is large."
+},
+{
+  id:"carotid-horner", region:"Nerves, skull base & orbit", level:"Third-order sympathetic fibers", name:"Carotid dissection (painful Horner)", short:"Ptosis, small pupil, neck pain",
+  section:"nerve", pt:[268,312], hl:[["e",316,204,18,20]],
+  summary:"A tear in the wall of the internal carotid stretches the sympathetic fibers running on it, producing Horner syndrome with pain on the same side.",
+  location:"Wall of the cervical internal carotid artery, usually above the carotid bifurcation toward the skull base, where the third-order (postganglionic) oculosympathetic fibers run in its outer layer toward the cavernous sinus.",
+  structures:["Third-order oculosympathetic fibers on the internal carotid", "Sometimes lower cranial nerves at the skull base (IX–XII, especially the hypoglossal)"],
+  eyes:["Mild ptosis (1–2 mm, Müller muscle) with slight elevation of the lower lid", "Small pupil, most obvious in dim light, with dilation lag", "Apraclonidine drops reverse the anisocoria; cocaine drops fail to dilate it", "Facial sweating mostly preserved (sweat fibers follow the external carotid)", "Eye movements normal"],
+  other:["Neck, face or head pain on the same side", "Pulsatile tinnitus, altered taste", "Risk of stroke or retinal ischemia from emboli"],
+  causes:["Spontaneous, or after minor neck trauma (sport, neck manipulation)", "Fibromuscular dysplasia, connective tissue disorders"],
+  pearl:"A new painful Horner syndrome is a carotid dissection until CTA or MRA of the neck shows otherwise. Image urgently because of the stroke risk.",
+  m:{ipsi:{ptosis:.3, pupil:.6}, contra:{}},
+  note:"Mild ptosis and a small pupil on the lesion side; eye movements are full."
+},
+{
+  id:"myasthenia", region:"Muscle & neuromuscular junction", level:"Postsynaptic junction", name:"Ocular myasthenia gravis", short:"Variable ptosis, normal pupils",
+  section:"orbit", pt:[166,258], hl2:[["e",430,150,68,15]],
+  summary:"Antibodies block the acetylcholine receptors where nerve meets eye muscle. Ptosis and diplopia that fluctuate and fatigue can imitate almost any nerve or brainstem lesion, but the pupil is never involved.",
+  location:"Postsynaptic membrane of the neuromuscular junction: the acetylcholine receptors on the junctional folds of the levator, orbicularis oculi and extraocular muscle fibers. Eye muscles are especially vulnerable because they fire fast and have a low safety margin for transmission.",
+  structures:["Nicotinic acetylcholine receptors (anti-AChR antibodies in most generalized and about half of purely ocular cases)", "MuSK or LRP4 in some seronegative patients", "Levator, orbicularis oculi and any extraocular muscle"],
+  eyes:["Ptosis that varies, often asymmetric, worse at the end of the day and after sustained upgaze", "Diplopia in any pattern; can mimic an INO (pseudo-INO), a gaze palsy or a single nerve palsy", "Cogan lid twitch: the lid overshoots on returning from downgaze", "Enhanced ptosis: lifting one lid makes the other droop", "Pupils always normal", "Doll’s head does not help (the junction is the problem)"],
+  other:["Weak eye closure (orbicularis), which nerve palsies spare", "Bulbar, neck or limb fatigable weakness if it generalizes (about half of ocular cases, mostly within two years)"],
+  causes:["Autoimmune myasthenia gravis", "Thymoma (chest CT)", "Immune checkpoint inhibitors, penicillamine; worsened by aminoglycosides, fluoroquinolones and magnesium"],
+  pearl:"Painless, pupil-sparing ptosis or diplopia that fits no anatomical pattern should prompt testing for myasthenia: ice pack test, antibodies, single-fiber EMG.",
+  m:{ipsi:{ptosis:.5, up:.55, add:.5, abd:.7}, contra:{ptosis:.15, abd:.6, up:.8}},
+  note:"Asymmetric ptosis and patchy limitation with normal pupils. In a patient it changes from minute to minute."
+},
+{
+  id:"botulism", region:"Muscle & neuromuscular junction", level:"Presynaptic nerve terminal", name:"Botulism", short:"Ophthalmoplegia with large pupils",
+  section:"orbit", pt:[178,268], bilateral:true, hl2:[["e",430,106,52,24]],
+  summary:"Botulinum toxin stops acetylcholine release from nerve terminals, including the parasympathetic terminals on the pupil. Unlike myasthenia, the pupils are often large and unreactive.",
+  location:"Presynaptic cholinergic nerve terminals: the neuromuscular junctions of the eye muscles and the postganglionic parasympathetic terminals on the iris sphincter and ciliary muscle.",
+  structures:["Toxin cleaves SNARE proteins (SNAP-25, synaptobrevin, syntaxin), blocking vesicle release", "Somatic motor terminals: eye, lid, bulbar and limb muscles", "Autonomic cholinergic terminals: pupil, accommodation, salivary glands, gut, bladder"],
+  eyes:["Ptosis and ophthalmoplegia on both sides", "Dilated, poorly reactive pupils in many cases", "Loss of accommodation: blurred near vision", "Descending pattern: eyes and bulbar muscles first"],
+  other:["Dysarthria, dysphagia, symmetric descending weakness, respiratory failure", "Dry mouth, constipation, urinary retention", "Alert, no sensory loss, no fever"],
+  causes:["Foodborne (home-canned food)", "Wound botulism (injection drug use)", "Infant botulism (honey, soil spores)", "Iatrogenic (cosmetic or therapeutic toxin)"],
+  pearl:"Descending paralysis starting with the eyes and bulbar muscles, with large pupils, in an alert patient without fever is botulism until proven otherwise. Give antitoxin early and watch breathing.",
+  m:SYM({abd:.3, add:.3, up:.25, down:.35, ptosis:.5, pupil:1.5}),
+  note:"Both eyes limited, ptosis on both sides, large pupils."
+},
+{
+  id:"thyroid-eye", region:"Muscle & neuromuscular junction", level:"Extraocular muscle bellies", name:"Thyroid eye disease", short:"Restriction, lid retraction",
+  section:"orbit", pt:[156,246], hl:[["e",174,216,42,18],["e",258,148,18,43]],
+  summary:"Inflammation swells the eye muscles and orbital fat. A tight muscle cannot stretch, so the eye cannot move away from it: a restrictive problem, not a paralytic one.",
+  location:"The extraocular muscle bellies and orbital fat inside the muscle cone, typically sparing the tendons. The inferior rectus is affected most often, then the medial, superior and lateral recti.",
+  structures:["Inferior rectus (limits elevation)", "Medial rectus (limits abduction)", "Orbital fat (proptosis)", "Müller muscle and levator (lid retraction)", "Optic nerve at the orbital apex when swollen muscles crowd it"],
+  eyes:["Limited elevation (tight inferior rectus) and limited abduction (tight medial rectus)", "Upper lid retraction with white sclera above the iris, and lid lag on downgaze", "Proptosis, chemosis, lid swelling", "Positive forced duction test; doll’s head does not overcome it", "Compressive optic neuropathy at the apex: falling acuity, color loss, RAPD (urgent)", "Pupils normal"],
+  other:["Hyperthyroidism in most (Graves disease), though thyroid function can be normal or low", "Dry, gritty, light-sensitive eyes"],
+  causes:["Graves disease (TSH-receptor antibodies)", "Hashimoto thyroiditis (less often)", "Smoking and radioactive iodine worsen it"],
+  pearl:"Lid retraction is the most common sign of thyroid eye disease, and thyroid eye disease is the most common cause of proptosis in adults. On CT, enlarged muscle bellies with spared tendons are typical.",
+  m:{ipsi:{up:.3, abd:.65, ptosis:-.35}, contra:{up:.55, abd:.85, ptosis:-.25}},
+  note:"Lid retraction, poor elevation and poor abduction. Doll’s head gives no more range, because the muscle is tethered."
+},
+{
+  id:"cpeo", region:"Muscle & neuromuscular junction", level:"Extraocular muscle fibers", name:"Chronic progressive external ophthalmoplegia", short:"Slow, symmetric ptosis and ophthalmoplegia",
+  section:"orbit", pt:[186,250], bilateral:true, hl:[["e",172,64,36,13],["e",174,78,40,15],["e",174,216,38,16],["e",258,148,16,40],["e",90,148,15,38]],
+  summary:"Mitochondrial failure in the eye muscles produces slowly progressive, symmetric ptosis and loss of eye movement, usually without double vision.",
+  location:"The extraocular muscle fibers and the levator themselves, all muscles about equally and on both sides. Biopsy of limb muscle shows ragged red fibers.",
+  structures:["All six extraocular muscles, both sides", "Levator palpebrae", "Orbicularis oculi"],
+  eyes:["Symmetric ptosis, often the first sign", "Slowly progressive limitation in all directions, upgaze first", "Diplopia uncommon because the loss is slow and symmetric", "Pupils normal", "Pigmentary retinopathy in Kearns–Sayre syndrome"],
+  other:["Weak eye closure, proximal weakness, dysphagia", "Kearns–Sayre syndrome: onset before 20, retinopathy, heart block (may need a pacemaker), ataxia, high CSF protein"],
+  causes:["Single large mitochondrial DNA deletion", "Nuclear genes that maintain mitochondrial DNA (POLG, TWNK and others)", "Mimic: oculopharyngeal muscular dystrophy (ptosis, then dysphagia, later in life)"],
+  pearl:"Ptosis and marked ophthalmoplegia without diplopia suggest a slow, symmetric muscle disease. Get an ECG to look for the heart block of Kearns–Sayre.",
+  m:SYM({abd:.25, add:.25, up:.15, down:.35, ptosis:.6}),
+  note:"Symmetric ptosis and limited movement in every direction, pupils normal."
+},
+{
+  id:"orbital-floor", region:"Muscle & neuromuscular junction", level:"Orbital floor", name:"Orbital floor (blowout) fracture", short:"Trapped inferior rectus",
+  section:"orbit", pt:[172,278], hl:[["e",174,236,46,24]],
+  summary:"A blow to the orbit breaks its thin floor, and the inferior rectus or its connective tissue gets caught in the fracture.",
+  location:"The orbital floor (maxillary bone) medial to the infraorbital groove, above the maxillary sinus, often extending to the thin medial wall (lamina papyracea).",
+  structures:["Inferior rectus and its connective tissue septa, trapped in the fracture", "Infraorbital nerve (V2) in its groove", "Orbital fat herniating into the maxillary sinus"],
+  eyes:["Limited upgaze, and often downgaze, from the tethered inferior rectus", "Vertical diplopia", "Enophthalmos (sunken eye) once swelling settles", "Positive forced duction test", "Children: “white-eyed” trapdoor fracture with little bruising but severe restriction, pain, nausea and slow pulse (oculocardiac reflex): urgent surgery"],
+  other:["Numb cheek, upper lip and upper teeth (infraorbital nerve)", "Periorbital bruising; air under the skin after nose blowing"],
+  causes:["Fist, ball or fall", "Motor vehicle injury"],
+  pearl:"Entrapment is mechanical, so neither the doll’s-head maneuver nor time-of-day changes help. Forced duction testing separates it from a nerve palsy.",
+  m:{ipsi:{up:.2, down:.5, off:{v:-.05}}, contra:{}},
+  note:"The injured eye cannot look up and moves poorly down. Doll’s head gives no more range."
+},
+{
+  id:"optic-nerve", region:"Visual pathway", level:"In front of the chiasm", name:"Optic nerve (optic neuropathy)", short:"One eye: central scotoma, RAPD",
+  section:"visual", pt:[204,262], hl:[["e",324,94,17,14]], fields:"on",
+  summary:"A lesion in front of the chiasm affects one eye only: central vision drops, colors fade, and that pupil responds weakly to light.",
+  location:"The optic nerve between the globe and the chiasm: its intraorbital, intracanalicular (optic canal) or intracranial segment.",
+  structures:["Retinal ganglion cell axons from one eye; the papillomacular bundle (central vision) is most vulnerable"],
+  eyes:["Reduced acuity and color vision (red desaturation) in one eye", "Central or cecocentral scotoma; altitudinal defect in ischemic neuropathy", "Relative afferent pupillary defect on that side (swinging flashlight test)", "Disc swollen (papillitis, ischemia) or normal (retrobulbar), then pale after weeks", "Pain on eye movement in optic neuritis"],
+  other:["Optic neuritis: young adults, MS; also MOG and aquaporin-4 antibody disease", "Junctional scotoma if it reaches the chiasm: central scotoma in one eye and an upper temporal defect in the other"],
+  causes:["Optic neuritis (demyelinating, MOG, NMOSD)", "Ischemic optic neuropathy (non-arteritic; arteritic in giant cell arteritis)", "Compression: meningioma, glioma, thyroid eye disease", "Toxic or nutritional, hereditary (Leber), trauma"],
+  pearl:"An RAPD with a normal-looking disc in a young adult with pain on eye movement is retrobulbar optic neuritis. In anyone over 50 with sudden visual loss, check ESR and CRP for giant cell arteritis."
+},
+{
+  id:"chiasm", region:"Visual pathway", level:"Chiasm", name:"Optic chiasm", short:"Bitemporal hemianopia",
+  section:"visual", pt:[240,272], bilateral:true, hl:[["e",280,122,26,13]], fields:"chiasm",
+  summary:"The crossing fibers from both nasal retinas meet in the chiasm. A mass pressing here removes both temporal fields.",
+  location:"The optic chiasm in the suprasellar cistern, above the diaphragma sellae and pituitary, below the floor of the third ventricle, between the two internal carotid arteries.",
+  structures:["Crossing nasal-retina fibers, which carry the temporal visual fields", "Inferior nasal fibers cross low and in front, so compression from below hits the upper temporal fields first"],
+  eyes:["Bitemporal hemianopia that respects the vertical midline", "Pituitary tumor (from below): upper temporal quadrants first", "Craniopharyngioma (from above): lower temporal quadrants first", "Acuity falls only when central fibers are compressed; band (bow-tie) optic atrophy", "See-saw nystagmus with large parasellar masses", "Hemifield slide: double vision without a nerve palsy"],
+  other:["Headache", "Endocrine signs: acromegaly, Cushing disease, galactorrhea, hypopituitarism", "Pituitary apoplexy: sudden headache, vision loss and ophthalmoplegia from cavernous sinus spread"],
+  causes:["Pituitary adenoma (most common)", "Craniopharyngioma (children and older adults)", "Tuberculum sellae meningioma", "Aneurysm, glioma, inflammation, trauma"],
+  pearl:"A bitemporal defect that respects the vertical midline is chiasmal until proven otherwise. Order a pituitary MRI and hormone tests."
+},
+{
+  id:"optic-tract", region:"Visual pathway", level:"Behind the chiasm", name:"Optic tract", short:"Incongruous hemianopia with RAPD",
+  section:"visual", pt:[268,254], hl:[["e",334,156,17,15]], fields:"tract",
+  summary:"Each tract carries the opposite half of the visual world from both eyes. A tract lesion gives an incongruous homonymous hemianopia, and the pupil can still show it.",
+  location:"The optic tract between the chiasm and the lateral geniculate nucleus, curving around the cerebral peduncle; supplied by the anterior choroidal artery.",
+  structures:["Uncrossed temporal fibers from the eye on the same side and crossed nasal fibers from the other eye", "Pupillary fibers, which leave the tract for the pretectum"],
+  eyes:["Homonymous hemianopia on the opposite side, often incongruous (different in each eye)", "RAPD in the eye opposite the lesion, which loses its larger temporal field", "Band (bow-tie) atrophy in the opposite eye, temporal pallor in the same-side eye", "Acuity normal"],
+  other:["Opposite hemiparesis and sensory loss if the internal capsule is involved (anterior choroidal syndrome)"],
+  causes:["Pituitary or suprasellar tumor extending backward", "Craniopharyngioma", "Anterior choroidal artery infarct", "MS, trauma, surgery"],
+  pearl:"An RAPD plus a homonymous hemianopia places the lesion in the optic tract. Lesions behind the lateral geniculate nucleus do not cause an RAPD."
+},
+{
+  id:"meyer", region:"Visual pathway", level:"Temporal lobe", name:"Meyer’s loop (temporal radiation)", short:"Upper quadrantanopia, “pie in the sky”",
+  section:"visual", pt:[300,238], lat:true, hl:[["e",414,214,17,24]], fields:"meyer",
+  summary:"The lower radiation fibers loop forward into the temporal lobe before heading back. A temporal lesion takes the upper quadrant on the opposite side.",
+  location:"Inferior optic radiation fibers (Meyer’s loop), sweeping forward over the temporal horn of the lateral ventricle about 3–5 cm behind the temporal pole, in the temporal lobe white matter.",
+  structures:["Radiation fibers from the inferior retina of both eyes, which see the upper field"],
+  eyes:["Homonymous superior quadrantanopia on the opposite side (“pie in the sky”), often wedge-shaped and slightly incongruous", "No RAPD; acuity and discs normal"],
+  other:["Seizures, memory or language problems (dominant hemisphere)", "Formed visual hallucinations"],
+  causes:["Anterior temporal lobectomy for epilepsy", "Tumor, abscess", "Infarct of the inferior division of the MCA", "Trauma"],
+  pearl:"Temporal lobe surgery for epilepsy often leaves an upper quadrantanopia, which can affect fitness to drive."
+},
+{
+  id:"parietal-radiation", region:"Visual pathway", level:"Parietal lobe", name:"Parietal optic radiation", short:"Lower quadrantanopia, “pie on the floor”",
+  section:"visual", pt:[440,110], lat:true, hl:[["e",367,232,16,22]], fields:"parietal",
+  summary:"The upper radiation fibers run straight back through the parietal lobe. A lesion here takes the lower quadrant on the opposite side.",
+  location:"Superior (dorsal) optic radiation fibers in the deep parietal white matter, lateral to the atrium of the lateral ventricle, heading for the upper bank of the calcarine fissure.",
+  structures:["Radiation fibers from the superior retina of both eyes, which see the lower field", "Often the deep parietal pursuit pathway nearby"],
+  eyes:["Homonymous inferior quadrantanopia on the opposite side (“pie on the floor”), fairly congruous", "Asymmetric OKN: weaker when stripes move toward the lesion (Cogan)", "Pursuit toward the lesion side impaired", "No RAPD"],
+  other:["Neglect (right side) or Gerstmann syndrome (left side: agraphia, acalculia, finger agnosia, left-right confusion)", "Cortical sensory loss"],
+  causes:["MCA infarct", "Tumor", "Hemorrhage", "Trauma"],
+  pearl:"A homonymous field defect with abnormal OKN suggests a parietal lesion; with normal OKN, an occipital one."
+},
+{
+  id:"occipital", region:"Visual pathway", level:"Occipital lobe", name:"Primary visual cortex (V1)", short:"Congruous hemianopia, macular sparing",
+  section:"visual", pt:[532,212], hl:[["e",328,276,34,13]], fields:"occipital",
+  summary:"In the visual cortex the maps from the two eyes lie exactly on top of each other, so defects are identical in both eyes and often spare central vision.",
+  location:"Primary visual cortex (V1, Brodmann area 17, striate cortex) along the calcarine fissure on the medial surface of the occipital lobe. The macula is represented at the occipital pole, the periphery further forward.",
+  structures:["Upper bank (cuneus): lower field", "Lower bank (lingual gyrus): upper field", "Occipital pole: macula, often with blood supply from both MCA and PCA", "Most anterior calcarine cortex: the one-eye-only temporal crescent"],
+  eyes:["Homonymous hemianopia on the opposite side, highly congruous", "Macular sparing when the pole keeps its MCA supply", "Temporal crescent spared (or lost alone) with anterior calcarine lesions", "Both sides: cortical blindness with normal pupils, sometimes denial of blindness (Anton syndrome)", "No RAPD; discs and OKN normal"],
+  other:["Visual hallucinations", "Alexia without agraphia (left occipital plus splenium)", "Loss of color vision or face recognition (inferior occipitotemporal)"],
+  causes:["PCA infarct (most common)", "Hemorrhage, tumor", "PRES, hypoxia, trauma", "Both sides: embolism to the top of the basilar artery"],
+  pearl:"A highly congruous homonymous hemianopia in an otherwise well patient usually means a PCA stroke. Check fitness to drive."
+}
+];
+const BY = Object.fromEntries(LESIONS.map(l => [l.id, l]));
+
+/* ================= Diagrams ================= */
+function lead(t, ly, tx, ty, right, X) {
+  const anchor = right ? "start" : "end";
+  const x1 = right ? X - 4 : X + 4;
+  return `<line class="lead" x1="${x1}" y1="${ly - 3.5}" x2="${tx}" y2="${ty}"/><circle class="lead-dot" cx="${tx}" cy="${ty}" r="1.7"/><text class="lbl" x="${X}" y="${ly}" text-anchor="${anchor}">${t}</text>`;
+}
+const labs = (L, R, lx, rx) => L.map(a => lead(a[0], a[1], a[2][0], a[2][1], false, lx)).join("") + R.map(a => lead(a[0], a[1], a[2][0], a[2][1], true, rx)).join("");
+const RLm = (y, xl = 120, xr = 440) => `<circle class="rlc" cx="${xl}" cy="${y - 4}" r="9"/><text class="rl" x="${xl}" y="${y}">R</text><circle class="rlc" cx="${xr}" cy="${y - 4}" r="9"/><text class="rl" x="${xr}" y="${y}">L</text>`;
+const mir = (s) => s.replace(/(\bx\d?="|cx=")(-?[\d.]+)/g, (m, p, n) => p + (560 - parseFloat(n)));
+
+const MB_OUT = "M280,28 C340,26 388,48 400,90 C412,130 410,165 422,200 C432,232 418,262 380,268 C350,272 322,250 302,236 L280,226 L258,236 C238,250 210,272 180,268 C142,262 128,232 138,200 C150,165 148,130 160,90 C172,48 220,26 280,28 Z";
+const MB_BASE = `<path class="tissue" d="${MB_OUT}"/>
+<path class="tract" d="M142,198 C170,214 220,230 258,236 C230,256 206,268 180,266 C148,262 132,234 142,198 Z"/>
+<path class="tract" d="M418,198 C390,214 340,230 302,236 C330,256 354,268 380,266 C412,262 428,234 418,198 Z"/>
+<path class="nigra" d="M165,182 C190,204 228,218 262,226"/><path class="nigra" d="M395,182 C370,204 332,218 298,226"/>`;
+
+const SECTIONS = {
+  midbrainR: {
+    title:"Rostral midbrain", sub:"Axial section at the superior colliculus and CN III nucleus · dorsal at top", h:292, level:278,
+    body:() => `${MB_BASE}
+<ellipse class="gm" cx="280" cy="90" rx="40" ry="32"/>
+<ellipse class="gm" cx="248" cy="52" rx="30" ry="18"/><ellipse class="gm" cx="312" cy="52" rx="30" ry="18"/>
+<ellipse class="csf" cx="280" cy="84" rx="6" ry="9"/>
+<ellipse class="tract" cx="208" cy="165" rx="6" ry="16"/><ellipse class="tract" cx="352" cy="165" rx="6" ry="16"/>
+<circle class="rn" cx="250" cy="162" r="20"/><circle class="rn" cx="310" cy="162" r="20"/>
+<ellipse class="ghost" cx="264" cy="142" rx="7" ry="6"/><ellipse class="ghost" cx="296" cy="142" rx="7" ry="6"/>
+<ellipse class="nuc" cx="269" cy="114" rx="9" ry="10"/><ellipse class="nuc" cx="291" cy="114" rx="9" ry="10"/>
+<circle class="nuc" cx="280" cy="103" r="4"/>
+<circle class="nuc" cx="254" cy="110" r="5"/><circle class="nuc" cx="306" cy="110" r="5"/>
+<ellipse class="tract" cx="257" cy="126" rx="6" ry="4"/><ellipse class="tract" cx="303" cy="126" rx="6" ry="4"/>
+<path class="f3" d="M269,124 C262,150 262,190 272,228"/><path class="f3" d="M291,124 C298,150 298,190 288,228"/>
+<path class="ghostline" d="M236,24 C256,14 304,14 324,24"/>`,
+    labels:() => labs([
+      ["Superior colliculus",40,[234,46]], ["Interstitial n. of Cajal",92,[250,108]], ["MLF",112,[252,126]], ["riMLF (just rostral)",132,[258,142]],
+      ["Red nucleus",154,[232,158]], ["Medial lemniscus",174,[203,168]], ["CN III fascicle",196,[264,196]], ["Substantia nigra",218,[194,204]], ["Cerebral peduncle",250,[176,246]]
+    ],[
+      ["Post. commissure (rostral)",16,[304,17]], ["Periaqueductal grey",60,[318,96]], ["Cerebral aqueduct",80,[285,82]],
+      ["Edinger–Westphal n.",100,[283,103]], ["CN III nucleus",120,[298,116]], ["Interpeduncular fossa",238,[280,230]]
+    ],120,440) + RLm(282, 140, 420)
+  },
+  midbrainC: {
+    title:"Caudal midbrain", sub:"Axial section at the inferior colliculus and CN IV nucleus · dorsal at top", h:292, level:294,
+    body:() => `${MB_BASE}
+<ellipse class="gm" cx="280" cy="90" rx="38" ry="30"/>
+<ellipse class="gm" cx="250" cy="54" rx="28" ry="17"/><ellipse class="gm" cx="310" cy="54" rx="28" ry="17"/>
+<ellipse class="csf" cx="280" cy="86" rx="5" ry="7"/>
+<ellipse class="tract" cx="280" cy="168" rx="42" ry="15"/>
+<ellipse class="tract" cx="200" cy="160" rx="7" ry="14"/><ellipse class="tract" cx="360" cy="160" rx="7" ry="14"/>
+<circle class="symp" cx="214" cy="128" r="4"/><circle class="symp" cx="346" cy="128" r="4"/>
+<ellipse class="tract" cx="264" cy="131" rx="7" ry="4"/><ellipse class="tract" cx="296" cy="131" rx="7" ry="4"/>
+<ellipse class="nuc" cx="271" cy="119" rx="7" ry="6"/><ellipse class="nuc" cx="289" cy="119" rx="7" ry="6"/>
+<path class="f4" d="M271,114 C240,112 228,80 250,46 C260,34 272,30 280,30"/><path class="f4" d="M289,114 C320,112 332,80 310,46 C300,34 288,30 280,30"/>`,
+    labels:() => labs([
+      ["Inferior colliculus",40,[232,50]], ["CN IV fascicle",70,[238,84]], ["Trochlear nucleus",100,[266,119]], ["MLF",120,[260,133]],
+      ["Sympathetic fibers",140,[211,129]], ["Medial lemniscus",162,[195,162]], ["Substantia nigra",216,[194,204]], ["Cerebral peduncle",250,[176,246]]
+    ],[
+      ["IV fibers cross dorsally",18,[284,30]], ["Periaqueductal grey",62,[316,98]], ["Cerebral aqueduct",86,[284,86]], ["Decussation of the SCPs",176,[318,170]]
+    ],120,440) + RLm(282, 140, 420)
+  },
+  pons: {
+    title:"Caudal pons", sub:"Axial section at the facial colliculus and CN VI nucleus · dorsal at top", h:292, level:344,
+    body:() => `<path class="csf" d="M160,58 C200,68 240,72 280,72 C320,72 360,68 400,58 C362,36 322,26 280,24 C238,26 198,36 160,58 Z"/>
+<path class="tissue" d="M160,58 C200,68 240,72 280,72 C320,72 360,68 400,58 C432,86 446,124 442,162 C438,214 400,262 330,274 C300,279 260,279 230,274 C160,262 122,214 118,162 C114,124 128,86 160,58 Z"/>
+<path class="basis" d="M128,200 C160,195 230,192 280,192 C330,192 400,195 432,200 C425,236 395,264 330,274 C300,279 260,279 230,274 C165,264 135,236 128,200 Z"/>
+<path class="fib" d="M140,214 C220,206 340,206 420,214"/><path class="fib" d="M156,240 C230,232 330,232 404,240"/><path class="fib" d="M190,262 C250,256 310,256 370,262"/>
+<ellipse class="tract" cx="242" cy="228" rx="20" ry="12"/><ellipse class="tract" cx="318" cy="228" rx="20" ry="12"/>
+<ellipse class="tract" cx="262" cy="252" rx="9" ry="6"/><ellipse class="tract" cx="298" cy="252" rx="9" ry="6"/>
+<ellipse class="tract" cx="248" cy="186" rx="30" ry="6"/><ellipse class="tract" cx="312" cy="186" rx="30" ry="6"/>
+<path class="f6" d="M252,98 C251,140 246,200 240,276"/><path class="f6" d="M308,98 C309,140 314,200 320,276"/>
+<ellipse class="nuc" cx="196" cy="86" rx="26" ry="13"/><ellipse class="nuc" cx="364" cy="86" rx="26" ry="13"/>
+<ellipse class="nuc" cx="160" cy="132" rx="12" ry="16"/><ellipse class="nuc" cx="400" cy="132" rx="12" ry="16"/>
+<circle class="nuc" cx="206" cy="170" r="9"/><circle class="nuc" cx="354" cy="170" r="9"/>
+<ellipse class="tract" cx="246" cy="150" rx="6" ry="8"/><ellipse class="tract" cx="314" cy="150" rx="6" ry="8"/>
+<ellipse class="pprf" cx="264" cy="124" rx="11" ry="15"/><ellipse class="pprf" cx="296" cy="124" rx="11" ry="15"/>
+<ellipse class="nuc" cx="280" cy="124" rx="3.5" ry="8"/>
+<circle class="nuc" cx="252" cy="86" r="12"/><circle class="nuc" cx="308" cy="86" r="12"/>
+<ellipse class="tract" cx="271" cy="94" rx="5" ry="4"/><ellipse class="tract" cx="289" cy="94" rx="5" ry="4"/>
+<path class="f7" d="M206,166 C222,138 234,104 238,84 C241,70 262,66 266,78 C270,92 252,112 228,140 C206,168 178,200 160,226"/>
+<path class="f7" d="M354,166 C338,138 326,104 322,84 C319,70 298,66 294,78 C290,92 308,112 332,140 C354,168 382,200 400,226"/>`,
+    labels:() => labs([
+      ["Vestibular nuclei",58,[182,82]], ["Facial genu (CN VII)",78,[239,76]], ["Abducens nucleus",98,[246,94]], ["Spinal trigeminal n.",120,[152,130]],
+      ["PPRF",140,[257,132]], ["Central tegmental tract",158,[242,153]], ["Facial nucleus",176,[199,172]], ["Middle cerebellar ped.",196,[124,186]],
+      ["CN VI fascicle",216,[248,206]], ["Corticospinal tract",238,[232,232]], ["Basis pontis",262,[204,252]]
+    ],[
+      ["Fourth ventricle",30,[320,44]], ["Facial colliculus",54,[310,72]], ["MLF",78,[291,95]], ["Omnipause neurons",102,[282,122]],
+      ["Medial lemniscus",184,[332,187]], ["CN VI exits",280,[320,274]]
+    ],108,452) + RLm(24, 120, 440)
+  },
+  medulla: {
+    title:"Rostral medulla", sub:"Axial section at the inferior olive · dorsal at top", h:292, level:392,
+    body:() => `<path class="csf" d="M170,64 C220,74 250,78 280,78 C310,78 340,74 390,64 C350,44 320,38 280,38 C240,38 210,44 170,64 Z"/>
+<path class="tissue" d="M170,64 C220,74 250,78 280,78 C310,78 340,74 390,64 C420,84 432,122 420,160 C412,190 402,214 384,232 C364,252 332,262 300,270 L280,272 L260,270 C228,262 196,252 176,232 C158,214 148,190 140,160 C128,122 140,84 170,64 Z"/>
+<ellipse class="tract" cx="174" cy="108" rx="18" ry="24"/><ellipse class="tract" cx="386" cy="108" rx="18" ry="24"/>
+<path class="olive" d="M200,200 Q210,188 222,198 Q234,186 246,198 Q256,210 246,222 Q234,236 222,224 Q210,236 200,224 Q190,212 200,200 Z"/>
+<path class="olive" d="M360,200 Q350,188 338,198 Q326,186 314,198 Q304,210 314,222 Q326,236 338,224 Q350,236 360,224 Q370,212 360,200 Z"/>
+<ellipse class="tract" cx="264" cy="250" rx="16" ry="13"/><ellipse class="tract" cx="296" cy="250" rx="16" ry="13"/>
+<ellipse class="tract" cx="270" cy="190" rx="6" ry="26"/><ellipse class="tract" cx="290" cy="190" rx="6" ry="26"/>
+<ellipse class="tract" cx="272" cy="124" rx="5" ry="5"/><ellipse class="tract" cx="288" cy="124" rx="5" ry="5"/>
+<path class="f12" d="M268,108 C264,160 258,215 250,264"/><path class="f12" d="M292,108 C296,160 302,215 310,264"/>
+<ellipse class="nuc" cx="218" cy="90" rx="24" ry="11"/><ellipse class="nuc" cx="342" cy="90" rx="24" ry="11"/>
+<ellipse class="nuc" cx="262" cy="88" rx="8" ry="5"/><ellipse class="nuc" cx="298" cy="88" rx="8" ry="5"/>
+<ellipse class="nuc" cx="268" cy="102" rx="7" ry="6"/><ellipse class="nuc" cx="292" cy="102" rx="7" ry="6"/>
+<ellipse class="nuc" cx="166" cy="150" rx="13" ry="17"/><ellipse class="nuc" cx="394" cy="150" rx="13" ry="17"/>
+<circle class="nuc" cx="206" cy="166" r="5"/><circle class="nuc" cx="354" cy="166" r="5"/>
+<ellipse class="tract" cx="180" cy="190" rx="10" ry="8"/><ellipse class="tract" cx="380" cy="190" rx="10" ry="8"/>
+<circle class="symp" cx="196" cy="142" r="4"/><circle class="symp" cx="364" cy="142" r="4"/>`,
+    labels:() => labs([
+      ["Vestibular nuclei",56,[204,88]], ["N. prepositus hypoglossi",76,[256,88]], ["Inferior cerebellar ped.",98,[164,104]], ["Hypoglossal nucleus",118,[262,104]],
+      ["Sympathetic fibers",138,[193,142]], ["Spinal trigeminal n./tract",156,[158,152]], ["Nucleus ambiguus",174,[202,166]], ["Spinothalamic tract",194,[174,190]],
+      ["Inferior olive",222,[204,214]], ["CN XII fascicle",244,[254,240]], ["Pyramid",264,[258,258]]
+    ],[
+      ["Fourth ventricle",40,[320,58]], ["MLF",120,[290,124]], ["Medial lemniscus",184,[292,188]]
+    ],118,442) + RLm(28, 130, 430)
+  },
+  cerebellum: {
+    title:"Cerebellum", sub:"Flattened schematic, viewed from above and behind · deep nuclei dashed", h:292,
+    body:(uid) => {
+      const CB = "M280,24 C360,22 420,56 440,118 C456,170 432,222 392,234 C366,240 340,234 320,250 L300,262 L260,262 L240,250 C220,234 194,240 168,234 C128,222 104,170 120,118 C140,56 200,22 280,24 Z";
+      return `<defs><clipPath id="cbc-${uid}"><path d="${CB}"/></clipPath></defs>
+<ellipse class="gm" cx="176" cy="256" rx="22" ry="10"/><ellipse class="gm" cx="384" cy="256" rx="22" ry="10"/>
+<path class="gm" d="${CB}"/>
+<g clip-path="url(#cbc-${uid})"><rect class="vermis" x="258" y="0" width="44" height="270"/>
+<path class="folia" d="M100,62 C200,36 360,36 460,62"/><path class="folia" d="M100,140 C200,124 360,124 460,140"/><path class="folia" d="M100,196 C200,186 360,186 460,196"/><path class="folia" d="M100,220 C200,212 360,212 460,220"/></g>
+<path class="fissure" d="M122,108 C190,86 370,86 438,108"/>
+<path class="folia" d="M112,170 C190,160 370,160 448,170" style="stroke-width:1.4"/>
+<rect class="zone" x="258" y="114" width="44" height="44"/><rect class="zone" x="258" y="198" width="44" height="28"/><rect class="zone" x="262" y="232" width="36" height="28"/>
+<ellipse class="gm2" cx="232" cy="234" rx="16" ry="12"/><ellipse class="gm2" cx="328" cy="234" rx="16" ry="12"/>
+<ellipse class="deep" cx="214" cy="182" rx="20" ry="11"/><ellipse class="deep" cx="346" cy="182" rx="20" ry="11"/>
+<circle class="deep" cx="243" cy="178" r="5"/><circle class="deep" cx="317" cy="178" r="5"/>
+<ellipse class="deep" cx="270" cy="176" rx="5.5" ry="8"/><ellipse class="deep" cx="290" cy="176" rx="5.5" ry="8"/>
+<text class="lob" x="280" y="64">I–V</text><text class="lob" x="280" y="140">VI–VII</text><text class="lob" x="280" y="192">VIII</text><text class="lob" x="280" y="216">IX</text><text class="lob" x="280" y="250">X</text>`;
+    },
+    labels:() => labs([
+      ["Anterior lobe",58,[180,62]], ["Primary fissure",96,[140,102]], ["Posterior lobe",134,[168,140]], ["Dentate nucleus",176,[196,182]],
+      ["Interposed nuclei",198,[239,181]], ["Tonsil",226,[218,236]], ["Flocculus / paraflocculus",262,[156,257]]
+    ],[
+      ["Vermis",34,[296,36]], ["Oculomotor vermis (VI–VII)",122,[302,128]], ["Fastigial nucleus",160,[293,174]], ["Uvula (IX)",206,[302,210]], ["Nodulus (X)",250,[298,248]]
+    ],100,462) + RLm(282, 120, 440)
+  },
+  lateral: {
+    title:"Cerebral hemisphere", sub:"", h:300, mirrorAll:true,
+    body:() => `<path class="tissue" d="M262,236 C268,262 272,282 276,300 L300,300 C300,282 298,262 296,236 Z"/>
+<ellipse class="gm" cx="182" cy="262" rx="62" ry="24"/>
+<path class="folia" d="M128,256 C160,248 210,248 238,256"/><path class="folia" d="M132,270 C170,264 206,264 236,270"/>
+<path class="cortex" d="M300,36 C400,34 470,62 500,110 C520,145 510,182 485,196 C470,204 455,206 440,208 C432,232 410,256 370,262 C320,270 260,264 220,252 C190,244 160,240 130,226 C100,212 88,180 92,150 C96,110 130,70 190,50 C225,40 260,36 300,36 Z"/>
+<path class="sulcus" d="M318,40 C312,80 300,120 296,150 C294,165 292,175 290,184"/>
+<path class="sulcus" d="M362,44 C356,80 348,120 342,170"/>
+<path class="sulcus" d="M284,42 C278,80 270,110 264,150"/>
+<path class="sulcus" d="M366,78 C400,78 440,84 480,100"/>
+<path class="sulcus" d="M352,128 C390,130 430,136 470,150"/>
+<path class="sulcus" d="M270,110 C240,112 200,118 160,130"/>
+<path class="sulcus" d="M430,206 C390,196 340,190 290,186 C270,180 255,170 248,160"/>
+<path class="sulcus" d="M420,232 C370,226 300,222 236,214 C214,208 198,198 190,188"/>
+<ellipse class="area" cx="374" cy="100" rx="13" ry="10"/>
+<ellipse class="area dash" cx="330" cy="42" rx="14" ry="5"/>
+<ellipse class="area dash" cx="432" cy="122" rx="18" ry="11"/>
+<ellipse class="area" cx="222" cy="116" rx="18" ry="8"/>
+<ellipse class="area" cx="160" cy="192" rx="15" ry="11"/>
+<ellipse class="area" cx="100" cy="160" rx="8" ry="16"/>`,
+    labelsM:(m) => {
+      const T = [["FEF",392,104,"start"],["SEF (medial surface)",330,28,"middle"],["DLPFC",432,148,"middle"],["Parietal eye field",222,102,"middle"],["intraparietal sulcus",222,138,"middle","sm it"],
+        ["MT/V5 · MST",160,218,"middle"],["V1",118,164,"start"],["central sulcus",300,166,"end","sm it"],["lateral fissure",360,206,"middle","sm it"],["Cerebellum",182,294,"middle","sm"],
+        [m ? "Front" : "Front", 492, 238, "middle", "sm"], ["Back", 92, 238, "middle", "sm"]];
+      return T.map(t => {
+        let x = t[1], a = t[3];
+        if (m) { x = 560 - x; a = a === "start" ? "end" : a === "end" ? "start" : a; }
+        return `<text class="lbl ${t[4] || ""}" x="${x}" y="${t[2]}" text-anchor="${a}">${t[0]}</text>`;
+      }).join("");
+    }
+  },
+  orbit: {
+    title:"Orbit and neuromuscular junction", sub:"", h:292,
+    custom:(uid, L, m) => {
+      const tf = m ? ` transform="translate(350,0) scale(-1,1)"` : "";
+      const hl = L && L.hl ? `<g class="hl ${RM ? "" : "hl-pulse"}" style="fill:url(#hatch-${uid})">${L.hl.map(shp).join("")}</g>` : "";
+      const hl2 = L && L.hl2 ? `<g class="hl ${RM ? "" : "hl-pulse"}" style="fill:url(#hatch-${uid})">${L.hl2.map(shp).join("")}</g>` : "";
+      const T = [["LPS",172,52,"middle","sm"],["SR",174,82,"middle"],["SO",240,88,"middle"],["MR",258,152,"middle"],["LR",90,152,"middle"],["IR",174,220,"middle"],
+        ["Optic nerve",174,178,"middle","sm"],["Orbital fat",118,112,"middle","sm it"],["Floor",174,258,"middle","sm"],["Maxillary sinus",180,282,"middle","sm"],
+        ["Ethmoid",316,150,"middle","sm"],["Temporal",62,22,"start","sm"],["Nasal",300,22,"end","sm"]];
+      const lab = T.map(t => { let x = t[1], a = t[3]; if (m) { x = 350 - x; a = a === "start" ? "end" : a === "end" ? "start" : a; } return `<text class="lbl ${t[4] || ""}" x="${x}" y="${t[2]}" text-anchor="${a}">${t[0]}</text>`; }).join("");
+      return `<g${tf}>
+<path class="bone" d="M56,34 C120,22 232,22 292,38 C306,100 306,200 292,256 C232,270 110,270 60,258 C46,200 44,100 56,34 Z"/>
+<rect class="csf" x="300" y="80" width="34" height="140" rx="6"/>
+<path class="csf" d="M86,266 L266,266 L258,290 L96,290 Z"/>
+<path class="fat" d="M74,52 C130,40 222,40 276,54 C286,104 286,196 276,240 C222,252 120,252 78,240 C66,196 66,104 74,52 Z"/>
+<ellipse class="musc" cx="172" cy="60" rx="30" ry="6"/>
+<ellipse class="musc" cx="174" cy="78" rx="36" ry="11"/>
+<ellipse class="musc" cx="240" cy="84" rx="10" ry="9"/>
+<ellipse class="musc" cx="258" cy="148" rx="12" ry="36"/>
+<ellipse class="musc" cx="90" cy="148" rx="11" ry="34"/>
+<ellipse class="musc" cx="174" cy="216" rx="34" ry="12"/>
+<circle class="nuc" cx="174" cy="146" r="16"/><circle class="tract" cx="174" cy="146" r="11"/>
+${hl}</g>${lab}
+<rect class="inset" x="360" y="34" width="140" height="214" rx="10"/>
+<text class="lbl" x="430" y="26" text-anchor="middle">Neuromuscular junction</text>
+<path class="nuc" d="M424,40 L436,40 L436,88 C470,92 480,112 476,128 L384,128 C380,112 390,92 424,88 Z"/>
+<circle class="ves" cx="404" cy="112" r="4"/><circle class="ves" cx="420" cy="118" r="4"/><circle class="ves" cx="436" cy="110" r="4"/><circle class="ves" cx="452" cy="116" r="4"/><circle class="ves" cx="430" cy="100" r="4"/>
+<path class="musc" d="M366,142 L380,142 L380,166 L388,166 L388,142 L404,142 L404,170 L412,170 L412,142 L428,142 L428,170 L436,170 L436,142 L452,142 L452,170 L460,170 L460,142 L476,142 L476,166 L484,166 L484,142 L494,142 L494,240 L366,240 Z"/>
+<rect class="achr" x="368" y="138" width="10" height="4"/><rect class="achr" x="392" y="138" width="10" height="4"/><rect class="achr" x="416" y="138" width="10" height="4"/><rect class="achr" x="440" y="138" width="10" height="4"/><rect class="achr" x="464" y="138" width="10" height="4"/><rect class="achr" x="484" y="138" width="8" height="4"/>
+${hl2}
+${lead("Nerve terminal",62,436,62,true,508)}${lead("ACh vesicles",98,456,114,true,508)}${lead("Cleft",132,478,134,true,508)}${lead("AChR",156,490,140,true,508)}${lead("Muscle fiber",212,494,212,true,508)}`;
+    }
+  },
+  visual: {
+    title:"Visual pathway", sub:"Viewed from above · eyes at the top · patient’s left on the left", h:296,
+    body:() => `<path class="cortex" d="M280,92 C390,92 470,130 476,190 C482,250 420,294 280,294 C140,294 78,250 84,190 C90,130 170,92 280,92 Z" style="opacity:.6"/>
+<circle class="globe" cx="200" cy="46" r="26"/><circle class="globe" cx="360" cy="46" r="26"/>
+<ellipse class="nuc" cx="200" cy="22" rx="11" ry="4"/><ellipse class="nuc" cx="360" cy="22" rx="11" ry="4"/>
+<path class="band" d="M204,72 C216,96 250,112 272,120"/><path class="band" d="M356,72 C344,96 310,112 288,120"/>
+<path class="band" d="M272,124 C250,140 226,160 204,184"/><path class="band" d="M288,124 C310,140 334,160 356,184"/>
+<ellipse class="tract" cx="280" cy="122" rx="16" ry="7"/>
+<circle class="ghost" cx="280" cy="142" r="10"/>
+<path class="rad" d="M200,198 C192,222 198,250 232,270"/><path class="rad" d="M360,198 C368,222 362,250 328,270"/>
+<path class="rad" d="M200,198 C160,184 140,204 150,232 C160,254 196,268 234,276"/><path class="rad" d="M360,198 C400,184 420,204 410,232 C400,254 364,268 326,276"/>
+<ellipse class="gm" cx="280" cy="206" rx="22" ry="13"/>
+<path class="ghostline" d="M214,172 C236,182 252,196 262,202"/><path class="ghostline" d="M346,172 C324,182 308,196 298,202"/>
+<ellipse class="nuc" cx="200" cy="190" rx="13" ry="8"/><ellipse class="nuc" cx="360" cy="190" rx="13" ry="8"/>
+<ellipse class="area" cx="232" cy="276" rx="30" ry="10"/><ellipse class="area" cx="328" cy="276" rx="30" ry="10"/>
+<path class="fx-t" d="M188,62 C196,96 244,116 268,124 C244,140 220,160 198,182"/>
+<path class="fx-t" d="M372,62 C364,96 316,116 292,124 C316,140 340,160 362,182"/>
+<path class="fx-n" d="M212,64 C222,96 256,114 280,122 C304,130 330,156 356,182"/>
+<path class="fx-n" d="M348,64 C338,96 304,114 280,122 C256,130 230,156 204,182"/>`,
+    labels:() => labs([
+      ["Left eye",50,[174,46]], ["Optic nerve",100,[226,98]], ["Optic tract",156,[226,160]], ["LGN",192,[186,190]], ["Meyer’s loop (temporal)",232,[146,226]], ["V1 · calcarine cortex",280,[202,276]]
+    ],[
+      ["Right eye",50,[386,46]], ["Chiasm",112,[294,120]], ["Pituitary (below)",140,[290,144]], ["Pretectum (pupil reflex)",186,[300,204]], ["Parietal radiation",236,[366,234]]
+    ],124,436) + `<circle class="rlc" cx="124" cy="14" r="9"/><text class="rl" x="124" y="18">L</text><circle class="rlc" cx="436" cy="14" r="9"/><text class="rl" x="436" y="18">R</text>`
+  }
+};
+
+/* visual fields, drawn as the patient sees them; x > 0 = patient’s right */
+const FIELDS = {
+  on:(e, x, y) => e === "R" && Math.hypot(x, y) < 2.3 ? 1 : 0,
+  chiasm:(e, x, y) => (e === "R" ? x > 0 : x < 0) ? (y > 0 ? 1 : .55) : 0,
+  tract:(e, x, y) => x < 0 ? (e === "L" ? 1 : (y > -2 ? 1 : .45)) : 0,
+  meyer:(e, x, y) => x < 0 && y > (e === "L" ? 0 : .6) && y > -x * .25 ? 1 : 0,
+  parietal:(e, x, y) => x < 0 && y < 0 ? 1 : 0,
+  occipital:(e, x, y) => x < 0 && Math.hypot(x, y) > 1.3 ? 1 : 0
+};
+function fieldsSVG(L, side) {
+  const f = FIELDS[L.fields], mir = side === "L" && !L.bilateral;
+  const def = (e, x, y) => mir ? f(e === "L" ? "R" : "L", -x, y) : f(e, x, y);
+  const eyeChart = (e, cx) => {
+    let s = `<circle class="fbg" cx="${cx}" cy="120" r="96"/>`;
+    for (let i = 0; i < 10; i++) for (let j = 0; j < 10; j++) {
+      const x = i - 4.5, y = 4.5 - j;
+      if (Math.hypot(x, y) > 5) continue;
+      const bx = e === "R" ? 2.5 : -2.5;
+      let v = def(e, x, y);
+      if (Math.hypot(x - bx, y + .5) < .75) v = 1;
+      s += `<rect class="fcell" x="${(cx + x * 18 - 7).toFixed(1)}" y="${(120 - y * 18 - 7).toFixed(1)}" width="14" height="14" rx="2" style="fill-opacity:${(.07 + v * .83).toFixed(2)}"/>`;
+    }
+    s += `<line class="fmer" x1="${cx - 100}" y1="120" x2="${cx + 100}" y2="120"/><line class="fmer" x1="${cx}" y1="20" x2="${cx}" y2="220"/>`;
+    const tLeft = e === "L";
+    s += `<text class="fside" x="${cx - 100}" y="232" text-anchor="start">${tLeft ? "Temporal" : "Nasal"}</text><text class="fside" x="${cx + 100}" y="232" text-anchor="end">${tLeft ? "Nasal" : "Temporal"}</text>`;
+    s += `<text class="ftitle" x="${cx}" y="12">${e === "L" ? "LEFT EYE" : "RIGHT EYE"}</text>`;
+    return s;
+  };
+  return `<svg viewBox="0 0 560 240" role="img" aria-label="Visual fields">${eyeChart("L", 130)}${eyeChart("R", 430)}</svg>`;
+}
+
+function hatch(uid) {
+  return `<pattern id="hatch-${uid}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="hatch-bg" width="6" height="6"/><line class="hatch-ln" x1="0" y1="0" x2="0" y2="6"/></pattern>`;
+}
+function shp(s) {
+  if (s[0] === "e") return `<ellipse cx="${s[1]}" cy="${s[2]}" rx="${s[3]}" ry="${s[4]}"/>`;
+  if (s[0] === "c") return `<circle cx="${s[1]}" cy="${s[2]}" r="${s[3]}"/>`;
+  return `<path d="${s[1]}"/>`;
+}
+function hlGroup(L, uid, mirror) {
+  if (!L || !L.hl) return "";
+  const tf = mirror ? ` transform="translate(560,0) scale(-1,1)"` : "";
+  return `<g class="hl ${RM ? "" : "hl-pulse"}" style="fill:url(#hatch-${uid})"${tf}>${L.hl.map(shp).join("")}</g>`;
+}
+
+let uidN = 0;
+function sectionSVG(key, L, side) {
+  const S = SECTIONS[key], uid = "s" + (++uidN);
+  const m = side === "L" && !(L && (L.bilateral));
+  if (S.custom) return `<svg viewBox="0 0 620 ${S.h}" role="img" aria-label="${S.title}"><defs>${hatch(uid)}</defs><g transform="translate(30,0)">${S.custom(uid, L, m)}</g></svg>`;
+  if (S.mirrorAll) {
+    const tf = m ? ` transform="translate(560,0) scale(-1,1)"` : "";
+    return `<svg viewBox="0 0 620 ${S.h}" role="img" aria-label="${S.title}"><defs>${hatch(uid)}</defs><g transform="translate(30,0)"><g${tf}>${S.body(uid)}${hlGroup(L, uid, false)}</g>${S.labelsM(m)}</g></svg>`;
+  }
+  return `<svg viewBox="0 0 620 ${S.h}" role="img" aria-label="${S.title}"><defs>${hatch(uid)}</defs><g transform="translate(30,0)">${S.body(uid)}${hlGroup(L, uid, m)}${S.labels()}</g></svg>`;
+}
+
+/* sagittal overview */
+function sagittalSVG(opts) {
+  const uid = "g" + (++uidN), sel = opts.sel ? BY[opts.sel] : null;
+  const lvl = sel && SECTIONS[sel.section] && SECTIONS[sel.section].level;
+  const lines = [278, 294, 344, 392].map(y => `<line class="lvl ${y === lvl ? "on" : ""}" x1="250" y1="${y}" x2="392" y2="${y}"/>`).join("");
+  let dots = "";
+  if (opts.dots) {
+    dots = LESIONS.map(l => l.id === opts.sel ? "" : `<circle class="dot ${l.lat ? "lat" : ""}" data-id="${l.id}" cx="${l.pt[0]}" cy="${l.pt[1]}" r="${l.lat ? 6 : 5}"><title>${l.name}</title></circle>`).join("");
+    if (sel) dots += `<circle class="ring" cx="${sel.pt[0]}" cy="${sel.pt[1]}" r="9"/><circle class="dot sel" data-id="${sel.id}" cx="${sel.pt[0]}" cy="${sel.pt[1]}" r="8"><title>${sel.name}</title></circle>`;
+  }
+  const hl = opts.hl ? `<g class="hl ${RM ? "" : "hl-pulse"}" style="fill:url(#hatch-${uid})">${opts.hl.map(shp).join("")}</g>` : "";
+  const lab = opts.labels ? `<text class="lbl" x="318" y="222" text-anchor="middle">Thalamus</text>
+<text class="lbl" x="286" y="284" text-anchor="end">Midbrain</text><text class="lbl" x="262" y="342" text-anchor="end">Pons</text><text class="lbl" x="308" y="408" text-anchor="end">Medulla</text>
+<text class="lbl" x="462" y="364" text-anchor="middle">Cerebellum</text><text class="lbl" x="304" y="124" text-anchor="middle">Corpus callosum</text>
+<text class="lbl" x="236" y="318" text-anchor="end">Pituitary</text><text class="lbl sm" x="110" y="160" text-anchor="middle">Front</text><text class="lbl sm" x="520" y="214" text-anchor="middle">Back</text>` : "";
+  return `<svg viewBox="0 0 600 ${opts.labels ? 444 : 440}" role="img" aria-label="Midline view of the brain${sel ? ", " + sel.name + " marked" : ""}"><defs>${hatch(uid)}</defs>
+<path class="cortex" d="M70,232 C48,150 120,52 262,40 C400,30 528,86 548,190 C558,246 532,296 482,304 C440,308 400,290 372,276 C350,268 330,266 312,266 C270,268 210,284 150,286 C110,288 80,268 70,232 Z"/>
+<path class="sulcus" d="M150,205 C185,120 340,96 455,152"/>
+<path class="callosum" d="M178,196 C214,142 350,128 432,182"/>
+<ellipse class="gm" cx="318" cy="218" rx="38" ry="22"/>
+<path class="gm" d="M372,312 C384,300 430,302 478,312 C530,322 548,352 522,380 C494,406 430,406 394,388 C372,374 362,342 372,312 Z"/>
+<path class="folia" d="M392,332 C430,318 482,322 522,344"/><path class="folia" d="M388,356 C430,346 490,350 528,366"/><path class="folia" d="M398,378 C440,372 490,376 516,384"/>
+<path class="tissue" d="M300,262 C296,280 292,292 292,302 C270,312 266,350 290,366 C304,376 310,392 314,432 L346,432 C346,400 350,384 356,368 C366,346 372,306 372,272 C352,262 320,258 300,262 Z"/>
+<path class="csf" d="M368,318 L396,338 L362,358 Z"/>
+<circle class="gm" cx="374" cy="279" r="6"/><circle class="gm" cx="373" cy="295" r="6"/>
+<path class="tract" d="M262,270 L256,290" style="stroke:var(--tract-line);stroke-width:3"/><circle class="gm" cx="252" cy="296" r="9"/>
+<ellipse class="tract" cx="240" cy="272" rx="9" ry="4"/>
+${lines}${hl}${lab}${dots}</svg>`;
+}
+
+/* nerve course */
+function nerveSVG(opts) {
+  const uid = "n" + (++uidN);
+  const hl = opts.hl ? `<g class="hl ${RM ? "" : "hl-pulse"}" style="fill:url(#hatch-${uid})">${opts.hl.map(shp).join("")}</g>` : "";
+  const st = (x, y) => `<circle class="station" cx="${x}" cy="${y}" r="3.2"/>`;
+  return `<svg viewBox="0 0 620 290" role="img" aria-label="Course of the third, fourth and sixth cranial nerves"><defs>${hatch(uid)}</defs><g transform="translate(30,0)">
+<ellipse class="gm" cx="556" cy="150" rx="28" ry="48"/>
+<path class="tissue" d="M480,20 L532,20 C534,58 536,88 538,110 C546,140 542,178 528,196 L526,276 L492,276 L490,200 C460,194 448,152 458,118 C466,102 476,90 478,64 Z"/>
+<path class="bone" d="M346,170 L456,136 L462,196 L350,196 Z"/>
+<path class="orbit" d="M40,84 L150,116 L150,144 L40,176 Z"/>
+<circle class="globe" cx="70" cy="130" r="34"/>
+<path class="optic" d="M104,128 C126,124 140,116 160,104"/>
+<path class="bonestroke" d="M160,108 L166,108 L166,152 L160,152"/>
+<rect class="sinus" x="198" y="94" width="116" height="74" rx="20"/>
+<circle class="ghost" cx="256" cy="198" r="13"/>
+<path class="artery" d="M318,214 C304,196 300,170 306,150 C312,130 296,116 270,116 C248,116 236,126 240,140"/>
+<path class="artery thin" d="M300,118 C340,108 390,88 452,76"/>
+<path class="artery thin" d="M440,72 L500,70"/><path class="artery thin" d="M440,98 L500,98"/>
+<path class="artery" d="M466,100 C458,130 458,170 468,198"/>
+<path class="ghostline" d="M300,86 C360,74 430,62 540,52"/>
+<ellipse class="ghost" cx="418" cy="106" rx="20" ry="9"/>
+<path class="f3" d="M478,86 C454,88 420,94 380,98 C350,101 330,104 314,106 L206,108 C186,110 172,114 162,118 C140,114 120,108 96,104"/>
+<path class="f3" d="M162,118 C140,126 122,140 98,150"/><circle class="nuc" cx="128" cy="136" r="3.5"/>
+<path class="f4" d="M534,100 C556,108 550,128 526,124 C496,120 440,116 380,114 L314,116 L206,120 L162,122 C140,112 120,100 100,92"/>
+<path class="f6" d="M490,202 C450,198 390,184 360,166 C340,154 322,146 300,144 L206,136 L162,128 C140,128 124,130 104,132"/>
+${st(478,86)}${st(534,100)}${st(490,202)}${st(354,160)}${st(412,93)}
+${hl}
+<text class="lbl" x="66" y="78" text-anchor="middle">Globe</text>
+<text class="lbl" x="163" y="170" text-anchor="middle">Sup. orbital fissure</text>
+<text class="lbl sm" x="150" y="98" text-anchor="end">Optic nerve</text>
+<text class="lbl sm" x="126" y="154" text-anchor="end">Ciliary ganglion</text>
+<text class="lbl" x="256" y="88" text-anchor="middle">Cavernous sinus</text>
+<text class="lbl sm" x="256" y="226" text-anchor="middle">Pituitary (medial)</text>
+<text class="lbl sm" x="314" y="232" text-anchor="start">ICA</text>
+<text class="lbl sm" x="350" y="90" text-anchor="middle">PComm</text>
+<text class="lbl sm" x="506" y="66" text-anchor="start">PCA</text><text class="lbl sm" x="506" y="102" text-anchor="start">SCA</text>
+<text class="lbl sm" x="424" y="58" text-anchor="middle">Tentorial edge</text>
+<text class="lbl sm" x="418" y="128" text-anchor="middle">Uncus</text>
+<text class="lbl" x="404" y="214" text-anchor="middle">Petrous apex</text>
+<text class="lbl sm" x="354" y="186" text-anchor="end">Dorello’s canal</text>
+<text class="lbl sm" x="458" y="214" text-anchor="end">Basilar</text>
+<text class="lbl" x="508" y="14" text-anchor="middle">Midbrain</text>
+<text class="lbl" x="512" y="160" text-anchor="middle">Pons</text>
+<text class="lbl" x="508" y="244" text-anchor="middle">Medulla</text>
+<text class="lbl sm" x="556" y="96" text-anchor="middle">IV exits</text>
+<text class="lbl sm" x="496" y="220" text-anchor="start">VI exits</text>
+<text class="lbl sm" x="472" y="80" text-anchor="end">III exits</text>
+</g></svg>`;
+}
+
+/* ================= Eyes ================= */
+let eyeN = 0;
+function eyeSVG(cls) {
+  const id = "ec" + (++eyeN);
+  return `<svg class="eye ${cls}" viewBox="0 0 100 56" aria-hidden="true"><defs><clipPath id="${id}"><path d="M6,28 Q50,-4 94,28 Q50,60 6,28Z"/></clipPath></defs>
+<g clip-path="url(#${id})"><rect class="sclera" x="0" y="0" width="100" height="56"/>
+<g class="iris" transform="translate(50 28)"><circle class="iris-c" r="12"/><circle class="iris-ring" r="11.4"/><line class="mark" x1="0" y1="-11" x2="0" y2="-6.5"/><circle class="pupil" r="4.3"/></g>
+<circle class="glint" r="1.7" transform="translate(54 24)"/>
+<path class="lid" d=""/><path class="lid-line" d=""/></g>
+<path class="eye-outline" d="M6,28 Q50,-4 94,28 Q50,60 6,28Z"/></svg>`;
+}
+function bindEye(svg) { return {iris:$(".iris", svg), pupil:$(".pupil", svg), glint:$(".glint", svg), lid:$(".lid", svg), lidLine:$(".lid-line", svg)}; }
+function paintEye(r, sx, sy, rot, pupil, ptosis) {
+  const cx = 50 + sx * 24, cy = 28 - sy * 9;
+  r.iris.setAttribute("transform", `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) rotate(${rot.toFixed(1)})`);
+  r.glint.setAttribute("transform", `translate(${(cx + 3.8).toFixed(2)} ${(cy - 4).toFixed(2)})`);
+  r.pupil.setAttribute("r", (4.3 * pupil).toFixed(2));
+  const apex = clamp(17 + ptosis * 22 - sy * 7, 8, 43), c = (2 * apex - 28).toFixed(1);
+  r.lid.setAttribute("d", `M-2,-2 L102,-2 L102,28 L94,28 Q50,${c} 6,28 L-2,28 Z`);
+  r.lidLine.setAttribute("d", `M6,28 Q50,${c} 94,28`);
+}
+
+function params(L, mode) {
+  const base = L.m || {};
+  const ip = Object.assign({}, base.ipsi || {}), co = Object.assign({}, base.contra || {});
+  if (mode === "vor" && L.vor) {
+    Object.assign(ip, L.vor.ipsi || L.vor.both || {});
+    Object.assign(co, L.vor.contra || L.vor.both || {});
+  }
+  return {ipsi:E(ip), contra:E(co)};
+}
+function target(p, a, v) {
+  let x = p.off.a + (a >= 0 ? a * p.abd : a * p.add);
+  let y = p.off.v + (v >= 0 ? v * p.up : v * p.down);
+  if (p.fn) { const d = p.fn(a, v); x += d.x || 0; y += d.y || 0; }
+  return {a:clamp(x, -1, 1), v:clamp(y, -1, 1)};
+}
+function nysOff(n, t) {
+  if (!n || RM) return {a:0, v:0, r:0};
+  const ph = (t * (n.freq || 2.2)) % 1, amp = n.amp || .1;
+  let d;
+  if (n.kind === "bob") d = ph < .08 ? ph / .08 : ph < .7 ? 1 - (ph - .08) / .62 : 0;
+  else d = ph < .8 ? -ph / .8 : -1 + (ph - .8) / .2;
+  return {a:(n.a || 0) * amp * d, v:(n.v || 0) * amp * d, r:(n.t || 0) * 9 * (n.kind === "bob" ? 0 : d)};
+}
+
+/* ================= State and UI ================= */
+const state = {id:"ino", side:"R", mode:"vol", tab:"atlas", ptr:null, ptrUntil:0, sweepT:0};
+try { const s = JSON.parse(localStorage.getItem("oma-prefs") || "{}"); if (s.side === "L") state.side = "L"; } catch (e) {}
+const savePrefs = () => { try { localStorage.setItem("oma-prefs", JSON.stringify({side:state.side})); } catch (e) {} };
+
+const big = {R:null, L:null};
+const bigState = {R:{a:0, v:0, va:0, vv:0}, L:{a:0, v:0, va:0, vv:0}};
+$("#bigR").innerHTML = eyeSVG("big"); $("#bigL").innerHTML = eyeSVG("big");
+big.R = bindEye($("#bigR svg")); big.L = bindEye($("#bigL svg"));
+
+const NINE = [];
+const POS = [[-1,1,"R + up"],[0,1,"Up"],[1,1,"L + up"],[-1,0,"Right"],[0,0,"Primary"],[1,0,"Left"],[-1,-1,"R + down"],[0,-1,"Down"],[1,-1,"L + down"]];
+$("#nine").innerHTML = POS.map((p, i) => `<button type="button" data-i="${i}" aria-label="Show gaze ${p[2]}"><span class="pair">${eyeSVG("sm")}${eyeSVG("sm")}</span>${p[2]}</button>`).join("");
+$$("#nine button").forEach((b, i) => {
+  const svgs = $$("svg", b);
+  NINE.push({R:bindEye(svgs[0]), L:bindEye(svgs[1]), gx:POS[i][0], gy:POS[i][1]});
+  b.addEventListener("click", () => { state.ptr = {gx:POS[i][0] * .9, gy:POS[i][1] * .9}; state.ptrUntil = performance.now() + 6000; });
+});
+
+const fpHTML = `<svg viewBox="-10 -10 20 20"><g class="fpa"><line x1="-6" y1="0" x2="6" y2="0"/><path d="M6,0 L1.5,-4 M6,0 L1.5,4"/></g></svg><span class="fpt">fast phase</span>`;
+$("#fpR").innerHTML = fpHTML; $("#fpL").innerHTML = fpHTML;
+
+/* list + select */
+function renderList() {
+  const q = ($("#filter").value || "").trim().toLowerCase();
+  let html = "", n = 0;
+  REGIONS.forEach(rg => {
+    const items = LESIONS.filter(l => l.region === rg && (!q || [l.name, l.short, l.level, l.summary, l.location, l.eyes.join(" "), l.other.join(" "), l.causes.join(" ")].join(" ").toLowerCase().includes(q)));
+    if (!items.length) return;
+    n += items.length;
+    html += `<div class="grp"><h3>${rg}</h3>${items.map(l => `<button class="item" type="button" data-id="${l.id}" aria-current="${l.id === state.id}">${l.name}<small>${l.short}</small></button>`).join("")}</div>`;
+  });
+  $("#list").innerHTML = html || `<p class="empty">No lesion matches “${q.replace(/[<>&]/g, "")}”.</p>`;
+}
+$("#lesionSelect").innerHTML = REGIONS.map(rg => `<optgroup label="${rg}">${LESIONS.filter(l => l.region === rg).map(l => `<option value="${l.id}">${l.name}</option>`).join("")}</optgroup>`).join("");
+$("#list").addEventListener("click", e => { const b = e.target.closest(".item"); if (b) go(b.dataset.id); });
+$("#lesionSelect").addEventListener("change", e => go(e.target.value));
+$("#filter").addEventListener("input", renderList);
+$("#map").addEventListener("click", e => { const d = e.target.closest(".dot"); if (d) go(d.dataset.id); });
+
+/* Inside the Life Dashboard (an iframe), moving around the atlas replaces the address
+   instead of adding history, so the app's Back button leaves the atlas in one tap. */
+const EMBED = document.documentElement.classList.contains("embed");
+function setHash(h) { if (EMBED) { history.replaceState(null, "", "#" + h); route(); } else location.hash = h; }
+document.addEventListener("click", e => {
+  if (!EMBED) return;
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  e.preventDefault();
+  setHash(a.getAttribute("href").slice(1));
+});
+function go(id) { if (location.hash.slice(1) !== id) setHash(id); else select(id); }
+
+const ul = a => `<ul>${a.map(x => `<li>${x}</li>`).join("")}</ul>`;
+function renderLesion() {
+  const L = BY[state.id];
+  const bil = !!L.bilateral;
+  $("#crumb").textContent = `${L.region} · ${L.level}`;
+  $("#lname").textContent = L.name;
+  $("#lsummary").textContent = L.summary;
+  $("#lloc").textContent = L.location;
+  const sideWord = state.side === "R" ? "right" : "left";
+  $("#sideChip").textContent = bil ? "Bilateral" : `Lesion on the ${sideWord}`;
+  $("#sideR").setAttribute("aria-pressed", String(!bil && state.side === "R"));
+  $("#sideL").setAttribute("aria-pressed", String(!bil && state.side === "L"));
+  $("#sideR").disabled = bil; $("#sideL").disabled = bil;
+  $("#modeV").setAttribute("aria-pressed", String(state.mode === "vol"));
+  $("#modeD").setAttribute("aria-pressed", String(state.mode === "vor"));
+  const eff = bil ? "R" : state.side;
+  $("#tagR").textContent = !bil && eff === "R" ? "· lesion side" : "";
+  $("#tagL").textContent = !bil && eff === "L" ? "· lesion side" : "";
+
+  let title, sub, svg, cap;
+  if (L.section === "sagittal") {
+    title = "Midline view"; sub = "Schematic sagittal section · front to the left";
+    svg = sagittalSVG({sel:L.id, hl:L.hl, labels:true});
+    cap = "Hatched: lesion. The medial thalamus sits directly above the rostral midbrain, which explains the vertical gaze signs.";
+  } else if (L.section === "nerve") {
+    title = "Course of CN III, IV and VI"; sub = "Schematic lateral view · front of the head to the left";
+    svg = nerveSVG({hl:L.hl});
+    cap = "Hatched: lesion. Blue line CN III, teal CN IV, amber CN VI; arteries in red.";
+  } else if (L.section === "orbit") {
+    title = "Orbit and neuromuscular junction";
+    sub = `${eff === "R" ? "Right" : "Left"} orbit, coronal section behind the globe, seen from the front · junction inset`;
+    svg = sectionSVG("orbit", L, eff);
+    cap = "Hatched: lesion. Muscles cut across: LPS levator, SR superior rectus, SO superior oblique, MR medial, LR lateral, IR inferior rectus.";
+  } else if (L.section === "visual") {
+    title = "Visual pathway"; sub = SECTIONS.visual.sub;
+    svg = sectionSVG("visual", L, eff);
+    cap = "Hatched: lesion. Teal: uncrossed fibers from the temporal retina. Indigo: fibers from the nasal retina, which cross at the chiasm.";
+  } else {
+    const S = SECTIONS[L.section];
+    title = S.title;
+    sub = L.section === "lateral" ? `${eff === "R" ? "Right" : "Left"} hemisphere, lateral view · front to the ${eff === "R" ? "right" : "left"}` : S.sub;
+    svg = sectionSVG(L.section, L, eff);
+    cap = L.section === "lateral" ? "Hatched: lesion. Dashed outlines lie on the medial surface or deeper." : "Hatched: lesion. The patient’s right is on the left of the drawing (R and L marked). Dark structures are fiber tracts, pale ones are nuclei.";
+  }
+  $("#diaTitle").textContent = title; $("#diaSub").textContent = sub;
+  $("#where").innerHTML = svg;
+  $("#whereCap").textContent = cap;
+  $("#eyeNote").innerHTML = (L.note ? L.note + " " : "") + "<b>Examiner’s view:</b> the patient’s right eye is on your left.";
+  const isF = !!L.fields;
+  $("#fieldsBox").hidden = !isF; $("#eyeSim").hidden = isF; $("#modeSeg").hidden = isF;
+  $("#eyesTitle").textContent = isF ? "Visual fields" : "What you see";
+  if (isF) $("#fieldsSvg").innerHTML = fieldsSVG(L, eff);
+
+  $("#facts").innerHTML = `
+    <div class="fact eyesf"><h4>Eye findings</h4>${ul(L.eyes)}</div>
+    <div class="fact"><h4>Structures involved</h4>${ul(L.structures)}</div>
+    <div class="fact"><h4>Company it keeps</h4>${ul(L.other)}</div>
+    <div class="fact"><h4>Usual causes</h4>${ul(L.causes)}</div>
+    <div class="pearl"><h4>Clinical pearl</h4><p>${L.pearl}</p></div>`;
+
+  $("#map").innerHTML = sagittalSVG({sel:L.id, dots:true});
+  $$("#list .item").forEach(b => b.setAttribute("aria-current", String(b.dataset.id === L.id)));
+  $("#lesionSelect").value = L.id;
+}
+function select(id) {
+  if (!BY[id]) return;
+  state.id = id;
+  renderLesion();
+}
+$("#sideR").addEventListener("click", () => { state.side = "R"; savePrefs(); renderLesion(); });
+$("#sideL").addEventListener("click", () => { state.side = "L"; savePrefs(); renderLesion(); });
+$("#modeV").addEventListener("click", () => { state.mode = "vol"; renderLesion(); });
+$("#modeD").addEventListener("click", () => { state.mode = "vor"; renderLesion(); });
+
+/* gaze pad */
+const pad = $("#pad"), padDot = $("#padDot");
+function padSet(e) {
+  const r = pad.getBoundingClientRect();
+  state.ptr = {gx:clamp(((e.clientX - r.left) / r.width) * 2 - 1, -1, 1) * 1.08, gy:clamp(-(((e.clientY - r.top) / r.height) * 2 - 1), -1, 1) * 1.08};
+  state.ptr.gx = clamp(state.ptr.gx, -1, 1); state.ptr.gy = clamp(state.ptr.gy, -1, 1);
+  state.ptrUntil = performance.now() + 2500;
+}
+pad.addEventListener("pointermove", padSet);
+pad.addEventListener("pointerdown", e => { padSet(e); try { pad.setPointerCapture(e.pointerId); } catch (x) {} });
+pad.addEventListener("keydown", e => {
+  const k = {ArrowLeft:[-.25,0], ArrowRight:[.25,0], ArrowUp:[0,.25], ArrowDown:[0,-.25]}[e.key];
+  if (!k) return;
+  e.preventDefault();
+  const p = state.ptr && performance.now() < state.ptrUntil ? state.ptr : {gx:0, gy:0};
+  state.ptr = {gx:clamp(p.gx + k[0], -1, 1), gy:clamp(p.gy + k[1], -1, 1)};
+  state.ptrUntil = performance.now() + 8000;
+});
+function gazeWords(gx, gy) {
+  const h = Math.abs(gx) < .2 ? "" : gx < 0 ? "patient’s right" : "patient’s left";
+  const v = Math.abs(gy) < .2 ? "" : gy > 0 ? "up" : "down";
+  return h && v ? `${h}, ${v}` : h || v || "primary";
+}
+
+const SWEEP = [[0,0],[-1,0],[0,0],[1,0],[0,0],[0,1],[0,0],[0,-1],[0,0],[-1,1],[1,-1]];
+function fastPhase(el, n, eye) {
+  const arrow = $(".fpa", el), txt = $(".fpt", el);
+  if (!n) { el.style.visibility = "hidden"; return; }
+  el.style.visibility = "visible";
+  const ax = eye === "R" ? -(n.a || 0) : (n.a || 0), ay = n.v || 0;
+  if (ax || ay) { arrow.style.display = ""; arrow.setAttribute("transform", `rotate(${(Math.atan2(-ay, ax) * 180 / Math.PI).toFixed(0)})`); }
+  else arrow.style.display = "none";
+  txt.textContent = n.kind === "bob" ? "bobbing: fast down" : (n.t ? (ax || ay ? "fast phase + torsion" : "torsional") : "fast phase");
+}
+
+let last = performance.now(), lastKey = "";
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (state.tab !== "atlas" || document.hidden) { last = now; return; }
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  const t = now / 1000;
+  const L = BY[state.id];
+  const side = L.bilateral ? "R" : state.side;
+  const P = params(L, state.mode);
+  const pR = side === "R" ? P.ipsi : P.contra, pL = side === "R" ? P.contra : P.ipsi;
+
+  let gx, gy, src;
+  if (state.ptr && now < state.ptrUntil) { gx = state.ptr.gx; gy = state.ptr.gy; src = "Following your pointer"; }
+  else if (RM) { gx = 0; gy = 0; src = "Primary gaze"; }
+  else { state.sweepT += dt; const s = SWEEP[Math.floor(state.sweepT / 1.5) % SWEEP.length]; gx = s[0]; gy = s[1]; src = "Auto sweep · move over the pad to steer"; }
+  padDot.style.left = ((gx + 1) / 2 * 100) + "%";
+  padDot.style.top = ((1 - gy) / 2 * 100) + "%";
+  const key = gazeWords(gx, gy) + "|" + src;
+  if (key !== lastKey) { $("#gazeTxt").textContent = "Gaze: " + gazeWords(gx, gy); $("#srcTxt").textContent = src; lastKey = key; }
+
+  const h = -gx;
+  [["R", pR, h], ["L", pL, -h]].forEach(([k, p, a]) => {
+    const T = target(p, a, gy), s = bigState[k];
+    if (RM) { s.a = T.a; s.v = T.v; s.va = s.vv = 0; }
+    else if (p.dyn === "over") {
+      const K = 520, C = 13, n = 6, hh = dt / n;
+      for (let i = 0; i < n; i++) { s.va += (K * (T.a - s.a) - C * s.va) * hh; s.a += s.va * hh; s.vv += (K * (T.v - s.v) - C * s.vv) * hh; s.v += s.vv * hh; }
+    } else {
+      s.va = s.vv = 0;
+      const da = T.a - s.a, dv = T.v - s.v;
+      const sa = (da > 0 ? p.speed.abd : p.speed.add) * dt, sv = (dv > 0 ? p.speed.up : p.speed.down) * dt;
+      s.a += clamp(da, -sa, sa); s.v += clamp(dv, -sv, sv);
+    }
+    const n = p.nys ? p.nys(a, gy, t) : null, o = nysOff(n, t);
+    const ea = s.a + o.a, ev = s.v + o.v;
+    const sx = k === "R" ? -ea : ea, rot = k === "R" ? -o.r : o.r;
+    paintEye(big[k], clamp(sx, -1.1, 1.1), clamp(ev, -1.1, 1.1), rot, p.pupil, p.ptosis);
+    fastPhase($("#fp" + k), n, k);
+  });
+
+  NINE.forEach(c => {
+    const hh = -c.gx;
+    [["R", pR, hh], ["L", pL, -hh]].forEach(([k, p, a]) => {
+      const T = target(p, a, c.gy), n = p.nys ? p.nys(a, c.gy, t) : null, o = nysOff(n, t);
+      const ea = T.a + o.a, sx = k === "R" ? -ea : ea;
+      paintEye(c[k], clamp(sx, -1.1, 1.1), clamp(T.v + o.v, -1.1, 1.1), k === "R" ? -o.r : o.r, p.pupil, p.ptosis);
+    });
+  });
+}
+
+/* ================= Systems ================= */
+const RULES = [
+  ["Doll’s head beats the palsy", "The lesion is supranuclear: cortex, PPRF, riMLF, or a degeneration such as PSP. If the VOR cannot move the eye either, think nucleus, nerve or muscle."],
+  ["Which way the eyes look", "Hemisphere: toward the lesion, away from the weak side. Pons: away from the lesion, toward the weak side. Seizure: away from the firing hemisphere. Medial thalamus: sometimes the wrong way."],
+  ["Gaze palsy or one muscle", "Both eyes fail to reach one side: abducens nucleus or PPRF. One eye fails to abduct: sixth nerve fascicle or nerve."],
+  ["Naming an INO", "Name it for the eye that will not adduct. That is the side of the MLF lesion."],
+  ["Crossed signs", "A cranial nerve palsy on one side and weak limbs on the other place the lesion in the brainstem, at the level of that nerve."],
+  ["Skew deviation", "Above the pontine crossing (MLF, INC), the eye on the lesion side is higher. At the vestibular nucleus or lateral medulla, it is lower."],
+  ["The third nerve pupil", "A dilated pupil with a third nerve palsy means compression until proven otherwise. A complete palsy with a spared pupil in a vasculopath is usually ischemic."],
+  ["The odd fourth nerve", "It is the only nerve that crosses and the only one leaving the back of the brainstem. A nuclear lesion weakens the opposite superior oblique."]
+];
+const SYS = [
+  {name:"Saccades", job:"Jump the fovea to a new target.", stat:"Up to 500–700°/s · latency about 200 ms",
+   chain:["Frontal and parietal eye fields","Superior colliculus","PPRF (horizontal) · riMLF (vertical, torsional)","CN VI, III and IV nuclei","Eye muscles"],
+   extra:"Omnipause neurons in the midline pons gate the burst neurons. The neural integrator adds the step that holds the new position, and the dorsal vermis and fastigial nucleus calibrate amplitude.",
+   signs:["Slow saccades: PPRF or riMLF, omnipause neurons, nerve palsy; myasthenia gives fast but fatiguing saccades", "Dysmetria: dorsal vermis (undershoot) or fastigial nucleus (overshoot)", "Delayed initiation: frontal or parietal cortex, Huntington disease"],
+   test:"Ask the patient to look back and forth between your nose and your finger.", link:"pprf"},
+  {name:"Smooth pursuit", job:"Keep a moving target on the fovea.", stat:"Up to about 100°/s · latency about 100 ms",
+   chain:["V1","MT/V5 and MST","Frontal pursuit area (FEF)","Dorsolateral pontine nuclei","Flocculus, paraflocculus, vermis","Vestibular nuclei","CN VI and III nuclei"],
+   extra:"Because of a double crossing, each hemisphere drives pursuit toward its own side.",
+   signs:["Saccadic pursuit toward one side: parieto-occipital or cerebellar lesion on that side", "Symmetric loss: age, fatigue, drugs or alcohol (nonlocalizing)"],
+   test:"Follow a slowly moving target across the visual field.", link:"pef"},
+  {name:"Vestibulo-ocular reflex", job:"Hold the image steady while the head moves.", stat:"Latency about 10 ms · gain close to 1",
+   chain:["Semicircular canals and otoliths","Vestibular nerve","Vestibular nuclei","MLF and ascending tract of Deiters","CN VI and III nuclei"],
+   extra:"A head turn to the right excites the right horizontal canal, which drives the left abducens nucleus and the right medial rectus, so the eyes counter-rotate to the left.",
+   signs:["Corrective saccade on head impulse: peripheral vestibular loss on that side", "VOR intact but voluntary gaze lost: supranuclear lesion", "VOR cannot be suppressed: flocculus"],
+   test:"Head impulse test; doll’s-head maneuver or cold calorics in coma.", link:"abducens-nucleus"},
+  {name:"Optokinetic", job:"Stabilize gaze during sustained full-field motion.", stat:"Slow phase follows the scene; quick phase resets",
+   chain:["Retina","Nucleus of the optic tract (pretectum)","Accessory optic system","Vestibular nuclei (velocity storage, nodulus)","Ocular motor nuclei"],
+   extra:"An OKN tape at the bedside tests pursuit (slow phase) and saccades (quick phase) together.",
+   signs:["Weaker response when stripes move toward a deep parietal lesion (Cogan)", "Downward-moving stripes provoke convergence-retraction in dorsal midbrain syndrome", "Quick phases absent toward one side: same-side FEF or PPRF"],
+   test:"Move a striped tape horizontally, then vertically.", link:"parinaud"},
+  {name:"Vergence", job:"Point both eyes at a near or far target.", stat:"Slow and disconjugate · linked to accommodation and pupil constriction",
+   chain:["Parieto-occipital and frontal cortex","Cerebellum","Near-response cells beside the CN III nucleus (midbrain)","Medial rectus subnuclei and Edinger–Westphal"],
+   extra:"Convergence reaches the medial rectus without the MLF, so it survives a pontine INO.",
+   signs:["Convergence insufficiency: Parkinson disease, head injury", "Convergence spasm: functional; the small pupils give it away", "Divergence insufficiency: older adults (sagging eye syndrome), raised pressure, pontine or cerebellar lesions", "Convergence lost along with an INO: rostral midbrain lesion"],
+   test:"Bring a target toward the nose and watch the eyes and pupils.", link:"webino"},
+  {name:"Gaze holding", job:"Hold the eyes still in an eccentric position.", stat:"Neural integrator time constant normally above 20 s",
+   chain:["Velocity command from burst neurons","NPH–MVN (horizontal) · INC (vertical, torsional)","Flocculus (strengthens the integrator)","Motoneurons receive pulse and step"],
+   extra:"A leaky integrator lets the eyes drift back toward center, which produces gaze-evoked nystagmus.",
+   signs:["Horizontal gaze-evoked nystagmus: NPH–MVN, flocculus, or drugs", "Vertical gaze-evoked nystagmus: INC or MLF", "Rebound nystagmus: cerebellum"],
+   test:"Hold gaze about 30° to each side for several seconds.", link:"nph"},
+  {name:"Fixation", job:"Keep the eyes still on a stationary target.", stat:"Small microsaccades are normal",
+   chain:["Rostral pole of the superior colliculus","Omnipause neurons","Burst neurons kept silent"],
+   extra:"When fixation fails, saccades intrude on it.",
+   signs:["Square-wave jerks: PSP, cerebellar disease (a few are normal)", "Ocular flutter (horizontal only) and opsoclonus (all directions): paraneoplastic, post-infectious, toxic", "Macrosaccadic oscillations: fastigial outflow"],
+   test:"Watch the eyes during steady fixation on a distant target.", link:"omnipause"}
+];
+$("#rules").innerHTML = RULES.map(r => `<div class="rule"><b>${r[0]}</b><p>${r[1]}</p></div>`).join("");
+$("#sys").innerHTML = SYS.map(s => `<article><h3>${s.name}</h3><p class="job">${s.job}</p><p class="stat">${s.stat}</p>
+<ol class="chain" aria-label="Pathway">${s.chain.map(c => `<li>${c}</li>`).join("")}</ol>
+<p class="extra">${s.extra}</p>${ul(s.signs)}<p class="test"><b>Bedside:</b> ${s.test} <a href="#${s.link}">Example in atlas</a></p></article>`).join("");
+
+/* ================= Nerves ================= */
+const NERVES = [
+  {name:"CN III · Oculomotor", color:"var(--n3)", sub:"Medial, superior and inferior rectus; inferior oblique; levator; pupil and lens.", st:[
+    ["Nucleus", "Rostral midbrain at the superior colliculus, ventral to the aqueduct.", "Crossed superior rectus and shared levator subnuclei: opposite-eye elevation weakness, ptosis on both sides.", "iii-nuclear"],
+    ["Fascicle", "Runs ventrally through the red nucleus and cerebral peduncle.", "Benedikt (tremor), Claude (ataxia) or Weber (hemiparesis), all on the opposite side.", "weber"],
+    ["Subarachnoid space", "Interpeduncular cistern, between the PCA and SCA, beside the PComm, under the uncus.", "Aneurysm or herniation: pupil goes first. Microvascular infarct: pupil spared.", "pcomm"],
+    ["Cavernous sinus", "Upper lateral wall, above CN IV.", "Joined by IV, V1, V2, VI and sympathetic signs.", "cavernous"],
+    ["Superior orbital fissure", "Splits into superior and inferior divisions inside the tendinous ring.", "Divisional palsies; with optic neuropathy at the apex.", "orbital-apex"],
+    ["Orbit", "Superior division: SR, levator. Inferior: MR, IR, IO, and the pupil via the ciliary ganglion.", "Orbital mass or inflammation; pupil-only damage at the ciliary ganglion (Adie pupil).", "adie"]
+  ]},
+  {name:"CN IV · Trochlear", color:"var(--n4)", sub:"Superior oblique: depresses the adducted eye and intorts.", st:[
+    ["Nucleus", "Caudal midbrain at the inferior colliculus, dorsal to the MLF.", "Superior oblique palsy of the opposite eye, often with a same-side Horner.", "iv-nuclear"],
+    ["Fascicle and crossing", "Curves dorsally, crosses in the superior medullary velum, exits the back of the brainstem.", "Head trauma at the velum: often both nerves.", "iv-nerve"],
+    ["Subarachnoid space", "Wraps around the cerebral peduncle under the tentorial edge.", "Trauma, tentorial meningioma, surgery near the tentorium.", null],
+    ["Cavernous sinus", "Lateral wall, between III and V1.", "Part of cavernous sinus syndrome.", "cavernous"],
+    ["Superior orbital fissure and orbit", "Passes outside the tendinous ring to the superior oblique and trochlea.", "Orbital trauma, trochleitis; spared by many retrobulbar blocks.", null]
+  ]},
+  {name:"CN VI · Abducens", color:"var(--n6)", sub:"Lateral rectus: abduction.", st:[
+    ["Nucleus", "Dorsal caudal pons under the facial colliculus.", "Horizontal gaze palsy, not an abduction deficit; facial palsy from the genu.", "abducens-nucleus"],
+    ["Fascicle", "Runs ventrally through the tegmentum and the corticospinal tract.", "Abduction deficit with opposite hemiparesis (Raymond), plus facial palsy (Millard–Gubler).", "millard-gubler"],
+    ["Prepontine cistern and clivus", "Exits at the pontomedullary junction and climbs the clivus.", "Raised pressure, clival chordoma, meningioma, nasopharyngeal carcinoma.", null],
+    ["Petrous apex (Dorello’s canal)", "Bends under the petroclinoid ligament.", "False-localizing palsy; Gradenigo syndrome.", "vi-dorello"],
+    ["Cavernous sinus", "Free in the sinus beside the carotid, briefly joined by sympathetic fibers.", "First nerve hit by a cavernous aneurysm; VI palsy with Horner.", "cavernous"],
+    ["Superior orbital fissure and orbit", "Inside the tendinous ring to the lateral rectus.", "Orbital apex syndrome.", "orbital-apex"]
+  ]},
+  {name:"Oculosympathetic", color:"var(--symp)", sub:"Pupil dilator and Müller’s muscle. Loss gives Horner syndrome: mild ptosis, small pupil, anhidrosis.", st:[
+    ["First order", "Hypothalamus, down the lateral brainstem and cord to the ciliospinal center of Budge (C8–T2).", "Lateral medullary infarct, pontine or midbrain lesions, syrinx, cord lesions.", "wallenberg"],
+    ["Second order", "Leaves at T1, crosses the lung apex, climbs the sympathetic chain to the superior cervical ganglion near the carotid bifurcation.", "Pancoast tumor, neck or chest surgery, trauma, birth injury.", null],
+    ["Third order", "Along the internal carotid into the cavernous sinus, briefly with CN VI, then V1 and the long ciliary nerves.", "Carotid dissection (painful Horner), cavernous sinus lesions, cluster headache. Facial sweating largely spared.", "carotid-horner"]
+  ]}
+];
+$("#nerveDia").innerHTML = nerveSVG({});
+$("#ncols").innerHTML = NERVES.map(n => `<div class="ncol"><h3><i style="background:${n.color}"></i>${n.name}</h3><p class="sub">${n.sub}</p><ol class="stations">${n.st.map(s => `<li><b>${s[0]}</b><p>${s[1]}</p><p class="les">${s[2]}</p>${s[3] ? `<a href="#${s[3]}">Open in atlas →</a>` : ""}</li>`).join("")}</ol></div>`).join("");
+
+/* ================= Nystagmus ================= */
+const NYS = [
+  ["Downbeat", "Fast phase down in primary gaze; worse looking down and to the sides.", "Flocculus and paraflocculus; craniocervical junction", "Chiari I, SCA6, lithium, antiseizure drugs, low magnesium, Wernicke, MS", "flocculus"],
+  ["Upbeat", "Fast phase up in primary gaze; worse looking up.", "Caudal medulla (perihypoglossal nuclei), pontomesencephalic junction, anterior vermis", "Wernicke, MS, infarct, tumor, tobacco", "medial-medulla"],
+  ["Pure torsional", "Rotary beats around the line of sight, little else.", "Medulla (lateral medulla, syrinx) or riMLF / INC in the midbrain", "Syringobulbia, infarct, MS", "wallenberg"],
+  ["Periodic alternating", "Horizontal; reverses direction every 90–120 s with a short null.", "Nodulus and ventral uvula", "Chiari, MS, degeneration, antiseizure drugs, visual loss", "nodulus"],
+  ["Gaze-evoked", "Beats toward the direction of gaze; absent in primary position.", "Neural integrator: NPH–MVN (horizontal), INC (vertical), flocculus", "Drugs and alcohol (most often), cerebellar disease", "nph"],
+  ["Dissociated abducting", "Only the abducting eye beats, while the other eye adducts poorly.", "MLF (internuclear ophthalmoplegia)", "MS, stroke", "ino"],
+  ["Convergence-retraction", "Eyes jerk inward and pull back on attempted upgaze.", "Dorsal midbrain, posterior commissure", "Pineal tumor, hydrocephalus, stroke", "parinaud"],
+  ["See-saw", "One eye rises and intorts while the other falls and extorts, then they swap.", "Parasellar or chiasmal (pendular); unilateral INC or mesodiencephalic (jerk hemi-see-saw)", "Craniopharyngioma, pituitary tumors, septo-optic dysplasia", "inc"],
+  ["Oculopalatal tremor", "Pendular vertical-torsional nystagmus with 1–3 Hz palatal tremor, starting months after the lesion.", "Guillain–Mollaret triangle (dentate nucleus, red nucleus, inferior olive via the central tegmental tract), causing olivary hypertrophy", "Pontine or cerebellar hemorrhage or infarct", "pontine-bleed"],
+  ["Ocular bobbing", "Fast downward jerk, slow return; horizontal gaze absent.", "Pons", "Pontine hemorrhage, basilar thrombosis", "pontine-bleed"],
+  ["Bruns", "Large slow beats looking toward the lesion; small fast beats looking away.", "Cerebellopontine angle (flocculus plus vestibular nerve)", "Vestibular schwannoma, meningioma", null],
+  ["Peripheral vestibular", "Horizontal-torsional, one direction, fast phase away from the affected ear; suppressed by fixation; stronger looking toward the fast phase.", "Labyrinth or vestibular nerve (not brain)", "Vestibular neuritis, labyrinthitis, Ménière disease", null],
+  ["Spasmus nutans", "Fine, fast, asymmetric pendular nystagmus with head nodding and head tilt in infants.", "Usually benign; can be mimicked by an optic chiasm or hypothalamic glioma", "Image to exclude an optic pathway glioma", null],
+  ["Oculomasticatory myorhythmia", "Pendular convergent oscillations with jaw contractions in time.", "Brainstem", "Whipple disease", null],
+  ["Opsoclonus and flutter", "Back-to-back saccades without a pause: all directions (opsoclonus) or horizontal only (flutter).", "Omnipause neurons and the fastigial nucleus circuit", "Paraneoplastic (neuroblastoma, anti-Ri, small-cell lung cancer), post-infectious, toxic", "vermis"],
+  ["Square-wave jerks", "Small saccades off target and back, with a pause between.", "Superior colliculus, basal ganglia and cerebellar control of fixation", "PSP, cerebellar disease (a few are normal)", "rimlf"]
+];
+$("#nysTable").innerHTML = `<thead><tr><th>Pattern</th><th>What you see</th><th>Where the lesion is</th><th>Common causes</th><th></th></tr></thead><tbody>${NYS.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="where">${r[2]}</td><td>${r[3]}</td><td>${r[4] ? `<a href="#${r[4]}">Show eyes →</a>` : ""}</td></tr>`).join("")}</tbody>`;
+
+/* ================= Quiz ================= */
+const QUIZ = [
+  ["A 27-year-old woman has blurred vision looking left. On left gaze her right eye stops short of full adduction and her left eye beats as it abducts. Convergence is full.", ["Right MLF in the pons", "Left MLF in the pons", "Right abducens nucleus", "Left sixth nerve"], "Weak right adduction with abducting nystagmus of the left eye is a right INO. The MLF lesion is on the side of the weak adduction, and full convergence shows the medial rectus itself works.", "ino"],
+  ["A 58-year-old has sudden diplopia. Looking right, neither eye passes the midline. Looking left, only the left eye moves, abducting with nystagmus. The whole right side of the face is weak, forehead included.", ["Right dorsal caudal pontine tegmentum", "Left dorsal caudal pontine tegmentum", "Right ventral pons", "Left frontal eye field"], "A right gaze palsy plus a right INO is a right one-and-a-half syndrome. Adding a right lower motor neuron facial palsy makes it eight-and-a-half. All three sit together under the right facial colliculus.", "one-and-a-half"],
+  ["A 15-year-old boy has headaches and cannot look up. On attempted upgaze his eyes jerk inward and retract. His pupils are large and react poorly to light but constrict when he reads.", ["Dorsal midbrain and posterior commissure", "Both riMLFs", "Both CN III nuclei", "Medial thalamus"], "Upgaze palsy, convergence-retraction nystagmus and light-near dissociation make dorsal midbrain syndrome. In a teenage boy, a pineal germinoma is the lesion to exclude.", "parinaud"],
+  ["A patient has right ptosis, a right eye that sits down and out, a dilated right pupil, and weakness of the left arm and leg.", ["Right ventral midbrain (cerebral peduncle)", "Right PComm aneurysm", "Left ventral midbrain", "Right ventral pons"], "A third nerve palsy with crossed hemiparesis is Weber syndrome: the third nerve fascicle passing through the cerebral peduncle. An aneurysm pressing on the nerve alone would not explain the weak limbs.", "weber"],
+  ["A patient has a left third nerve palsy with a coarse tremor and flinging movements of the right arm.", ["Left midbrain tegmentum (red nucleus)", "Left cerebral peduncle", "Right red nucleus", "Left cavernous sinus"], "Third nerve palsy with contralateral tremor and involuntary movement is Benedikt syndrome: the fascicle passing through the red nucleus on the side of the palsy.", "benedikt"],
+  ["The left eye cannot abduct, the whole left side of the face is weak, and the right arm and leg are weak. On left gaze the right eye adducts fully.", ["Left ventral caudal pons", "Left abducens nucleus", "Right ventral caudal pons", "Left cavernous sinus"], "An isolated left abduction deficit (the right eye adducts normally, so this is not a gaze palsy) means the sixth nerve fascicle or nerve. Crossed hemiparesis puts it in the basis pontis; the facial fascicle adds the facial palsy: Millard–Gubler.", "millard-gubler"],
+  ["Sudden vertigo, hoarseness and trouble swallowing. Right ptosis with a small right pupil, loss of pain sensation on the right face and the left body. Saccades to the right overshoot.", ["Right dorsolateral medulla", "Left dorsolateral medulla", "Right medial medulla", "Right dorsal pons"], "Same-side Horner, face and nucleus ambiguus signs with crossed body sensory loss make a right lateral medullary infarct. Overshoot toward the lesion is ipsipulsion.", "wallenberg"],
+  ["A 34-year-old has oscillopsia and an occipital headache when coughing. In primary gaze the eyes beat downward, more so looking down and to either side.", ["Flocculus and craniocervical junction", "Dorsal midbrain", "Nodulus", "Caudal medulla, perihypoglossal nuclei"], "Downbeat nystagmus worse on down and lateral gaze points to the flocculus. Cough headache suggests a Chiari I malformation at the craniocervical junction.", "flocculus"],
+  ["A horizontal jerk nystagmus beats to the right for about 100 seconds, stops briefly, then beats to the left for about as long.", ["Nodulus and ventral uvula", "Flocculus", "Left vestibular nerve", "PPRF"], "That is periodic alternating nystagmus, from loss of the nodulus and uvula’s control of velocity storage.", "nodulus"],
+  ["A 68-year-old with diabetes has painful right ptosis and a right eye that sits down and out. The pupils are equal and react normally.", ["Ischemia in the core of the right third nerve", "Right PComm aneurysm", "Right CN III nucleus", "Right uncal herniation"], "A spared pupil means the surface pupillomotor fibers are intact, which fits a microvascular infarct in the center of the nerve. Keep checking the pupil: if it becomes involved, image for an aneurysm.", "micro-iii"],
+  ["A comatose patient has pinpoint pupils, no horizontal eye movement on doll’s-head testing, and intermittent rapid downward jerks of both eyes with a slow return.", ["Pons", "Midbrain tectum", "Both thalami", "Medulla"], "Pinpoint pupils, absent horizontal gaze and typical ocular bobbing localize to the pons, most often a hemorrhage.", "pontine-bleed"],
+  ["After a stroke, a patient has left hemiparesis and both eyes deviated to the right. Turning the head brings the eyes across the midline to the left.", ["Right frontal eye field", "Left frontal eye field", "Right PPRF", "Left abducens nucleus"], "Eyes looking toward the lesion and away from the weak side, overcome by the VOR, point to a hemispheric lesion: the right frontal eye field.", "fef"],
+  ["After a motorcycle crash a patient has vertical diplopia. The left eye is higher, more so looking right and with the head tilted to the left. There are no other signs.", ["Left fourth nerve (peripheral)", "Right fourth nerve (peripheral)", "Left trochlear nucleus", "Left third nerve"], "Left hypertropia worse on right gaze and left head tilt is a left superior oblique palsy. After trauma with no other signs, the left trochlear nerve is the likely site. A left trochlear nucleus lesion would weaken the right superior oblique instead.", "iv-nerve"],
+  ["A 26-year-old woman with headaches and papilledema cannot abduct either eye.", ["Both sixth nerves along the clivus and petrous apex", "Both abducens nuclei", "Both MLFs", "Both cavernous sinuses"], "Raised intracranial pressure stretches the sixth nerves along their long course over the petrous apex: a false-localizing sign, here likely idiopathic intracranial hypertension.", "vi-dorello"],
+  ["A 70-year-old keeps falling backward. Vertical saccades are very slow, worst looking down, with square-wave jerks. Doll’s head moves the eyes fully up and down.", ["riMLF and rostral midbrain (supranuclear)", "Both CN III nuclei", "Both fourth nerves", "Dorsal vermis"], "Slow vertical saccades with a full VOR range is a supranuclear vertical gaze palsy. With early backward falls this is progressive supranuclear palsy, which involves the riMLF.", "rimlf"],
+  ["The right eye cannot move in any direction, the right forehead and cheek are numb, and the right pupil is mid-sized and fixed. Vision is normal.", ["Right cavernous sinus", "Right orbital apex", "Right CN III nucleus", "Right lateral medulla"], "Several ocular motor nerves plus V1 and V2 with normal vision point to the cavernous sinus. An orbital apex lesion would usually affect the optic nerve and spare V2.", "cavernous"],
+  ["A 45-year-old has droopy lids that are worse in the evening, and double vision that changes pattern from one visit to the next. The pupils are normal and eye closure is weak.", ["Neuromuscular junction", "Right third nerve", "Both MLFs", "Dorsal midbrain"], "Fluctuating, fatigable ptosis and diplopia that fit no single nerve, with normal pupils and weak eye closure, point to the neuromuscular junction: ocular myasthenia gravis.", "myasthenia"],
+  ["A 38-year-old woman with weight loss and tremor has staring eyes with white sclera above the iris. She cannot look up fully, and the doll’s-head maneuver gives no extra range.", ["Extraocular muscle bellies (thyroid eye disease)", "Dorsal midbrain", "Both third nerves", "Neuromuscular junction"], "Lid retraction with restricted elevation that the VOR cannot overcome is restrictive disease of the muscles, typically a tight inferior rectus in thyroid eye disease.", "thyroid-eye"],
+  ["A 52-year-old man keeps clipping cars on both sides when driving. Testing shows loss of the outer half of the field in each eye, worse above. Acuity is normal.", ["Optic chiasm", "Both optic nerves", "Right optic tract", "Both occipital lobes"], "A bitemporal hemianopia, denser above, comes from compression of the chiasm from below, usually a pituitary adenoma.", "chiasm"],
+  ["A patient has a left homonymous hemianopia that is different in shape in each eye, and a relative afferent pupillary defect in the left eye.", ["Right optic tract", "Right occipital cortex", "Left optic nerve", "Right parietal radiation"], "A homonymous hemianopia plus an RAPD places the lesion in the optic tract. The defect is on the left, so the right tract is involved; the RAPD falls in the eye that lost its larger temporal field.", "optic-tract"],
+  ["A 34-year-old woman notices one pupil is larger. It barely reacts to light but slowly constricts when she reads, then stays small for a while. Eye movements and lids are normal.", ["Ciliary ganglion (Adie pupil)", "Third nerve compression", "Dorsal midbrain", "Pharmacological dilation"], "A large pupil with normal movements and lids, poor light reaction and slow, sustained near constriction is an Adie tonic pupil, from damage to the ciliary ganglion.", "adie"],
+  ["After a squash game a 41-year-old has right neck pain, a slightly droopy right lid and a small right pupil. Eye movements are full.", ["Right internal carotid wall (dissection)", "Right lateral medulla", "Right lung apex", "Right third nerve"], "A new painful Horner syndrome with no brainstem signs is a carotid dissection until proven otherwise; the third-order sympathetic fibers run on the internal carotid.", "carotid-horner"]
+];
+const qs = {order:[], i:0, score:0, done:0, picked:null, opts:[]};
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function quizStart() { qs.order = shuffle(QUIZ.map((_, i) => i)); qs.i = 0; qs.score = 0; qs.done = 0; quizRender(); }
+function quizRender() {
+  const box = $("#quizBox");
+  if (qs.i >= qs.order.length) {
+    box.innerHTML = `<div class="qcard"><p class="q">Finished</p><p class="case">You localized ${qs.score} of ${qs.order.length} cases.</p><div class="qbtns"><button class="btn" type="button" id="qAgain">Start again</button><a class="btn ghost" href="#atlas">Back to the atlas</a></div></div>`;
+    $("#qAgain").onclick = quizStart; return;
+  }
+  const Q = QUIZ[qs.order[qs.i]];
+  qs.opts = shuffle(Q[1].map((t, k) => ({t, k}))); qs.picked = null;
+  box.innerHTML = `<div class="qmeta"><span>Case ${qs.i + 1} of ${qs.order.length}</span><span>Score ${qs.score} / ${qs.done}</span></div>
+  <div class="qcard"><p class="case">${Q[0]}</p><p class="q">Where is the lesion?</p>
+  <div class="opts">${qs.opts.map((o, j) => `<button class="opt" type="button" id="opt${j}" data-j="${j}">${o.t}</button>`).join("")}</div><div id="qfb"></div></div>`;
+  $$(".opt", box).forEach(b => b.addEventListener("click", () => quizPick(+b.dataset.j)));
+}
+function quizPick(j) {
+  if (qs.picked !== null) return;
+  qs.picked = j;
+  const Q = QUIZ[qs.order[qs.i]], ok = qs.opts[j].k === 0;
+  qs.done++; if (ok) qs.score++;
+  $$(".opt").forEach((b, k) => { b.disabled = true; if (qs.opts[k].k === 0) b.classList.add("right"); else if (k === j) b.classList.add("wrong"); });
+  $("#qfb").innerHTML = `<div class="fb"><div class="verdict ${ok ? "ok" : "no"}">${ok ? "Correct" : "Not quite: " + Q[1][0]}</div><p>${Q[2]}</p>
+  <div class="qbtns"><button class="btn" type="button" id="qNext">${qs.i + 1 < qs.order.length ? "Next case" : "See score"}</button><a class="btn ghost" href="#${Q[3]}">Open in atlas</a></div></div>`;
+  $(".qmeta span:last-child").textContent = `Score ${qs.score} / ${qs.done}`;
+  $("#qNext").onclick = () => { qs.i++; quizRender(); };
+  $("#qNext").focus();
+}
+quizStart();
+
+/* ================= Routing ================= */
+const TABS = ["atlas", "systems", "nerves", "nystagmus", "quiz"];
+function showTab(tab) {
+  state.tab = tab;
+  $$(".view").forEach(v => { v.hidden = v.dataset.view !== tab; });
+  $$("nav.tabs a").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+}
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (TABS.includes(h)) { showTab(h); if (h !== "atlas") window.scrollTo(0, 0); }
+  else if (BY[h]) { const changed = h !== state.id; select(h); showTab("atlas"); if (changed && innerWidth < 960) $(".lesion").scrollIntoView({block:"start"}); }
+  else showTab("atlas");
+}
+addEventListener("hashchange", route);
+
+renderList();
+const h0 = decodeURIComponent(location.hash.slice(1));
+if (BY[h0]) state.id = h0;
+renderLesion();
+route();
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>

@@ -2,7 +2,7 @@
    Strategy: always try the network first (so you get updates right away),
    and fall back to the saved copy when offline or the network is too slow.
    When adding files in a later phase, add them to SHELL and bump CACHE_VERSION. */
-const CACHE_VERSION = 'v0.11.9';
+const CACHE_VERSION = 'v0.11.10';
 const CACHE = `life-dashboard-${CACHE_VERSION}`;
 const NETWORK_TIMEOUT_MS = 3500;
 
@@ -127,6 +127,8 @@ const SHELL = [
   'js/modules/clinical/guides-page.js',
   'js/modules/clinical/cases.js',
   'js/modules/clinical/cases-page.js',
+  'js/modules/clinical/atlas-page.js',
+  'js/modules/clinical/ocular-motor-atlas.html',
   'js/modules/ward/arrange.js',
   'js/modules/ward/board.js',
   'js/modules/ward/labtable.js',
@@ -173,7 +175,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // never touch other sites (e.g. future Google sync)
 
-  const isPage = request.mode === 'navigate';
+  // A frame inside the app (the Ocular Motor Atlas) is its own file, not the app's page
+  const isPage = request.mode === 'navigate' && request.destination !== 'iframe';
   const cacheKey = isPage ? 'index.html' : request;
   let saving;
   // Revalidate with the server each time so edits and deploys show up immediately

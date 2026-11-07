@@ -13,6 +13,7 @@
      scores, scores/<id>    score calculators (NIHSS, GCS, ICH score…) — see clinical/
      guidelines             your guidelines: links and PDFs, by topic
      cases, cases/<id>      your teaching cases
+     eyes                   Ocular Motor Atlas: eye movement, pupil and visual pathway lesions
      ward, ward/history     older addresses of Ward Patients (they still work) */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
@@ -37,6 +38,7 @@ import { allGuides } from './clinical/guides.js';
 import { guidesPage, wireGuides } from './clinical/guides-page.js';
 import { allCases } from './clinical/cases.js';
 import { casesPage, wireCases } from './clinical/cases-page.js';
+import { atlasPage } from './clinical/atlas-page.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -61,6 +63,7 @@ const CLINICAL_TOOLS = [
     return all.length ? `${plural(all.length, 'guideline')}${pdfs ? ` · ${plural(pdfs, 'PDF')}` : ''}` : 'Links and PDFs, by topic';
   } },
   { sub: 'cases', name: 'Cases', icon: 'clipboard', line: () => (allCases().length ? plural(allCases().length, 'teaching case') : 'Your teaching cases') },
+  { sub: 'eyes', name: 'Ocular Motor Atlas', icon: 'eye', line: () => '45 lesions · eye movements, pupils, visual fields' },
 ];
 
 function toolLink(t, { compact = false } = {}) {
@@ -284,6 +287,7 @@ const ROUTES = [
   [/^guidelines$/, guidesPage],
   [/^cases$/, casesPage],
   [/^cases\/([\w-]+)$/, casesPage],
+  [/^eyes$/, atlasPage],
 ];
 const OLD_ROUTES = { ward: 'list/ward', 'ward/history': 'list/ward/history' };
 

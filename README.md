@@ -311,7 +311,7 @@ workout (the "Workout saved" message and the finished workout's page).
 
 ## Clinical tools (Neurology tab, 0.11.0)
 
-**Neurology → Clinical tools** has three pages:
+**Neurology → Clinical tools** has four pages:
 
 - **Score calculators:** NIHSS, ASPECTS, ABCD², thrombolysis dose (alteplase and tenecteplase by weight), ICH
   score, ICH volume (ABC/2), Hunt & Hess, WFNS, modified Fisher, GCS, mRS, CHA₂DS₂-VASc, HAS-BLED and
@@ -325,6 +325,11 @@ workout (the "Workout saved" message and the finished workout's page).
 - **Cases:** your teaching cases — title, date, diagnosis, tags, the case and what you learned — newest first,
   with search and tag filters. **Leave out names, hospital numbers and birthdays**: cases sync to the Cases tab
   of your Google Sheet and go into backup files.
+- **Ocular Motor Atlas** (0.11.10): 45 eye movement, pupil and visual pathway lesions, each with its exact
+  location on a schematic section, a live eye simulator (lesion side, voluntary gaze or doll's head, nine
+  positions of gaze), visual field charts, nerve pathways, a nystagmus table and a case quiz. It's one
+  self-contained page (`js/modules/clinical/ocular-motor-atlas.html`) shown in a frame, saved for offline use,
+  following the app's light or dark setting. It stores nothing except the last lesion side you picked.
 
 Guidelines and cases sync through the **Guidelines** and **Cases** tabs (sync script version 20), are in
 backups, and show up in search everywhere.
