@@ -497,6 +497,12 @@ button.wbadge { cursor: pointer; }
   .ptn__box:not(.is-here):hover { background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); color: var(--text); }
 }
 
+/* The same boxes on the list's page, under the rounds box: tap one to open that patient */
+.ward-pick { margin-top: 12px; }
+.ward-pick .ptn__bar { min-height: 24px; padding-inline: 2px; }
+.ward-pick__title { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.ward-pick__title .icon { width: .95rem; height: .95rem; }
+
 /* My notes: the same notepad on the list and on every patient's page (notes.js) */
 .wnotes {
   display: flex;

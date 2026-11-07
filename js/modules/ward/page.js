@@ -155,6 +155,7 @@ const roundsSpan = (L) => `${roundsCols(L)[0]}–${roundsCols(L)[2]}`;
 function linkedBody(v) {
   return html`${banners(v)}
     ${v.hidden.rounded ? '' : roundsCard(v)}
+    ${v.cache && v.patients.length ? patientPicker(v) : ''}
     ${notesSlot('list')}
     ${statusLine(v)}
     ${v.cache && v.patients.length ? arrangeBar(v) : ''}
@@ -752,6 +753,25 @@ function locationOrder(v) {
     const tag = units.length > 1 && x.bed ? shortUnit(x.unit) : '';
     return { ...x, label, tag, where: x.p.location };
   });
+}
+
+/** On the list's page: one box per patient by location — tap one to open that patient. */
+function patientPicker(v) {
+  const order = locationOrder(v);
+  const box = (x, i) => {
+    const done = x.p.rounded && !v.hidden.rounded;
+    const tip = `${x.p.name || x.p.hn} · ${x.where}${done ? ' · rounded' : ''}`;
+    return html`<button type="button" class="ptn__box${done ? ' is-done' : ''}${x.p.location ? '' : ' is-none'}" data-action="ward:open" data-id="${x.p.id}" data-focus="pick-${x.p.id}" aria-label="${i + 1} of ${order.length}: ${tip}" title="${tip}">
+      ${x.tag ? html`<span class="ptn__tag">${x.tag}</span>` : ''}<span class="ptn__bed">${x.label}</span>
+    </button>`;
+  };
+  return html`<nav class="ptn ward-pick" aria-label="Open a patient">
+    <div class="ptn__bar">
+      <span class="ward-pick__title">${icon('pin')}Open a patient</span>
+      <span class="ptn__pos"><strong>${order.length}</strong> ${order.length === 1 ? 'patient' : 'patients'}</span>
+    </div>
+    <div class="ptn__boxes" style="--n:${order.length}">${order.map(box)}</div>
+  </nav>`;
 }
 
 /** Previous / next, then a row of boxes, one per patient by location; this patient's box is lit. */
