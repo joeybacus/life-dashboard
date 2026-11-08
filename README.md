@@ -346,7 +346,12 @@ workout (the "Workout saved" message and the finished workout's page).
   credited in the page footer as its licence requires. 0.11.20: the basal ganglia slice (z 10, at the genu and splenium)
   and the three coronal slices (y +2 at the anterior commissure, y −13 at the mid-thalamus, y −40 at the splenium) are
   redrawn from the template itself — true brain outline, cortex and white-matter boundaries, and every nucleus, capsule
-  limb, ventricle and territory placed on the real anatomy, with no stretching. **Own scan** (0.11.18): load your own
+  limb, ventricle and territory placed on the real anatomy, with no stretching. 0.11.21: the vertex (z 50), corona
+  radiata (z 22), midbrain (z −12), midline sagittal and parasagittal (x 22) slices are redrawn the same way; cortical
+  areas are now bounded by the real sulci (precentral, central, postcentral, cingulate, parieto-occipital, calcarine)
+  instead of angle wedges. 0.11.22: the posterior fossa slice (z −28) is redrawn from the template (pons, fourth
+  ventricle, peduncles, dentate, nodulus, vermis), the midline brainstem is corrected, and labels sit inside the visible
+  part of their structure and never overlap. The tool frame no longer shows its title as a hover tooltip. **Own scan** (0.11.18): load your own
   scan under the drawing (uncompressed DICOM, a whole series to scroll through, PNG or JPG; drag in or paste a screenshot),
   switch the atlas to outline, and line it up (drag, zoom, rotate, flip; window/level). Each slice keeps its own
   alignment; scans stay in the page and are never uploaded, saved, synced or backed up

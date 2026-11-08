@@ -421,6 +421,34 @@ function build(sl) {
     }
   }
   inst.forEach(o => { o.cx = o.n ? o.sx / o.n : 0; o.cy = o.n ? o.sy / o.n : 0; });
+  /* Label anchor: a point well inside the part of the shape that is actually visible, as close to its middle as
+     possible. A ring (PAG around the aqueduct) or a region partly covered by another structure (basis pontis under
+     the corticospinal bundle) then gets its own spot instead of sharing a centroid with its neighbour. */
+  const dist = new Float32Array(cols * rows).fill(1e9);
+  const ownAt = (r, c) => (r < 0 || c < 0 || r >= rows || c >= cols) ? -9 : own[r * cols + c];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const o = own[r * cols + c]; if (o < 0) continue;
+    if (ownAt(r - 1, c) !== o || ownAt(r + 1, c) !== o || ownAt(r, c - 1) !== o || ownAt(r, c + 1) !== o) dist[r * cols + c] = 1;
+  }
+  const relax = (k, j, d) => { if (own[j] === own[k] && dist[j] + d < dist[k]) dist[k] = dist[j] + d; };
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const k = r * cols + c; if (own[k] < 0) continue;
+    if (r > 0) { relax(k, k - cols, 1); if (c > 0) relax(k, k - cols - 1, 1.41); if (c < cols - 1) relax(k, k - cols + 1, 1.41); }
+    if (c > 0) relax(k, k - 1, 1);
+  }
+  for (let r = rows - 1; r >= 0; r--) for (let c = cols - 1; c >= 0; c--) {
+    const k = r * cols + c; if (own[k] < 0) continue;
+    if (r < rows - 1) { relax(k, k + cols, 1); if (c < cols - 1) relax(k, k + cols + 1, 1.41); if (c > 0) relax(k, k + cols - 1, 1.41); }
+    if (c < cols - 1) relax(k, k + 1, 1);
+  }
+  const best = inst.map(() => -1e9), at = inst.map(() => null);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const k = r * cols + c, i = own[k]; if (i < 0) continue;
+    const o = inst[i], x = c * step + step / 2, y = r * step + step / 2;
+    const score = Math.min(dist[k], 4) * 10 - Math.hypot(x - o.cx, y - o.cy) / step;
+    if (score > best[i]) { best[i] = score; at[i] = [x, y]; }
+  }
+  inst.forEach((o, i) => { if (at[i]) { o.cx = at[i][0]; o.cy = at[i][1]; } });
   return (CACHE[sl.id] = {sl, inst, ter, own, tow, step, cols, rows, byKey});
 }
 
@@ -449,7 +477,23 @@ function svgFor(B) {
   B.inst.forEach(o => { if (o.parent) defs += `<clipPath id="par-${u}-${o.parent}">${B.byKey[o.parent].svg}</clipPath>`; });
   const st = B.inst.map((o, i) => `<g class="st k-${o.s.k}" data-i="${i}"${attrFor(o.clip, o.side, o.parent)}>${o.svg}</g>`).join("");
   const tr = B.ter.map((o, i) => `<g class="tr f-${o.t.f}" data-t="${i}"${attrFor(o.clip, o.side, null)}>${o.svg}</g>`).join("");
-  const lab = B.inst.map((o, i) => o.n >= 5 && o.s.k !== "wm" ? `<text class="tl" data-l="${i}" x="${o.cx.toFixed(1)}" y="${(o.cy + 3.5).toFixed(1)}">${esc(o.s.a || "")}</text>` : "").join("");
+  // Labels: larger structures place first; a label that would collide slides to the nearest free spot close by
+  const boxes = [], pos = {};
+  B.inst.map((o, i) => [o, i]).filter(([o]) => o.n >= 5 && o.s.k !== "wm" && o.s.a)
+    .sort((a, b) => b[0].n - a[0].n).forEach(([o, i]) => {
+      const w = o.s.a.length * 6.1 + 4, h = 11;
+      const tries = [[0, 0]];
+      for (const r of [8, 12, 17, 23]) for (const [ux, uy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-.7, -.7], [.7, -.7], [-.7, .7], [.7, .7]])
+        tries.push([ux * (r + w * .35 * Math.abs(ux)), uy * r]);
+      let placed = false;
+      for (const [dx, dy] of tries) {
+        const x = o.cx + dx, y = o.cy + dy, b = [x - w / 2, y - h / 2, x + w / 2, y + h / 2];
+        if (boxes.some(c => b[0] < c[2] && c[0] < b[2] && b[1] < c[3] && c[1] < b[3])) continue;
+        boxes.push(b); pos[i] = [x, y]; placed = true; break;
+      }
+      if (!placed) pos[i] = [o.cx, o.cy];   // crowded spot: keep the label rather than lose it
+    });
+  const lab = B.inst.map((o, i) => pos[i] ? `<text class="tl" data-l="${i}" x="${pos[i][0].toFixed(1)}" y="${(pos[i][1] + 3.5).toFixed(1)}">${esc(o.s.a)}</text>` : "").join("");
   const midline = mid ? "" : `<line class="mid" x1="${W / 2}" y1="0" x2="${W / 2}" y2="${H}"/>`;
   const msrc = mriSrc(sl);
   return `<defs>${defs}</defs>${msrc ? `<image id="mriImg" href="${msrc}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none"/>` : ""}<g clip-path="url(#ol-${u})"><path class="o-bg" d="${sl.outline}"/>${st}</g><g id="terrLayer"${state.terr ? "" : " hidden"} clip-path="url(#ol-${u})">${tr}</g><path class="o-line" d="${sl.outline}"/>${midline}<g id="labLayer"${state.labels ? "" : " hidden"}>${lab}</g>`;

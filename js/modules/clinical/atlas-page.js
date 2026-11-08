@@ -52,7 +52,7 @@ function framePage({ src, title, label }) {
       setHTML(el, html`
         ${subHead({ title, back: 'Neurology', fallback: '', accent: 'neuro', eyebrow: 'Clinical tools' })}
         <div class="atlas-wrap">
-          <iframe class="atlas-frame" data-src="${src}" src="${src}" title="${label}" loading="eager"></iframe>
+          <iframe class="atlas-frame" data-src="${src}" src="${src}" aria-label="${label}" loading="eager"></iframe>
         </div>`);
       const frame = el.querySelector('.atlas-frame');
       if (frame) fitToContent(frame);
