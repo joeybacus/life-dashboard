@@ -4,7 +4,7 @@
 
 .neuro-tools { display: grid; gap: 12px; }
 @media (min-width: 700px) { .neuro-tools { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1280px) { .neuro-tools { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1280px) { .neuro-tools { grid-template-columns: repeat(3, 1fr); } }
 
 /* ---- Ocular Motor Atlas (0.11.10): a self-contained page in a frame ---- */
 .atlas-wrap { margin-top: 12px; }

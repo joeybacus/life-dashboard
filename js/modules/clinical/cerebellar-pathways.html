@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Shown inside the Life Dashboard: hide the atlas's own title and follow the app's light/dark choice. */
+(function () {
+  var d = document.documentElement;
+  try {
+    if (window.parent === window) return;
+    d.classList.add("embed");
+    var p = window.parent.document.documentElement;
+    var sync = function () { if (p.dataset.theme) d.dataset.theme = p.dataset.theme; };
+    sync();
+    new MutationObserver(sync).observe(p, { attributes: true, attributeFilter: ["data-theme"] });
+  } catch (e) { /* not the same site: keep the system theme */ }
+})();
+</script>
+<title>Cerebellar Pathways</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: companion plate to the Ocular Motor Atlas. A traced circuit (one cerebellum, both crossings) beside the patient (which limbs are ataxic); findings underneath. */
+:root{
+  --bg:#f2f3f7; --panel:#ffffff; --panel-2:#e9ebf2; --fg:#1a1d2b; --muted:#5a5f75; --line:#d5d8e3;
+  --accent:#3b3896; --accent-weak:#e7e6f6; --lesion:#cc2858; --lesion-weak:#fbe3ea;
+  --tissue:#d3d6e6; --gm:#eeedf3; --nuc:#faf8f4; --tract:#454a7c; --tract-line:#8d92b8; --csf:#f7f9fd;
+  --p1:#3b3896; --p2:#8a4aa6; --p3:#0d7a77; --p4:#2a6fb0; --p5:#b5730a; --p6:#4c8a2a;
+  --body:#d8dbe6; --ok:#2f8a57;
+  --f-display:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-label:"IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+    --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28;
+    --tissue:#2b2e40; --gm:#3a3e52; --nuc:#535870; --tract:#7d82c8; --tract-line:#5d6290; --csf:#11121a;
+    --p1:#aaa7ff; --p2:#d29af0; --p3:#4fd1c9; --p4:#6fb2f2; --p5:#f0b04a; --p6:#9bd46a;
+    --body:#3a3e52; --ok:#5fcf8f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+  --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28;
+  --tissue:#2b2e40; --gm:#3a3e52; --nuc:#535870; --tract:#7d82c8; --tract-line:#5d6290; --csf:#11121a;
+  --p1:#aaa7ff; --p2:#d29af0; --p3:#4fd1c9; --p4:#6fb2f2; --p5:#f0b04a; --p6:#9bd46a;
+  --body:#3a3e52; --ok:#5fcf8f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1360px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+header.top{background:var(--panel);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:26px 0}
+.kicker{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--lesion)}
+h1{font-family:var(--f-display);font-weight:500;font-size:clamp(32px,4.4vw,48px);line-height:1.02;letter-spacing:-.015em;margin:6px 0 0;text-wrap:balance}
+h1 em{font-style:italic;color:var(--accent)}
+.lede{color:var(--muted);max-width:66ch;margin:10px 0 18px;font-size:15.5px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-bottom:-1px}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{font-family:var(--f-label);font-weight:600;font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:12px 15px 11px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;white-space:nowrap}
+nav.tabs a:hover{color:var(--fg)}
+nav.tabs a[aria-current="page"]{background:var(--bg);border-color:var(--line);color:var(--fg)}
+main.wrap{padding-block:24px 56px}
+.vhead{margin:0 0 18px;max-width:72ch}
+.vhead h2{font-family:var(--f-display);font-weight:500;font-size:clamp(26px,3vw,34px);margin:0 0 6px;line-height:1.1}
+.vhead p{margin:0;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px 16px;min-width:0}
+.ptitle{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-bottom:8px}
+.ptitle h3{margin:0;font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.11em;text-transform:uppercase}
+.chip{font-family:var(--f-label);font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;background:var(--lesion-weak);color:var(--lesion);white-space:nowrap}
+.cap{color:var(--muted);font-size:13px;margin:8px 0 0;line-height:1.45}
+.dia{overflow-x:auto}
+.dia svg{display:block;width:100%;min-width:520px;height:auto}
+
+/* circuit */
+.circuit{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+.pwlist{display:grid;gap:6px;margin-bottom:14px}
+.pwbtn{display:flex;align-items:center;gap:10px;text-align:left;width:100%;font:inherit;font-size:14.5px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer}
+.pwbtn i{flex:none;width:22px;height:4px;border-radius:2px}
+.pwbtn small{margin-left:auto;font-family:var(--f-label);font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.pwbtn[aria-pressed="true"]{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+.pwdet h3{font-family:var(--f-display);font-weight:500;font-size:22px;margin:0 0 2px}
+.pwdet .meta{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.route{list-style:none;margin:0 0 12px;padding:0;counter-reset:st}
+.route li{counter-increment:st;position:relative;padding:0 0 10px 32px;font-size:14px}
+.route li::before{content:counter(st);position:absolute;left:0;top:0;width:21px;height:21px;border-radius:50%;border:1px solid var(--line);font-family:var(--f-label);font-size:11.5px;font-weight:600;display:grid;place-items:center;color:var(--muted)}
+.route li:not(:last-child)::after{content:"";position:absolute;left:10px;top:24px;bottom:1px;width:1px;background:var(--line)}
+.kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 14px;font-size:14px;margin:0}
+.kv dt{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+.kv dd{margin:0}
+
+/* svg */
+.cb{fill:var(--gm);stroke:var(--tract-line);stroke-width:1.2}
+.cbwm{fill:var(--tissue)}
+.cbghost{fill:var(--panel-2);stroke:var(--tract-line);stroke-width:1;stroke-dasharray:4 3;opacity:.7}
+.stem{fill:var(--tissue);stroke:var(--tract-line);stroke-width:1.2}
+.cortexband{fill:none;stroke:var(--gm);stroke-width:22;stroke-linecap:round}
+.cortexedge{fill:none;stroke:var(--tract-line);stroke-width:1}
+.gm{fill:var(--gm);stroke:var(--tract-line);stroke-width:.8}
+.nuc{fill:var(--nuc);stroke:var(--tract);stroke-width:1.1}
+.olive{fill:var(--nuc);stroke:var(--tract);stroke-width:1.3}
+.tractf{fill:var(--tract)}
+.ped{fill:none;stroke:var(--tract);stroke-linecap:round;opacity:.22}
+.decus{stroke:var(--tract);stroke-width:2;opacity:.55}
+.folia{fill:none;stroke:var(--tract-line);stroke-width:.9;opacity:.8}
+.fissure{fill:none;stroke:var(--tract);stroke-width:1.2;stroke-dasharray:5 3}
+.vstrip{fill:var(--tissue);opacity:.55}
+.pw path.base{fill:none;stroke-width:2.6;stroke-linecap:round;transition:opacity .2s}
+.pw path.flow{fill:none;stroke-width:2.6;stroke-linecap:round;stroke-dasharray:3 13;stroke:var(--panel);opacity:.9;animation:flow 1.1s linear infinite}
+.pw.dim path.base{opacity:.1}
+.pw.dim path.flow{display:none}
+.pw.quiet path.flow{display:none}
+.pw{cursor:pointer}
+@keyframes flow{to{stroke-dashoffset:-16}}
+.p1 .base{stroke:var(--p1)} .p2 .base{stroke:var(--p2)} .p3 .base{stroke:var(--p3)} .p4 .base{stroke:var(--p4)} .p5 .base{stroke:var(--p5)} .p6 .base{stroke:var(--p6)}
+.m1{fill:var(--p1)} .m2{fill:var(--p2)} .m3{fill:var(--p3)} .m4{fill:var(--p4)} .m5{fill:var(--p5)} .m6{fill:var(--p6)}
+.dash .base{stroke-dasharray:6 4}
+.lbl{font-family:var(--f-label);font-size:12px;font-weight:500;fill:var(--fg);paint-order:stroke;stroke:var(--panel);stroke-width:3.5px;stroke-linejoin:round}
+.lbl.sm{font-size:11px;fill:var(--muted)}
+.lbl.b{font-weight:600;fill:var(--fg)}
+.lbl.lvl{font-size:10px;letter-spacing:.12em;fill:var(--muted)}
+.lbl.it{font-style:italic}
+.lead{stroke:var(--muted);stroke-width:.8}
+.rl{font-family:var(--f-label);font-size:12px;font-weight:600;fill:var(--muted);text-anchor:middle}
+.rlc{fill:none;stroke:var(--muted);stroke-width:1}
+.hl{stroke:var(--lesion);stroke-width:2.2;stroke-dasharray:5 3}
+.hatch-bg{fill:var(--lesion);fill-opacity:.16}
+.hatch-ln{stroke:var(--lesion);stroke-opacity:.6;stroke-width:2.2}
+.hl-pulse{animation:hlp 2.4s ease-in-out infinite}
+@keyframes hlp{50%{opacity:.55}}
+.bp{fill:var(--body);stroke:var(--tract-line);stroke-width:1}
+.bpl{fill:none;stroke:var(--body);stroke-width:13;stroke-linecap:round}
+.bp.on{fill:var(--lesion)}
+.bpl.on{stroke:var(--lesion)}
+.bpf{fill:var(--fg)}
+
+/* lesion atlas */
+.atlas{display:grid;grid-template-columns:290px minmax(0,1fr);gap:28px;align-items:start}
+.index{position:sticky;top:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px);min-width:0}
+.search input,#lesionSelect{width:100%;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg)}
+#lesionSelect{display:none;font-size:15px;padding:9px 10px}
+.list{overflow:auto;padding-right:4px;min-height:0}
+.grp h3{font-family:var(--f-label);font-weight:600;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:14px 8px 4px}
+.grp:first-child h3{margin-top:4px}
+.item{display:block;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:6px 8px;font:inherit;font-size:14px;line-height:1.3;color:var(--fg);cursor:pointer}
+.item small{display:block;color:var(--muted);font-family:var(--f-label);font-size:12px;margin-top:1px}
+.item:hover{background:var(--panel-2)}
+.item[aria-current="true"]{background:var(--accent-weak);color:var(--accent)}
+.item[aria-current="true"] small{color:var(--accent)}
+.empty{color:var(--muted);font-size:13px;padding:8px}
+.crumb{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--lesion)}
+.lname{font-family:var(--f-display);font-weight:500;font-size:clamp(28px,3.2vw,38px);line-height:1.08;margin:4px 0 8px;text-wrap:balance;letter-spacing:-.01em}
+.summary{font-size:16.5px;max-width:68ch;margin:0}
+.locbox{display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px 18px;margin-top:16px;padding-block:14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.loclabel{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.locbox p{margin:0;font-family:var(--f-display);font-size:18px;line-height:1.45;max-width:72ch}
+.viz{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.8fr);gap:18px;margin-top:18px}
+.seg{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
+.seg span{font-family:var(--f-label);font-size:11px;color:var(--muted);padding:0 6px 0 8px;text-transform:uppercase;letter-spacing:.08em}
+.seg button{border:0;background:none;color:var(--fg);padding:4px 11px;border-radius:999px;font-family:var(--f-label);font-weight:600;font-size:12.5px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.figure svg{display:block;width:100%;max-width:220px;height:auto;margin:0 auto}
+.siderule{font-family:var(--f-display);font-size:18px;line-height:1.35;margin:8px 0 6px;text-align:center}
+.siderule b{color:var(--lesion);font-weight:600}
+.why{font-size:13.5px;color:var(--muted);margin:0}
+.parts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 4px}
+.parts span{font-family:var(--f-label);font-size:12px;padding:2px 9px;border-radius:999px;background:var(--lesion-weak);color:var(--lesion)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px 30px;margin-top:24px}
+.fact h4{margin:0 0 4px;font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.fact ul{margin:0;padding-left:18px}
+.fact li{margin:3px 0}
+.fact.key h4{color:var(--lesion)}
+.pearl{grid-column:1/-1;background:var(--accent-weak);border-radius:10px;padding:14px 18px;display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px 18px}
+.pearl h4{color:var(--accent);margin:0;padding-top:3px}
+.pearl p{margin:0;font-family:var(--f-display);font-size:17.5px;line-height:1.45;font-style:italic}
+
+/* anatomy & bedside */
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:28px}
+.rule{background:var(--panel);padding:14px 16px}
+.rule b{display:block;font-family:var(--f-display);font-weight:500;font-size:17px;margin-bottom:3px}
+.rule p{margin:0;font-size:14px;color:var(--muted)}
+.zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:28px}
+.zones article{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.zones h3{font-family:var(--f-display);font-weight:500;font-size:22px;margin:0}
+.zones .alt{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.h3s{font-family:var(--f-display);font-weight:500;font-size:24px;margin:30px 0 10px}
+.tblw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:820px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-bottom:1px solid var(--line)}
+th{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--f-display);font-size:16.5px}
+td a{font-family:var(--f-label);font-weight:600;font-size:12.5px;text-decoration:none;white-space:nowrap}
+.micro{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+.micro ul{margin:0;padding-left:18px;font-size:14.5px}
+.micro li{margin:5px 0}
+
+/* quiz */
+.quiz{max-width:780px}
+.qmeta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-family:var(--f-label);font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.qcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+.qcard .case{font-family:var(--f-display);font-size:19px;line-height:1.5;margin:0 0 16px}
+.qcard .q{font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;font:inherit;font-size:15px;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,var(--panel))}
+.opt.wrong{border-color:var(--lesion);background:var(--lesion-weak)}
+.fb{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.fb .verdict{font-family:var(--f-label);font-weight:600;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase}
+.fb .verdict.ok{color:var(--ok)}
+.fb .verdict.no{color:var(--lesion)}
+.fb p{margin:6px 0 12px}
+.qbtns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font-family:var(--f-label);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:8px;border:1px solid var(--fg);background:var(--fg);color:var(--panel);cursor:pointer;text-decoration:none}
+.btn.ghost{background:none;color:var(--fg);border-color:var(--line)}
+footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
+
+@media (max-width:1100px){ .circuit,.viz,.micro{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:960px){
+  .atlas{grid-template-columns:minmax(0,1fr)}
+  .index{position:static;max-height:none}
+  .list,.search{display:none}
+  #lesionSelect{display:block}
+}
+@media (max-width:560px){ .locbox,.pearl,.kv{grid-template-columns:minmax(0,1fr)} .seg span{display:none} .qcard{padding:16px} }
+@media (prefers-reduced-motion: reduce){ .pw path.flow{display:none} .hl-pulse{animation:none} }
+</style>
+<style>
+body{margin:0}
+.embed .kicker,.embed h1,.embed .lede{display:none}
+.embed header.top .wrap{padding-block:10px 0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="kicker">Neuroanatomy · cerebellar localization</div>
+    <h1>Cerebellar <em>Pathways</em></h1>
+    <p class="lede">Trace what goes into the cerebellum and what comes out, see where each pathway crosses, and work out which side of the body a lesion makes clumsy.</p>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#circuit" data-tab="circuit">Circuits</a>
+      <a href="#lesions" data-tab="lesions">Lesion atlas</a>
+      <a href="#anatomy" data-tab="anatomy">Anatomy</a>
+      <a href="#bedside" data-tab="bedside">Bedside exam</a>
+      <a href="#quiz" data-tab="quiz">Case quiz</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="view" data-view="circuit">
+    <div class="vhead"><h2>Six circuits through one cerebellum</h2><p>The drawing traces the right cerebellum only. Pick a pathway to follow it; the moving dashes show the direction of travel.</p></div>
+    <div class="circuit">
+      <div class="panel"><div class="dia" id="circuitDia"></div><p class="cap">Schematic, not to scale. Patient’s right is on the left of the drawing (R and L marked). Arrows show direction; dashed blue is the central tegmental tract.</p></div>
+      <div>
+        <div class="pwlist" id="pwlist"></div>
+        <div class="panel pwdet" id="pwdet"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" data-view="lesions" hidden>
+    <div class="atlas">
+      <aside class="index">
+        <label class="search"><span class="sr">Filter lesions</span><input id="filter" type="search" placeholder="Filter: tremor, MCP, Friedreich…" autocomplete="off"></label>
+        <select id="lesionSelect" aria-label="Choose a lesion"></select>
+        <div class="list" id="list"></div>
+      </aside>
+      <article aria-live="polite">
+        <div class="crumb" id="crumb"></div>
+        <h2 class="lname" id="lname"></h2>
+        <p class="summary" id="lsummary"></p>
+        <div class="locbox"><div class="loclabel">Exact location</div><p id="lloc"></p></div>
+        <div class="viz">
+          <section class="panel">
+            <div class="ptitle"><h3>Where</h3><div class="seg" role="group" aria-label="Lesion side"><span>Side</span><button id="sideR" type="button">Right</button><button id="sideL" type="button">Left</button></div></div>
+            <div class="dia" id="where"></div>
+            <p class="cap" id="whereCap"></p>
+          </section>
+          <section class="panel figure">
+            <div class="ptitle"><h3>Who is affected</h3><span class="chip" id="sideChip"></span></div>
+            <div id="bodyFig"></div>
+            <p class="siderule" id="siderule"></p>
+            <div class="parts" id="parts"></div>
+            <p class="why" id="why"></p>
+          </section>
+        </div>
+        <div class="facts" id="facts"></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="view" data-view="anatomy" hidden>
+    <div class="vhead"><h2>Anatomy for localization</h2><p>Three functional zones, three peduncles, one cortical circuit, three arteries.</p></div>
+    <div class="rules" id="rules"></div>
+    <div class="zones" id="zones"></div>
+    <h3 class="h3s">The cerebellar peduncles</h3>
+    <div class="tblw"><table id="pedTable"></table></div>
+    <h3 class="h3s">Inside the cerebellar cortex</h3>
+    <div class="micro"><div class="panel"><div class="dia" id="microDia"></div></div><div class="panel" id="microText"></div></div>
+    <h3 class="h3s">Blood supply</h3>
+    <div class="tblw"><table id="bloodTable"></table></div>
+  </section>
+
+  <section class="view" data-view="bedside" hidden>
+    <div class="vhead"><h2>At the bedside</h2><p>What each test shows and where it points, then how to tell cerebellar ataxia from its mimics.</p></div>
+    <div class="tblw"><table id="signTable"></table></div>
+    <h3 class="h3s">Cerebellar, sensory, vestibular or frontal?</h3>
+    <div class="tblw"><table id="ataxiaTable"></table></div>
+  </section>
+
+  <section class="view" data-view="quiz" hidden>
+    <div class="vhead"><h2>Localize the lesion</h2><p>Read the findings, pick the site. Each answer links to its atlas entry.</p></div>
+    <div class="quiz" id="quizBox"></div>
+  </section>
+</main>
+<footer class="wrap">Educational reference. Drawings are schematic and not to scale; check clinical decisions against current sources.</footer>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const mq = matchMedia("(prefers-reduced-motion: reduce)");
+let RM = mq.matches;
+try { mq.addEventListener("change", e => { RM = e.matches; }); } catch (e) {}
+const ul = a => `<ul>${a.map(x => `<li>${x}</li>`).join("")}</ul>`;
+
+/* ================= Pathways ================= */
+const PATHS = [
+  {id:"dentato", n:1, name:"Dentatorubrothalamic", kind:"Output",
+   segs:["M190,366 C220,342 248,318 272,304 C300,290 330,284 380,285", "M380,285 C398,284 404,276 404,264", "M380,285 C412,282 434,232 440,192", "M452,156 C492,120 528,96 560,86", "M560,86 C520,150 440,220 424,300 C418,360 414,430 408,492 C396,506 372,512 364,528 C360,544 362,570 362,588"],
+   steps:["Purkinje cells of the lateral hemisphere", "Dentate nucleus", "Superior cerebellar peduncle", "Decussation of the SCPs in the caudal midbrain", "Opposite VL thalamus (and parvocellular red nucleus)", "Motor and premotor cortex", "Corticospinal tract, crossing back at the pyramids", "Limbs on the same side as the starting cerebellum"],
+   ped:"Superior", cross:"Twice: SCP decussation, then the pyramidal decussation", carries:"Planning and timing of skilled, multi-joint limb movement", clue:"Below the SCP decussation a lesion gives ataxia on its own side; above it (red nucleus, thalamus, cortex), on the opposite side."},
+  {id:"interposed", n:2, name:"Interpositus to red nucleus", kind:"Output",
+   segs:["M234,362 C252,342 270,324 290,310 C318,296 346,292 380,292", "M380,292 C394,288 400,280 402,266", "M398,258 C384,270 370,278 364,302 C352,380 348,460 352,588"],
+   steps:["Purkinje cells of the paravermis", "Interposed nuclei (emboliform and globose)", "Superior cerebellar peduncle", "Decussation of the SCPs", "Opposite magnocellular red nucleus (and VL thalamus)", "Rubrospinal tract, crossing back in the ventral tegmental decussation", "Limb muscles on the starting side"],
+   ped:"Superior", cross:"Twice: SCP decussation, then the ventral tegmental decussation", carries:"Moment-to-moment correction of an ongoing limb movement", clue:"The rubrospinal tract is small in humans; most interposed output reaches the cortex through the thalamus."},
+  {id:"pontine", n:3, name:"Corticopontocerebellar", kind:"Input",
+   segs:["M572,90 C520,160 450,262 420,340", "M406,354 C388,360 360,362 330,356 C290,350 230,330 118,300"],
+   steps:["Frontal, parietal, temporal and occipital cortex", "Corticopontine fibers in the internal capsule and cerebral peduncle", "Pontine nuclei on the same side", "Transverse pontine fibers cross the midline", "Middle cerebellar peduncle", "Opposite lateral hemisphere, as mossy fibers"],
+   ped:"Middle", cross:"Once, in the basis pontis", carries:"A copy of the motor plan from the cortex", clue:"A basis pontis lesion gives ataxic hemiparesis on the opposite side; a middle peduncle lesion gives ataxia on its own side."},
+  {id:"olivo", n:4, name:"Olivocerebellar (climbing fibers)", kind:"Input",
+   segs:["M410,452 C384,448 352,440 324,432 C286,420 210,410 96,382"], dash:["M406,264 C424,320 428,400 414,442"],
+   steps:["Parvocellular red nucleus, plus spinal and cortical inputs", "Central tegmental tract (same side)", "Inferior olive", "Crosses the midline in the medulla", "Inferior cerebellar peduncle", "Climbing fibers to the opposite cerebellar cortex: one fiber per Purkinje cell; collaterals to the deep nuclei"],
+   ped:"Inferior", cross:"Once, in the medulla", carries:"Error and timing signals that drive motor learning", clue:"With the dentate nucleus and red nucleus it forms the Guillain–Mollaret triangle; interruption causes olivary hypertrophy and palatal tremor."},
+  {id:"spino", n:5, name:"Spinocerebellar and cuneocerebellar", kind:"Input",
+   segs:["M370,566 C350,556 342,530 340,500 C338,470 334,446 320,430 C296,414 276,396 266,382", "M362,476 C344,466 334,450 322,434", "M372,600 C386,606 400,600 408,584 C424,540 430,430 432,340 C434,306 416,298 388,298 C350,300 310,306 272,318"],
+   steps:["Muscle spindles, tendon organs and joints", "Leg: Clarke’s nucleus (C8–L2). Arm: accessory cuneate nucleus in the medulla", "Dorsal spinocerebellar and cuneocerebellar tracts, same side", "Inferior cerebellar peduncle", "Vermis and paravermis of the same side, as mossy fibers", "Ventral spinocerebellar tract: crosses in the cord, climbs, enters through the SCP and crosses back"],
+   ped:"Inferior (ventral tract: superior)", cross:"Dorsal tract never; ventral tract twice, ending on the same side", carries:"Unconscious proprioception and the activity of spinal circuits", clue:"Degenerates with the dorsal columns in Friedreich ataxia, so Romberg is positive and reflexes are lost."},
+  {id:"vestib", n:6, name:"Vestibulocerebellar and fastigial", kind:"In and out",
+   segs:["M330,414 C306,432 282,452 262,466", "M268,352 C292,372 316,394 334,406", "M342,420 C336,470 340,530 352,590"],
+   steps:["Vestibular nerve (the only primary afferent reaching the cerebellar cortex directly) and vestibular nuclei", "Juxtarestiform body, the medial part of the inferior peduncle", "Flocculonodular lobe and vermis", "Purkinje cells project straight to the vestibular nuclei, or through the fastigial nucleus", "Vestibulospinal and reticulospinal tracts", "Axial and proximal muscles; eye movements"],
+   ped:"Inferior (juxtarestiform body)", cross:"Mostly not; part of the fastigial output crosses in the hook bundle of Russell", carries:"Balance, posture and eye movement control", clue:"Damage gives truncal ataxia and nystagmus with little limb ataxia."}
+];
+const PBY = Object.fromEntries(PATHS.map(p => [p.id, p]));
+
+/* ================= Lesions ================= */
+const REGIONS = ["Cerebellum", "Peduncles", "Brainstem & thalamus", "Spinal cord"];
+const LESIONS = [
+{
+  id:"hemisphere", region:"Cerebellum", name:"Cerebellar hemisphere", short:"Same-side limb ataxia",
+  hl:[["e",112,350,62,78]], paths:["pontine","dentato","olivo"], body:["armR","legR","speech","eyes"], rule:"ipsi",
+  summary:"The classic cerebellar lesion: the arm and leg on the same side become clumsy, overshoot and tremble as they near a target.",
+  location:"Lateral cerebellar hemisphere (cerebrocerebellum, posterior lobe including Crus I and II and lobules VI–VIII), often with the underlying dentate nucleus; superior surface in SCA territory, inferior surface in PICA territory.",
+  structures:["Lateral hemisphere cortex and white matter", "Often the dentate nucleus", "Incoming pontocerebellar fibers (middle peduncle)"],
+  signs:["Dysmetria on finger-nose and heel-shin testing, same side", "Intention tremor as the finger nears the target", "Dysdiadochokinesia: irregular rapid alternating movements", "Rebound: the arm overshoots when resistance is released (Holmes)", "Hypotonia and pendular reflexes when acute", "Gaze-evoked nystagmus toward the lesion side; ataxic dysarthria"],
+  other:["Veering or falling toward the lesion side", "Large infarct or bleed: swelling, fourth ventricle compression, hydrocephalus, brainstem compression"],
+  causes:["SCA or PICA territory infarct", "Cerebellar hemorrhage (hypertension, anticoagulants)", "Metastasis, hemangioblastoma (von Hippel–Lindau), astrocytoma", "MS, abscess (otogenic)"],
+  pearl:"Cerebellar hemorrhage over 3 cm, or any cerebellar stroke with falling consciousness or hydrocephalus, needs urgent neurosurgical review for suboccipital decompression."
+},
+{
+  id:"anterior-vermis", region:"Cerebellum", name:"Anterior superior vermis", short:"Gait and leg ataxia", bilateral:true,
+  hl:[["e",262,316,24,26],["e",498,316,24,26]], paths:["spino"], body:["legR","legL","trunk"], rule:"both",
+  summary:"Midline damage in the front of the cerebellum spares the hands and voice but ruins walking: a wide-based, lurching gait with clumsy legs.",
+  location:"Anterior lobe of the vermis and adjacent paravermis (lobules I–V, the culmen and central lobule), on the superior surface above the primary fissure, where the leg is mapped.",
+  structures:["Anterior lobe vermis and paravermis (the leg region of the spinocerebellum)", "Input from the spinocerebellar tracts"],
+  signs:["Wide-based, unsteady gait; tandem walking impossible", "Heel-shin ataxia in both legs", "Arms nearly normal on finger-nose testing", "Nystagmus and dysarthria mild or absent"],
+  other:["Signs of alcohol use or malnutrition: neuropathy, Wernicke features"],
+  causes:["Alcohol-related cerebellar degeneration (with thiamine deficiency)", "Phenytoin toxicity, hypothyroidism", "Paraneoplastic degeneration (anti-Yo, anti-Hu, anti-Tr) usually involves the whole cerebellum"],
+  pearl:"An unsteady drinker with good hands and bad legs has anterior vermis degeneration. Give thiamine before glucose."
+},
+{
+  id:"flocculonodular", region:"Cerebellum", name:"Flocculonodular lobe and inferior vermis", short:"Truncal ataxia, nystagmus", bilateral:true,
+  hl:[["e",240,474,34,18],["e",520,474,34,18]], paths:["vestib"], body:["trunk","eyes"], rule:"both",
+  summary:"The vestibulocerebellum keeps the trunk upright and the eyes steady. Damage makes sitting and standing unsteady while the limbs test almost normally.",
+  location:"Flocculus, nodulus (lobule X) and uvula (lobule IX) on the inferior surface, forming the roof of the fourth ventricle above the vestibular nuclei.",
+  structures:["Flocculus and nodulus", "Inferior vermis", "Juxtarestiform connections with the vestibular nuclei"],
+  signs:["Truncal ataxia: sways or falls when sitting or standing, even with eyes open", "Titubation (head and trunk tremor)", "Nystagmus: downbeat, gaze-evoked, periodic alternating", "Limb coordination tested lying down is nearly normal"],
+  other:["Morning vomiting, headache and papilledema when a midline mass blocks the fourth ventricle"],
+  causes:["Medulloblastoma (children; roof of the fourth ventricle)", "Ependymoma", "Medial PICA infarct", "Chiari malformation, degenerations"],
+  pearl:"A medial PICA infarct of the nodulus can mimic vestibular neuritis: acute vertigo and nystagmus with truncal ataxia. A normal head impulse test, direction-changing nystagmus or skew points to stroke (HINTS)."
+},
+{
+  id:"posterior-lobe", region:"Cerebellum", name:"Posterior lobe (cognitive cerebellum)", short:"Cerebellar cognitive affective syndrome",
+  hl:[["e",142,420,74,34]], paths:["pontine","dentato"], body:["head"], rule:"cog",
+  summary:"The posterior lobe connects with prefrontal and association cortex. Damage here affects thinking and mood more than movement.",
+  location:"Posterior lobe: lobules VI and VII including Crus I and Crus II of the lateral hemispheres, and the posterior vermis (for affect), linked to prefrontal, parietal and limbic cortex through the pons and the dentate–thalamic route.",
+  structures:["Crus I and II, lobule VIIB", "Posterior vermis (affect)", "Dentate–thalamic–prefrontal loops"],
+  signs:["Executive problems: planning, set-shifting, working memory, verbal fluency", "Visuospatial disorganization", "Language problems: agrammatism, mild anomia, prosody", "Flattened or disinhibited affect (vermis)", "Often only mild motor signs"],
+  other:["Right cerebellar lesions affect language more; left lesions affect visuospatial skills more (crossed links to the cortex)"],
+  causes:["Posterior lobe infarct (PICA, SCA)", "Tumor resection", "Cerebellar degenerations", "Developmental lesions (autism, cerebellar hypoplasia)"],
+  pearl:"Schmahmann syndrome: when a cerebellar stroke patient seems confused or flat but has little ataxia, test executive function rather than calling it delirium."
+},
+{
+  id:"dentate-scp", region:"Cerebellum", name:"Dentate nucleus and superior peduncle", short:"Severe same-side intention tremor",
+  hl:[["e",186,368,32,22],["e",304,296,38,16]], paths:["dentato","interposed"], body:["armR","legR","speech"], rule:"ipsi",
+  summary:"The cerebellar output itself. Damage before the crossing gives a coarse, disabling intention tremor and ataxia on the same side.",
+  location:"Dentate nucleus deep in the white matter of the hemisphere, and the superior cerebellar peduncle as it runs up the lateral wall of the fourth ventricle toward the midbrain, before the decussation.",
+  structures:["Dentate (and interposed) nuclei", "Superior cerebellar peduncle (brachium conjunctivum)"],
+  signs:["Coarse intention tremor of the same-side arm, often worse than in hemisphere cortex lesions", "Dysmetria, dysdiadochokinesia", "Ataxic dysarthria", "Can evolve into a Holmes-type tremor"],
+  other:["Upper pontine tegmentum signs if the lesion spreads (Horner, trochlear palsy)"],
+  causes:["MS plaque in the superior peduncle", "SCA territory infarct", "Hemorrhage, tumor", "Wilson disease (wing-beating tremor)"],
+  pearl:"Disabling intention tremor in a young adult with MS usually comes from a superior peduncle plaque; deep brain stimulation of the VL (VIM) thalamus is one option."
+},
+{
+  id:"mutism", region:"Cerebellum", name:"Cerebellar mutism (posterior fossa syndrome)", short:"Mutism after midline surgery", bilateral:true,
+  hl:[["e",186,368,30,20],["e",574,368,30,20],["e",304,296,30,14],["e",456,296,30,14]], paths:["dentato"], body:["speech","head","trunk"], rule:"both",
+  summary:"Days after removal of a midline tumor, usually in a child, speech stops completely, with irritability and ataxia.",
+  location:"Both dentate nuclei and both superior cerebellar peduncles (the proximal dentatothalamocortical pathway), injured at the inferior vermis and fourth ventricle roof during surgery.",
+  structures:["Both dentate nuclei", "Both superior cerebellar peduncles", "Downstream loss of activity in the frontal cortex (diaschisis)"],
+  signs:["Mutism or severely reduced speech, starting 1–2 days after surgery", "Emotional lability, irritability", "Truncal and limb ataxia, hypotonia", "Recovers over weeks to months, often leaving ataxic dysarthria"],
+  other:["Sometimes urinary retention, oropharyngeal apraxia"],
+  causes:["Resection of medulloblastoma or other vermian tumors (up to about a quarter of cases)", "Rarely trauma or infection"],
+  pearl:"Bilateral superior peduncle injury on postoperative MRI predicts the syndrome; families should be warned before surgery."
+},
+{
+  id:"mcp", region:"Peduncles", name:"Middle cerebellar peduncle (AICA)", short:"Same-side ataxia ± deafness",
+  hl:[["e",296,352,32,18]], paths:["pontine"], body:["armR","legR","eyes"], rule:"ipsi",
+  summary:"The largest peduncle carries only input, from the opposite pons. A lesion here makes the same-side limbs ataxic.",
+  location:"Middle cerebellar peduncle (brachium pontis), the large lateral stalk joining the basis pontis to the cerebellar hemisphere, at the cerebellopontine angle; supplied by the AICA with the inferolateral pons and the inner ear.",
+  structures:["Pontocerebellar fibers from the opposite pontine nuclei", "In AICA infarcts: inferolateral pons, labyrinth, flocculus"],
+  signs:["Same-side limb ataxia", "AICA infarct: vertigo, nystagmus, same-side deafness and tinnitus, same-side facial weakness and numbness, Horner syndrome, opposite pain and temperature loss"],
+  other:["MCP sign on MRI (T2 bright peduncles): MSA-C, fragile X tremor-ataxia syndrome (FXTAS)"],
+  causes:["AICA infarct", "MS", "Multiple system atrophy, cerebellar type", "FXTAS (older male premutation carriers)", "Osmotic demyelination, Wilson disease"],
+  pearl:"Sudden vertigo with hearing loss is not always the ear: AICA infarction can begin with the labyrinth. Check the face, the limbs and the head impulse test."
+},
+{
+  id:"icp", region:"Peduncles", name:"Inferior cerebellar peduncle (lateral medulla)", short:"Same-side ataxia, lateropulsion",
+  hl:[["e",296,426,34,16],["e",342,414,14,10]], paths:["spino","olivo","vestib"], body:["armR","legR","trunk","eyes"], rule:"ipsi",
+  summary:"Most cerebellar input enters through the inferior peduncle. Cut it in the medulla and the same-side limbs are ataxic and the body is pulled toward the lesion.",
+  location:"Inferior cerebellar peduncle (restiform and juxtarestiform bodies) on the dorsolateral surface of the rostral medulla, the territory of the PICA and vertebral artery.",
+  structures:["Dorsal spinocerebellar and cuneocerebellar tracts", "Olivocerebellar fibers from the opposite olive", "Vestibulocerebellar fibers (juxtarestiform body)"],
+  signs:["Same-side limb ataxia", "Lateropulsion: pushed toward the lesion when sitting, standing or walking", "Ipsipulsion of saccades (overshoot toward the lesion)", "Nystagmus, skew deviation"],
+  other:["Lateral medullary syndrome: vertigo, dysphagia, hoarseness, same-side Horner, crossed pain and temperature loss"],
+  causes:["Vertebral artery dissection or occlusion", "PICA infarct", "MS"],
+  pearl:"In the lateral medullary syndrome the ataxia comes from the inferior peduncle, not from the cerebellum itself; it can occur with a normal-looking cerebellum on MRI."
+},
+{
+  id:"wernekink", region:"Brainstem & thalamus", name:"Decussation of the superior peduncles (Wernekink)", short:"Ataxia on both sides", bilateral:true,
+  hl:[["e",380,288,26,15]], paths:["dentato","interposed"], body:["armR","armL","legR","legL","speech","eyes","trunk"], rule:"both",
+  summary:"Every dentate and interposed output crosses in one small midline spot. A lesion here makes all four limbs ataxic.",
+  location:"Paramedian caudal midbrain at the level of the inferior colliculus, ventral to the periaqueductal grey and MLF, where both superior cerebellar peduncles cross (Wernekink commissure).",
+  structures:["Decussation of the superior cerebellar peduncles", "Often both MLFs and oculomotor fascicles", "Fibers of the Guillain–Mollaret triangle"],
+  signs:["Ataxia of all four limbs and gait", "Dysarthria", "Bilateral INO or oculomotor palsy", "Sometimes delayed palatal tremor"],
+  other:["Usually no weakness or sensory loss"],
+  causes:["Paramedian midbrain infarct (basilar or P1 perforators)", "MS", "Tumor"],
+  pearl:"Bilateral cerebellar signs from one small midline lesion: Wernekink commissure syndrome. Look for an INO, which places it in the caudal midbrain."
+},
+{
+  id:"red-nucleus", region:"Brainstem & thalamus", name:"Red nucleus (Claude syndrome, Holmes tremor)", short:"Opposite-side ataxia", native:"L",
+  hl:[["c",404,252,17]], paths:["dentato","interposed"], body:["armR","legR","eyes"], rule:"contra",
+  summary:"Above the decussation the cerebellar output belongs to the other side of the body. A red nucleus lesion makes the opposite limbs ataxic and tremulous.",
+  location:"Rostral midbrain tegmentum at the level of the superior colliculus: the red nucleus and the crossed superior peduncle fibers passing through and around it to the thalamus, with the oculomotor fascicles running through it.",
+  structures:["Red nucleus", "Crossed dentatorubrothalamic fibers", "Oculomotor fascicle (Claude, Benedikt)"],
+  signs:["Ataxia and dysmetria of the opposite limbs", "Holmes (rubral) tremor in the opposite arm: rest, postural and intention, slow (under 4.5 Hz), often appearing weeks to months later", "Same-side third nerve palsy (Claude: with ataxia; Benedikt: with tremor and chorea)"],
+  other:["Opposite hemiparesis if the cerebral peduncle is also involved"],
+  causes:["Paramedian midbrain infarct (P1 or basilar perforators)", "Hemorrhage, cavernoma", "MS, tumor, trauma"],
+  pearl:"Third nerve palsy on one side with ataxia on the other puts the lesion in the midbrain on the side of the eye, above the cerebellar decussation."
+},
+{
+  id:"thalamus", region:"Brainstem & thalamus", name:"VL thalamus (thalamic ataxia)", short:"Opposite-side ataxia with sensory loss", native:"L",
+  hl:[["e",440,170,40,25]], paths:["dentato"], body:["armR","legR"], rule:"contra",
+  summary:"The last relay before the motor cortex. A small thalamic stroke can give ataxia on the opposite side that looks cerebellar.",
+  location:"Ventrolateral (VL, also called VIM) nucleus of the thalamus, which receives the crossed dentatothalamic fibers, often with the adjacent ventral posterior (sensory) nuclei; thalamogeniculate branches of the PCA.",
+  structures:["VL / VIM thalamus (cerebellar relay)", "Often VPL and VPM (sensation)", "Sometimes the posterior limb of the internal capsule"],
+  signs:["Ataxia and dysmetria of the opposite limbs", "Opposite sensory loss, especially position sense", "Mild opposite weakness (ataxic hemiparesis)", "Possible later thalamic pain (Dejerine–Roussy)"],
+  other:["Thalamic astasia: unable to stand without falling backward or to the opposite side"],
+  causes:["Thalamogeniculate artery infarct", "Hypertensive thalamic hemorrhage", "Tumor, MS"],
+  pearl:"The VIM thalamus is the target for deep brain stimulation in essential and cerebellar outflow tremor."
+},
+{
+  id:"basis-pontis", region:"Brainstem & thalamus", name:"Basis pontis (ataxic hemiparesis)", short:"Opposite weakness with ataxia", native:"L",
+  hl:[["e",412,358,26,22]], paths:["pontine"], body:["armR","legR"], rule:"contra",
+  summary:"A small lacune hits the corticospinal tract and the pontine nuclei together: weakness and ataxia on the opposite side.",
+  location:"Basis (ventral) pons, usually at the junction of its upper third and lower two-thirds, where corticospinal fibers run among the pontine nuclei and their crossing pontocerebellar fibers.",
+  structures:["Corticospinal tract", "Pontine nuclei and crossing transverse fibers (to the opposite middle peduncle)"],
+  signs:["Weakness of the opposite side, leg more than arm, often with an extensor plantar", "Ataxia of the same weak limbs, out of proportion to the weakness", "Dysarthria–clumsy hand variant: dysarthria with an awkward opposite hand"],
+  other:["No sensory, visual or cortical signs (a lacunar syndrome)"],
+  causes:["Lacunar infarct (paramedian basilar branches; hypertension, diabetes)", "Small hemorrhage, MS"],
+  pearl:"Ataxic hemiparesis is a lacunar syndrome; the same picture also comes from the internal capsule, corona radiata or thalamus."
+},
+{
+  id:"gm-triangle", region:"Brainstem & thalamus", name:"Guillain–Mollaret triangle", short:"Delayed palatal tremor", bilateral:true,
+  hl:[["e",186,368,26,18],["c",404,252,15],["e",420,350,12,58],["e",410,452,18,13]], paths:["dentato","olivo"], body:["eyes","speech"], rule:"palate",
+  summary:"A loop from the dentate nucleus to the opposite red nucleus, down to the olive and back. Breaking it makes the olive swell and fire rhythmically months later.",
+  location:"The dentato-rubro-olivary loop: dentate nucleus, superior peduncle and its decussation, opposite red nucleus, central tegmental tract in the pontine tegmentum, inferior olive, and the olivocerebellar fibers returning through the inferior peduncle.",
+  structures:["Dentate nucleus", "Opposite red nucleus", "Central tegmental tract (dorsal pontine tegmentum)", "Inferior olive"],
+  signs:["Palatal tremor at 1–3 Hz, sometimes with an audible ear click", "Oculopalatal tremor: pendular vertical-torsional nystagmus in time with it", "Appears weeks to months after the lesion and often persists", "MRI: the inferior olive enlarges and turns T2 bright (hypertrophic olivary degeneration)"],
+  other:["Which olive enlarges: same side for a central tegmental tract or red nucleus lesion; opposite side for a dentate lesion"],
+  causes:["Pontine or midbrain hemorrhage", "Brainstem infarct, cavernoma, trauma", "Surgery near the dentate nucleus"],
+  pearl:"A swollen bright olive on MRI months after a brainstem bleed is degeneration, not a new tumor or stroke."
+},
+{
+  id:"spinocerebellar", region:"Spinal cord", name:"Spinocerebellar tracts (Friedreich ataxia)", short:"Ataxia with lost reflexes", bilateral:true,
+  hl:[["e",350,560,22,40],["e",410,560,22,40]], paths:["spino"], body:["armR","armL","legR","legL","trunk","speech","eyes"], rule:"both",
+  summary:"Ataxia can start in the spinal cord. When the spinocerebellar tracts and dorsal columns degenerate, the limbs are ataxic, reflexes vanish and Romberg is positive.",
+  location:"Lateral funiculus of the spinal cord (dorsal and ventral spinocerebellar tracts at its surface), Clarke’s nucleus in lamina VII from C8 to L2, the dorsal columns and the dorsal root ganglia.",
+  structures:["Dorsal and ventral spinocerebellar tracts", "Clarke’s nucleus", "Dorsal columns and dorsal root ganglia", "Corticospinal tracts; later the dentate nucleus"],
+  signs:["Progressive gait and limb ataxia", "Absent ankle reflexes with extensor plantars", "Loss of vibration and position sense; Romberg positive", "Dysarthria; square-wave jerks and fixation instability"],
+  other:["Hypertrophic cardiomyopathy (main cause of death)", "Diabetes, scoliosis, pes cavus", "Onset usually before 25"],
+  causes:["Friedreich ataxia: GAA repeat expansion in FXN (frataxin), autosomal recessive", "Mimics: vitamin E deficiency, abetalipoproteinemia, subacute combined degeneration (B12)"],
+  pearl:"Ataxia with absent reflexes and extensor plantars in a teenager: think Friedreich ataxia and check the heart. Check vitamin E, since that deficiency is treatable."
+}
+];
+const BY = Object.fromEntries(LESIONS.map(l => [l.id, l]));
+const RULETEXT = {
+  ipsi:["Signs on the <b>same side</b> as the lesion", "The cerebellum and its output have not crossed yet. The output crosses at the SCP decussation and crosses back at the pyramids, so each cerebellar hemisphere ends up controlling its own side."],
+  contra:["Signs on the <b>opposite side</b> to the lesion", "The cerebellar output has already crossed in the caudal midbrain, so this structure serves the limbs on the other side."],
+  both:["Signs on <b>both sides</b>", "A midline or symmetric lesion takes out both cerebella or both of their pathways."],
+  cog:["<b>Thinking and mood</b>, more than movement", "The posterior lobe works through loops with prefrontal and association cortex."],
+  palate:["<b>Palate and eyes</b>, rhythmically", "The olive is released from inhibition and starts to beat; the palate and eyes follow it."]
+};
+const PARTNAME = {armR:"Right arm", armL:"Left arm", legR:"Right leg", legL:"Left leg", trunk:"Trunk and gait", speech:"Speech", eyes:"Eyes", head:"Thinking and mood"};
+
+/* ================= Diagram ================= */
+let uidN = 0;
+const shp = s => s[0] === "e" ? `<ellipse cx="${s[1]}" cy="${s[2]}" rx="${s[3]}" ry="${s[4]}"/>` : s[0] === "c" ? `<circle cx="${s[1]}" cy="${s[2]}" r="${s[3]}"/>` : `<path d="${s[1]}"/>`;
+const LABELS = [
+  ["{S} cerebellum",165,236,"middle","b"], ["{O} cerebellum (not traced)",595,236,"middle","sm"],
+  ["{S} cortex",172,52,"middle","sm"], ["{O} motor cortex",588,52,"middle","sm"],
+  ["VL thalamus",440,140,"middle"], ["VL thalamus",320,140,"middle","sm"],
+  ["Red nucleus",478,256,"start","",[416,252]], ["SCP decussation",478,292,"start","",[396,288]],
+  ["Pontine nuclei",486,358,"start","",[424,354]], ["Vestibular nuclei",486,414,"start","",[430,410]],
+  ["Inferior olive",486,456,"start","",[424,452]], ["Pyramidal decussation",478,506,"start","",[404,502]],
+  ["Clarke’s nucleus",472,570,"start","",[396,566]],
+  ["SCP",282,290,"middle","sm b"], ["MCP",300,340,"middle","sm b"], ["ICP",292,448,"middle","sm b"],
+  ["Dentate",186,406,"middle","sm"], ["Interposed",236,386,"middle","sm"], ["Fastigial",264,334,"middle","sm"],
+  ["Flocculonodular lobe",240,504,"middle","sm"], ["Lateral hemisphere",98,322,"middle","sm"], ["Primary fissure",104,288,"middle","sm it"],
+  ["MIDBRAIN",380,232,"middle","lvl"], ["PONS",380,322,"middle","lvl"], ["MEDULLA",380,434,"middle","lvl"], ["SPINAL CORD",380,636,"middle","lvl"]
+];
+function diagram(o) {
+  const uid = "d" + (++uidN), m = !!o.mirror, active = o.active || null;
+  const S = m ? "Left" : "Right", O = m ? "Right" : "Left";
+  const mk = PATHS.map(p => `<marker id="ar${p.n}-${uid}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="m${p.n}" d="M0,0 L10,5 L0,10 Z"/></marker>`).join("");
+  const pw = PATHS.map(p => {
+    const dim = active && !active.includes(p.id);
+    const quiet = !o.flow || RM;
+    const segs = p.segs.map(d => `<path class="base" d="${d}" marker-end="url(#ar${p.n}-${uid})"/><path class="flow" d="${d}"/>`).join("");
+    const dash = (p.dash || []).map(d => `<g class="dash"><path class="base" d="${d}" marker-end="url(#ar${p.n}-${uid})"/></g>`).join("");
+    return `<g class="pw p${p.n}${dim ? " dim" : ""}${quiet ? " quiet" : ""}" data-p="${p.id}"><title>${p.name}</title>${segs}${dash}</g>`;
+  }).join("");
+  const hl = o.hl ? `<g class="hl ${RM ? "" : "hl-pulse"}" style="fill:url(#hatch-${uid})">${o.hl.map(shp).join("")}</g>` : "";
+  const lab = LABELS.map(t => {
+    let x = t[1], a = t[3], txt = t[0].replace("{S}", S).replace("{O}", O), ld = "";
+    if (m) { x = 760 - x; a = a === "start" ? "end" : a === "end" ? "start" : a; }
+    if (t[5]) { const tx = m ? 760 - t[5][0] : t[5][0]; const x1 = a === "start" ? x - 4 : x + 4; ld = `<line class="lead" x1="${x1}" y1="${t[2] - 4}" x2="${tx}" y2="${t[5][1]}"/>`; }
+    return `${ld}<text class="lbl ${t[4] || ""}" x="${x}" y="${t[2]}" text-anchor="${a}">${txt}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 760 660" role="img" aria-label="Cerebellar circuit diagram"><defs>${mk}<pattern id="hatch-${uid}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="hatch-bg" width="6" height="6"/><line class="hatch-ln" x1="0" y1="0" x2="0" y2="6"/></pattern><clipPath id="cbc-${uid}"><ellipse cx="165" cy="360" rx="118" ry="110"/></clipPath></defs>
+<g${m ? ` transform="translate(760,0) scale(-1,1)"` : ""}>
+<path class="cortexband" d="M110,104 C190,36 570,36 650,104"/>
+<ellipse class="cbghost" cx="595" cy="360" rx="118" ry="110"/>
+<ellipse class="cbghost" cx="520" cy="474" rx="30" ry="13"/>
+<path class="ped" style="stroke-width:16" d="M492,306 C468,292 444,282 420,276"/><path class="ped" style="stroke-width:24" d="M484,352 C468,352 452,352 434,352"/><path class="ped" style="stroke-width:16" d="M494,412 C472,420 454,426 434,432"/>
+<path class="stem" d="M330,215 L430,215 C440,260 446,300 452,330 C462,370 450,395 440,405 C436,440 432,470 425,495 L420,646 L340,646 L335,495 C328,470 324,440 320,405 C310,395 298,370 308,330 C314,300 320,260 330,215 Z"/>
+<ellipse class="gm" cx="320" cy="170" rx="34" ry="20"/><ellipse class="gm" cx="440" cy="170" rx="34" ry="20"/>
+<ellipse class="gm" cx="240" cy="474" rx="30" ry="13"/>
+<ellipse class="cb" cx="165" cy="360" rx="118" ry="110"/>
+<g clip-path="url(#cbc-${uid})"><rect class="vstrip" x="250" y="240" width="40" height="240"/>
+<path class="folia" d="M40,300 C100,262 200,250 290,280"/><path class="folia" d="M40,420 C120,450 220,452 290,430"/><path class="folia" d="M40,452 C120,480 220,484 290,462"/></g>
+<path class="fissure" d="M58,312 C120,276 220,268 286,296"/>
+<ellipse class="cbwm" cx="178" cy="364" rx="78" ry="64"/>
+<path class="ped" style="stroke-width:16" d="M268,306 C292,292 316,282 340,276"/><path class="ped" style="stroke-width:24" d="M276,352 C292,352 308,352 326,352"/><path class="ped" style="stroke-width:16" d="M266,412 C288,420 306,426 326,432"/>
+<path class="olive" d="M162,362 Q170,348 182,358 Q194,346 204,360 Q212,374 200,382 Q188,392 178,380 Q166,390 160,376 Q154,368 162,362 Z"/>
+<circle class="nuc" cx="234" cy="360" r="8"/><ellipse class="nuc" cx="266" cy="350" rx="7" ry="10"/>
+<circle class="nuc" cx="356" cy="252" r="11"/><circle class="nuc" cx="404" cy="252" r="11"/>
+<path class="decus" d="M346,276 L414,298 M414,276 L346,298"/>
+<ellipse class="gm" cx="348" cy="354" rx="20" ry="13"/><ellipse class="gm" cx="412" cy="354" rx="20" ry="13"/>
+<ellipse class="tractf" cx="362" cy="376" rx="9" ry="5"/><ellipse class="tractf" cx="398" cy="376" rx="9" ry="5"/>
+<ellipse class="nuc" cx="342" cy="410" rx="12" ry="7"/><ellipse class="nuc" cx="418" cy="410" rx="12" ry="7"/>
+<ellipse class="olive" cx="350" cy="452" rx="13" ry="9"/><ellipse class="olive" cx="410" cy="452" rx="13" ry="9"/>
+<circle class="nuc" cx="362" cy="476" r="5"/><circle class="nuc" cx="398" cy="476" r="5"/>
+<path class="decus" d="M352,492 L408,512 M408,492 L352,512"/>
+<path class="gm" d="M366,540 C356,532 350,540 356,556 C360,566 360,574 356,586 C350,602 360,606 368,598 L392,598 C400,606 410,602 404,586 C400,574 400,566 404,556 C410,540 404,532 394,540 Z"/>
+<circle class="nuc" cx="370" cy="566" r="5"/><circle class="nuc" cx="390" cy="566" r="5"/>
+${pw}${hl}</g>
+${lab}<circle class="rlc" cx="34" cy="26" r="10"/><text class="rl" x="34" y="30">R</text><circle class="rlc" cx="726" cy="26" r="10"/><text class="rl" x="726" y="30">L</text></svg>`;
+}
+
+function bodySVG(parts, mirror) {
+  const on = k => { const kk = mirror ? k.replace(/R$/, "X").replace(/L$/, "R").replace(/X$/, "L") : k; return parts.includes(kk) ? " on" : ""; };
+  return `<svg viewBox="0 0 200 250" role="img" aria-label="Body regions affected">
+<line class="bpl${on("armR")}" x1="74" y1="76" x2="44" y2="150"/><line class="bpl${on("armL")}" x1="126" y1="76" x2="156" y2="150"/>
+<line class="bpl${on("legR")}" x1="88" y1="150" x2="78" y2="234"/><line class="bpl${on("legL")}" x1="112" y1="150" x2="122" y2="234"/>
+<rect class="bp${on("trunk")}" x="72" y="64" width="56" height="92" rx="16"/>
+<circle class="bp${on("head")}" cx="100" cy="34" r="24"/>
+<circle class="bp${on("eyes")}" cx="91" cy="30" r="4.5"/><circle class="bp${on("eyes")}" cx="109" cy="30" r="4.5"/>
+<rect class="bp${on("speech")}" x="90" y="42" width="20" height="6" rx="3"/>
+<text class="rl" x="40" y="246">R</text><text class="rl" x="160" y="246">L</text></svg>`;
+}
+
+/* ================= Circuit view ================= */
+const state = {path:"dentato", id:"hemisphere", side:"R", tab:"circuit"};
+function renderCircuit() {
+  $("#circuitDia").innerHTML = diagram({active:state.path === "all" ? null : [state.path], flow:true});
+  $("#pwlist").innerHTML = `<button class="pwbtn" type="button" data-p="all" aria-pressed="${state.path === "all"}"><i style="background:linear-gradient(90deg,var(--p1),var(--p3),var(--p5))"></i>Show all six<small></small></button>` +
+    PATHS.map(p => `<button class="pwbtn" type="button" data-p="${p.id}" aria-pressed="${state.path === p.id}"><i style="background:var(--p${p.n})"></i>${p.name}<small>${p.kind}</small></button>`).join("");
+  const p = PBY[state.path];
+  $("#pwdet").innerHTML = p ? `<h3>${p.name}</h3><p class="meta">${p.kind} · via the ${p.ped.toLowerCase()} peduncle</p><ol class="route">${p.steps.map(s => `<li>${s}</li>`).join("")}</ol>
+    <dl class="kv"><dt>Crosses</dt><dd>${p.cross}</dd><dt>Carries</dt><dd>${p.carries}</dd><dt>Lesion clue</dt><dd>${p.clue}</dd></dl>`
+    : `<h3>All pathways</h3><p class="meta">Inputs: pontine, olivary, spinal, vestibular. Outputs: dentate, interposed, fastigial.</p><p style="margin:0;font-size:14.5px">Inputs arrive as mossy fibers (pontine, spinal, vestibular) or climbing fibers (olive only). Every output leaves through a deep nucleus, apart from the flocculonodular lobe, which projects straight to the vestibular nuclei. Pick a pathway to trace it.</p>`;
+}
+$("#pwlist").addEventListener("click", e => { const b = e.target.closest(".pwbtn"); if (b) { state.path = b.dataset.p; renderCircuit(); } });
+$("#circuitDia").addEventListener("click", e => { const g = e.target.closest(".pw"); if (g) { state.path = g.dataset.p; renderCircuit(); } });
+
+/* ================= Lesion view ================= */
+function renderList() {
+  const q = ($("#filter").value || "").trim().toLowerCase();
+  let html = "";
+  REGIONS.forEach(rg => {
+    const items = LESIONS.filter(l => l.region === rg && (!q || [l.name, l.short, l.summary, l.location, l.signs.join(" "), l.other.join(" "), l.causes.join(" ")].join(" ").toLowerCase().includes(q)));
+    if (items.length) html += `<div class="grp"><h3>${rg}</h3>${items.map(l => `<button class="item" type="button" data-id="${l.id}" aria-current="${l.id === state.id}">${l.name}<small>${l.short}</small></button>`).join("")}</div>`;
+  });
+  $("#list").innerHTML = html || `<p class="empty">No lesion matches “${q.replace(/[<>&]/g, "")}”.</p>`;
+}
+$("#lesionSelect").innerHTML = REGIONS.map(rg => `<optgroup label="${rg}">${LESIONS.filter(l => l.region === rg).map(l => `<option value="${l.id}">${l.name}</option>`).join("")}</optgroup>`).join("");
+$("#list").addEventListener("click", e => { const b = e.target.closest(".item"); if (b) go(b.dataset.id); });
+$("#lesionSelect").addEventListener("change", e => go(e.target.value));
+$("#filter").addEventListener("input", renderList);
+
+function renderLesion() {
+  const L = BY[state.id], native = L.native || "R", bil = !!L.bilateral;
+  const mirror = !bil && state.side !== native;
+  const sideWord = state.side === "R" ? "right" : "left";
+  $("#crumb").textContent = L.region;
+  $("#lname").textContent = L.name;
+  $("#lsummary").textContent = L.summary;
+  $("#lloc").textContent = L.location;
+  $("#sideR").setAttribute("aria-pressed", String(!bil && state.side === "R"));
+  $("#sideL").setAttribute("aria-pressed", String(!bil && state.side === "L"));
+  $("#sideR").disabled = bil; $("#sideL").disabled = bil;
+  $("#sideChip").textContent = bil ? "Midline or both sides" : `Lesion on the ${sideWord}`;
+  $("#where").innerHTML = diagram({hl:L.hl, active:L.paths, mirror, flow:true});
+  const traced = mirror ? (native === "R" ? "left" : "right") : (native === "R" ? "right" : "left");
+  $("#whereCap").textContent = `Hatched: lesion. Pathways that pass through it are highlighted; the drawing traces the ${(bil ? "right" : (mirror ? "left" : "right"))} cerebellum. Patient’s right is on the left of the drawing.`;
+  const r = RULETEXT[L.rule];
+  $("#bodyFig").innerHTML = bodySVG(L.body, mirror);
+  $("#siderule").innerHTML = r[0];
+  $("#why").textContent = r[1];
+  const parts = L.body.map(k => mirror ? k.replace(/R$/, "X").replace(/L$/, "R").replace(/X$/, "L") : k);
+  $("#parts").innerHTML = parts.map(k => `<span>${PARTNAME[k]}</span>`).join("");
+  $("#facts").innerHTML = `<div class="fact key"><h4>Signs</h4>${ul(L.signs)}</div><div class="fact"><h4>Structures involved</h4>${ul(L.structures)}</div>
+    <div class="fact"><h4>Company it keeps</h4>${ul(L.other)}</div><div class="fact"><h4>Usual causes</h4>${ul(L.causes)}</div>
+    <div class="pearl"><h4>Clinical pearl</h4><p>${L.pearl}</p></div>`;
+  $$("#list .item").forEach(b => b.setAttribute("aria-current", String(b.dataset.id === L.id)));
+  $("#lesionSelect").value = L.id;
+  void traced;
+}
+function select(id) { if (!BY[id]) return; if (id !== state.id) state.side = BY[id].native || "R"; state.id = id; renderLesion(); }
+$("#sideR").addEventListener("click", () => { state.side = "R"; renderLesion(); });
+$("#sideL").addEventListener("click", () => { state.side = "L"; renderLesion(); });
+
+/* ================= Anatomy ================= */
+const RULES = [
+  ["A hemisphere runs its own side", "Cerebellar output crosses in the midbrain and the corticospinal tract crosses back at the pyramids, so each cerebellar hemisphere controls the limbs on its own side."],
+  ["Before or after the crossing", "Cerebellum, peduncles, lateral medulla: signs on the lesion side. Red nucleus, thalamus, basis pontis, cortex: signs on the opposite side."],
+  ["Midline or lateral", "Vermis and flocculonodular lobe: trunk, gait and eyes. Lateral hemispheres: arm and leg on that side."],
+  ["Three peduncles, three jobs", "Middle: input only, from the opposite pons. Inferior: mostly input. Superior: mostly output."],
+  ["Climbing fibers have one source", "Every climbing fiber comes from the opposite inferior olive; all other inputs arrive as mossy fibers."],
+  ["Romberg is not a cerebellar test", "A cerebellar patient sways with eyes open as well as closed. A big difference with eyes closed means lost proprioception."]
+];
+const ZONES = [
+  {name:"Vestibulocerebellum", alt:"Archicerebellum · flocculonodular lobe", rows:[["Inputs","Vestibular nerve and nuclei"],["Output","Purkinje cells straight to the vestibular nuclei"],["Job","Balance, VOR, gaze holding, eye movements"],["Lesion","Truncal ataxia, nystagmus, little limb ataxia"]], link:"flocculonodular"},
+  {name:"Spinocerebellum", alt:"Paleocerebellum · vermis and paravermis", rows:[["Inputs","Spinocerebellar and cuneocerebellar tracts, trigeminal, visual and auditory"],["Output","Vermis → fastigial → vestibular nuclei and reticular formation; paravermis → interposed → red nucleus and thalamus"],["Job","Posture, gait, correcting movements in progress"],["Lesion","Gait and truncal ataxia (vermis), limb ataxia (paravermis)"]], link:"anterior-vermis"},
+  {name:"Cerebrocerebellum", alt:"Neocerebellum · lateral hemispheres", rows:[["Inputs","Cerebral cortex via the pontine nuclei (opposite side)"],["Output","Dentate → opposite VL thalamus → motor, premotor and prefrontal cortex"],["Job","Planning, timing, multi-joint coordination, motor learning, cognition"],["Lesion","Dysmetria, intention tremor, dysdiadochokinesia; cognitive affective syndrome"]], link:"hemisphere"}
+];
+const PEDS = [
+  ["Inferior", "Restiform and juxtarestiform body; dorsolateral medulla", "Dorsal spinocerebellar, cuneocerebellar, rostral spinocerebellar (part), olivocerebellar (crossed), vestibulocerebellar, reticulocerebellar", "Fastigial and flocculonodular output to the vestibular nuclei and reticular formation", "Same-side ataxia, lateropulsion, ipsipulsion of saccades (lateral medullary syndrome)", "icp"],
+  ["Middle", "Brachium pontis; lateral pons; the largest", "Pontocerebellar fibers from the opposite pontine nuclei", "None", "Same-side limb ataxia; MCP sign in MSA-C and FXTAS; AICA infarct", "mcp"],
+  ["Superior", "Brachium conjunctivum; upper pons to midbrain", "Ventral spinocerebellar, part of rostral spinocerebellar, trigeminocerebellar", "Dentate and interposed output (crosses in the caudal midbrain) to the red nucleus and VL thalamus", "Same-side intention tremor and ataxia below the decussation; opposite side above it", "dentate-scp"]
+];
+const BLOOD = [
+  ["Superior cerebellar artery (SCA)", "Superior surface and upper vermis, dentate nucleus, superior peduncle, upper lateral pons", "Same-side limb ataxia and dysarthria; with the lateral pontine tegmentum, same-side Horner and opposite pain and temperature loss", "dentate-scp"],
+  ["Anterior inferior cerebellar artery (AICA)", "Anterior inferior surface, flocculus, middle peduncle, inferolateral pons, labyrinth", "Vertigo, same-side deafness, facial weakness and numbness, Horner and limb ataxia; opposite pain and temperature loss", "mcp"],
+  ["Posterior inferior cerebellar artery (PICA)", "Inferior surface, inferior vermis, nodulus, tonsil, dorsolateral medulla", "Lateral medullary syndrome; a medial branch infarct can cause isolated vertigo with truncal ataxia that mimics vestibular neuritis", "flocculonodular"]
+];
+$("#rules").innerHTML = RULES.map(r => `<div class="rule"><b>${r[0]}</b><p>${r[1]}</p></div>`).join("");
+$("#zones").innerHTML = ZONES.map(z => `<article><h3>${z.name}</h3><p class="alt">${z.alt}</p><dl class="kv">${z.rows.map(r => `<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join("")}</dl><p style="margin:10px 0 0"><a href="#${z.link}" style="font-family:var(--f-label);font-weight:600;font-size:12.5px;text-decoration:none">Example in atlas →</a></p></article>`).join("");
+$("#pedTable").innerHTML = `<thead><tr><th>Peduncle</th><th>Also called · where</th><th>Carries in</th><th>Carries out</th><th>Lesion</th><th></th></tr></thead><tbody>${PEDS.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td><a href="#${r[5]}">Open →</a></td></tr>`).join("")}</tbody>`;
+$("#bloodTable").innerHTML = `<thead><tr><th>Artery</th><th>Territory</th><th>Syndrome</th><th></th></tr></thead><tbody>${BLOOD.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><a href="#${r[3]}">Open →</a></td></tr>`).join("")}</tbody>`;
+$("#microDia").innerHTML = `<svg viewBox="0 0 560 300" role="img" aria-label="Cerebellar cortex circuit">
+<rect class="gm" x="20" y="20" width="520" height="92" style="stroke:none"/><rect class="cbwm" x="20" y="124" width="520" height="80"/><rect class="vstrip" x="20" y="204" width="520" height="40"/>
+<ellipse class="nuc" cx="300" cy="272" rx="70" ry="18"/>
+<line class="lead" x1="20" y1="118" x2="540" y2="118" style="stroke-dasharray:3 3"/>
+<path class="base" d="M30,46 H530 M30,66 H530 M30,86 H530" style="fill:none;stroke:var(--p5);stroke-width:1.4"/>
+${[160,280,400].map(x => `<path d="M${x},112 L${x},96 M${x},100 L${x - 26},40 M${x},100 L${x + 26},40 M${x},90 L${x - 12},30 M${x},90 L${x + 12},30" style="fill:none;stroke:var(--p1);stroke-width:2"/><circle cx="${x}" cy="118" r="8" style="fill:var(--p1)"/><path d="M${x},126 C${x},180 ${x + (300 - x) * .6},230 ${300 + (x - 300) * .3},258" style="fill:none;stroke:var(--p1);stroke-width:2;stroke-dasharray:5 3" marker-end="url(#mi1)"/>`).join("")}
+${[110,210,330,450].map(x => `<circle cx="${x}" cy="164" r="5" style="fill:var(--p5)"/><path d="M${x},159 L${x},${46 + (x % 3) * 20}" style="fill:none;stroke:var(--p5);stroke-width:1.2"/>`).join("")}
+<path d="M40,296 C60,260 120,220 200,176 L210,168" style="fill:none;stroke:var(--p3);stroke-width:2.6"/><circle cx="210" cy="168" r="7" style="fill:none;stroke:var(--p3);stroke-width:2"/>
+<path d="M120,226 C170,250 210,262 232,268" style="fill:none;stroke:var(--p3);stroke-width:1.6"/>
+<path d="M520,296 C500,250 440,200 420,160 C412,140 418,120 406,100 C398,84 412,70 404,52" style="fill:none;stroke:var(--p4);stroke-width:2.6"/>
+<path d="M470,232 C430,248 400,258 368,266" style="fill:none;stroke:var(--p4);stroke-width:1.6"/>
+<circle cx="250" cy="150" r="6" style="fill:var(--gm);stroke:var(--fg)"/><circle cx="340" cy="76" r="5" style="fill:var(--gm);stroke:var(--fg)"/>
+<defs><marker id="mi1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="m1" d="M0,0 L10,5 L0,10 Z"/></marker></defs>
+<text class="lbl sm" x="26" y="36">Molecular layer</text><text class="lbl sm" x="26" y="140">Granular layer</text><text class="lbl sm" x="26" y="226">White matter</text>
+<text class="lbl" x="300" y="276" text-anchor="middle">Deep nucleus</text>
+<text class="lbl" x="172" y="134">Purkinje cell</text><text class="lbl sm" x="452" y="62">Parallel fibers</text>
+<text class="lbl" x="46" y="276">Mossy fiber</text><text class="lbl" x="452" y="292">Climbing fiber</text>
+<text class="lbl sm" x="258" y="154">Golgi</text><text class="lbl sm" x="348" y="72">Basket / stellate</text><text class="lbl sm" x="216" y="196">Glomerulus</text>
+</svg>`;
+$("#microText").innerHTML = `<h3 style="font-family:var(--f-display);font-weight:500;font-size:20px;margin:0 0 8px">One repeating circuit</h3><ul>
+<li><b style="color:var(--p3)">Mossy fibers</b> (pontine, spinal, vestibular, reticular) excite granule cells in glomeruli, and send collaterals to the deep nuclei.</li>
+<li><b style="color:var(--p5)">Granule cell axons</b> rise and split into parallel fibers, each touching thousands of Purkinje cells.</li>
+<li><b style="color:var(--p4)">Climbing fibers</b> come only from the opposite inferior olive; each wraps one Purkinje cell and fires a complex spike.</li>
+<li><b style="color:var(--p1)">Purkinje cells</b> are the only output of the cortex, and they inhibit (GABA) the deep nuclei or, from the flocculonodular lobe, the vestibular nuclei.</li>
+<li>Golgi, basket and stellate cells are inhibitory interneurons. Granule cells are the only excitatory neurons of the cortex.</li>
+<li>The deep nuclei are the cerebellum’s true output: excited by mossy and climbing collaterals, sculpted by Purkinje inhibition.</li></ul>`;
+
+/* ================= Bedside ================= */
+const SIGNS = [
+  ["Dysmetria", "Finger-nose-finger; heel-knee-shin", "Over- or undershooting the target", "Same-side hemisphere or paravermis", "hemisphere"],
+  ["Intention tremor", "Finger-nose: watch the last part of the movement", "Tremor that grows near the target", "Dentate nucleus or superior peduncle; red nucleus or thalamus give it on the opposite side", "dentate-scp"],
+  ["Dysdiadochokinesia", "Rapid alternating pronation-supination; tapping", "Slow, irregular, poorly rhythmic", "Same-side hemisphere", "hemisphere"],
+  ["Rebound (Holmes)", "Patient pulls against your hand; let go suddenly", "The arm flies toward the face, poorly checked", "Same-side hemisphere", "hemisphere"],
+  ["Hypotonia and pendular reflexes", "Passive movement; knee jerk with legs hanging", "Floppy limb; knee swings several times", "Acute same-side hemisphere lesion", "hemisphere"],
+  ["Truncal ataxia, titubation", "Sit unsupported; stand with feet together, eyes open", "Sways or falls even with eyes open; head nods", "Vermis or flocculonodular lobe", "flocculonodular"],
+  ["Gait ataxia", "Walk, then heel-to-toe (tandem)", "Wide-based, lurching; cannot tandem", "Anterior vermis (legs); falls toward a hemisphere lesion", "anterior-vermis"],
+  ["Ataxic dysarthria", "Repeat “pa-ta-ka”, “British constitution”", "Slurred, irregular, scanning, explosive", "Paravermis and superior hemisphere, often bilateral", "wernekink"],
+  ["Eye signs", "Gaze holding, saccades, pursuit", "Gaze-evoked or downbeat nystagmus, saccadic dysmetria, broken pursuit", "Flocculus, vermis, fastigial nucleus", "flocculonodular"],
+  ["Romberg", "Feet together, then close the eyes", "Much worse with eyes closed = positive", "Positive in sensory ataxia (dorsal columns, large-fiber neuropathy), not in pure cerebellar ataxia", "spinocerebellar"]
+];
+const ATAXIA = [
+  ["Eyes closed (Romberg)", "Unsteady with eyes open too; Romberg negative", "Much worse with eyes closed; Romberg positive", "Sways or falls toward the affected ear", "Not helpful; often unable to stand"],
+  ["Limb ataxia", "Yes, on the lesion side", "Yes, but corrected by watching the limb; pseudoathetosis", "No", "Little or none; legs move well lying down"],
+  ["Nystagmus", "Often (gaze-evoked, downbeat)", "No", "Yes, one direction, suppressed by fixation", "No"],
+  ["Reflexes", "Normal or pendular", "Reduced or absent", "Normal", "Brisk, with frontal release signs"],
+  ["Vibration and position sense", "Normal", "Lost", "Normal", "Normal"],
+  ["Speech", "Ataxic dysarthria", "Normal", "Normal", "May be slow or sparse"],
+  ["Gait", "Wide-based, lurching, irregular steps", "Stamping, watches the feet, worse in the dark", "Veers to one side, with vertigo", "Short shuffling steps, feet stuck to the floor, trouble starting and turning"],
+  ["Typical causes", "Stroke, MS, alcohol, degenerations, tumor", "Neuropathy, B12 deficiency, tabes, Friedreich ataxia", "Vestibular neuritis, Ménière disease, bilateral vestibulopathy", "Normal pressure hydrocephalus, small vessel disease, frontal tumor"]
+];
+$("#signTable").innerHTML = `<thead><tr><th>Sign</th><th>How to test</th><th>What you see</th><th>Points to</th><th></th></tr></thead><tbody>${SIGNS.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><a href="#${r[4]}">Example →</a></td></tr>`).join("")}</tbody>`;
+$("#ataxiaTable").innerHTML = `<thead><tr><th></th><th>Cerebellar</th><th>Sensory</th><th>Vestibular</th><th>Frontal (gait apraxia)</th></tr></thead><tbody>${ATAXIA.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>`;
+
+/* ================= Quiz ================= */
+const QUIZ = [
+  ["A 66-year-old has sudden clumsiness of the right hand. Finger-nose testing overshoots and trembles near the target on the right, rapid alternating movements are irregular on the right, and he veers right when walking. Strength and sensation are normal.", ["Right cerebellar hemisphere", "Left cerebellar hemisphere", "Left VL thalamus", "Anterior vermis"], "Same-side dysmetria, intention tremor and dysdiadochokinesia with normal strength and sensation point to the cerebellar hemisphere on the side of the clumsy limbs.", "hemisphere"],
+  ["A 55-year-old who drinks heavily walks on a wide base and cannot walk heel-to-toe. Heel-shin testing is poor in both legs, but finger-nose testing and speech are nearly normal.", ["Anterior superior vermis", "Both cerebellar hemispheres", "Flocculonodular lobe", "Dorsal columns"], "Leg and gait ataxia with spared arms and speech is the anterior vermis pattern of alcohol-related degeneration.", "anterior-vermis"],
+  ["A 6-year-old has two weeks of morning vomiting and cannot sit without toppling over. Arm and leg coordination tested in bed is almost normal. There is papilledema and nystagmus.", ["Flocculonodular lobe and inferior vermis", "Right cerebellar hemisphere", "Superior cerebellar peduncle", "Spinocerebellar tracts"], "Truncal ataxia with near-normal limbs, nystagmus and raised pressure point to a midline mass in the roof of the fourth ventricle, classically a medulloblastoma.", "flocculonodular"],
+  ["A patient has a left third nerve palsy and ataxia with a coarse tremor of the right arm and leg.", ["Left midbrain, red nucleus region", "Right cerebellar hemisphere", "Left cerebellar hemisphere", "Right midbrain"], "The third nerve palsy marks the side of the midbrain lesion. The cerebellar output there has already crossed, so the ataxia is on the opposite side: Claude or Benedikt syndrome.", "red-nucleus"],
+  ["A 70-year-old with hypertension has weakness of the right leg more than the arm, and the right arm and leg are far more ataxic than the weakness explains. Sensation, vision and language are normal.", ["Left basis pontis", "Right cerebellar hemisphere", "Right middle cerebellar peduncle", "Left frontal cortex"], "Weakness plus out-of-proportion ataxia on the same side, with no cortical or sensory signs, is ataxic hemiparesis from a lacune in the opposite basis pontis (or internal capsule).", "basis-pontis"],
+  ["After a small midline midbrain infarct, a patient has ataxia of all four limbs, slurred speech and bilateral internuclear ophthalmoplegia, without weakness.", ["Decussation of the superior cerebellar peduncles", "Both cerebellar hemispheres", "Both middle peduncles", "Pons, basis"], "Both cerebellar outputs cross in one midline spot in the caudal midbrain. With bilateral INO from the adjacent MLFs, this is Wernekink commissure syndrome.", "wernekink"],
+  ["Eight months after a pontine hemorrhage, a patient notices a rhythmic clicking in the ear. The palate moves at about 2 Hz and the eyes oscillate vertically in time. MRI shows an enlarged, bright inferior olive.", ["Guillain–Mollaret triangle (central tegmental tract)", "Flocculus", "Middle cerebellar peduncle", "New medullary tumor"], "Delayed palatal tremor with hypertrophic olivary degeneration follows interruption of the dentato-rubro-olivary loop, here the central tegmental tract in the pontine tegmentum.", "gm-triangle"],
+  ["A 15-year-old has three years of worsening clumsiness, absent ankle reflexes, extensor plantars, lost vibration sense, pes cavus and a positive Romberg. ECG shows ventricular hypertrophy.", ["Spinocerebellar tracts and dorsal columns", "Anterior vermis", "Both dentate nuclei", "Peripheral nerves only"], "Ataxia with areflexia, upgoing toes, dorsal column loss and cardiomyopathy is Friedreich ataxia, which starts in the spinocerebellar tracts, dorsal columns and dorsal root ganglia.", "spinocerebellar"],
+  ["A 62-year-old man has progressive ataxia, fainting on standing and urinary urgency. MRI shows a cross-shaped signal in the pons and bright middle cerebellar peduncles.", ["Pontocerebellar fibers and middle peduncles", "Superior peduncles", "Anterior vermis", "VL thalamus"], "The hot cross bun sign and MCP hyperintensity reflect loss of the crossing pontocerebellar fibers in multiple system atrophy, cerebellar type.", "mcp"],
+  ["Sudden vertigo, right-sided deafness, right facial weakness and right limb ataxia.", ["Right middle peduncle and inferolateral pons (AICA)", "Right lateral medulla (PICA)", "Right vestibular nerve only", "Left basis pontis"], "Hearing loss with same-side facial palsy and ataxia points to AICA territory: middle peduncle, inferolateral pons and labyrinth.", "mcp"],
+  ["Two days after removal of a vermian medulloblastoma, a child stops speaking and becomes very irritable.", ["Both dentate nuclei and superior peduncles", "Left frontal cortex", "Brainstem nuclei of speech", "Both middle peduncles"], "Delayed postoperative mutism with irritability is the posterior fossa syndrome, from bilateral injury to the dentatothalamocortical pathway.", "mutism"],
+  ["A woman falls when she closes her eyes in the shower. Romberg is positive, ankle reflexes are absent, and finger-nose testing is accurate with eyes open.", ["Dorsal columns or large sensory nerves (sensory ataxia)", "Vermis", "Flocculus", "Right cerebellar hemisphere"], "Instability that appears when vision is removed, with lost reflexes and accurate limbs under vision, is sensory ataxia: the cerebellum is fine, its proprioceptive input is not.", "bedside"]
+];
+const qs = {order:[], i:0, score:0, done:0, picked:null, opts:[]};
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function quizStart() { qs.order = shuffle(QUIZ.map((_, i) => i)); qs.i = 0; qs.score = 0; qs.done = 0; quizRender(); }
+function quizRender() {
+  const box = $("#quizBox");
+  if (qs.i >= qs.order.length) {
+    box.innerHTML = `<div class="qcard"><p class="q">Finished</p><p class="case">You localized ${qs.score} of ${qs.order.length} cases.</p><div class="qbtns"><button class="btn" type="button" id="qAgain">Start again</button><a class="btn ghost" href="#lesions">Lesion atlas</a></div></div>`;
+    $("#qAgain").onclick = quizStart; return;
+  }
+  const Q = QUIZ[qs.order[qs.i]];
+  qs.opts = shuffle(Q[1].map((t, k) => ({t, k}))); qs.picked = null;
+  box.innerHTML = `<div class="qmeta"><span>Case ${qs.i + 1} of ${qs.order.length}</span><span>Score ${qs.score} / ${qs.done}</span></div>
+  <div class="qcard"><p class="case">${Q[0]}</p><p class="q">Where is the lesion?</p><div class="opts">${qs.opts.map((o, j) => `<button class="opt" type="button" data-j="${j}">${o.t}</button>`).join("")}</div><div id="qfb"></div></div>`;
+  $$(".opt", box).forEach(b => b.addEventListener("click", () => quizPick(+b.dataset.j)));
+}
+function quizPick(j) {
+  if (qs.picked !== null) return;
+  qs.picked = j;
+  const Q = QUIZ[qs.order[qs.i]], ok = qs.opts[j].k === 0;
+  qs.done++; if (ok) qs.score++;
+  $$(".opt").forEach((b, k) => { b.disabled = true; if (qs.opts[k].k === 0) b.classList.add("right"); else if (k === j) b.classList.add("wrong"); });
+  $("#qfb").innerHTML = `<div class="fb"><div class="verdict ${ok ? "ok" : "no"}">${ok ? "Correct" : "Not quite: " + Q[1][0]}</div><p>${Q[2]}</p>
+  <div class="qbtns"><button class="btn" type="button" id="qNext">${qs.i + 1 < qs.order.length ? "Next case" : "See score"}</button><a class="btn ghost" href="#${Q[3]}">${Q[3] === "bedside" ? "Bedside exam" : "Open in atlas"}</a></div></div>`;
+  $(".qmeta span:last-child").textContent = `Score ${qs.score} / ${qs.done}`;
+  $("#qNext").onclick = () => { qs.i++; quizRender(); };
+  $("#qNext").focus();
+}
+
+/* ================= Routing ================= */
+const TABS = ["circuit", "lesions", "anatomy", "bedside", "quiz"];
+/* Inside the Life Dashboard (an iframe), moving around replaces the address instead of adding
+   history, so the app's Back button leaves in one tap. */
+const EMBED = document.documentElement.classList.contains("embed");
+function setHash(h) { if (EMBED) { history.replaceState(null, "", "#" + h); route(); } else location.hash = h; }
+document.addEventListener("click", e => {
+  if (!EMBED) return;
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  e.preventDefault();
+  setHash(a.getAttribute("href").slice(1));
+});
+function go(id) { if (location.hash.slice(1) !== id) setHash(id); else select(id); }
+function showTab(tab) {
+  state.tab = tab;
+  $$(".view").forEach(v => { v.hidden = v.dataset.view !== tab; });
+  $$("nav.tabs a").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+}
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (TABS.includes(h)) { showTab(h); window.scrollTo(0, 0); }
+  else if (BY[h]) { select(h); showTab("lesions"); window.scrollTo(0, 0); }
+  else showTab("circuit");
+}
+addEventListener("hashchange", route);
+
+renderCircuit();
+renderList();
+const h0 = decodeURIComponent(location.hash.slice(1));
+if (BY[h0]) { state.id = h0; state.side = BY[h0].native || "R"; }
+renderLesion();
+quizStart();
+route();
+})();
+</script>
+
+</body>
+</html>
