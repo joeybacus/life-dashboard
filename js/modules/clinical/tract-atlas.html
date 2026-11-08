@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Shown inside the Life Dashboard: hide the atlas's own title and follow the app's light/dark choice. */
+(function () {
+  var d = document.documentElement;
+  try {
+    if (window.parent === window) return;
+    d.classList.add("embed");
+    var p = window.parent.document.documentElement;
+    var sync = function () { if (p.dataset.theme) d.dataset.theme = p.dataset.theme; };
+    sync();
+    new MutationObserver(sync).observe(p, { attributes: true, attributeFilter: ["data-theme"] });
+  } catch (e) { /* not the same site: keep the system theme */ }
+})();
+</script>
+<title>Tract Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: companion plate to the Cerebellar Pathways and Neuro Localizer. One schematic per region (neuraxis, visual, lateral and medial hemisphere, cerebellum); each tract traced with moving dashes, numbered steps and its crossing marked. */
+:root{
+  --bg:#f2f3f7; --panel:#ffffff; --panel-2:#e9ebf2; --fg:#1a1d2b; --muted:#5a5f75; --line:#d5d8e3;
+  --accent:#3b3896; --accent-weak:#e7e6f6; --lesion:#cc2858; --lesion-weak:#fbe3ea;
+  --tissue:#d3d6e6; --gm:#eeedf3; --nuc:#faf8f4; --tract:#454a7c; --tract-line:#8d92b8; --csf:#f7f9fd;
+  --p1:#3b3896; --p2:#8a4aa6; --p3:#0d7a77; --p4:#2a6fb0; --p5:#b5730a; --p6:#4c8a2a;
+  --body:#d8dbe6; --ok:#2f8a57;
+  --f-display:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-label:"IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+    --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28;
+    --tissue:#2b2e40; --gm:#3a3e52; --nuc:#535870; --tract:#7d82c8; --tract-line:#5d6290; --csf:#11121a;
+    --p1:#aaa7ff; --p2:#d29af0; --p3:#4fd1c9; --p4:#6fb2f2; --p5:#f0b04a; --p6:#9bd46a;
+    --body:#3a3e52; --ok:#5fcf8f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+  --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28;
+  --tissue:#2b2e40; --gm:#3a3e52; --nuc:#535870; --tract:#7d82c8; --tract-line:#5d6290; --csf:#11121a;
+  --p1:#aaa7ff; --p2:#d29af0; --p3:#4fd1c9; --p4:#6fb2f2; --p5:#f0b04a; --p6:#9bd46a;
+  --body:#3a3e52; --ok:#5fcf8f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1360px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+header.top{background:var(--panel);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:26px 0}
+.kicker{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--lesion)}
+h1{font-family:var(--f-display);font-weight:500;font-size:clamp(32px,4.4vw,48px);line-height:1.02;letter-spacing:-.015em;margin:6px 0 0;text-wrap:balance}
+h1 em{font-style:italic;color:var(--accent)}
+.lede{color:var(--muted);max-width:66ch;margin:10px 0 18px;font-size:15.5px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-bottom:-1px}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{font-family:var(--f-label);font-weight:600;font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:12px 15px 11px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;white-space:nowrap}
+nav.tabs a:hover{color:var(--fg)}
+nav.tabs a[aria-current="page"]{background:var(--bg);border-color:var(--line);color:var(--fg)}
+main.wrap{padding-block:24px 56px}
+.vhead{margin:0 0 18px;max-width:72ch}
+.vhead h2{font-family:var(--f-display);font-weight:500;font-size:clamp(26px,3vw,34px);margin:0 0 6px;line-height:1.1}
+.vhead p{margin:0;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px 16px;min-width:0}
+.ptitle{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-bottom:8px}
+.ptitle h3{margin:0;font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.11em;text-transform:uppercase}
+.chip{font-family:var(--f-label);font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;background:var(--lesion-weak);color:var(--lesion);white-space:nowrap}
+.cap{color:var(--muted);font-size:13px;margin:8px 0 0;line-height:1.45}
+.dia{overflow-x:auto}
+.dia svg{display:block;width:100%;min-width:520px;height:auto}
+
+/* circuit */
+.circuit{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+.pwlist{display:grid;gap:6px;margin-bottom:14px}
+.pwbtn{display:flex;align-items:center;gap:10px;text-align:left;width:100%;font:inherit;font-size:14.5px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer}
+.pwbtn i{flex:none;width:22px;height:4px;border-radius:2px}
+.pwbtn small{margin-left:auto;font-family:var(--f-label);font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.pwbtn[aria-pressed="true"]{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+.pwdet h3{font-family:var(--f-display);font-weight:500;font-size:22px;margin:0 0 2px}
+.pwdet .meta{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.route{list-style:none;margin:0 0 12px;padding:0;counter-reset:st}
+.route li{counter-increment:st;position:relative;padding:0 0 10px 32px;font-size:14px}
+.route li::before{content:counter(st);position:absolute;left:0;top:0;width:21px;height:21px;border-radius:50%;border:1px solid var(--line);font-family:var(--f-label);font-size:11.5px;font-weight:600;display:grid;place-items:center;color:var(--muted)}
+.route li:not(:last-child)::after{content:"";position:absolute;left:10px;top:24px;bottom:1px;width:1px;background:var(--line)}
+.kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 14px;font-size:14px;margin:0}
+.kv dt{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+.kv dd{margin:0}
+
+/* svg */
+.cb{fill:var(--gm);stroke:var(--tract-line);stroke-width:1.2}
+.cbwm{fill:var(--tissue)}
+.cbghost{fill:var(--panel-2);stroke:var(--tract-line);stroke-width:1;stroke-dasharray:4 3;opacity:.7}
+.stem{fill:var(--tissue);stroke:var(--tract-line);stroke-width:1.2}
+.cortexband{fill:none;stroke:var(--gm);stroke-width:22;stroke-linecap:round}
+.cortexedge{fill:none;stroke:var(--tract-line);stroke-width:1}
+.gm{fill:var(--gm);stroke:var(--tract-line);stroke-width:.8}
+.nuc{fill:var(--nuc);stroke:var(--tract);stroke-width:1.1}
+.olive{fill:var(--nuc);stroke:var(--tract);stroke-width:1.3}
+.tractf{fill:var(--tract)}
+.ped{fill:none;stroke:var(--tract);stroke-linecap:round;opacity:.22}
+.decus{stroke:var(--tract);stroke-width:2;opacity:.55}
+.folia{fill:none;stroke:var(--tract-line);stroke-width:.9;opacity:.8}
+.fissure{fill:none;stroke:var(--tract);stroke-width:1.2;stroke-dasharray:5 3}
+.vstrip{fill:var(--tissue);opacity:.55}
+.pw path.base{fill:none;stroke-width:2.6;stroke-linecap:round;transition:opacity .2s}
+.pw path.flow{fill:none;stroke-width:2.6;stroke-linecap:round;stroke-dasharray:3 13;stroke:var(--panel);opacity:.9;animation:flow 1.1s linear infinite}
+.pw.dim path.base{opacity:.1}
+.pw.dim path.flow{display:none}
+.pw.quiet path.flow{display:none}
+.pw{cursor:pointer}
+@keyframes flow{to{stroke-dashoffset:-16}}
+.p1 .base{stroke:var(--p1)} .p2 .base{stroke:var(--p2)} .p3 .base{stroke:var(--p3)} .p4 .base{stroke:var(--p4)} .p5 .base{stroke:var(--p5)} .p6 .base{stroke:var(--p6)}
+.m1{fill:var(--p1)} .m2{fill:var(--p2)} .m3{fill:var(--p3)} .m4{fill:var(--p4)} .m5{fill:var(--p5)} .m6{fill:var(--p6)}
+.dash .base{stroke-dasharray:6 4}
+.lbl{font-family:var(--f-label);font-size:12px;font-weight:500;fill:var(--fg);paint-order:stroke;stroke:var(--panel);stroke-width:3.5px;stroke-linejoin:round}
+.lbl.sm{font-size:11px;fill:var(--muted)}
+.lbl.b{font-weight:600;fill:var(--fg)}
+.lbl.lvl{font-size:10px;letter-spacing:.12em;fill:var(--muted)}
+.lbl.it{font-style:italic}
+.lead{stroke:var(--muted);stroke-width:.8}
+.rl{font-family:var(--f-label);font-size:12px;font-weight:600;fill:var(--muted);text-anchor:middle}
+.rlc{fill:none;stroke:var(--muted);stroke-width:1}
+.hl{stroke:var(--lesion);stroke-width:2.2;stroke-dasharray:5 3}
+.hatch-bg{fill:var(--lesion);fill-opacity:.16}
+.hatch-ln{stroke:var(--lesion);stroke-opacity:.6;stroke-width:2.2}
+.hl-pulse{animation:hlp 2.4s ease-in-out infinite}
+@keyframes hlp{50%{opacity:.55}}
+.bp{fill:var(--body);stroke:var(--tract-line);stroke-width:1}
+.bpl{fill:none;stroke:var(--body);stroke-width:13;stroke-linecap:round}
+.bp.on{fill:var(--lesion)}
+.bpl.on{stroke:var(--lesion)}
+.bpf{fill:var(--fg)}
+
+/* lesion atlas */
+.atlas{display:grid;grid-template-columns:290px minmax(0,1fr);gap:28px;align-items:start}
+.index{position:sticky;top:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px);min-width:0}
+.search input,#lesionSelect{width:100%;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg)}
+#lesionSelect{display:none;font-size:15px;padding:9px 10px}
+.list{overflow:auto;padding-right:4px;min-height:0}
+.grp h3{font-family:var(--f-label);font-weight:600;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:14px 8px 4px}
+.grp:first-child h3{margin-top:4px}
+.item{display:block;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:6px 8px;font:inherit;font-size:14px;line-height:1.3;color:var(--fg);cursor:pointer}
+.item small{display:block;color:var(--muted);font-family:var(--f-label);font-size:12px;margin-top:1px}
+.item:hover{background:var(--panel-2)}
+.item[aria-current="true"]{background:var(--accent-weak);color:var(--accent)}
+.item[aria-current="true"] small{color:var(--accent)}
+.empty{color:var(--muted);font-size:13px;padding:8px}
+.crumb{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--lesion)}
+.lname{font-family:var(--f-display);font-weight:500;font-size:clamp(28px,3.2vw,38px);line-height:1.08;margin:4px 0 8px;text-wrap:balance;letter-spacing:-.01em}
+.summary{font-size:16.5px;max-width:68ch;margin:0}
+.locbox{display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px 18px;margin-top:16px;padding-block:14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.loclabel{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.locbox p{margin:0;font-family:var(--f-display);font-size:18px;line-height:1.45;max-width:72ch}
+.viz{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.8fr);gap:18px;margin-top:18px}
+.seg{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
+.seg span{font-family:var(--f-label);font-size:11px;color:var(--muted);padding:0 6px 0 8px;text-transform:uppercase;letter-spacing:.08em}
+.seg button{border:0;background:none;color:var(--fg);padding:4px 11px;border-radius:999px;font-family:var(--f-label);font-weight:600;font-size:12.5px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.figure svg{display:block;width:100%;max-width:220px;height:auto;margin:0 auto}
+.siderule{font-family:var(--f-display);font-size:18px;line-height:1.35;margin:8px 0 6px;text-align:center}
+.siderule b{color:var(--lesion);font-weight:600}
+.why{font-size:13.5px;color:var(--muted);margin:0}
+.parts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 4px}
+.parts span{font-family:var(--f-label);font-size:12px;padding:2px 9px;border-radius:999px;background:var(--lesion-weak);color:var(--lesion)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px 30px;margin-top:24px}
+.fact h4{margin:0 0 4px;font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.fact ul{margin:0;padding-left:18px}
+.fact li{margin:3px 0}
+.fact.key h4{color:var(--lesion)}
+.pearl{grid-column:1/-1;background:var(--accent-weak);border-radius:10px;padding:14px 18px;display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px 18px}
+.pearl h4{color:var(--accent);margin:0;padding-top:3px}
+.pearl p{margin:0;font-family:var(--f-display);font-size:17.5px;line-height:1.45;font-style:italic}
+
+/* anatomy & bedside */
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:28px}
+.rule{background:var(--panel);padding:14px 16px}
+.rule b{display:block;font-family:var(--f-display);font-weight:500;font-size:17px;margin-bottom:3px}
+.rule p{margin:0;font-size:14px;color:var(--muted)}
+.zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:28px}
+.zones article{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.zones h3{font-family:var(--f-display);font-weight:500;font-size:22px;margin:0}
+.zones .alt{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.h3s{font-family:var(--f-display);font-weight:500;font-size:24px;margin:30px 0 10px}
+.tblw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:820px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-bottom:1px solid var(--line)}
+th{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--f-display);font-size:16.5px}
+td a{font-family:var(--f-label);font-weight:600;font-size:12.5px;text-decoration:none;white-space:nowrap}
+.micro{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+.micro ul{margin:0;padding-left:18px;font-size:14.5px}
+.micro li{margin:5px 0}
+
+/* quiz */
+.quiz{max-width:780px}
+.qmeta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-family:var(--f-label);font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.qcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+.qcard .case{font-family:var(--f-display);font-size:19px;line-height:1.5;margin:0 0 16px}
+.qcard .q{font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;font:inherit;font-size:15px;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,var(--panel))}
+.opt.wrong{border-color:var(--lesion);background:var(--lesion-weak)}
+.fb{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.fb .verdict{font-family:var(--f-label);font-weight:600;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase}
+.fb .verdict.ok{color:var(--ok)}
+.fb .verdict.no{color:var(--lesion)}
+.fb p{margin:6px 0 12px}
+.qbtns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font-family:var(--f-label);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:8px;border:1px solid var(--fg);background:var(--fg);color:var(--panel);cursor:pointer;text-decoration:none}
+.btn.ghost{background:none;color:var(--fg);border-color:var(--line)}
+footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
+
+@media (max-width:1100px){ .circuit,.viz,.micro{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:960px){
+  .atlas{grid-template-columns:minmax(0,1fr)}
+  .index{position:static;max-height:none}
+  .list,.search{display:none}
+  #lesionSelect{display:block}
+}
+@media (max-width:560px){ .locbox,.pearl,.kv{grid-template-columns:minmax(0,1fr)} .seg span{display:none} .qcard{padding:16px} }
+@media (prefers-reduced-motion: reduce){ .pw path.flow{display:none} .hl-pulse{animation:none} }
+/* tract atlas */
+.atlas{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+.cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.catb{font-family:var(--f-label);font-weight:600;font-size:13px;letter-spacing:.02em;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg);cursor:pointer;display:inline-flex;gap:6px;align-items:baseline}
+.catb small{font-weight:500;color:var(--muted);font-size:11.5px}
+.catb[aria-pressed="true"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.catb[aria-pressed="true"] small{color:var(--panel);opacity:.75}
+.catline{margin:0 0 8px;color:var(--muted);font-size:14px}
+.pw[style] path.base{stroke:var(--c)}
+.pw path.base.dsh{stroke-dasharray:6 5}
+.diaw{max-height:none}
+.dia svg{min-width:460px}
+.hemi{fill:var(--gm);stroke:var(--tract-line);stroke-width:1.1}
+.wm{fill:var(--tissue)}
+.ic{fill:none;stroke:var(--csf);stroke-width:12;stroke-linecap:round;opacity:.55}
+.csf{fill:var(--csf);stroke:var(--tract-line);stroke-width:.8}
+.gm2{fill:var(--nuc);stroke:var(--tract-line);stroke-width:.8}
+.bund{fill:var(--tract);opacity:.28}
+.cord{fill:var(--tissue);stroke:var(--tract-line);stroke-width:1.2}
+.chain{fill:none;stroke:var(--tract-line);stroke-width:1.4;stroke-dasharray:2 4}
+.organ{fill:var(--nuc);stroke:var(--tract);stroke-width:1.2}
+.eye{fill:var(--panel);stroke:var(--tract);stroke-width:1.3}
+.pupil{fill:var(--tract)}
+.limb{fill:var(--body);stroke:var(--tract-line);stroke-width:1}
+.tick{stroke:var(--muted);stroke-width:1}
+.retina{fill:none;stroke:var(--p5);stroke-width:4;opacity:.55}
+.retina.n{stroke:var(--p3)}
+.v1{fill:none;stroke:var(--gm);stroke-width:16;stroke-linecap:round}
+.calc{stroke:var(--tract-line);stroke-width:1.2}
+.sulc{fill:none;stroke:var(--tract);stroke-width:1.6;opacity:.7}
+.sulc.dsh{stroke-dasharray:5 4;stroke-width:1;opacity:.5}
+.area{fill:var(--accent-weak);stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3}
+.cingb{fill:none;stroke:var(--tissue);stroke-width:24;stroke-linecap:round}
+.ccm{fill:var(--tissue);stroke:var(--tract);stroke-width:1.2}
+.cc{fill:none;stroke:var(--tissue);stroke-width:14;stroke-linecap:round}
+.proj{fill:none;stroke:var(--tract);stroke-width:1.2;stroke-dasharray:4 3}
+.xmark circle{fill:var(--panel);stroke:var(--lesion);stroke-width:1.6}
+.xmark path{stroke:var(--lesion);stroke-width:2;stroke-linecap:round}
+.stepb circle{fill:var(--panel);stroke:var(--fg);stroke-width:1.4}
+.stepb text{font-family:var(--f-label);font-size:10.5px;font-weight:600;fill:var(--fg);text-anchor:middle}
+.stepb text.stepl{font-size:11.5px;font-weight:600;paint-order:stroke;stroke:var(--panel);stroke-width:3.5px;stroke-linejoin:round}
+.stepb.on circle{fill:var(--fg)}
+.stepb.on text:not(.stepl){fill:var(--panel)}
+.route li.hasb{cursor:default}
+.route li.on::before{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.alll{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:14px}
+.alll li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:2px 10px;align-items:center}
+.alll i{width:22px;height:4px;border-radius:2px}
+.alll span{grid-column:2;color:var(--muted);font-size:13px}
+.lnk{all:unset;cursor:pointer;font-weight:600;color:var(--fg);border-bottom:1px dotted currentColor}
+.lnk:hover{color:var(--accent)}
+.search{margin-bottom:12px}
+.search input{width:100%;max-width:480px;font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg)}
+.tblw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.tblw table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
+.tblw th,.tblw td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+.tblw th{font-family:var(--f-label);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
+.box{fill:var(--panel-2);stroke:var(--tract-line);stroke-width:1}
+.boxt{font-family:var(--f-label);font-size:11.5px;font-weight:500;fill:var(--fg);text-anchor:middle}
+td.y{white-space:nowrap}
+td.grp{font-family:var(--f-label);font-size:12px;color:var(--muted);white-space:nowrap}
+@media (max-width:1100px){ .atlas{grid-template-columns:minmax(0,1fr)} }
+</style>
+<style>
+body{margin:0}
+.embed .kicker,.embed h1,.embed .lede{display:none}
+.embed header.top .wrap{padding-block:10px 0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="kicker">Neuroanatomy · pathways</div>
+    <h1>Tract <em>Atlas</em></h1>
+    <p class="lede">Every major pathway of the nervous system, traced on one drawing per region: where it starts, the route it takes, where it crosses, and what a lesion along it does. Pick a group, then a tract.</p>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#atlas" data-tab="atlas">Atlas</a>
+      <a href="#table" data-tab="table">All tracts</a>
+      <a href="#aphasia" data-tab="aphasia">Aphasias</a>
+      <a href="#signs" data-tab="signs">Cortical signs</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="view" data-view="atlas">
+    <div class="cats" id="cats" role="group" aria-label="Tract groups"></div>
+    <div class="atlas">
+      <div class="panel"><div class="dia" id="dia"></div><p class="cap" id="dcap"></p></div>
+      <div>
+        <div class="pwlist" id="tlist"></div>
+        <div class="panel pwdet" id="det"></div>
+      </div>
+    </div>
+  </section>
+  <section class="view" data-view="table" hidden>
+    <div class="vhead"><h2>All tracts</h2><p>Every pathway in the atlas with its route, crossing and the effect of a lesion. Open one to trace it.</p></div>
+    <div class="search"><input type="search" id="tq" placeholder="Filter: crosses, medulla, Horner, memory…" aria-label="Filter tracts"></div>
+    <div class="tblw"><table id="ttable"></table></div>
+  </section>
+  <section class="view" data-view="aphasia" hidden>
+    <div class="vhead"><h2>Aphasias</h2><p>Fluency, comprehension, repetition and naming for each type, where the lesion is, and the pathway it breaks. Repetition separates the perisylvian aphasias (impaired) from the transcortical ones (preserved).</p></div>
+    <div class="tblw"><table id="aphTable"></table></div>
+  </section>
+  <section class="view" data-view="signs" hidden>
+    <div class="vhead"><h2>Cortical signs</h2><p>Apraxias, neglect, agnosias, reading, writing, calculation and frontal syndromes: what fails, where the lesion is, and the pathway to trace.</p></div>
+    <div class="tblw"><table id="signTable"></table></div>
+  </section>
+</main>
+<footer class="wrap">Educational reference. Drawings are schematic and not to scale; pathways are simplified to their main course. Check clinical decisions against current sources.</footer>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const mq = matchMedia("(prefers-reduced-motion: reduce)");
+let RM = mq.matches;
+try { mq.addEventListener("change", e => { RM = e.matches; }); } catch (e) {}
+const ul = a => `<ul>${a.map(x => `<li>${x}</li>`).join("")}</ul>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ================= Pathways ================= */
+const PATHS = [
+  {id:"dentato", n:1, name:"Dentatorubrothalamic", kind:"Output",
+   segs:["M190,366 C220,342 248,318 272,304 C300,290 330,284 380,285", "M380,285 C398,284 404,276 404,264", "M380,285 C412,282 434,232 440,192", "M452,156 C492,120 528,96 560,86", "M560,86 C520,150 440,220 424,300 C418,360 414,430 408,492 C396,506 372,512 364,528 C360,544 362,570 362,588"],
+   steps:["Purkinje cells of the lateral hemisphere", "Dentate nucleus", "Superior cerebellar peduncle", "Decussation of the SCPs in the caudal midbrain", "Opposite VL thalamus (and parvocellular red nucleus)", "Motor and premotor cortex", "Corticospinal tract, crossing back at the pyramids", "Limbs on the same side as the starting cerebellum"],
+   ped:"Superior", cross:"Twice: SCP decussation, then the pyramidal decussation", carries:"Planning and timing of skilled, multi-joint limb movement", clue:"Below the SCP decussation a lesion gives ataxia on its own side; above it (red nucleus, thalamus, cortex), on the opposite side."},
+  {id:"interposed", n:2, name:"Interpositus to red nucleus", kind:"Output",
+   segs:["M234,362 C252,342 270,324 290,310 C318,296 346,292 380,292", "M380,292 C394,288 400,280 402,266", "M398,258 C384,270 370,278 364,302 C352,380 348,460 352,588"],
+   steps:["Purkinje cells of the paravermis", "Interposed nuclei (emboliform and globose)", "Superior cerebellar peduncle", "Decussation of the SCPs", "Opposite magnocellular red nucleus (and VL thalamus)", "Rubrospinal tract, crossing back in the ventral tegmental decussation", "Limb muscles on the starting side"],
+   ped:"Superior", cross:"Twice: SCP decussation, then the ventral tegmental decussation", carries:"Moment-to-moment correction of an ongoing limb movement", clue:"The rubrospinal tract is small in humans; most interposed output reaches the cortex through the thalamus."},
+  {id:"pontine", n:3, name:"Corticopontocerebellar", kind:"Input",
+   segs:["M572,90 C520,160 450,262 420,340", "M406,354 C388,360 360,362 330,356 C290,350 230,330 118,300"],
+   steps:["Frontal, parietal, temporal and occipital cortex", "Corticopontine fibers in the internal capsule and cerebral peduncle", "Pontine nuclei on the same side", "Transverse pontine fibers cross the midline", "Middle cerebellar peduncle", "Opposite lateral hemisphere, as mossy fibers"],
+   ped:"Middle", cross:"Once, in the basis pontis", carries:"A copy of the motor plan from the cortex", clue:"A basis pontis lesion gives ataxic hemiparesis on the opposite side; a middle peduncle lesion gives ataxia on its own side."},
+  {id:"olivo", n:4, name:"Olivocerebellar (climbing fibers)", kind:"Input",
+   segs:["M410,452 C384,448 352,440 324,432 C286,420 210,410 96,382"], dash:["M406,264 C424,320 428,400 414,442"],
+   steps:["Parvocellular red nucleus, plus spinal and cortical inputs", "Central tegmental tract (same side)", "Inferior olive", "Crosses the midline in the medulla", "Inferior cerebellar peduncle", "Climbing fibers to the opposite cerebellar cortex: one fiber per Purkinje cell; collaterals to the deep nuclei"],
+   ped:"Inferior", cross:"Once, in the medulla", carries:"Error and timing signals that drive motor learning", clue:"With the dentate nucleus and red nucleus it forms the Guillain–Mollaret triangle; interruption causes olivary hypertrophy and palatal tremor."},
+  {id:"spino", n:5, name:"Spinocerebellar and cuneocerebellar", kind:"Input",
+   segs:["M370,566 C350,556 342,530 340,500 C338,470 334,446 320,430 C296,414 276,396 266,382", "M362,476 C344,466 334,450 322,434", "M372,600 C386,606 400,600 408,584 C424,540 430,430 432,340 C434,306 416,298 388,298 C350,300 310,306 272,318"],
+   steps:["Muscle spindles, tendon organs and joints", "Leg: Clarke’s nucleus (C8–L2). Arm: accessory cuneate nucleus in the medulla", "Dorsal spinocerebellar and cuneocerebellar tracts, same side", "Inferior cerebellar peduncle", "Vermis and paravermis of the same side, as mossy fibers", "Ventral spinocerebellar tract: crosses in the cord, climbs, enters through the SCP and crosses back"],
+   ped:"Inferior (ventral tract: superior)", cross:"Dorsal tract never; ventral tract twice, ending on the same side", carries:"Unconscious proprioception and the activity of spinal circuits", clue:"Degenerates with the dorsal columns in Friedreich ataxia, so Romberg is positive and reflexes are lost."},
+  {id:"vestib", n:6, name:"Vestibulocerebellar and fastigial", kind:"In and out",
+   segs:["M330,414 C306,432 282,452 262,466", "M268,352 C292,372 316,394 334,406", "M342,420 C336,470 340,530 352,590"],
+   steps:["Vestibular nerve (the only primary afferent reaching the cerebellar cortex directly) and vestibular nuclei", "Juxtarestiform body, the medial part of the inferior peduncle", "Flocculonodular lobe and vermis", "Purkinje cells project straight to the vestibular nuclei, or through the fastigial nucleus", "Vestibulospinal and reticulospinal tracts", "Axial and proximal muscles; eye movements"],
+   ped:"Inferior (juxtarestiform body)", cross:"Mostly not; part of the fastigial output crosses in the hook bundle of Russell", carries:"Balance, posture and eye movement control", clue:"Damage gives truncal ataxia and nystagmus with little limb ataxia."}
+];
+const PBY = Object.fromEntries(PATHS.map(p => [p.id, p]));
+let uidN = 0;
+const shp = s => s[0] === "e" ? `<ellipse cx="${s[1]}" cy="${s[2]}" rx="${s[3]}" ry="${s[4]}"/>` : s[0] === "c" ? `<circle cx="${s[1]}" cy="${s[2]}" r="${s[3]}"/>` : `<path d="${s[1]}"/>`;
+const LABELS = [
+  ["{S} cerebellum",165,236,"middle","b"], ["{O} cerebellum (not traced)",595,236,"middle","sm"],
+  ["{S} cortex",172,52,"middle","sm"], ["{O} motor cortex",588,52,"middle","sm"],
+  ["VL thalamus",440,140,"middle"], ["VL thalamus",320,140,"middle","sm"],
+  ["Red nucleus",478,256,"start","",[416,252]], ["SCP decussation",478,292,"start","",[396,288]],
+  ["Pontine nuclei",486,358,"start","",[424,354]], ["Vestibular nuclei",486,414,"start","",[430,410]],
+  ["Inferior olive",486,456,"start","",[424,452]], ["Pyramidal decussation",478,506,"start","",[404,502]],
+  ["Clarke’s nucleus",472,570,"start","",[396,566]],
+  ["SCP",282,290,"middle","sm b"], ["MCP",300,340,"middle","sm b"], ["ICP",292,448,"middle","sm b"],
+  ["Dentate",186,406,"middle","sm"], ["Interposed",236,386,"middle","sm"], ["Fastigial",264,334,"middle","sm"],
+  ["Flocculonodular lobe",240,504,"middle","sm"], ["Lateral hemisphere",98,322,"middle","sm"], ["Primary fissure",104,288,"middle","sm it"],
+  ["MIDBRAIN",380,232,"middle","lvl"], ["PONS",380,322,"middle","lvl"], ["MEDULLA",380,434,"middle","lvl"], ["SPINAL CORD",380,636,"middle","lvl"]
+];
+function diagram(o) {
+  const uid = "d" + (++uidN), m = !!o.mirror, active = o.active || null;
+  const S = m ? "Left" : "Right", O = m ? "Right" : "Left";
+  const mk = PATHS.map(p => `<marker id="ar${p.n}-${uid}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="m${p.n}" d="M0,0 L10,5 L0,10 Z"/></marker>`).join("");
+  const pw = PATHS.map(p => {
+    const dim = active && !active.includes(p.id);
+    const quiet = !o.flow || RM;
+    const segs = p.segs.map(d => `<path class="base" d="${d}" marker-end="url(#ar${p.n}-${uid})"/><path class="flow" d="${d}"/>`).join("");
+    const dash = (p.dash || []).map(d => `<g class="dash"><path class="base" d="${d}" marker-end="url(#ar${p.n}-${uid})"/></g>`).join("");
+    return `<g class="pw p${p.n}${dim ? " dim" : ""}${quiet ? " quiet" : ""}" data-p="${p.id}"><title>${p.name}</title>${segs}${dash}</g>`;
+  }).join("");
+  const hl = o.hl ? `<g class="hl ${RM ? "" : "hl-pulse"}" style="fill:url(#hatch-${uid})">${o.hl.map(shp).join("")}</g>` : "";
+  const lab = LABELS.map(t => {
+    let x = t[1], a = t[3], txt = t[0].replace("{S}", S).replace("{O}", O), ld = "";
+    if (m) { x = 760 - x; a = a === "start" ? "end" : a === "end" ? "start" : a; }
+    if (t[5]) { const tx = m ? 760 - t[5][0] : t[5][0]; const x1 = a === "start" ? x - 4 : x + 4; ld = `<line class="lead" x1="${x1}" y1="${t[2] - 4}" x2="${tx}" y2="${t[5][1]}"/>`; }
+    return `${ld}<text class="lbl ${t[4] || ""}" x="${x}" y="${t[2]}" text-anchor="${a}">${txt}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 760 660" role="img" aria-label="Cerebellar circuit diagram"><defs>${mk}<pattern id="hatch-${uid}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="hatch-bg" width="6" height="6"/><line class="hatch-ln" x1="0" y1="0" x2="0" y2="6"/></pattern><clipPath id="cbc-${uid}"><ellipse cx="165" cy="360" rx="118" ry="110"/></clipPath></defs>
+<g${m ? ` transform="translate(760,0) scale(-1,1)"` : ""}>
+<path class="cortexband" d="M110,104 C190,36 570,36 650,104"/>
+<ellipse class="cbghost" cx="595" cy="360" rx="118" ry="110"/>
+<ellipse class="cbghost" cx="520" cy="474" rx="30" ry="13"/>
+<path class="ped" style="stroke-width:16" d="M492,306 C468,292 444,282 420,276"/><path class="ped" style="stroke-width:24" d="M484,352 C468,352 452,352 434,352"/><path class="ped" style="stroke-width:16" d="M494,412 C472,420 454,426 434,432"/>
+<path class="stem" d="M330,215 L430,215 C440,260 446,300 452,330 C462,370 450,395 440,405 C436,440 432,470 425,495 L420,646 L340,646 L335,495 C328,470 324,440 320,405 C310,395 298,370 308,330 C314,300 320,260 330,215 Z"/>
+<ellipse class="gm" cx="320" cy="170" rx="34" ry="20"/><ellipse class="gm" cx="440" cy="170" rx="34" ry="20"/>
+<ellipse class="gm" cx="240" cy="474" rx="30" ry="13"/>
+<ellipse class="cb" cx="165" cy="360" rx="118" ry="110"/>
+<g clip-path="url(#cbc-${uid})"><rect class="vstrip" x="250" y="240" width="40" height="240"/>
+<path class="folia" d="M40,300 C100,262 200,250 290,280"/><path class="folia" d="M40,420 C120,450 220,452 290,430"/><path class="folia" d="M40,452 C120,480 220,484 290,462"/></g>
+<path class="fissure" d="M58,312 C120,276 220,268 286,296"/>
+<ellipse class="cbwm" cx="178" cy="364" rx="78" ry="64"/>
+<path class="ped" style="stroke-width:16" d="M268,306 C292,292 316,282 340,276"/><path class="ped" style="stroke-width:24" d="M276,352 C292,352 308,352 326,352"/><path class="ped" style="stroke-width:16" d="M266,412 C288,420 306,426 326,432"/>
+<path class="olive" d="M162,362 Q170,348 182,358 Q194,346 204,360 Q212,374 200,382 Q188,392 178,380 Q166,390 160,376 Q154,368 162,362 Z"/>
+<circle class="nuc" cx="234" cy="360" r="8"/><ellipse class="nuc" cx="266" cy="350" rx="7" ry="10"/>
+<circle class="nuc" cx="356" cy="252" r="11"/><circle class="nuc" cx="404" cy="252" r="11"/>
+<path class="decus" d="M346,276 L414,298 M414,276 L346,298"/>
+<ellipse class="gm" cx="348" cy="354" rx="20" ry="13"/><ellipse class="gm" cx="412" cy="354" rx="20" ry="13"/>
+<ellipse class="tractf" cx="362" cy="376" rx="9" ry="5"/><ellipse class="tractf" cx="398" cy="376" rx="9" ry="5"/>
+<ellipse class="nuc" cx="342" cy="410" rx="12" ry="7"/><ellipse class="nuc" cx="418" cy="410" rx="12" ry="7"/>
+<ellipse class="olive" cx="350" cy="452" rx="13" ry="9"/><ellipse class="olive" cx="410" cy="452" rx="13" ry="9"/>
+<circle class="nuc" cx="362" cy="476" r="5"/><circle class="nuc" cx="398" cy="476" r="5"/>
+<path class="decus" d="M352,492 L408,512 M408,492 L352,512"/>
+<path class="gm" d="M366,540 C356,532 350,540 356,556 C360,566 360,574 356,586 C350,602 360,606 368,598 L392,598 C400,606 410,602 404,586 C400,574 400,566 404,556 C410,540 404,532 394,540 Z"/>
+<circle class="nuc" cx="370" cy="566" r="5"/><circle class="nuc" cx="390" cy="566" r="5"/>
+${pw}${hl}</g>
+${lab}<circle class="rlc" cx="34" cy="26" r="10"/><text class="rl" x="34" y="30">R</text><circle class="rlc" cx="726" cy="26" r="10"/><text class="rl" x="726" y="30">L</text></svg>`;
+}
+
+/* ================= Views: schematic drawings with named anchor points =================
+   Anchors ending _R are on the patient's right (viewer's left); _L anchors are mirrored automatically. */
+const mirrorAll = (A, W) => { Object.keys(A).forEach(k => { if (k.endsWith("_R")) { const m = k.slice(0, -2) + "_L"; if (!A[m]) A[m] = [W - A[k][0], A[k][1]]; } }); return A; };
+const CORD = {C2:690, C4:712, C6:732, C8:758, T1:770, T6:820, L1:870, L4:916, S2:950, S4:974};
+const NA = {
+  ctxLeg_R:[346,52], ctxArm_R:[240,54], ctxArmB_R:[262,58], ctxFace_R:[70,170], s1Leg_R:[324,50], s1Arm_R:[214,58], s1Face_R:[68,198],
+  fef_R:[112,116], heschl_R:[82,256], pfcMed_R:[358,78], ctxCC_R:[276,62], acTemp_R:[150,290],
+  cr_R:[288,122], icGenu_R:[302,176], icPost_R:[312,212], icSens_R:[320,246], ccSide_R:[318,96], cc:[380,88], acSide_R:[300,288], ac:[380,284],
+  caud_R:[322,146], putamen_R:[246,206], gpe_R:[268,208], gpi_R:[281,216], thVL_R:[326,218], thVPL_R:[328,246], thVPM_R:[340,256], thAN_R:[352,202], thMGN_R:[318,278],
+  stn_R:[326,306], hyp_R:[362,300],
+  crus_R:[348,350], crusMed_R:[360,342], snc_R:[354,364], vta_R:[372,362], rn_R:[364,378], vtd:[380,384], iii_R:[374,388], ew_R:[376,376], iiiOut_R:[318,374],
+  rimlf_R:[370,340], inc_R:[366,350], pc:[380,334], pretect_R:[368,334], sc_R:[368,400], ic_R:[362,410], dtd:[380,404], pag:[380,394],
+  mbLat_R:[340,376], mlMid_R:[356,382], vttMid_R:[346,374], symMid_R:[338,384],
+  basis_R:[356,466], pnuc_R:[366,454], cbtPons_R:[366,470], cbtX:[380,508], fefX:[380,468], pprf_R:[362,492], vi_R:[350,512], viX:[380,518], mlf_R:[368,504], mlfMid_R:[376,420],
+  vMain_R:[344,484], vMainX:[380,490], vRoot_R:[324,478], spVtract_R:[336,526], pmc_R:[364,522], soc_R:[354,534], tb:[380,538], ll_R:[344,466],
+  vestN_R:[342,528], vestLat_R:[336,520], vorX:[380,530], cochN_R:[324,544], facN_R:[352,522], pRF_R:[366,488], mlPons_R:[362,474], sttPons_R:[340,500], vttPons_R:[350,496], symPons_R:[336,500],
+  saliv_R:[362,550],
+  pyr_R:[368,582], olive_R:[350,588], mlMed_R:[374,572], intArc:[380,614], gracN_R:[372,634], cunN_R:[362,630], pyrDec:[380,648],
+  nts_R:[370,602], dmnx_R:[374,608], amb_R:[356,602], spV_R:[338,606], mRF_R:[366,596], latMed_R:[340,592], vttMed_R:[362,592], trigX:[380,604], xii_R:[376,598],
+  acommL4:[380,910], ahT1_R:[362,778], acstX:[380,782],
+  imlC8_R:[366,762], imlT6_R:[366,820], sacPS_R:[368,962], bladder:[380,1026], pelvic_R:[336,994],
+  eye_R:[84,356], ciliary_R:[126,370], face_R:[170,446], ear_R:[172,552], glands_R:[232,586], organs_R:[236,628], neck_R:[232,694], arm_R:[218,736], leg_R:[222,920],
+  scg_R:[300,664], chainT1_R:[300,772], chainT6_R:[300,822], carotid_R:[226,520], vessels_R:[226,830]
+};
+// longitudinal cord columns (x on the patient's right): lateral corticospinal 358, rubrospinal 356, spinothalamic 364,
+// vestibulospinal 362, cuneate 366, gracile 372, reticulospinal 374, anterior corticospinal / tectospinal / medial VST 377
+[["lcst", 358], ["rub", 355], ["stt", 364], ["lvst", 362], ["cun", 366], ["dc", 372], ["rst", 374], ["acst", 377], ["tect", 378], ["mvst", 377], ["lrst", 368]].forEach(([t, x]) => Object.entries(CORD).forEach(([lv, y]) => { NA[`${t}${lv}_R`] = [x, y]; }));
+Object.entries(CORD).forEach(([lv, y]) => { NA[`ah${lv}_R`] = [360, y + 6]; NA[`dh${lv}_R`] = [354, y - 6]; });
+mirrorAll(NA, 760);
+
+function neuraxisBase() {
+  const lvl = Object.entries(CORD).map(([k, y]) => `<line class="tick" x1="338" y1="${y}" x2="348" y2="${y}"/><text class="lbl lvl" x="334" y="${y + 3}" text-anchor="end">${k}</text>`).join("");
+  const hemi = (m) => `<g${m ? ' transform="translate(760,0) scale(-1,1)"' : ""}>
+<path class="hemi" d="M374,40 C300,26 168,34 104,104 C58,156 52,236 72,284 C88,320 124,334 172,334 C220,334 252,318 290,320 C324,322 350,316 374,314 Z"/>
+<path class="wm" d="M368,62 C302,52 184,60 124,120 C86,164 80,230 96,268 C108,296 136,306 174,306 C216,306 248,294 286,296 C320,298 346,292 368,290 Z"/>
+<path class="ic" d="M296,118 C304,176 312,236 330,318"/>
+<ellipse class="csf" cx="342" cy="140" rx="9" ry="26"/><ellipse class="gm" cx="324" cy="146" rx="11" ry="22"/>
+<ellipse class="gm" cx="246" cy="206" rx="18" ry="34"/><ellipse class="gm2" cx="268" cy="208" rx="8" ry="25"/><ellipse class="gm2" cx="281" cy="216" rx="6" ry="17"/>
+<ellipse class="gm" cx="176" cy="222" rx="6" ry="34"/>
+<ellipse class="gm" cx="342" cy="238" rx="26" ry="36"/>
+<ellipse class="gm2" cx="326" cy="306" rx="9" ry="5"/><ellipse class="gm" cx="232" cy="318" rx="18" ry="8"/>
+<ellipse class="cbghost" cx="250" cy="500" rx="62" ry="52"/>
+<circle class="eye" cx="84" cy="356" r="18"/><circle class="pupil" cx="84" cy="356" r="6"/>
+<rect class="limb" x="196" y="724" width="44" height="24" rx="12"/><rect class="limb" x="200" y="908" width="44" height="24" rx="12"/>
+<circle class="nuc" cx="172" cy="552" r="7"/><circle class="nuc" cx="170" cy="446" r="6"/>
+</g>`;
+  return `<path class="cc" d="M318,96 C350,82 410,82 442,96"/>${hemi(false)}${hemi(true)}
+<rect class="csf" x="373" y="196" width="14" height="96" rx="6"/><ellipse class="gm" cx="362" cy="300" rx="10" ry="8"/><ellipse class="gm" cx="398" cy="300" rx="10" ry="8"/>
+<path class="stem" d="M334,326 L426,326 C432,356 436,376 440,404 C452,436 458,496 448,538 C442,560 434,580 430,602 L426,650 L334,650 L330,602 C326,580 318,560 312,538 C302,496 308,436 320,404 C324,376 328,356 334,326 Z"/>
+<ellipse class="gm" cx="380" cy="466" rx="52" ry="30" style="opacity:.55"/>
+<ellipse class="bund" cx="348" cy="350" rx="10" ry="14"/><ellipse class="bund" cx="412" cy="350" rx="10" ry="14"/>
+<circle class="csf" cx="380" cy="394" r="5"/>
+<circle class="nuc" cx="364" cy="378" r="7"/><circle class="nuc" cx="396" cy="378" r="7"/>
+<ellipse class="olive" cx="350" cy="588" rx="10" ry="8"/><ellipse class="olive" cx="410" cy="588" rx="10" ry="8"/>
+<ellipse class="bund" cx="368" cy="582" rx="7" ry="9"/><ellipse class="bund" cx="392" cy="582" rx="7" ry="9"/>
+<path class="decus" d="M370,642 L390,654 M390,642 L370,654"/><path class="decus" d="M372,610 L388,618 M388,610 L372,618"/>
+<path class="cord" d="M352,656 L408,656 C414,690 418,720 414,760 L410,870 C418,896 418,926 408,950 L396,1004 L364,1004 L352,950 C342,926 342,896 350,870 L346,760 C342,720 346,690 352,656 Z"/>
+<rect class="gm" x="373" y="662" width="14" height="338" rx="6"/>
+<ellipse class="gm" cx="360" cy="738" rx="7" ry="14"/><ellipse class="gm" cx="400" cy="738" rx="7" ry="14"/><ellipse class="gm" cx="361" cy="922" rx="7" ry="14"/><ellipse class="gm" cx="399" cy="922" rx="7" ry="14"/>
+<ellipse class="gm2" cx="367" cy="818" rx="3" ry="54"/><ellipse class="gm2" cx="393" cy="818" rx="3" ry="54"/>
+<path class="chain" d="M300,664 L300,890"/><path class="chain" d="M460,664 L460,890"/>
+${[664, 772, 822, 872].map(y => `<circle class="nuc" cx="300" cy="${y}" r="${y === 664 ? 6 : 4}"/><circle class="nuc" cx="460" cy="${y}" r="${y === 664 ? 6 : 4}"/>`).join("")}
+<ellipse class="organ" cx="380" cy="1026" rx="28" ry="13"/>
+${lvl}`;
+}
+const NLAB = [
+  ["Cortex", 186, 32, "middle", "sm"], ["Cortex", 574, 32, "middle", "sm"], ["Thalamus", 380, 186, "middle", "sm"], ["Corpus callosum", 380, 74, "middle", "sm"],
+  ["Basal ganglia", 246, 256, "middle", "sm"], ["MIDBRAIN", 464, 360, "start", "lvl"], ["PONS", 466, 468, "start", "lvl"], ["MEDULLA", 456, 596, "start", "lvl"],
+  ["SPINAL CORD", 430, 700, "start", "lvl"], ["Sympathetic chain", 300, 650, "middle", "sm"], ["R face", 154, 450, "end", "sm"], ["L face", 606, 450, "start", "sm"], ["R ear", 156, 556, "end", "sm"], ["L ear", 604, 556, "start", "sm"], ["Bladder", 420, 1030, "start", "sm"],
+  ["R eye", 84, 388, "middle", "sm"], ["L eye", 676, 388, "middle", "sm"], ["R arm", 218, 764, "middle", "sm"], ["L arm", 542, 764, "middle", "sm"], ["R leg", 222, 948, "middle", "sm"], ["L leg", 538, 948, "middle", "sm"],
+  ["Cerebellum", 250, 500, "middle", "sm it"], ["Cerebellum", 510, 500, "middle", "sm it"]
+];
+
+/* visual pathway, axial, anterior at the top */
+const VA = mirrorAll({
+  eyeT_R:[248,62], eyeN_R:[292,62], pupil_R:[270,52], on_R:[300,122], onN_R:[316,130], chiasmLat_R:[352,212], chiasm:[380,208], ot_R:[332,262], lgn_R:[300,332],
+  pret_R:[366,352], pc:[380,362], ew_R:[372,376], cili_R:[236,118], orUp_R:[288,438], orUp2_R:[312,540], v1Up_R:[350,602],
+  meyer_R:[222,330], meyer2_R:[204,430], meyer3_R:[268,566], v1Lo_R:[360,640]
+}, 760);
+function visualBase() {
+  const half = (m) => `<g${m ? ' transform="translate(760,0) scale(-1,1)"' : ""}>
+<circle class="eye" cx="270" cy="70" r="34"/><path class="retina" d="M266,42 A29,29 0 0 0 266,98"/><path class="retina n" d="M274,42 A29,29 0 0 1 274,98"/><circle class="pupil" cx="270" cy="40" r="7"/>
+<ellipse class="csf" cx="212" cy="390" rx="12" ry="40" transform="rotate(-14 212 390)"/>
+<ellipse class="gm" cx="300" cy="332" rx="14" ry="10"/>
+<path class="v1" d="M372,586 C350,600 340,630 352,664"/>
+</g>`;
+  return `<ellipse class="hemi" cx="380" cy="400" rx="292" ry="286"/><ellipse class="wm" cx="380" cy="404" rx="268" ry="262"/>
+<path class="calc" d="M380,560 L380,680"/>${half(false)}${half(true)}
+<circle class="stem" cx="380" cy="362" r="36"/><circle class="csf" cx="380" cy="372" r="4"/>
+<path class="decus" d="M366,200 L394,216 M394,200 L366,216"/>`;
+}
+const VLAB = [["Right eye", 270, 14, "middle", "sm"], ["Left eye", 490, 14, "middle", "sm"], ["Temporal", 222, 100, "end", "sm it"], ["Nasal", 304, 112, "start", "sm it"],
+  ["Optic chiasm", 404, 196, "start", "sm"], ["LGN", 286, 316, "end", "sm"], ["LGN", 474, 316, "start", "sm"], ["Midbrain", 380, 412, "middle", "sm"],
+  ["Temporal horn", 186, 450, "middle", "sm it"], ["Calcarine cortex (V1)", 380, 698, "middle", "sm"], ["FRONT", 380, 140, "middle", "lvl"]];
+
+/* lateral surface of the left hemisphere, front on the left */
+const LA = {broca:[234,262], wernicke:[496,286], smg:[498,214], ag:[566,236], fefL:[268,140], sma:[300,62], dlpfc:[168,170], ofc:[138,290], tpole:[198,332],
+  occ:[664,262], occInf:[640,306], itg:[470,364], parSup:[530,104], frontDors:[196,112], ext:[312,266], arcTurn:[528,240], arcTop:[470,196], arcMid:[380,206],
+  slf2a:[500,170], slf2b:[260,160], slfMid:[380,96], slfMid2:[380,150], ifofA:[560,296], ifofB:[420,292], ifofC:[220,236], ilfA:[560,340], uncA:[214,296], fatMid:[262,190]};
+function lateralBase() {
+  return `<path class="hemi" d="M70,236 C56,140 160,44 330,36 C510,28 650,92 694,200 C712,252 690,296 652,312 C600,332 540,346 480,380 C440,404 380,412 330,396 C280,382 230,360 206,340 C186,330 160,324 140,310 C100,292 76,276 70,236 Z"/>
+<path class="sulc" d="M196,300 C260,286 360,272 470,262 C490,258 506,244 516,228"/><path class="sulc" d="M392,40 C384,90 372,140 358,190 C350,220 344,246 340,270"/><path class="sulc dsh" d="M330,44 C322,100 310,160 296,230"/><path class="sulc dsh" d="M454,48 C444,110 430,170 420,240"/>
+<ellipse class="area" cx="234" cy="258" rx="30" ry="16"/><ellipse class="area" cx="496" cy="286" rx="34" ry="16"/>`;
+}
+const LLAB = [["Frontal", 160, 120, "middle", "lvl"], ["Parietal", 560, 110, "middle", "lvl"], ["Occipital", 660, 210, "middle", "lvl"], ["Temporal", 340, 372, "middle", "lvl"],
+  ["Central sulcus", 400, 30, "start", "sm it"], ["Sylvian fissure", 300, 316, "middle", "sm it"], ["Broca", 234, 248, "middle", "sm"], ["Wernicke", 496, 312, "middle", "sm"], ["FRONT", 60, 470, "start", "lvl"], ["Left hemisphere, lateral surface", 700, 470, "end", "sm it"]];
+
+/* medial surface, front on the left */
+const MA = {hipp:[522,338], fornixPost:[532,236], fornixBody:[420,200], fornixCol:[298,240], mb:[306,300], mtt:[338,262], thAN:[360,222], atr:[336,170], cing:[300,124],
+  cingAnt:[198,232], cingMid:[380,114], cingPost:[566,206], phg:[470,368], vta:[392,320], mfb:[332,292], nac:[248,262], mfb2:[220,226], pfcM:[136,170],
+  amyg:[412,338], stPost:[512,292], stTop:[470,196], stAnt:[318,206], bnst:[290,258], hypM:[318,282], snM:[418,322], caudM:[274,214], putM:[300,244]};
+function medialBase() {
+  return `<path class="hemi" d="M78,250 C62,150 150,48 320,36 C500,24 652,90 690,200 C708,262 680,300 640,312 C600,322 560,318 520,330 C480,342 452,352 430,350 C400,348 380,330 350,322 C300,310 250,330 200,330 C140,330 92,310 78,250 Z"/>
+<path class="cingb" d="M190,222 C194,150 270,116 380,112 C482,110 560,140 576,204"/>
+<path class="ccm" d="M196,206 C210,170 260,150 380,146 C470,144 520,160 546,192 C552,206 540,218 526,210 C500,186 460,176 380,178 C290,180 240,192 226,214 C220,228 200,226 196,206 Z"/>
+<ellipse class="gm" cx="396" cy="238" rx="48" ry="28"/><ellipse class="gm" cx="318" cy="282" rx="24" ry="16"/><circle class="nuc" cx="306" cy="300" r="7"/>
+<path class="stem" d="M376,300 C410,294 440,300 452,320 L474,486 L420,486 L398,334 Z"/>
+<ellipse class="cbghost" cx="574" cy="404" rx="94" ry="60"/>
+<ellipse class="proj" cx="490" cy="342" rx="44" ry="12" transform="rotate(-8 490 342)"/><ellipse class="proj" cx="412" cy="338" rx="14" ry="10"/><ellipse class="proj" cx="250" cy="262" rx="14" ry="10"/><ellipse class="proj" cx="278" cy="220" rx="22" ry="14"/>`;
+}
+const MLAB = [["Corpus callosum", 380, 166, "middle", "sm"], ["Cingulate gyrus", 380, 102, "middle", "sm"], ["Thalamus", 420, 246, "middle", "sm"], ["Hypothalamus", 300, 326, "end", "sm"],
+  ["Brainstem", 470, 470, "start", "sm"], ["Cerebellum", 600, 404, "middle", "sm it"], ["Hippocampus (deep)", 560, 362, "start", "sm it"], ["FRONT", 60, 470, "start", "lvl"], ["Right hemisphere, medial surface", 700, 470, "end", "sm it"]];
+
+const VIEWS = {
+  neuraxis:{w:760, h:1050, A:NA, base:neuraxisBase, lab:NLAB, cap:"Front view of the whole neuraxis, cortex to sacral cord, schematic and not to scale. The patient’s right is on the left (R and L marked). Pathways are traced from the right side of the brain or body."},
+  visual:{w:760, h:710, A:VA, base:visualBase, lab:VLAB, cap:"Viewed from above, front at the top; the patient’s right is on the left. Schematic, not to scale."},
+  lateral:{w:760, h:480, A:LA, base:lateralBase, lab:LLAB, cap:"Lateral surface of the left (usually language-dominant) hemisphere, front on the left. Fibers run deep to the cortex; schematic."},
+  medial:{w:760, h:480, A:MA, base:medialBase, lab:MLAB, cap:"Medial surface of the right hemisphere, front on the left. Dashed outlines are deep structures projected onto the midline view."},
+  cerebellar:{cap:"The cerebellar drawing traces the right cerebellum; patient’s right is on the left. Arrows show direction; dashed blue is the central tegmental tract."}
+};
+
+/* ================= Tracts ================= */
+const CATS = [
+  ["motor", "Motor", "Descending pathways to cranial and spinal motor neurons"],
+  ["cn", "Cranial nerve nuclei", "Corticobulbar control of each cranial motor nucleus: bilateral or crossed"],
+  ["sensory", "Sensory", "Ascending pathways for touch, position, pain, temperature and hearing"],
+  ["cerebellar", "Cerebellar", "Inputs to and outputs from the cerebellum"],
+  ["eye", "Eye movements", "Gaze centers, the MLF and the vestibulo-ocular reflex"],
+  ["visual", "Visual", "Retina to calcarine cortex, the pupillary light reflex, and the dorsal and ventral streams"],
+  ["frontal", "Frontal circuits", "Frontal–subcortical loops for movement, gaze, executive function, behaviour and motivation"],
+  ["lang", "Language", "Repetition, comprehension, spontaneous speech and naming: the aphasia pathways"],
+  ["read", "Reading and writing", "Reading aloud, understanding written text, writing, and the splenium disconnection"],
+  ["praxis", "Praxis and parietal", "Apraxias, neglect, cortical sensation and calculation"],
+  ["bg", "Basal ganglia", "Motor loops and dopamine pathways"],
+  ["limbic", "Limbic", "Memory and emotion circuits"],
+  ["assoc", "Association and commissural", "Long fibers linking cortical areas and the two hemispheres"],
+  ["auto", "Autonomic", "Sympathetic and parasympathetic outflow, pupil and bladder"]
+];
+const T = [];
+const add = (cat, view, o) => T.push({cat, view, ...o});
+const S = (a, l, t) => ({a, l, t});
+
+/* ---- motor ---- */
+add("motor", "neuraxis", {id:"cst", name:"Corticospinal (pyramidal) tract", kind:"Upper motor neuron",
+  routes:[["ctxArm_R", "cr_R", "icPost_R", "crus_R", "basis_R", "pyr_R", "pyrDec", "lcstC4_L", "lcstC6_L", "ahC6_L", "arm_L"], ["ctxLeg_R", "cr_R"], ["lcstC6_L", "lcstT6_L", "lcstL1_L", "lcstL4_L", "ahL4_L", "leg_L"]],
+  dash:[["pyr_R", "acstC4_R", "acstT1_R", "acstX", "ahT1_L"]], x:["pyrDec"],
+  steps:[S("ctxArm_R", "Motor cortex", "Primary motor cortex (Betz cells), premotor cortex and SMA; leg medially, arm and face laterally"), S("cr_R", "Corona radiata", "Converges through the corona radiata"), S("icPost_R", "Posterior limb", "Posterior limb of the internal capsule (arm in front of leg)"), S("crus_R", "Cerebral peduncle", "Middle three-fifths of the crus"), S("basis_R", "Basis pontis", "Broken into bundles by the pontine nuclei"), S("pyr_R", "Pyramid", "Medullary pyramid"), S("pyrDec", "Decussation", "85–90% cross at the pyramidal decussation"), S("lcstC6_L", "Lateral CST", "Lateral corticospinal tract in the opposite lateral funiculus"), S("ahC6_L", "Anterior horn", "Anterior horn motor neurons, directly for the hand"), S("leg_L", "Opposite limbs", "Limb muscles on the opposite side; the uncrossed 10% (dashed) descend as the anterior tract to axial muscles of both sides")],
+  cross:"Pyramidal decussation, lower medulla (85–90%); the anterior corticospinal tract crosses segment by segment in the cord", carries:"Voluntary, skilled movement, especially fractionated finger movement",
+  lesion:"Above the decussation: opposite weakness with spasticity, hyperreflexia and an extensor plantar. In the cord: weakness on the same side below the lesion. Acute lesions are flaccid at first."});
+add("motor", "neuraxis", {id:"cbt", name:"Corticobulbar tract", kind:"Upper motor neuron",
+  routes:[["ctxFace_R", "icGenu_R", "crusMed_R", "cbtPons_R", "cbtX", "facN_L", "face_L"], ["cbtPons_R", "xii_L"]], dash:[["cbtPons_R", "facN_R", "face_R"], ["cbtPons_R", "amb_R"]], x:["cbtX"],
+  steps:[S("ctxFace_R", "Face cortex", "Face, tongue and larynx area, low on the motor strip"), S("icGenu_R", "Genu", "Genu of the internal capsule"), S("crusMed_R", "Medial crus", "Medial part of the cerebral peduncle"), S("cbtX", "Crosses", "Fibers peel off and cross at each cranial nerve level"), S("facN_L", "Facial nucleus", "Lower face part of the opposite facial nucleus receives mainly crossed fibers"), S("xii_L", "Hypoglossal", "Hypoglossal nucleus (mostly crossed)"), S("amb_R", "Bilateral nuclei", "Upper face, jaw, palate and larynx nuclei receive both sides (dashed)")],
+  cross:"At each brainstem level; most cranial motor nuclei receive both sides", carries:"Voluntary control of face, jaw, tongue, palate and larynx",
+  lesion:"One side: opposite lower face weakness (forehead spared) and mild dysarthria. Both sides: pseudobulbar palsy with dysphagia, dysarthria, brisk jaw jerk and emotional lability."});
+add("motor", "neuraxis", {id:"rubro", name:"Rubrospinal tract", kind:"Brainstem motor",
+  routes:[["rn_R", "vtd", "rubC2_L", "rubC6_L", "ahC6_L", "arm_L"]], x:["vtd"],
+  steps:[S("rn_R", "Red nucleus", "Magnocellular red nucleus, driven by motor cortex and the interposed nuclei"), S("vtd", "Ventral tegmental decussation", "Crosses at once in the midbrain"), S("rubC6_L", "Lateral funiculus", "Runs beside the lateral corticospinal tract"), S("arm_L", "Arm flexors", "Mainly cervical cord: flexors of the opposite arm")],
+  cross:"Ventral tegmental decussation in the midbrain", carries:"Flexor tone of the upper limb; small in humans",
+  lesion:"Decorticate posture (arm flexion, leg extension) means the lesion is above the red nucleus; decerebrate posture (all extension) means it is below."});
+add("motor", "neuraxis", {id:"vest", name:"Vestibulospinal tracts", kind:"Brainstem motor",
+  routes:[["vestLat_R", "lvstC6_R", "lvstT6_R", "lvstL4_R", "ahL4_R", "leg_R"]], dash:[["vestN_R", "mvstC2_R", "neck_R"], ["vestN_R", "vorX", "mvstC2_L", "neck_L"]],
+  steps:[S("vestLat_R", "Lateral vestibular nucleus", "Deiters nucleus"), S("lvstT6_R", "Lateral VST", "Descends uncrossed the whole cord"), S("leg_R", "Extensors", "Antigravity extensors of the same side"), S("vestN_R", "Medial vestibular nucleus", "Medial tract in the MLF, both sides, to the neck (dashed)"), S("neck_R", "Neck muscles", "Head stabilization and vestibulocollic reflexes")],
+  cross:"Lateral tract does not cross; medial tract is bilateral", carries:"Posture, balance and extensor tone",
+  lesion:"Released in decerebrate rigidity. Acute unilateral vestibular loss makes the patient fall to the side of the lesion."});
+add("motor", "neuraxis", {id:"retic", name:"Reticulospinal tracts", kind:"Brainstem motor",
+  routes:[["pRF_R", "rstC6_R", "rstT6_R", "rstL4_R", "ahL4_R", "leg_R"]], dash:[["mRF_R", "lrstC6_R", "lrstL4_R"], ["mRF_R", "lrstC6_L", "lrstL4_L"]],
+  steps:[S("pRF_R", "Pontine reticular formation", "Medial (pontine) reticulospinal tract, uncrossed: excites extensors"), S("rstT6_R", "Anterior funiculus", "Descends near the midline"), S("mRF_R", "Medullary reticular formation", "Lateral (medullary) tract, both sides: inhibits extensor tone (dashed)"), S("leg_R", "Axial and proximal muscles", "Posture, locomotion and anticipatory postural control")],
+  cross:"Pontine tract uncrossed; medullary tract bilateral", carries:"Posture, gait, muscle tone; also carries descending autonomic and bladder fibers",
+  lesion:"Loss of cortical inhibition of the medullary tract contributes to spasticity after upper motor neuron lesions."});
+add("motor", "neuraxis", {id:"tecto", name:"Tectospinal tract", kind:"Brainstem motor",
+  routes:[["sc_R", "dtd", "tectC2_L", "tectC4_L", "neck_L"]], x:["dtd"],
+  steps:[S("sc_R", "Superior colliculus", "Deep layers of the superior colliculus"), S("dtd", "Dorsal tegmental decussation", "Crosses in the midbrain"), S("tectC2_L", "Cervical cord", "Medial anterior funiculus, upper cervical segments only"), S("neck_L", "Neck muscles", "Orienting head turns toward visual and auditory targets")],
+  cross:"Dorsal tegmental decussation in the midbrain", carries:"Reflex head turning toward a stimulus", lesion:"Rarely isolated clinically."});
+
+/* ---- sensory ---- */
+add("sensory", "neuraxis", {id:"dcml", name:"Dorsal column–medial lemniscus", kind:"Ascending",
+  routes:[["leg_R", "dhL4_R", "dcL4_R", "dcT6_R", "dcC6_R", "dcC2_R", "gracN_R", "intArc", "mlMed_L", "mlPons_L", "mlMid_L", "thVPL_L", "icSens_L", "s1Leg_L"], ["arm_R", "dhC6_R", "cunC6_R", "cunC2_R", "cunN_R", "intArc"]], x:["intArc"],
+  steps:[S("leg_R", "Receptors", "Vibration, joint position and fine touch; large fibers"), S("dcT6_R", "Dorsal columns", "Same side: gracile (leg, medial) and cuneate (arm, lateral) fasciculi"), S("gracN_R", "Gracile and cuneate nuclei", "Second neuron in the lower medulla"), S("intArc", "Sensory decussation", "Internal arcuate fibers cross"), S("mlMed_L", "Medial lemniscus", "Ascends in the opposite brainstem"), S("thVPL_L", "VPL thalamus", "Third neuron"), S("s1Leg_L", "Sensory cortex", "Postcentral gyrus, opposite side")],
+  cross:"Lower medulla (sensory decussation)", carries:"Vibration, proprioception, two-point discrimination, graphesthesia",
+  lesion:"Cord: loss on the same side below the lesion, positive Romberg (B12 deficiency, tabes dorsalis). Above the medulla: loss on the opposite side."});
+add("sensory", "neuraxis", {id:"stt", name:"Spinothalamic tract (anterolateral system)", kind:"Ascending",
+  routes:[["leg_R", "dhL4_R", "acommL4", "sttL4_L", "sttL1_L", "sttT6_L", "sttC6_L", "sttC2_L", "latMed_L", "sttPons_L", "mbLat_L", "thVPL_L", "icSens_L", "s1Leg_L"]], x:["acommL4"],
+  steps:[S("leg_R", "Receptors", "Pain, temperature and crude touch; small fibers"), S("dhL4_R", "Dorsal horn", "Synapse in the dorsal horn, rising one or two segments in Lissauer tract"), S("acommL4", "Anterior commissure", "Crosses within one to two segments"), S("sttT6_L", "Anterolateral cord", "Opposite anterolateral column; sacral fibers outermost"), S("latMed_L", "Lateral brainstem", "Lateral medulla, pons and midbrain"), S("thVPL_L", "VPL thalamus", "Also intralaminar nuclei and reticular formation"), S("s1Leg_L", "Cortex", "Somatosensory cortex, insula and cingulate")],
+  cross:"Anterior white commissure, within 1–2 segments of entry", carries:"Pain, temperature, crude touch",
+  lesion:"Cord: loss on the opposite side starting 1–2 segments below the lesion (Brown-Séquard). Central cord (syrinx): cape-like loss with dorsal columns spared. Lateral medulla: opposite body plus same-side face."});
+add("sensory", "neuraxis", {id:"trig", name:"Trigeminal pathways", kind:"Ascending",
+  routes:[["face_R", "vRoot_R", "spVtract_R", "spV_R", "trigX", "vttMed_L", "vttPons_L", "vttMid_L", "thVPM_L", "icSens_L", "s1Face_L"], ["vRoot_R", "vMain_R", "vMainX", "vttPons_L"]], x:["trigX", "vMainX"],
+  steps:[S("face_R", "Face", "Trigeminal ganglion"), S("vRoot_R", "Root entry", "Trigeminal root at the mid pons"), S("spV_R", "Spinal trigeminal nucleus", "Pain and temperature fibers descend in the spinal tract to the medulla and upper cervical cord"), S("trigX", "Crosses", "Second neurons cross and ascend as the ventral trigeminothalamic tract"), S("vMain_R", "Main sensory nucleus", "Touch fibers end in the pons and also cross"), S("thVPM_L", "VPM thalamus", "Ventral posteromedial nucleus"), S("s1Face_L", "Face cortex", "Lateral postcentral gyrus")],
+  cross:"Medulla (pain, temperature) and pons (touch)", carries:"Sensation of the face, mouth and cornea",
+  lesion:"Lateral medulla: same-side facial pain and temperature loss with opposite body loss (Wallenberg). Onion-skin pattern from the descending tract. Thalamus or cortex: opposite face and body."});
+add("sensory", "neuraxis", {id:"aud", name:"Auditory pathway", kind:"Ascending",
+  routes:[["ear_R", "cochN_R", "tb", "soc_L", "ll_L", "ic_L", "thMGN_L", "heschl_L"]], dash:[["cochN_R", "soc_R", "ll_R", "ic_R", "thMGN_R", "heschl_R"]], x:["tb"],
+  steps:[S("ear_R", "Cochlea", "Spiral ganglion and cochlear nerve"), S("cochN_R", "Cochlear nuclei", "Dorsal and ventral cochlear nuclei"), S("tb", "Trapezoid body", "Most fibers cross"), S("soc_L", "Superior olive", "First binaural comparison: sound localization"), S("ll_L", "Lateral lemniscus", "Ascends to the inferior colliculus"), S("ic_L", "Inferior colliculus", "Midbrain relay"), S("thMGN_L", "Medial geniculate", "Thalamic relay"), S("heschl_L", "Heschl gyrus", "Primary auditory cortex; each ear reaches both sides (dashed)")],
+  cross:"Trapezoid body, then the commissures of the lateral lemniscus and inferior colliculus", carries:"Hearing and sound localization",
+  lesion:"Each ear is represented on both sides above the cochlear nuclei, so one-sided deafness means a lesion of the ear, nerve or cochlear nuclei (AICA)."});
+
+/* ---- eye movements ---- */
+add("eye", "neuraxis", {id:"hgaze", name:"Horizontal gaze (FEF → PPRF → VI + MLF)", kind:"Gaze",
+  routes:[["fef_R", "icGenu_R", "crusMed_R", "fefX", "pprf_L", "vi_L", "eye_L"], ["vi_L", "viX", "mlf_R", "mlfMid_R", "iii_R", "eye_R"]], x:["fefX", "viX"],
+  steps:[S("fef_R", "Frontal eye field", "Voluntary saccades to the opposite side"), S("fefX", "Crosses", "Descends and crosses in the upper pons"), S("pprf_L", "PPRF", "Opposite paramedian pontine reticular formation: horizontal saccade generator"), S("vi_L", "Abducens nucleus", "Motor neurons to the lateral rectus, and internuclear neurons"), S("eye_L", "Left eye abducts", "Lateral rectus"), S("mlf_R", "MLF", "Internuclear axons cross and climb in the opposite MLF"), S("iii_R", "Medial rectus subnucleus", "Oculomotor nucleus"), S("eye_R", "Right eye adducts", "Both eyes look left, away from the right FEF")],
+  cross:"Twice: cortex to opposite PPRF, then abducens internuclear neurons to the opposite MLF", carries:"Conjugate horizontal saccades",
+  lesion:"FEF: eyes deviate toward the lesion acutely. PPRF or VI nucleus: gaze palsy toward the lesion. MLF: internuclear ophthalmoplegia (adduction lag on the side of the MLF lesion). Both: one-and-a-half syndrome."});
+add("eye", "neuraxis", {id:"vgaze", name:"Vertical gaze (riMLF, INC, posterior commissure)", kind:"Gaze",
+  routes:[["rimlf_R", "iii_R", "eye_R"], ["rimlf_R", "pc", "iii_L", "eye_L"]], dash:[["inc_R", "pc", "inc_L"]], x:["pc"],
+  steps:[S("rimlf_R", "riMLF", "Rostral interstitial nucleus of the MLF: vertical and torsional saccade generator"), S("inc_R", "INC", "Interstitial nucleus of Cajal: holds vertical gaze"), S("pc", "Posterior commissure", "Upgaze fibers cross here"), S("iii_R", "III and IV nuclei", "Superior and inferior recti, obliques"), S("eye_L", "Both eyes", "Vertical gaze is always bilateral")],
+  cross:"Posterior commissure (upgaze)", carries:"Vertical saccades and gaze holding",
+  lesion:"Dorsal midbrain (pineal tumors, hydrocephalus): upgaze palsy, light-near dissociation, convergence-retraction nystagmus (Parinaud). Bilateral riMLF: downgaze palsy (PSP, thalamic-mesencephalic infarct)."});
+add("eye", "neuraxis", {id:"vor", name:"Horizontal vestibulo-ocular reflex", kind:"Reflex",
+  routes:[["ear_R", "vestN_R", "vorX", "vi_L", "eye_L"], ["vi_L", "viX", "mlf_R", "mlfMid_R", "iii_R", "eye_R"]], x:["vorX", "viX"],
+  steps:[S("ear_R", "Horizontal canal", "Head turns right: right canal excited"), S("vestN_R", "Vestibular nuclei", "Medial vestibular nucleus"), S("vorX", "Crosses", "To the opposite abducens nucleus"), S("vi_L", "Left abducens", "Left lateral rectus"), S("mlf_R", "MLF", "Back across to the right medial rectus"), S("eye_R", "Eyes move left", "Equal and opposite to the head turn")],
+  cross:"Vestibular nucleus to opposite abducens, then back through the MLF", carries:"Gaze stability during head movement",
+  lesion:"Peripheral vestibular loss: abnormal head impulse test toward the lesion. The doll’s-eye reflex tests the whole pathway in coma."});
+
+/* ---- visual ---- */
+add("visual", "visual", {id:"optic", name:"Optic pathway: left visual field", kind:"Retina to cortex",
+  routes:[["eyeN_L", "onN_L", "chiasm", "ot_R", "lgn_R"], ["eyeT_R", "on_R", "chiasmLat_R", "ot_R", "lgn_R"], ["lgn_R", "orUp_R", "orUp2_R", "v1Up_R"], ["lgn_R", "meyer_R", "meyer2_R", "meyer3_R", "v1Lo_R"]], x:["chiasm"],
+  steps:[S("eyeT_R", "Right temporal retina", "Sees the left field; stays uncrossed"), S("eyeN_L", "Left nasal retina", "Sees the left field; crosses"), S("chiasm", "Chiasm", "Nasal fibers cross"), S("ot_R", "Right optic tract", "Carries the whole left field from both eyes"), S("lgn_R", "Right LGN", "Thalamic relay"), S("meyer_R", "Meyer loop", "Lower fibers sweep through the temporal lobe: upper field"), S("orUp_R", "Parietal fibers", "Upper fibers run through the parietal lobe: lower field"), S("v1Up_R", "Calcarine cortex", "Upper bank (cuneus): lower field; lower bank (lingual): upper field")],
+  cross:"Optic chiasm (nasal fibers)", carries:"The left visual field, to the right occipital lobe",
+  lesion:"Optic nerve: one eye. Chiasm: bitemporal hemianopia. Tract: incongruous homonymous hemianopia with an RAPD. Meyer loop: superior quadrantanopia (‘pie in the sky’). Parietal: inferior quadrantanopia. Occipital: congruous hemianopia, often sparing the macula."});
+add("visual", "visual", {id:"righteye", name:"Optic pathway: one eye (right)", kind:"Retina to LGN",
+  routes:[["eyeT_R", "on_R", "chiasmLat_R", "ot_R", "lgn_R"], ["eyeN_R", "onN_R", "chiasm", "ot_L", "lgn_L"]], x:["chiasm"],
+  steps:[S("eyeT_R", "Temporal retina", "Lateral half of the right retina: nasal (inner) field"), S("eyeN_R", "Nasal retina", "Medial half: temporal (outer) field"), S("chiasm", "Chiasm", "Nasal fibers cross, about 53% of fibers"), S("lgn_R", "Right LGN", "Uncrossed fibers: layers 2, 3, 5"), S("lgn_L", "Left LGN", "Crossed fibers: layers 1, 4, 6")],
+  cross:"Optic chiasm (nasal hemiretina fibers)", carries:"Each eye’s image to both hemispheres",
+  lesion:"A lesion in front of the chiasm affects one eye only, with an RAPD on that side; behind it, both eyes in the same half of the field."});
+add("visual", "visual", {id:"plr", name:"Pupillary light reflex", kind:"Reflex",
+  routes:[["eyeT_R", "on_R", "chiasmLat_R", "ot_R", "pret_R", "ew_R", "cili_R", "pupil_R"], ["eyeN_R", "onN_R", "chiasm", "ot_L", "pret_L", "pc", "ew_R"], ["pret_L", "ew_L", "cili_L", "pupil_L"]], dash:[["pret_R", "pc", "ew_L"]], x:["chiasm", "pc"],
+  steps:[S("eyeT_R", "Light in the right eye", "Melanopsin and other retinal ganglion cells"), S("chiasm", "Chiasm", "Fibers go to both optic tracts"), S("pret_R", "Pretectal nuclei", "Leave the tract before the LGN"), S("pc", "Posterior commissure", "Each pretectum reaches both Edinger–Westphal nuclei"), S("ew_R", "Edinger–Westphal", "Parasympathetic oculomotor nucleus"), S("cili_R", "Ciliary ganglion", "With the oculomotor nerve"), S("pupil_R", "Both pupils constrict", "Direct (right) and consensual (left)")],
+  cross:"Chiasm and posterior commissure: input is shared equally", carries:"Pupil constriction to light",
+  lesion:"Optic nerve: relative afferent pupillary defect (swinging light test). Third nerve: a large pupil that reacts to neither direct nor consensual light. Dorsal midbrain: light-near dissociation."});
+
+/* ---- basal ganglia ---- */
+add("bg", "neuraxis", {id:"direct", name:"Direct pathway", kind:"Go",
+  routes:[["ctxArm_R", "putamen_R"], ["putamen_R", "gpi_R"], ["gpi_R", "thVL_R"], ["thVL_R", "ctxArmB_R"]],
+  steps:[S("ctxArm_R", "Cortex", "Glutamate"), S("putamen_R", "Striatum", "D1 medium spiny neurons (GABA, substance P)"), S("gpi_R", "GPi / SNr", "Inhibited, so its inhibition of the thalamus is released"), S("thVL_R", "VA/VL thalamus", "Disinhibited"), S("ctxArmB_R", "Back to cortex", "Movement is facilitated")],
+  cross:"Uncrossed", carries:"Selecting and starting wanted movements", lesion:"Loss of dopamine reduces direct-pathway drive: bradykinesia."});
+add("bg", "neuraxis", {id:"indirect", name:"Indirect pathway", kind:"No-go",
+  routes:[["ctxArm_R", "putamen_R"], ["putamen_R", "gpe_R"], ["gpe_R", "stn_R"], ["stn_R", "gpi_R"], ["gpi_R", "thVL_R"], ["thVL_R", "ctxArmB_R"]],
+  steps:[S("putamen_R", "Striatum", "D2 medium spiny neurons (GABA, enkephalin)"), S("gpe_R", "GPe", "Inhibited"), S("stn_R", "Subthalamic nucleus", "Released from GPe inhibition: excites GPi"), S("gpi_R", "GPi", "Inhibits the thalamus more"), S("thVL_R", "VA/VL thalamus", "Less output: competing movements suppressed")],
+  cross:"Uncrossed", carries:"Suppressing unwanted movements",
+  lesion:"Subthalamic nucleus lesion: opposite hemiballism. Huntington disease starts with loss of indirect-pathway neurons: chorea."});
+add("bg", "neuraxis", {id:"nigro", name:"Nigrostriatal pathway", kind:"Dopamine",
+  routes:[["snc_R", "stn_R", "putamen_R"], ["snc_R", "icSens_R", "caud_R"]],
+  steps:[S("snc_R", "Substantia nigra compacta", "Dopaminergic neurons"), S("putamen_R", "Putamen", "Motor striatum: D1 excites, D2 inhibits"), S("caud_R", "Caudate", "Associative striatum")],
+  cross:"Uncrossed", carries:"Dopamine that sets the balance of direct and indirect pathways",
+  lesion:"Parkinson disease: rest tremor, rigidity, bradykinesia on the side opposite the more affected nigra; dopamine blockers cause drug-induced parkinsonism."});
+add("bg", "medial", {id:"meso", name:"Mesolimbic and mesocortical pathways", kind:"Dopamine",
+  routes:[["vta", "mfb", "nac"], ["vta", "mfb", "mfb2", "pfcM"]],
+  steps:[S("vta", "VTA", "Ventral tegmental area, midbrain"), S("mfb", "Medial forebrain bundle", "Through the lateral hypothalamus"), S("nac", "Nucleus accumbens", "Mesolimbic: reward, motivation, addiction"), S("pfcM", "Prefrontal cortex", "Mesocortical: working memory, attention")],
+  cross:"Uncrossed", carries:"Reward, motivation, executive function",
+  lesion:"Overactivity of the mesolimbic pathway is linked to psychosis; underactivity of the mesocortical pathway to apathy and negative symptoms. Antipsychotics act here."});
+
+/* ---- limbic ---- */
+add("limbic", "medial", {id:"papez", name:"Papez circuit", kind:"Memory loop",
+  routes:[["hipp", "fornixPost", "fornixBody", "fornixCol", "mb"], ["mb", "mtt", "thAN"], ["thAN", "atr", "cing"], ["cing", "cingMid", "cingPost", "phg", "hipp"]],
+  steps:[S("hipp", "Hippocampus", "Subiculum"), S("fornixBody", "Fornix", "Arches under the corpus callosum"), S("mb", "Mammillary body", "Hypothalamus"), S("mtt", "Mammillothalamic tract", "Tract of Vicq d’Azyr"), S("thAN", "Anterior thalamus", "Anterior nucleus"), S("cing", "Cingulate gyrus", "Through the anterior limb of the internal capsule"), S("cingPost", "Cingulum", "Runs back in the cingulum bundle"), S("phg", "Entorhinal cortex", "Parahippocampal gyrus, back to the hippocampus")],
+  cross:"Uncrossed; the hippocampal commissure links the two fornices", carries:"Consolidation of new episodic memory",
+  lesion:"Damage anywhere in the loop causes anterograde amnesia: hippocampus (anoxia, HSV, PCA infarct), fornix (colloid cyst surgery), mammillary bodies (Wernicke–Korsakoff), anterior thalamus (tuberothalamic infarct)."});
+add("limbic", "medial", {id:"cingulum", name:"Cingulum", kind:"Limbic association",
+  routes:[["cingAnt", "cing", "cingMid", "cingPost", "phg"]],
+  steps:[S("cingAnt", "Subgenual cingulate", "Front end, near the orbitofrontal cortex"), S("cingMid", "Cingulate gyrus", "Runs in the white matter of the cingulate gyrus"), S("cingPost", "Isthmus", "Curves round the splenium"), S("phg", "Parahippocampal gyrus", "Ends in the medial temporal lobe")],
+  cross:"Uncrossed", carries:"Links cingulate, prefrontal, parietal and medial temporal cortex: attention, emotion, memory",
+  lesion:"Damaged early in Alzheimer disease; a target of cingulotomy for intractable pain and OCD."});
+add("limbic", "medial", {id:"stria", name:"Stria terminalis", kind:"Amygdala output",
+  routes:[["amyg", "stPost", "stTop", "stAnt", "bnst", "hypM"]],
+  steps:[S("amyg", "Amygdala", "Corticomedial nuclei"), S("stTop", "Along the caudate", "Arches with the caudate in the wall of the lateral ventricle"), S("bnst", "Bed nucleus", "Bed nucleus of the stria terminalis"), S("hypM", "Hypothalamus", "Ventromedial hypothalamus and septal area")],
+  cross:"Uncrossed", carries:"Stress, fear and sustained anxiety responses; neuroendocrine control",
+  lesion:"Rarely isolated; bilateral amygdala damage gives Klüver–Bucy features."});
+
+/* ---- association and commissural ---- */
+add("assoc", "lateral", {id:"arcuate", name:"Arcuate fasciculus (SLF III)", kind:"Language",
+  routes:[["wernicke", "arcTurn", "arcTop", "arcMid", "broca"]],
+  steps:[S("wernicke", "Wernicke area", "Posterior superior temporal gyrus"), S("arcTurn", "Around the Sylvian fissure", "Arches round the end of the Sylvian fissure in deep parietal white matter"), S("broca", "Broca area", "Inferior frontal gyrus")],
+  cross:"Uncrossed", carries:"Repetition: links speech perception to speech production",
+  lesion:"Conduction aphasia: fluent speech and good comprehension with poor repetition and phonemic paraphasias (left supramarginal gyrus or arcuate)."});
+add("assoc", "lateral", {id:"slf", name:"Superior longitudinal fasciculus I–II", kind:"Attention",
+  routes:[["parSup", "slfMid", "frontDors"], ["ag", "slf2a", "slfMid2", "slf2b", "fefL"]],
+  steps:[S("parSup", "Superior parietal lobule", "SLF I: dorsal, medial parietal to frontal"), S("ag", "Angular gyrus", "SLF II: inferior parietal to dorsolateral frontal"), S("fefL", "Frontal eye field and DLPFC", "Spatial attention and eye movement control")],
+  cross:"Uncrossed", carries:"Spatial attention and visuomotor control",
+  lesion:"Right-sided damage contributes to left hemispatial neglect."});
+add("assoc", "lateral", {id:"ifof", name:"Inferior fronto-occipital fasciculus", kind:"Ventral stream",
+  routes:[["occ", "ifofA", "ifofB", "ext", "ifofC", "dlpfc"]],
+  steps:[S("occ", "Occipital cortex", "Also parietal and posterior temporal cortex"), S("ext", "Temporal stem, extreme capsule", "Passes through the temporal stem"), S("dlpfc", "Frontal cortex", "Inferior frontal and orbitofrontal cortex")],
+  cross:"Uncrossed", carries:"Semantic language processing and visual attention",
+  lesion:"Semantic paraphasias during awake surgery; at risk in temporal stem and insular surgery."});
+add("assoc", "lateral", {id:"ilf", name:"Inferior longitudinal fasciculus", kind:"Ventral stream",
+  routes:[["occInf", "ilfA", "itg", "tpole"]],
+  steps:[S("occInf", "Occipital cortex", "Visual association cortex"), S("itg", "Inferior temporal", "Fusiform and inferior temporal gyri"), S("tpole", "Temporal pole", "Anterior temporal lobe")],
+  cross:"Uncrossed", carries:"Object, face and word recognition; linking vision to memory and emotion",
+  lesion:"Visual agnosia, prosopagnosia (right), alexia (left)."});
+add("assoc", "lateral", {id:"uncinate", name:"Uncinate fasciculus", kind:"Limbic association",
+  routes:[["tpole", "uncA", "ofc"]],
+  steps:[S("tpole", "Temporal pole", "Anterior temporal lobe and amygdala"), S("uncA", "Hook", "Hooks round the limen insulae"), S("ofc", "Orbitofrontal cortex", "Ventral frontal lobe")],
+  cross:"Uncrossed", carries:"Emotion, social behaviour, semantic memory, naming of people and places",
+  lesion:"Behavioural change; damaged in frontotemporal dementia and traumatic brain injury."});
+add("assoc", "lateral", {id:"fat", name:"Frontal aslant tract", kind:"Speech initiation",
+  routes:[["sma", "fatMid", "broca"]],
+  steps:[S("sma", "SMA and pre-SMA", "Medial superior frontal gyrus"), S("broca", "Inferior frontal gyrus", "Pars opercularis")],
+  cross:"Uncrossed", carries:"Starting speech and verbal fluency", lesion:"Transcortical motor aphasia, stuttering, reduced verbal fluency (left)."});
+add("assoc", "neuraxis", {id:"cc", name:"Corpus callosum", kind:"Commissural",
+  routes:[["ctxCC_R", "ccSide_R", "cc", "ccSide_L", "ctxCC_L"]], x:["cc"],
+  steps:[S("ctxCC_R", "Cortex", "Homotopic areas of each hemisphere"), S("cc", "Corpus callosum", "Rostrum and genu (frontal), body (motor, sensory), splenium (occipital, temporal)"), S("ctxCC_L", "Opposite cortex", "Same area on the other side")],
+  cross:"Midline", carries:"Transfer between hemispheres: bimanual coordination, naming objects felt with the left hand, reading with the left visual field",
+  lesion:"Anterior: left-hand apraxia, alien hand. Splenium with left occipital lesion: alexia without agraphia. Marchiafava–Bignami, MS."});
+add("assoc", "neuraxis", {id:"ac", name:"Anterior commissure", kind:"Commissural",
+  routes:[["acTemp_R", "acSide_R", "ac", "acSide_L", "acTemp_L"]], x:["ac"],
+  steps:[S("acTemp_R", "Temporal lobe", "Anterior temporal cortex, amygdala, olfactory areas"), S("ac", "Anterior commissure", "Crosses in front of the fornix columns"), S("acTemp_L", "Opposite temporal lobe", "Homotopic connections")],
+  cross:"Midline", carries:"Olfactory and temporal interhemispheric connections", lesion:"Clinically silent alone; spared in some callosal agenesis."});
+
+/* ---- autonomic ---- */
+add("auto", "neuraxis", {id:"ocsym", name:"Oculosympathetic pathway", kind:"Three neurons",
+  routes:[["hyp_R", "symMid_R", "symPons_R", "latMed_R", "imlC8_R"], ["imlC8_R", "chainT1_R", "scg_R"], ["scg_R", "carotid_R", "eye_R"]],
+  steps:[S("hyp_R", "Hypothalamus", "First neuron"), S("latMed_R", "Lateral brainstem", "Descends uncrossed in the lateral tegmentum"), S("imlC8_R", "C8–T2 (ciliospinal centre)", "Second neuron in the intermediolateral column"), S("chainT1_R", "Sympathetic chain", "Leaves with T1, over the lung apex"), S("scg_R", "Superior cervical ganglion", "Third neuron"), S("carotid_R", "Internal carotid", "Along the carotid, through the cavernous sinus"), S("eye_R", "Eye", "Dilator pupillae and Müller muscle; facial sweat fibers follow the external carotid")],
+  cross:"Uncrossed", carries:"Pupil dilation, upper lid elevation, facial sweating",
+  lesion:"Horner syndrome on the same side: ptosis, miosis, anhidrosis. Central (Wallenberg, cord): anhidrosis of face and body. Preganglionic (Pancoast tumour). Postganglionic (carotid dissection, cavernous sinus): little or no anhidrosis."});
+add("auto", "neuraxis", {id:"symbody", name:"Sympathetic outflow to the body", kind:"Thoracolumbar",
+  routes:[["hyp_R", "symMid_R", "symPons_R", "latMed_R", "imlC8_R", "imlT6_R"], ["imlT6_R", "chainT6_R", "vessels_R"]],
+  steps:[S("hyp_R", "Hypothalamus", "Paraventricular and lateral hypothalamus"), S("latMed_R", "Brainstem", "With the rostral ventrolateral medulla"), S("imlT6_R", "T1–L2 lateral horn", "Preganglionic neurons"), S("chainT6_R", "Chain ganglia", "Paravertebral, or prevertebral ganglia for the gut"), S("vessels_R", "Effectors", "Vessels, sweat glands, heart, bronchi, gut, bladder neck")],
+  cross:"Uncrossed", carries:"Fight or flight: blood pressure, heart rate, sweating",
+  lesion:"Cord lesions above T6: autonomic dysreflexia. Multiple system atrophy and autonomic neuropathy: orthostatic hypotension, anhidrosis."});
+add("auto", "neuraxis", {id:"parasym", name:"Parasympathetic outflow", kind:"Craniosacral",
+  routes:[["ew_R", "iiiOut_R", "ciliary_R", "eye_R"], ["saliv_R", "glands_R"], ["dmnx_R", "organs_R"], ["sacPS_R", "pelvic_R", "bladder"]],
+  steps:[S("ew_R", "Edinger–Westphal", "III: ciliary ganglion, pupil and lens"), S("saliv_R", "Salivatory nuclei", "VII and IX: lacrimal and salivary glands"), S("dmnx_R", "Dorsal motor nucleus of X", "Vagus: heart, lungs, gut to the splenic flexure"), S("sacPS_R", "S2–S4", "Pelvic splanchnic nerves: bladder, rectum, genitals")],
+  cross:"Uncrossed", carries:"Rest and digest: pupil constriction, secretion, slowing the heart, bladder emptying",
+  lesion:"Third nerve compression: a dilated pupil, often first. Conus or cauda equina: retention, constipation, erectile failure."});
+add("auto", "neuraxis", {id:"bladder", name:"Micturition pathway", kind:"Bladder control",
+  routes:[["pfcMed_R", "icGenu_R", "pag", "pmc_R", "rstT6_R", "rstL4_R", "sacPS_R", "bladder"]],
+  steps:[S("pfcMed_R", "Medial frontal cortex", "Decides when to void; inhibits the reflex"), S("pag", "Periaqueductal grey", "Monitors bladder filling"), S("pmc_R", "Pontine micturition centre", "Barrington nucleus coordinates detrusor and sphincter"), S("rstT6_R", "Reticulospinal fibers", "Descend in the lateral columns"), S("sacPS_R", "S2–S4", "Parasympathetic detrusor neurons; Onuf nucleus for the external sphincter"), S("bladder", "Bladder", "Detrusor contracts as the sphincter relaxes")],
+  cross:"Uncrossed but bilateral", carries:"Voluntary, coordinated voiding",
+  lesion:"Frontal lesion: urgency and uninhibited voiding, socially inappropriate. Cord above the sacral segments: detrusor–sphincter dyssynergia. Conus or cauda equina: atonic bladder with retention and overflow."});
+
+/* ---- cerebellar: from the Cerebellar Pathways page ---- */
+PATHS.forEach(p => add("cerebellar", "cerebellar", {id:"cb-" + p.id, name:p.name, kind:p.kind, cbId:p.id, n:p.n,
+  steps:p.steps.map(t => S(null, "", t)), cross:p.cross, carries:p.carries, lesion:p.clue, ped:p.ped}));
+
+/* ================= More views ================= */
+// lateral surface: extra cortical anchors
+Object.assign(LA, {heschl:[420,284], pmtg:[452,330], atl:[262,346], ips:[548,160], spl:[520,104], v5:[606,292], v4:[626,334], fus:[566,372], vwfa:[594,354],
+  exner:[288,152], handM1:[362,112], mouthM1:[330,236], pmd:[304,108], handS1:[404,118], s2:[424,250], tpj:[548,282]});
+// the same surface for the right hemisphere (mirror image, front on the right)
+const LAR = {}; Object.entries(LA).forEach(([k, p]) => { LAR[k] = [760 - p[0], p[1]]; });
+const LLABR = LLAB.map(t => {
+  const a = t[3] === "start" ? "end" : t[3] === "end" ? "start" : "middle";
+  let txt = t[0] === "Broca" ? "IFG" : t[0] === "Wernicke" ? "Posterior STG" : t[0] === "Left hemisphere, lateral surface" ? "Right hemisphere, lateral surface" : t[0];
+  return [txt, 760 - t[1], t[2], a, t[4]];
+});
+VIEWS.lateralR = {w:760, h:480, A:LAR, base:() => `<g transform="translate(760,0) scale(-1,1)">${lateralBase()}</g>`, lab:LLABR, norl:true,
+  cap:"Lateral surface of the right hemisphere, front on the right. The right parietal lobe dominates spatial attention, so neglect, dressing and severe constructional apraxia follow right-sided lesions."};
+VIEWS.lateral.norl = true; VIEWS.medial.norl = true;
+
+// frontal–subcortical circuits: five parallel loops, cortex → striatum → GPi/SNr → thalamus → cortex
+const LOOPS = [
+  {x:86, ctx:["Motor cortex", "SMA, premotor"], str:["Putamen"], gp:["Ventrolateral GPi", "caudolateral SNr"], th:["VL, VA"]},
+  {x:230, ctx:["Frontal eye field"], str:["Body of caudate"], gp:["Dorsomedial GPi", "ventrolateral SNr"], th:["VA, MD", "(paralaminar)"]},
+  {x:380, ctx:["Dorsolateral", "prefrontal cortex"], str:["Dorsolateral", "caudate head"], gp:["Lateral dorsomedial GPi", "rostrolateral SNr"], th:["VA, MD", "(parvocellular)"]},
+  {x:530, ctx:["Lateral orbitofrontal", "cortex"], str:["Ventromedial", "caudate"], gp:["Medial dorsomedial GPi", "rostromedial SNr"], th:["VA, MD", "(magnocellular)"]},
+  {x:674, ctx:["Anterior cingulate", "cortex"], str:["Ventral striatum", "(accumbens)"], gp:["Ventral pallidum,", "rostrolateral GPi"], th:["MD", "(posteromedial)"]}
+];
+const LROW = {ctx:70, str:196, gp:306, th:416};
+const LPA = {};
+LOOPS.forEach((c, i) => {
+  Object.entries(LROW).forEach(([r, y]) => { LPA[`${r}T${i}`] = [c.x, y - 23]; LPA[`${r}B${i}`] = [c.x, y + 23]; LPA[`${r}L${i}`] = [c.x - 64, y]; LPA[`${r}R${i}`] = [c.x + 64, y]; });
+  LPA[`up${i}a`] = [c.x + 72, 380]; LPA[`up${i}b`] = [c.x + 72, 110];
+});
+function loopsBase() {
+  const box = (x, y, lines) => `<rect class="box" x="${x - 64}" y="${y - 23}" width="128" height="46" rx="8"/><text class="boxt" x="${x}" y="${y - (lines.length - 1) * 6.5 + 4}">${lines.map((l, k) => `<tspan x="${x}" dy="${k ? 13 : 0}">${esc(l)}</tspan>`).join("")}</text>`;
+  return LOOPS.map(c => box(c.x, LROW.ctx, c.ctx) + box(c.x, LROW.str, c.str) + box(c.x, LROW.gp, c.gp) + box(c.x, LROW.th, c.th)).join("");
+}
+VIEWS.loops = {w:760, h:470, A:LPA, base:loopsBase, norl:true,
+  lab:[["CORTEX", 22, 40, "start", "lvl"], ["STRIATUM", 22, 166, "start", "lvl"], ["GPi / SNr", 22, 276, "start", "lvl"], ["THALAMUS", 22, 386, "start", "lvl"]],
+  cap:"Five parallel frontal–subcortical circuits (after Alexander and Cummings). Each runs cortex → striatum → GPi/SNr → thalamus → back to the same cortex; a lesion anywhere in a loop gives that loop’s syndrome."};
+
+// neuraxis: more anchors for the cranial motor nuclei and their targets
+Object.assign(NA, {vMot_R:[352,478], xiN_R:[356,702], xiX:[380,690], ambX:[380,598], xiiX:[380,592], jaw_R:[186,474], upperFace_R:[160,428], lowerFace_R:[178,460],
+  palate_R:[196,606], tongue_R:[204,644], scm_R:[230,672], trap_R:[226,712]});
+mirrorAll(NA, 760);
+// visual view: splenium and the left reading areas
+Object.assign(VA, {splenium:[380,520], vwfa_R:[288,566], angular_R:[262,470]}); mirrorAll(VA, 760);
+VIEWS.visual.base = () => visualBase() + `<path class="cc" d="M342,530 C360,512 400,512 418,530"/>`;
+
+/* ================= More tracts ================= */
+/* ---- cranial nerve nuclei (corticobulbar) ---- */
+const CBTOP = ["ctxFace_R", "icGenu_R", "crusMed_R", "cbtPons_R"];
+add("cn", "neuraxis", {id:"cn-v", name:"To the trigeminal motor nucleus (V)", kind:"Bilateral",
+  routes:[[...CBTOP, "vMot_R", "jaw_R"], ["cbtPons_R", "cbtX", "vMot_L", "jaw_L"]], x:["cbtX"],
+  steps:[S("ctxFace_R", "Face motor cortex", "Lower precentral gyrus"), S("icGenu_R", "Genu", "Genu of the internal capsule"), S("vMot_R", "Same-side V motor", "Motor nucleus of V in the mid pons"), S("vMot_L", "Opposite V motor", "Both nuclei get roughly equal input"), S("jaw_L", "Masseter, temporalis, pterygoids", "Jaw closing and opening")],
+  cross:"Half crosses in the pons: bilateral supply", carries:"Chewing and jaw movement",
+  lesion:"One hemisphere: no real jaw weakness. Both hemispheres: brisk jaw jerk (pseudobulbar). Lower motor neuron (V nerve or nucleus): jaw deviates toward the lesion on opening, wasting of temporalis and masseter."});
+add("cn", "neuraxis", {id:"cn-vii", name:"To the facial nucleus (VII)", kind:"Lower face crossed",
+  routes:[[...CBTOP, "cbtX", "facN_L", "lowerFace_L"]], dash:[["cbtPons_R", "facN_R", "upperFace_R"], ["facN_L", "upperFace_L"]], x:["cbtX"],
+  steps:[S("ctxFace_R", "Face motor cortex", "Face area of the precentral gyrus"), S("cbtX", "Crosses", "In the caudal pons"), S("facN_L", "Opposite facial nucleus", "Lower-face neurons receive almost only crossed fibers"), S("lowerFace_L", "Lower face", "Mouth and cheek of the opposite side"), S("upperFace_R", "Upper face, both sides", "Forehead neurons receive both hemispheres (dashed)")],
+  cross:"Caudal pons; the upper face is supplied from both sides", carries:"Voluntary facial movement",
+  lesion:"Upper motor neuron (stroke): opposite lower face weak, forehead spared; emotional smiling may be preserved. Lower motor neuron (Bell palsy, pontine nucleus): the whole face on the same side, forehead included."});
+add("cn", "neuraxis", {id:"cn-amb", name:"To the nucleus ambiguus (IX, X)", kind:"Bilateral",
+  routes:[[...CBTOP, "amb_R", "palate_R"], ["cbtPons_R", "ambX", "amb_L", "palate_L"]], x:["ambX"],
+  steps:[S("ctxFace_R", "Motor cortex", "Lower precentral gyrus and operculum"), S("amb_R", "Same-side ambiguus", "Nucleus ambiguus in the lateral medulla"), S("amb_L", "Opposite ambiguus", "Equal crossed supply"), S("palate_L", "Palate, pharynx, larynx", "Swallowing and voice")],
+  cross:"Bilateral", carries:"Swallowing, palate elevation, phonation",
+  lesion:"One hemisphere: transient dysphagia only. Both: pseudobulbar palsy (dysphagia, dysarthria, emotional lability). Lower motor neuron (lateral medulla, vagus): palate droops on the same side, uvula pulled away from the lesion, hoarse voice, absent gag."});
+add("cn", "neuraxis", {id:"cn-xii", name:"To the hypoglossal nucleus (XII)", kind:"Mainly crossed",
+  routes:[[...CBTOP, "xiiX", "xii_L", "tongue_L"]], dash:[["cbtPons_R", "xii_R", "tongue_R"]], x:["xiiX"],
+  steps:[S("ctxFace_R", "Tongue cortex", "Lower precentral gyrus"), S("xiiX", "Crosses", "In the medulla"), S("xii_L", "Opposite hypoglossal", "Genioglossus neurons get mainly crossed input"), S("tongue_L", "Opposite genioglossus", "Pushes the tongue forward and to the other side"), S("xii_R", "Same side, minor", "Smaller uncrossed supply (dashed)")],
+  cross:"Medulla, mostly crossed", carries:"Tongue movement",
+  lesion:"Upper motor neuron (right hemisphere stroke): tongue deviates to the left, toward the weak arm, without wasting. Lower motor neuron (medial medulla, XII nerve): deviates toward the lesion with wasting and fasciculations."});
+add("cn", "neuraxis", {id:"cn-xi", name:"To the accessory nucleus (XI)", kind:"SCM same side",
+  routes:[["ctxArm_R", "cr_R", "icPost_R", "crus_R", "basis_R", "pyr_R", "pyrDec", "xiX", "xiN_R", "scm_R"], ["pyrDec", "xiN_L", "trap_L"]], x:["pyrDec", "xiX"],
+  steps:[S("ctxArm_R", "Motor cortex", "Neck and shoulder area"), S("pyrDec", "Crosses", "With the pyramidal tract"), S("xiX", "Crosses back", "SCM fibers recross in the upper cord"), S("xiN_R", "Same-side SCM neurons", "Spinal accessory nucleus, C1–C5"), S("scm_R", "Right SCM", "Turns the head to the left, away from it"), S("trap_L", "Opposite trapezius", "Shoulder shrug")],
+  cross:"Trapezius fibers cross once; SCM fibers cross twice, ending on the same side", carries:"Head turning and shoulder elevation",
+  lesion:"Hemisphere stroke: weak shrug on the side of the hemiparesis, and weak head turning toward it (same-side SCM). Lower motor neuron (accessory nerve, e.g. after neck surgery): weak shrug and scapular winging on the same side."});
+
+/* ---- frontal–subcortical circuits ---- */
+const loop = (i, id, name, kind, cortexTxt, strTxt, gpTxt, thTxt, carries, lesion) => add("frontal", "loops", {id, name, kind,
+  routes:[[`ctxB${i}`, `strT${i}`], [`strB${i}`, `gpT${i}`], [`gpB${i}`, `thT${i}`], [`thR${i}`, `up${i}a`, `up${i}b`, `ctxR${i}`]],
+  steps:[S(`ctxL${i}`, "", cortexTxt), S(`strL${i}`, "", strTxt), S(`gpL${i}`, "", gpTxt), S(`thL${i}`, "", thTxt), S(`ctxR${i}`, "", "Back to the same cortex, closing the loop")],
+  cross:"Uncrossed; the loops run in parallel", carries, lesion});
+loop(0, "loop-motor", "Motor circuit", "Movement", "Motor cortex, SMA and premotor cortex", "Putamen", "Ventrolateral GPi and caudolateral SNr (direct and indirect pathways)", "VL and VA thalamus",
+  "Initiation, scaling and selection of movement", "Parkinsonism, dystonia, chorea or hemiballism depending on the node (putamen, GPi, STN).");
+loop(1, "loop-oculo", "Oculomotor circuit", "Saccades", "Frontal eye field (and supplementary eye field)", "Body of the caudate", "Dorsomedial GPi and ventrolateral SNr (SNr also projects to the superior colliculus)", "VA and paralaminar MD",
+  "Voluntary saccades and fixation", "Slow, hypometric voluntary saccades (Parkinson disease, Huntington disease, PSP).");
+loop(2, "loop-dlpfc", "Dorsolateral prefrontal circuit", "Executive", "Dorsolateral prefrontal cortex", "Dorsolateral caudate head", "Lateral dorsomedial GPi and rostrolateral SNr", "VA and parvocellular MD",
+  "Planning, set-shifting, working memory, organizing a task into steps",
+  "Dysexecutive syndrome: poor planning and organisation, perseveration, poor verbal fluency, impaired set-shifting (Trails B, Luria sequence), difficulty carrying out multistep tasks. Caudate or thalamic lesions mimic frontal ones.");
+loop(3, "loop-ofc", "Lateral orbitofrontal circuit", "Social behaviour", "Lateral orbitofrontal cortex", "Ventromedial caudate", "Medial dorsomedial GPi and rostromedial SNr", "VA and magnocellular MD",
+  "Inhibition, empathy, social conduct, adjusting behaviour to context",
+  "Disinhibition, impulsivity, tactlessness, irritability, utilization and imitation behaviour, obsessive-compulsive features (traumatic contusion, behavioural variant FTD, Huntington disease).");
+loop(4, "loop-acc", "Anterior cingulate circuit", "Motivation", "Anterior cingulate cortex", "Ventral striatum (nucleus accumbens)", "Ventral pallidum and rostrolateral GPi", "Posteromedial MD",
+  "Motivation, initiation, error monitoring",
+  "Apathy and abulia; bilateral lesions give akinetic mutism (awake, eyes follow, but no spontaneous speech or movement). Bilateral ACA infarcts, bilateral caudate or paramedian thalamic infarcts.");
+
+/* ---- language ---- */
+add("lang", "lateral", {id:"lang-rep", name:"Repetition loop (dorsal language stream)", kind:"Arcuate",
+  routes:[["heschl", "wernicke", "arcTurn", "arcTop", "arcMid", "broca", "mouthM1"]],
+  steps:[S("heschl", "Heschl gyrus", "Primary auditory cortex"), S("wernicke", "Wernicke area", "Speech sounds analysed (posterior superior temporal gyrus)"), S("arcTurn", "Arcuate fasciculus", "Around the end of the Sylvian fissure, under the supramarginal gyrus"), S("broca", "Broca area", "Speech plan (inferior frontal gyrus)"), S("mouthM1", "Face motor cortex", "Articulation")],
+  cross:"Uncrossed; left hemisphere in most people", carries:"Sound-to-articulation mapping: repetition and phonology",
+  lesion:"Wernicke area: fluent paraphasic speech, poor comprehension and repetition. Arcuate or supramarginal gyrus: conduction aphasia (repetition poor, comprehension good). Broca area: nonfluent effortful speech, poor repetition. The whole loop (MCA stem): global aphasia."});
+add("lang", "lateral", {id:"lang-tcs", name:"Transcortical sensory route: sound to meaning", kind:"Ventral stream",
+  routes:[["heschl", "wernicke", "pmtg", "itg", "atl"]], dash:[["pmtg", "ag"]],
+  steps:[S("wernicke", "Wernicke area", "Recognised word forms"), S("pmtg", "Posterior MTG", "Lexical access: word form to word meaning"), S("itg", "Inferior temporal", "Semantic association cortex"), S("atl", "Anterior temporal lobe", "Semantic hub: concepts"), S("ag", "Angular gyrus", "Also links to meaning (dashed)")],
+  cross:"Uncrossed", carries:"Comprehension of spoken words",
+  lesion:"Cut beyond Wernicke area (posterior MTG, temporo-occipital junction, MCA–PCA watershed): transcortical sensory aphasia. Fluent, empty speech with semantic paraphasias, poor comprehension and naming, but repetition preserved, often echolalic, because the perisylvian repetition loop is intact. Anterior temporal (semantic dementia): loss of word meaning."});
+add("lang", "lateral", {id:"lang-tcm", name:"Transcortical motor route: meaning to speech", kind:"Initiation",
+  routes:[["pmtg", "ext", "dlpfc"], ["dlpfc", "sma", "fatMid", "broca", "mouthM1"]],
+  steps:[S("pmtg", "Concepts", "Posterior temporal and parietal semantic areas"), S("dlpfc", "Prefrontal cortex", "Selects and plans what to say"), S("sma", "SMA and pre-SMA", "Starts speech"), S("fatMid", "Frontal aslant tract", "SMA to the inferior frontal gyrus"), S("broca", "Broca area", "Speech production")],
+  cross:"Uncrossed", carries:"Spontaneous, self-generated speech",
+  lesion:"Left SMA, frontal aslant tract, prefrontal cortex or the ACA–MCA watershed: transcortical motor aphasia. Sparse, nonfluent speech with poor initiation, good comprehension, and repetition preserved. If both transcortical routes are cut (bilateral watershed, carotid occlusion), the speech area is isolated: mixed transcortical aphasia with echolalia."});
+add("lang", "lateral", {id:"lang-name", name:"Naming", kind:"Word retrieval",
+  routes:[["occ", "v4", "fus", "itg", "atl", "uncA", "broca", "mouthM1"]], dash:[["itg", "pmtg", "wernicke"]],
+  steps:[S("fus", "Object recognition", "Fusiform and inferior temporal cortex"), S("atl", "Anterior temporal lobe", "Concept and name of the object, person or place"), S("uncA", "Ventral route", "Uncinate and extreme capsule fibers to the frontal lobe"), S("broca", "Broca area", "Phonological form and articulation"), S("pmtg", "Posterior MTG", "Word-form retrieval (dashed)")],
+  cross:"Uncrossed", carries:"Finding the word for a seen object",
+  lesion:"Anomia occurs with every aphasia. Isolated anomic aphasia: left angular gyrus, inferior or anterior temporal lobe; also early Alzheimer disease, tumours and recovery from other aphasias."});
+
+/* ---- reading and writing ---- */
+add("read", "lateral", {id:"rw-read", name:"Reading aloud (phonological route)", kind:"Letters to sounds",
+  routes:[["occ", "v4", "vwfa", "ag", "wernicke"]], dash:[["wernicke", "arcTurn", "arcTop", "arcMid", "broca"]],
+  steps:[S("occ", "Visual cortex", "Letters seen"), S("vwfa", "Visual word form area", "Left fusiform gyrus: letter strings"), S("ag", "Angular gyrus", "Letters converted to sounds"), S("wernicke", "Wernicke area", "Spoken word form"), S("broca", "Broca area", "Reading aloud (dashed)")],
+  cross:"Uncrossed; left hemisphere", carries:"Sounding out written words and reading new words",
+  lesion:"Left angular gyrus: alexia with agraphia (cannot read or write, often with Gerstmann features). Damage to this route spares familiar words but not new or nonsense words (phonological dyslexia)."});
+add("read", "lateral", {id:"rw-comp", name:"Understanding written text (lexical–semantic route)", kind:"Letters to meaning",
+  routes:[["occ", "v4", "vwfa", "itg", "atl"]], dash:[["itg", "pmtg"]],
+  steps:[S("vwfa", "Visual word form area", "Whole written words recognised"), S("itg", "Inferior temporal", "Written word to meaning"), S("atl", "Anterior temporal lobe", "Meaning of the text"), S("pmtg", "Posterior MTG", "Joins the spoken-language meaning network (dashed)")],
+  cross:"Uncrossed", carries:"Reading comprehension and irregular words (yacht, colonel)",
+  lesion:"Left inferior temporal or anterior temporal damage: surface dyslexia (irregular words read as they are spelled, comprehension poor; semantic dementia). Any lesion that causes aphasia with poor comprehension also impairs reading comprehension."});
+add("read", "lateral", {id:"rw-write", name:"Writing", kind:"Spelling to hand",
+  routes:[["wernicke", "ag", "spl", "exner", "handM1"]],
+  steps:[S("wernicke", "Language areas", "Word to be written"), S("ag", "Angular gyrus", "Spelling: letter sequence"), S("spl", "Superior parietal lobule", "Letter shapes and hand movement plans"), S("exner", "Exner area", "Posterior middle frontal gyrus: graphic motor programs"), S("handM1", "Hand motor cortex", "Writing movements")],
+  cross:"Uncrossed; left hemisphere for both hands (the left hand reaches it through the corpus callosum)", carries:"Spelling and handwriting",
+  lesion:"Angular gyrus: agraphia with alexia (Gerstmann). Superior parietal or Exner area: apraxic agraphia, letters badly formed though spelling is known. Corpus callosum: left-hand agraphia. Aphasias give agraphia that mirrors the speech."});
+add("read", "visual", {id:"rw-alexia", name:"Alexia without agraphia (splenium disconnection)", kind:"Disconnection",
+  routes:[["eyeT_R", "on_R", "chiasmLat_R", "ot_R", "lgn_R", "orUp_R", "orUp2_R", "v1Up_R"], ["v1Up_R", "splenium", "vwfa_L", "angular_L"]], x:["splenium"],
+  steps:[S("eyeT_R", "Left visual field", "Words seen in the left field"), S("v1Up_R", "Right visual cortex", "The only working visual cortex when the left one is infarcted"), S("splenium", "Splenium", "Must cross the splenium of the corpus callosum"), S("vwfa_L", "Left visual word form area", "Left fusiform gyrus"), S("angular_L", "Left angular gyrus", "Language areas for reading")],
+  cross:"Splenium of the corpus callosum", carries:"Written words from the left visual field to the left-hemisphere reading areas",
+  lesion:"Left PCA infarct of the occipital lobe and splenium: right hemianopia, and words in the intact left field cannot reach the language areas. The patient writes but cannot read what they wrote; reads letter by letter; colour naming is often impaired. A lesion of the left visual word form area alone gives pure alexia too."});
+
+/* ---- praxis and parietal ---- */
+add("praxis", "lateral", {id:"px-ideomotor", name:"Ideomotor praxis", kind:"Gesture",
+  routes:[["smg", "slf2a", "slfMid2", "pmd", "handM1"]], dash:[["pmd", "sma"]],
+  steps:[S("smg", "Left inferior parietal lobule", "Supramarginal gyrus: stored movement formulas (praxicons)"), S("slf2a", "SLF and arcuate fibers", "To the premotor cortex"), S("pmd", "Left premotor cortex", "Turns the formula into a motor program"), S("handM1", "Motor cortex", "Right hand; the left hand is reached through the corpus callosum"), S("sma", "SMA", "Sequencing (dashed)")],
+  cross:"Left hemisphere for both hands; to the left hand via the anterior corpus callosum", carries:"Skilled, learned gestures: pantomime of tool use, imitation, symbolic gestures",
+  lesion:"Ideomotor apraxia: knows what to do but the movement is wrong in space and timing (body part used as the tool, wrong orientation), worst on pantomime, better with the real object. Left inferior parietal lobule, left premotor cortex or white matter between; corpus callosum: left hand only (callosal apraxia). Common in left MCA stroke and corticobasal syndrome."});
+add("praxis", "lateral", {id:"px-ideational", name:"Ideational and conceptual praxis", kind:"Tool knowledge and sequence",
+  routes:[["pmtg", "ag", "smg"], ["smg", "slf2a", "slfMid2", "dlpfc"], ["dlpfc", "pmd", "handM1"]],
+  steps:[S("pmtg", "Posterior temporal cortex", "Knowledge of what tools are for"), S("ag", "Angular gyrus", "Links tool knowledge to action"), S("smg", "Supramarginal gyrus", "How to use the tool"), S("dlpfc", "Prefrontal cortex", "Orders the steps of a task"), S("pmd", "Premotor cortex", "Carries out each step")],
+  cross:"Uncrossed; left hemisphere", carries:"Choosing the right tool and doing a multistep task in the right order",
+  lesion:"Ideational apraxia: the sequence of a task breaks down (making tea, folding a letter into an envelope). Conceptual apraxia: tools misused (brushing teeth with a comb). Left temporoparietal lesions, frontal lesions, and diffuse disease (Alzheimer disease, delirium)."});
+add("praxis", "lateralR", {id:"px-neglect", name:"Spatial attention network (neglect)", kind:"Right hemisphere",
+  routes:[["tpj", "arcTurn", "arcTop", "arcMid", "broca"], ["ips", "slf2a", "slfMid2", "fefL"]], dash:[["occ", "v5", "ips"]],
+  steps:[S("tpj", "Right temporoparietal junction", "Ventral network: detects unexpected events anywhere in space"), S("arcMid", "SLF III and II", "Fronto-parietal white matter"), S("broca", "Right inferior and middle frontal gyri", "Ventral frontal cortex: reorienting"), S("ips", "Intraparietal sulcus and SPL", "Dorsal network: directed attention"), S("fefL", "Frontal eye field", "Shifts gaze and attention")],
+  cross:"Uncrossed; the right hemisphere attends to both sides of space, the left mainly to the right side", carries:"Attention to space and to the body",
+  lesion:"Right TPJ or inferior parietal lobule, right ventral frontal cortex, or the SLF between them: left hemispatial neglect (line bisection shifted right, left-sided omissions on cancellation, eats only the right half of the plate), extinction to double stimulation, anosognosia for left hemiplegia. Left-sided lesions give milder right neglect."});
+add("praxis", "lateralR", {id:"px-construct", name:"Constructional praxis", kind:"Drawing and building",
+  routes:[["occ", "v5", "ips", "spl", "slfMid", "pmd", "handM1"]],
+  steps:[S("occ", "Visual cortex", "Model or target seen"), S("ips", "Intraparietal sulcus", "Spatial relations between parts"), S("spl", "Superior parietal lobule", "Visuomotor transformation"), S("pmd", "Premotor cortex", "Assembles the movements"), S("handM1", "Motor cortex", "Draws or builds")],
+  cross:"Both hemispheres contribute", carries:"Copying drawings, building block designs, assembling objects",
+  lesion:"Constructional apraxia. Right parietal: spatial relations lost, the drawing is fragmented, left side omitted (clock drawing). Left parietal: simplified drawings missing details, helped by a model. Early sign in Alzheimer disease and dementia with Lewy bodies."});
+add("praxis", "lateralR", {id:"px-dressing", name:"Dressing praxis and body schema", kind:"Right parietal",
+  routes:[["handS1", "spl", "ips", "smg"], ["smg", "slf2a", "slfMid2", "pmd"]],
+  steps:[S("handS1", "Somatosensory cortex", "Where the body is"), S("spl", "Superior parietal lobule", "Body schema"), S("ips", "Intraparietal sulcus", "Garment orientation in space"), S("smg", "Inferior parietal lobule", "Matches the garment to the body"), S("pmd", "Premotor cortex", "Dressing movements")],
+  cross:"Uncrossed; right hemisphere", carries:"Orienting clothes to the body",
+  lesion:"Dressing apraxia: sleeves and trouser legs confused, garment put on inside out or only on the right side. Right parietal lesions, usually with neglect and constructional apraxia."});
+add("praxis", "lateral", {id:"px-cortsens", name:"Cortical sensation: stereognosis and graphesthesia", kind:"Somatosensory association",
+  routes:[["handS1", "spl"], ["handS1", "smg", "s2"]],
+  steps:[S("handS1", "Primary somatosensory cortex", "Postcentral gyrus, hand area"), S("spl", "Superior parietal lobule", "Areas 5 and 7: shape and texture integrated"), S("smg", "Supramarginal gyrus", "Tactile object recognition"), S("s2", "Secondary somatosensory cortex", "Parietal operculum and insula")],
+  cross:"Input already crossed below; each parietal lobe serves the opposite hand", carries:"Recognising objects by touch, numbers traced on the skin, two-point discrimination, position",
+  lesion:"Opposite hand with primary sensation intact: astereognosis (cannot name a coin or key by touch), agraphesthesia (cannot read numbers traced on the palm), impaired two-point discrimination and sensory extinction. Parietal lesions of either side."});
+add("praxis", "lateral", {id:"px-calc", name:"Number and calculation (Gerstmann)", kind:"Left parietal",
+  routes:[["vwfa", "ips", "ag"], ["ips", "slf2a", "slfMid2", "dlpfc"]],
+  steps:[S("vwfa", "Inferior temporal cortex", "Written digits recognised"), S("ips", "Intraparietal sulcus", "Number magnitude (both sides)"), S("ag", "Left angular gyrus", "Arithmetic facts stored verbally (times tables)"), S("dlpfc", "Prefrontal cortex", "Working memory for multistep procedures")],
+  cross:"Uncrossed", carries:"Counting, estimating, arithmetic",
+  lesion:"Left angular gyrus: acalculia, and Gerstmann syndrome (agraphia, acalculia, finger agnosia, left-right confusion). Intraparietal sulcus: impaired sense of quantity. Frontal lesions: errors in carrying and procedures."});
+
+/* ---- visual streams ---- */
+add("visual", "lateral", {id:"vis-dorsal", name:"Dorsal visual stream (where and how)", kind:"Occipitoparietal",
+  routes:[["occ", "v5", "ips", "spl", "slfMid", "fefL"]],
+  steps:[S("occ", "V1, V2", "Primary and secondary visual cortex"), S("v5", "V5 / MT", "Motion"), S("ips", "Intraparietal sulcus", "Location and visually guided reaching"), S("spl", "Superior parietal lobule", "Spatial attention and visuomotor control"), S("fefL", "Frontal eye field and premotor", "Eye and hand movements to targets")],
+  cross:"Uncrossed", carries:"Where things are, how they move, and how to reach them",
+  lesion:"Bilateral parieto-occipital (watershed, posterior cortical atrophy): Balint syndrome, with optic ataxia (misreaching), oculomotor apraxia and simultanagnosia (sees one item at a time). Bilateral V5: akinetopsia (motion blindness). One side: optic ataxia in the opposite field."});
+add("visual", "lateral", {id:"vis-ventral", name:"Ventral visual stream (what)", kind:"Occipitotemporal",
+  routes:[["occ", "v4", "fus", "itg", "atl"]],
+  steps:[S("occ", "V1, V2", "Primary and secondary visual cortex"), S("v4", "V4", "Colour (lingual and fusiform gyri)"), S("fus", "Fusiform gyrus", "Faces (right), words (left), objects"), S("itg", "Inferior temporal cortex", "Object identity"), S("atl", "Anterior temporal lobe", "Links what is seen to memory and meaning")],
+  cross:"Uncrossed", carries:"What things are: objects, faces, colours, words",
+  lesion:"V4: achromatopsia (opposite field, or all if bilateral). Right or bilateral fusiform: prosopagnosia. Left fusiform: pure alexia. Bilateral occipitotemporal: visual object agnosia. Parahippocampal: topographagnosia."});
+
+/* ================= Reference tables ================= */
+const APHASIA = [
+  ["Broca", "Nonfluent, effortful, agrammatic", "Relatively preserved", "Impaired", "Impaired", "Left inferior frontal gyrus and underlying white matter (MCA superior division)", "lang-rep"],
+  ["Wernicke", "Fluent, paraphasic, empty", "Impaired", "Impaired", "Impaired", "Left posterior superior temporal gyrus (MCA inferior division)", "lang-rep"],
+  ["Conduction", "Fluent with phonemic paraphasias", "Preserved", "Impaired", "Often impaired", "Left supramarginal gyrus or arcuate fasciculus", "lang-rep"],
+  ["Global", "Nonfluent", "Impaired", "Impaired", "Impaired", "Large left perisylvian lesion (MCA stem, ICA)", "lang-rep"],
+  ["Transcortical motor", "Nonfluent, sparse, poor initiation", "Preserved", "Preserved", "Variable", "Left SMA, frontal aslant tract, prefrontal cortex; ACA–MCA watershed", "lang-tcm"],
+  ["Transcortical sensory", "Fluent, semantic paraphasias, echolalia", "Impaired", "Preserved", "Impaired", "Left posterior MTG, temporo-occipital junction; MCA–PCA watershed", "lang-tcs"],
+  ["Mixed transcortical (isolation)", "Nonfluent, echolalic", "Impaired", "Preserved", "Impaired", "Both watershed zones (carotid occlusion, hypoperfusion); perisylvian loop spared", "lang-tcm"],
+  ["Anomic", "Fluent with word-finding pauses", "Preserved", "Preserved", "Impaired", "Left angular gyrus, inferior or anterior temporal lobe; many diffuse causes", "lang-name"],
+  ["Subcortical (thalamic, striatocapsular)", "Fluent or reduced", "Variable", "Usually preserved", "Impaired", "Left thalamus or basal ganglia and capsule", ""],
+  ["Pure word deafness", "Fluent; reading and writing intact", "Spoken words impaired", "Impaired", "Preserved", "Bilateral or left superior temporal lesion cutting Heschl gyri off from Wernicke area", "lang-rep"]
+];
+const SIGNS = [
+  ["Hemispatial neglect, extinction, anosognosia", "Ignores the left side of space and body; denies the weakness", "Right TPJ / inferior parietal lobule, right ventral frontal cortex, SLF II–III", "px-neglect"],
+  ["Ideomotor apraxia", "Knows the action but the gesture is spatially and temporally wrong, worst on pantomime", "Left supramarginal gyrus, left premotor cortex; corpus callosum (left hand)", "px-ideomotor"],
+  ["Ideational apraxia", "Cannot do a multistep task in the right order", "Left temporoparietal or frontal cortex; diffuse disease", "px-ideational"],
+  ["Conceptual apraxia", "Misuses tools; does not know what a tool is for", "Left posterior temporal and angular cortex", "px-ideational"],
+  ["Constructional apraxia", "Cannot copy a drawing or build a design", "Right parietal (fragmented, left side missing) or left parietal (simplified)", "px-construct"],
+  ["Dressing apraxia", "Cannot orient clothes to the body", "Right parietal lobe", "px-dressing"],
+  ["Astereognosis, agraphesthesia", "Cannot identify objects by touch or numbers drawn on the palm; primary sensation intact", "Opposite parietal lobe: postcentral gyrus, SPL, supramarginal gyrus", "px-cortsens"],
+  ["Acalculia", "Cannot calculate", "Left angular gyrus, intraparietal sulcus", "px-calc"],
+  ["Gerstmann syndrome", "Agraphia, acalculia, finger agnosia, left-right confusion", "Left angular gyrus", "px-calc"],
+  ["Alexia with agraphia", "Cannot read or write", "Left angular gyrus", "rw-read"],
+  ["Alexia without agraphia (pure alexia)", "Writes but cannot read, letter by letter", "Left occipital lobe plus splenium, or the left visual word form area", "rw-alexia"],
+  ["Surface dyslexia", "Reads irregular words as spelled; comprehension of text poor", "Left inferior and anterior temporal lobe", "rw-comp"],
+  ["Agraphia", "Spelling or letter formation fails", "Angular gyrus (with alexia), SPL or Exner area (apraxic), corpus callosum (left hand)", "rw-write"],
+  ["Balint syndrome", "Optic ataxia, oculomotor apraxia, simultanagnosia", "Bilateral parieto-occipital cortex", "vis-dorsal"],
+  ["Akinetopsia", "Cannot see motion", "Bilateral V5 / MT", "vis-dorsal"],
+  ["Prosopagnosia", "Cannot recognise faces", "Right or bilateral fusiform gyrus", "vis-ventral"],
+  ["Achromatopsia", "Loss of colour vision", "V4: lingual and fusiform gyri", "vis-ventral"],
+  ["Visual object agnosia", "Sees but cannot recognise objects", "Bilateral occipitotemporal cortex", "vis-ventral"],
+  ["Dysexecutive syndrome", "Poor planning, perseveration, poor fluency and set-shifting", "Dorsolateral prefrontal cortex, caudate, MD thalamus", "loop-dlpfc"],
+  ["Disinhibition", "Impulsive, tactless, utilization behaviour", "Orbitofrontal cortex, ventromedial caudate", "loop-ofc"],
+  ["Abulia, akinetic mutism", "No spontaneous speech or action", "Anterior cingulate cortex (bilateral), ventral striatum, MD thalamus", "loop-acc"]
+];
+
+const TBY = Object.fromEntries(T.map(t => [t.id, t]));
+const CBY = Object.fromEntries(CATS.map(c => [c[0], c]));
+const COLORS = ["var(--p1)", "var(--p2)", "var(--p3)", "var(--p4)", "var(--p5)", "var(--p6)"];
+const colorOf = t => t.cat === "cerebellar" ? COLORS[(t.n - 1) % 6] : COLORS[T.filter(x => x.cat === t.cat).indexOf(t) % 6];
+
+/* ================= Drawing ================= */
+function smooth(P) {
+  if (P.length < 2) return "";
+  let d = `M${P[0][0]},${P[0][1]}`;
+  for (let i = 0; i < P.length - 1; i++) {
+    const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+let vuid = 0;
+function tractSVG(t, V, uid, o) {
+  const pts = r => r.map(a => { const p = V.A[a]; if (!p) console.warn("missing anchor", t.id, a); return p; }).filter(Boolean);
+  const col = colorOf(t), mk = `mk-${uid}-${t.id}`;
+  const quiet = !o.flow || RM;
+  const seg = (r, dashed) => { const d = smooth(pts(r)); return `<path class="base${dashed ? " dsh" : ""}" d="${d}" marker-end="url(#${mk})"/>${dashed ? "" : `<path class="flow" d="${d}"/>`}`; };
+  return `<marker id="${mk}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" style="fill:${col}"/></marker>
+<g class="pw${o.dim ? " dim" : ""}${quiet ? " quiet" : ""}" data-t="${t.id}" style="--c:${col}"><title>${esc(t.name)}</title>${(t.routes || []).map(r => seg(r)).join("")}${(t.dash || []).map(r => seg(r, true)).join("")}</g>`;
+}
+function badges(t, V, hi, boxes = []) {
+  const used = new Set(); let out = "", n = 0;
+  (t.x || []).forEach(a => { const p = V.A[a]; if (p) out += `<g class="xmark"><circle cx="${p[0]}" cy="${p[1]}" r="11"/><path d="M${p[0] - 4},${p[1] - 4} L${p[0] + 4},${p[1] + 4} M${p[0] + 4},${p[1] - 4} L${p[0] - 4},${p[1] + 4}"/></g>`; });
+  t.steps.forEach(s => {
+    n++;
+    const p = s.a && V.A[s.a]; if (!p) return;
+    const k = s.a; if (used.has(k)) return; used.add(k);
+    const right = p[0] >= V.w / 2 - 2, lx = right ? p[0] + 13 : p[0] - 13;
+    let ly = null;
+    if (s.l) {
+      const w = s.l.length * 6.4 + 4;
+      for (const dy of [0, 13, -13, 26, -26]) {
+        const y = p[1] + 4 + dy, b = right ? [lx, y - 10, lx + w, y + 3] : [lx - w, y - 10, lx, y + 3];
+        if (!boxes.some(c => b[0] < c[2] && c[0] < b[2] && b[1] < c[3] && c[1] < b[3])) { boxes.push(b); ly = y; break; }
+      }
+    }
+    out += `<g class="stepb${hi === n ? " on" : ""}" data-n="${n}"><circle cx="${p[0]}" cy="${p[1]}" r="9"/><text x="${p[0]}" y="${p[1] + 3.6}">${n}</text>${ly != null ? `<text class="stepl" x="${lx}" y="${ly}" text-anchor="${right ? "start" : "end"}">${esc(s.l)}</text>` : ""}</g>`;
+  });
+  return out;
+}
+function viewSVG(viewId, list, active, o = {}) {
+  const V = VIEWS[viewId], uid = "v" + (++vuid);
+  const others = list.filter(t => t !== active);
+  const sb = [], marks = active && !o.all ? badges(active, V, o.hi, sb) : "";
+  const lab = V.lab.filter(t => {   // a fixed label gives way to a step label it would collide with
+    const w = t[0].length * 6.2, x0 = t[3] === "middle" ? t[1] - w / 2 : t[3] === "end" ? t[1] - w : t[1], b = [x0, t[2] - 10, x0 + w, t[2] + 3];
+    return !sb.some(c => b[0] < c[2] && c[0] < b[2] && b[1] < c[3] && c[1] < b[3]);
+  }).map(t => `<text class="lbl ${t[4] || ""}" x="${t[1]}" y="${t[2]}" text-anchor="${t[3]}">${esc(t[0])}</text>`).join("");
+  const draw = [...others.map(t => tractSVG(t, V, uid, {dim:!o.all, flow:o.all})), active ? tractSVG(active, V, uid, {flow:true}) : ""].join("");
+  const rl = !V.norl ? `<circle class="rlc" cx="34" cy="26" r="10"/><text class="rl" x="34" y="30">R</text><circle class="rlc" cx="${V.w - 34}" cy="26" r="10"/><text class="rl" x="${V.w - 34}" y="30">L</text>` : "";
+  return `<svg viewBox="0 0 ${V.w} ${V.h}" role="img" aria-label="${esc((active ? active.name + ": " : "") + viewId + " view")}"><g class="base-draw">${V.base()}</g>${lab}${draw}${marks}${rl}</svg>`;
+}
+
+/* ================= Interface ================= */
+const state = {cat:"motor", id:"cst", all:false, hi:0, tab:"atlas"};
+const inCat = c => T.filter(t => t.cat === c);
+function renderCats() {
+  $("#cats").innerHTML = CATS.map(c => `<button type="button" class="catb" data-c="${c[0]}" aria-pressed="${state.cat === c[0]}">${esc(c[1])}<small>${inCat(c[0]).length}</small></button>`).join("");
+}
+function renderList() {
+  const list = inCat(state.cat), c = CBY[state.cat];
+  const sameView = list.every(t => t.view === list[0].view);
+  $("#tlist").innerHTML = `<p class="catline">${esc(c[2])}</p>` +
+    (sameView && list.length > 1 ? `<button class="pwbtn" type="button" data-t="__all" aria-pressed="${state.all}"><i style="background:linear-gradient(90deg,var(--p1),var(--p3),var(--p5))"></i>Show all ${list.length}<small></small></button>` : "") +
+    list.map(t => `<button class="pwbtn" type="button" data-t="${t.id}" aria-pressed="${!state.all && state.id === t.id}"><i style="background:${colorOf(t)}"></i>${esc(t.name)}<small>${esc(t.kind)}</small></button>`).join("");
+}
+function renderDia() {
+  const t = TBY[state.id], list = inCat(state.cat);
+  let svg;
+  if (t.view === "cerebellar") svg = diagram({active:state.all ? null : [t.cbId], flow:true});
+  else svg = viewSVG(t.view, list.filter(x => x.view === t.view), state.all ? null : t, {all:state.all, hi:state.hi});
+  $("#dia").innerHTML = svg;
+  $("#dcap").textContent = VIEWS[t.view].cap;
+}
+function renderDet() {
+  const t = TBY[state.id], c = CBY[t.cat];
+  if (state.all) {
+    const list = inCat(state.cat);
+    $("#det").innerHTML = `<h3>${esc(c[1])}: all pathways</h3><p class="meta">${esc(c[2])}</p><ul class="alll">${list.map(x => `<li><i style="background:${colorOf(x)}"></i><button type="button" class="lnk" data-t="${x.id}">${esc(x.name)}</button> <span>${esc(x.carries)}</span></li>`).join("")}</ul>`;
+    return;
+  }
+  $("#det").innerHTML = `<h3>${esc(t.name)}</h3><p class="meta">${esc(c[1])} · ${esc(t.kind)}${t.ped ? " · via the " + esc(t.ped.toLowerCase()) + " peduncle" : ""}</p>
+    <ol class="route">${t.steps.map((s, i) => `<li data-n="${i + 1}"${s.a ? ' class="hasb"' : ""}>${s.l ? `<b>${esc(s.l)}.</b> ` : ""}${esc(s.t)}</li>`).join("")}</ol>
+    <dl class="kv"><dt>Crosses</dt><dd>${esc(t.cross)}</dd><dt>Carries</dt><dd>${esc(t.carries)}</dd><dt>Lesion</dt><dd>${esc(t.lesion)}</dd></dl>`;
+}
+function render() { renderCats(); renderList(); renderDia(); renderDet(); }
+function pick(id) {
+  if (id === "__all") { state.all = !state.all; state.hi = 0; renderList(); renderDia(); renderDet(); return; }
+  const t = TBY[id]; if (!t) return;
+  state.cat = t.cat; state.id = id; state.all = false; state.hi = 0; render();
+}
+$("#cats").addEventListener("click", e => { const b = e.target.closest(".catb"); if (!b) return; state.cat = b.dataset.c; state.id = inCat(state.cat)[0].id; state.all = false; state.hi = 0; setHash(state.id); });
+$("#tlist").addEventListener("click", e => { const b = e.target.closest(".pwbtn"); if (!b) return; if (b.dataset.t === "__all") pick("__all"); else setHash(b.dataset.t); });
+$("#det").addEventListener("click", e => { const b = e.target.closest(".lnk"); if (b) setHash(b.dataset.t); });
+$("#dia").addEventListener("click", e => {
+  const g = e.target.closest(".pw"); if (!g) return;
+  const id = g.dataset.t || (g.dataset.p && "cb-" + g.dataset.p); if (id && TBY[id]) setHash(id);
+});
+// hovering a step lights its number on the drawing
+const hiStep = n => { $$("#dia .stepb").forEach(b => b.classList.toggle("on", +b.dataset.n === n)); $$("#det .route li").forEach(li => li.classList.toggle("on", +li.dataset.n === n)); };
+$("#det").addEventListener("mouseover", e => { const li = e.target.closest(".route li"); if (li) hiStep(+li.dataset.n); });
+$("#det").addEventListener("mouseleave", () => hiStep(0));
+$("#dia").addEventListener("mouseover", e => { const b = e.target.closest(".stepb"); if (b) hiStep(+b.dataset.n); });
+
+/* ================= Table ================= */
+function renderTable() {
+  const q = ($("#tq").value || "").toLowerCase();
+  const rows = T.filter(t => !q || [t.name, CBY[t.cat][1], t.cross, t.carries, t.lesion, ...t.steps.map(s => s.t)].join(" ").toLowerCase().includes(q));
+  $("#ttable").innerHTML = `<thead><tr><th>Tract</th><th>Group</th><th>Route</th><th>Crosses</th><th>Lesion</th></tr></thead><tbody>${rows.map(t => `<tr><td><a href="#${t.id}">${esc(t.name)}</a></td><td class="grp">${esc(CBY[t.cat][1])}</td><td class="course">${esc(t.steps.map(s => s.l || s.t).join(" → "))}</td><td>${esc(t.cross)}</td><td>${esc(t.lesion)}</td></tr>`).join("") || `<tr><td colspan="5">No tract matches.</td></tr>`}</tbody>`;
+}
+$("#tq").addEventListener("input", renderTable);
+const lk = id => id && TBY[id] ? `<a href="#${id}">${esc(TBY[id].name)}</a>` : "";
+$("#aphTable").innerHTML = `<thead><tr><th>Type</th><th>Fluency</th><th>Comprehension</th><th>Repetition</th><th>Naming</th><th>Lesion</th><th>Pathway</th></tr></thead><tbody>${APHASIA.map(r => `<tr><td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td><td>${esc(r[4])}</td><td>${esc(r[5])}</td><td>${lk(r[6])}</td></tr>`).join("")}</tbody>`;
+$("#signTable").innerHTML = `<thead><tr><th>Sign</th><th>What fails</th><th>Lesion</th><th>Pathway</th></tr></thead><tbody>${SIGNS.map(r => `<tr><td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${lk(r[3])}</td></tr>`).join("")}</tbody>`;
+
+/* ================= Routing ================= */
+const TABS = ["atlas", "table", "aphasia", "signs"];
+const EMBED = document.documentElement.classList.contains("embed");
+function setHash(h) { if (EMBED) { history.replaceState(null, "", "#" + h); route(); } else if (location.hash.slice(1) === h) route(); else location.hash = h; }
+document.addEventListener("click", e => {
+  if (!EMBED) return;
+  const a = e.target.closest('a[href^="#"]'); if (!a) return;
+  e.preventDefault(); setHash(a.getAttribute("href").slice(1));
+});
+function showTab(tab) {
+  state.tab = tab;
+  $$(".view").forEach(v => { v.hidden = v.dataset.view !== tab; });
+  $$("nav.tabs a").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+}
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h === "table" || h === "aphasia" || h === "signs") { showTab(h); return; }
+  if (TBY[h]) { pick(h); showTab("atlas"); return; }
+  const c = CATS.find(x => x[0] === h); if (c) { pick(inCat(h)[0].id); showTab("atlas"); return; }
+  showTab("atlas"); render();
+}
+addEventListener("hashchange", route);
+renderTable();
+route();
+
+})();
+</script>
+
+</body>
+</html>

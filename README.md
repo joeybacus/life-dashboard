@@ -380,6 +380,20 @@ workout (the "Workout saved" message and the finished workout's page).
   glow on the slice. Tabs list the 16 onset zones, the common focal seizure patterns (after Adams and Victor) and
   lateralizing signs. `seizure-semiology.html` loads `localizer-slices.js`, `localizer-cerebrum.js` and `seizure-data.js`.
 
+- **Tract Atlas** (0.11.27, `#/neurology/tracts`): 41 pathways in nine groups (motor, sensory, cerebellar, eye
+  movements, visual, basal ganglia, limbic, association and commissural, autonomic), each traced with moving dashes on
+  one of five schematics (front view of the neuraxis from cortex to sacral cord, visual pathway from above, lateral and
+  medial hemisphere, and the cerebellar drawing). Numbered steps match the route, the crossing is marked, and each
+  tract lists what it carries and what a lesion does; an All tracts table can be filtered. The six cerebellar circuits
+  appear as their own group (the Cerebellar Pathways tool keeps its lesion atlas, bedside exam and quiz).
+  0.11.28: 68 pathways in 14 groups. Added cranial nerve nuclei (corticobulbar to V, VII, IX–X, XII and XI with
+  upper versus lower motor neuron patterns), frontal–subcortical circuits (motor, oculomotor, dorsolateral prefrontal,
+  orbitofrontal, anterior cingulate) on a loop diagram, language (repetition loop, transcortical sensory and motor
+  routes, naming), reading and writing (reading aloud, comprehension, writing, alexia without agraphia), praxis and
+  parietal (ideomotor, ideational, constructional, dressing, neglect network, stereognosis and graphesthesia,
+  calculation and Gerstmann) on left and right lateral views, and the dorsal and ventral visual streams. New tabs:
+  Aphasias (fluency, comprehension, repetition, naming, lesion) and Cortical signs, each row linked to its pathway.
+
 Guidelines and cases sync through the **Guidelines** and **Cases** tabs (sync script version 20), are in
 backups, and show up in search everywhere.
 

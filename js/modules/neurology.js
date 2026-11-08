@@ -17,6 +17,7 @@
      cerebellum             Cerebellar Pathways: circuits, lesions, anatomy, bedside exam
      localizer              Neuro Localizer: draw a lesion; structures, deficits, syndromes, artery
      seizures               Seizure Semiology: lesion → seizure, or seizure signs → onset zone and side
+     tracts                 Tract Atlas: all major pathways traced, cerebellar circuits included
      ward, ward/history     older addresses of Ward Patients (they still work) */
 import { registerModule } from './registry.js';
 import { registerScreen, replacePage } from '../core/router.js';
@@ -41,7 +42,7 @@ import { allGuides } from './clinical/guides.js';
 import { guidesPage, wireGuides } from './clinical/guides-page.js';
 import { allCases } from './clinical/cases.js';
 import { casesPage, wireCases } from './clinical/cases-page.js';
-import { atlasPage, cerebellumPage, localizerPage, seizurePage } from './clinical/atlas-page.js';
+import { atlasPage, cerebellumPage, localizerPage, seizurePage, tractsPage } from './clinical/atlas-page.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
 
@@ -68,6 +69,7 @@ const CLINICAL_TOOLS = [
   { sub: 'cases', name: 'Cases', icon: 'clipboard', line: () => (allCases().length ? plural(allCases().length, 'teaching case') : 'Your teaching cases') },
   { sub: 'localizer', name: 'Neuro Localizer', icon: 'pin', line: () => 'Draw a lesion · brain to conus · syndromes, arteries' },
   { sub: 'seizures', name: 'Seizure Semiology', icon: 'bolt', line: () => '16 onset zones · signs to region and side' },
+  { sub: 'tracts', name: 'Tract Atlas', icon: 'layers', line: () => '68 pathways · 14 groups · aphasias, apraxias, frontal circuits' },
   { sub: 'eyes', name: 'Ocular Motor Atlas', icon: 'eye', line: () => '45 lesions · eye movements, pupils, visual fields' },
   { sub: 'cerebellum', name: 'Cerebellar Pathways', icon: 'brain', line: () => '6 circuits · 14 lesions · which side is ataxic' },
 ];
@@ -297,6 +299,7 @@ const ROUTES = [
   [/^cerebellum$/, cerebellumPage],
   [/^localizer$/, localizerPage],
   [/^seizures$/, seizurePage],
+  [/^tracts$/, tractsPage],
 ];
 const OLD_ROUTES = { ward: 'list/ward', 'ward/history': 'list/ward/history' };
 

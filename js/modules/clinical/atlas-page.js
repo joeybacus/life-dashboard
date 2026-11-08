@@ -5,6 +5,8 @@
                              deficits, syndromes and the arterial branch; reference tables (loads data scripts beside it)
      #/neurology/seizures    Seizure Semiology — draw a lesion to see the seizures its cortex produces, or tick the
                              semiology to rank onset zones and the side (same slices and MRI as the localizer)
+     #/neurology/tracts      Tract Atlas — 68 pathways in 14 groups (motor, cranial nerve nuclei, sensory, cerebellar, eye,
+                             visual streams, frontal circuits, language, reading and writing, praxis and parietal, …)
      #/neurology/cerebellum  Cerebellar Pathways — traced circuits, lesions and which side is
                              affected, anatomy, bedside exam, quiz
    Each atlas is one HTML file next to this one, saved for offline use by the service worker.
@@ -66,6 +68,7 @@ export const ATLAS_SRC = 'js/modules/clinical/ocular-motor-atlas.html';
 export const CEREBELLUM_SRC = 'js/modules/clinical/cerebellar-pathways.html';
 export const LOCALIZER_SRC = 'js/modules/clinical/neuro-localizer.html';
 export const SEIZURE_SRC = 'js/modules/clinical/seizure-semiology.html';
+export const TRACTS_SRC = 'js/modules/clinical/tract-atlas.html';
 
 export const atlasPage = framePage({
   src: ATLAS_SRC, title: 'Ocular Motor Atlas',
@@ -80,6 +83,11 @@ export const localizerPage = framePage({
 export const seizurePage = framePage({
   src: SEIZURE_SRC, title: 'Seizure Semiology',
   label: 'Seizure Semiology: lesion to seizure, seizure signs to onset zone and side, on MRI slices',
+});
+
+export const tractsPage = framePage({
+  src: TRACTS_SRC, title: 'Tract Atlas',
+  label: 'Tract Atlas: every major pathway traced, with its crossing and the effect of a lesion',
 });
 
 export const cerebellumPage = framePage({
