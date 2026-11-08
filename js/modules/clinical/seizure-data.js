@@ -1,17 +1,17 @@
 /* Seizure Semiology: seizure-onset zones and the signs that point to them.
    Zones are matched to the localizer's cortical structures by name (re). In ictal text {C} is the side opposite the
-   onset zone and {I} the same side. Sources: the classic table of common focal seizure patterns (Adams and Victor's
-   Principles of Neurology), ILAE 2017 seizure terms, and reviews of lateralizing signs (Loddenkemper and Kotagal 2005). */
+   onset zone and {I} the same side. Sources: the table of common focal seizure patterns in Adams and Victor's Principles of Neurology
+   (Table 15-2, modified from Penfield and Jasper), ILAE 2017 seizure terms, and reviews of lateralizing signs (Loddenkemper and Kotagal 2005). */
 (function () {
 const Z = [
  {id:"m1", name:"Primary motor cortex (precentral gyrus)", lobe:"Frontal", slice:"ax-cr",
   re:"precentral|primary motor|hand knob|\\bM1\\b",
   aura:["Usually none; sometimes {C} tingling when the discharge starts in or spreads from the postcentral gyrus"],
-  ictal:["{C} focal clonic jerking, often starting in the thumb and fingers or the corner of the mouth (largest cortical representation)", "Jacksonian march: jerks spread hand → arm → face or leg along the motor strip over seconds", "Awareness usually preserved", "Focal to bilateral tonic-clonic seizure if it spreads"],
+  ictal:["{C} focal clonic jerking, often starting in the thumb and fingers or the corner of the mouth (largest cortical representation)", "Jacksonian march: jerks spread hand → arm → face → leg (or foot → leg → arm → face) along the motor strip over 20–30 seconds", "Awareness usually preserved", "Focal to bilateral tonic-clonic seizure if it spreads"],
   post:["{C} weakness for minutes to hours (Todd paresis)"],
   lat:["Unilateral clonic jerks and Todd paresis point to the opposite hemisphere"],
   spread:"Spreads along the strip (march), then to the SMA (bilateral tonic posturing) and to the other hemisphere.",
-  pearls:["Epilepsia partialis continua: focal clonic jerks for hours to days (Rasmussen encephalitis, nonketotic hyperglycaemia, stroke, mitochondrial disease)", "Jerks start where the discharge starts: thumb, face or foot"],
+  pearls:["Primary motor cortex foci give clonic jerks; premotor (area 6) foci give tonic contraction of the opposite arm, face or side", "Epilepsia partialis continua: focal clonic jerks for hours to days (Rasmussen encephalitis, nonketotic hyperglycaemia, stroke, mitochondrial disease)", "Jerks start where the discharge starts: thumb, face or foot"],
   causes:"Cortical dysplasia, tumour, stroke, Rasmussen encephalitis, hyperglycaemia",
   table:[["Jacksonian (focal motor)", "Prerolandic gyrus"]]},
  {id:"pcl", name:"Paracentral lobule (leg motor and sensory)", lobe:"Frontal/parietal", slice:"ax-vx",
@@ -42,7 +42,7 @@ const Z = [
   post:["Little or no confusion; seizures end abruptly"],
   lat:["Figure-of-4 and fencing: the extended arm is opposite the onset", "The {C} arm extends; the head turns {C}"],
   spread:"Rapid bilateral motor spread through the corpus callosum; may evolve to bilateral tonic-clonic.",
-  pearls:["Brief (10–40 s), frequent, often in clusters from sleep", "Scalp EEG can be normal or obscured by muscle artefact: easily mistaken for non-epileptic attacks"],
+  pearls:["Adams: head and eye turning to the {C} side with tonic extension of the {C} limbs; fencing and choreoathetotic or dystonic postures with high medial frontal (area 8, SMA) foci", "Brief (10–40 s), frequent, often in clusters from sleep", "Scalp EEG can be normal or obscured by muscle artefact: easily mistaken for non-epileptic attacks"],
   causes:"Dysplasia, tumour, parasagittal meningioma",
   table:[["Head and eye turning with arm movement or athetoid-dystonic postures", "Supplementary motor cortex"]]},
  {id:"fef", name:"Dorsolateral frontal cortex and frontal eye field", lobe:"Frontal", slice:"cor-a",
@@ -87,7 +87,7 @@ const Z = [
   table:[["Gustatory", "Insula"], ["Visceral: autonomic", "Insular-orbital-frontal cortex"]]},
  {id:"s1", name:"Primary somatosensory cortex (postcentral gyrus)", lobe:"Parietal", slice:"ax-cr",
   re:"postcentral|primary somatosensory|\\bS1\\b",
-  aura:["{C} tingling, numbness or an electric feeling, occasionally pain, that may march like a Jacksonian seizure"],
+  aura:["{C} tingling, numbness, crawling or an electric feeling, usually starting in the lips, fingers or toes and marching like a Jacksonian seizure; pain or heat is exceedingly rare", "Face and head symptoms point to the lower postcentral gyrus near the Sylvian fissure; leg and foot to the top of the gyrus and the medial surface"],
   ictal:["A sense that the {C} limb is moving or absent", "Spread to the motor strip gives {C} clonic jerks"],
   post:["Brief {C} numbness"],
   lat:["One-sided sensory aura points to the opposite hemisphere"],
@@ -113,7 +113,7 @@ const Z = [
   dom:["Speech stops during the seizure; postictal aphasia (dominant temporal)"],
   nondom:["Speech can continue during the seizure; ictal vomiting, spitting, urge to urinate or drinking water (non-dominant temporal)"],
   post:["Confusion and amnesia for minutes", "Nose wiping with the {I} hand"],
-  lat:["{C} dystonic arm posturing is a strong sign", "{I} hand automatisms and {I} hand nose wiping", "Postictal aphasia → dominant; preserved ictal speech → non-dominant"],
+  lat:["{C} dystonic arm posturing is a strong sign (also seen with SMA seizures)", "{I} hand automatisms and {I} hand nose wiping", "Postictal aphasia → dominant; preserved ictal speech → non-dominant"],
   spread:"To the other temporal lobe, insula and orbitofrontal cortex; generalization is less common than in frontal epilepsy.",
   pearls:["Hippocampal sclerosis: febrile seizures in early childhood, then a latent period before seizures start", "The commonest drug-resistant focal epilepsy, and the most rewarding to treat surgically"],
   causes:"Hippocampal sclerosis, dysembryoplastic or low-grade tumour, cavernoma, limbic encephalitis, herpes simplex encephalitis",
@@ -152,7 +152,7 @@ const Z = [
   table:[["Formed hallucinations", "Temporal neocortex"]]},
  {id:"occ", name:"Occipital cortex (calcarine, cuneus, lingual, lateral occipital)", lobe:"Occipital", slice:"ax-bg",
   re:"calcarine|occipital cortex|lateral occipital|lingual|\\bcuneus|\\bV1\\b|occipital pole",
-  aura:["Elementary visual hallucinations: coloured, flashing circles or lights in the {C} visual field, often moving across", "Ictal blindness or a {C} field defect"],
+  aura:["Elementary visual hallucinations: coloured (red most often), flashing circles, sparks or lights in the {C} visual field, stationary or moving; patients often feel only the {C} eye is affected", "Lateral occipital cortex (areas 18, 19): twinkling or pulsating lights", "Ictal blindness or a {C} field defect, sometimes in both fields"],
   ictal:["Forced eye closure, rapid blinking, eyelid flutter", "Eyes and head deviate to the {C} side; nystagmus with the fast phase to the {C} side", "Spread below the calcarine fissure → temporal automatisms; above → parietal and frontal motor signs"],
   post:["Headache, often migraine-like; transient {C} hemianopia"],
   lat:["One-sided visual aura and postictal hemianopia point to the opposite occipital lobe", "Unilateral eye blinking is on the {I} side"],

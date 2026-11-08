@@ -393,6 +393,18 @@ workout (the "Workout saved" message and the finished workout's page).
   parietal (ideomotor, ideational, constructional, dressing, neglect network, stereognosis and graphesthesia,
   calculation and Gerstmann) on left and right lateral views, and the dorsal and ventral visual streams. New tabs:
   Aphasias (fluency, comprehension, repetition, naming, lesion) and Cortical signs, each row linked to its pathway.
+  0.11.29: the Cerebellar Pathways card is no longer listed under Clinical tools; its circuits are the Cerebellar
+  group here, and `#/neurology/cerebellum` still opens the full page.
+  0.11.30: the five frontal–subcortical circuits are drawn on one integrated figure (lateral and medial cortex above,
+  one shared basal ganglia and thalamus below, each circuit's territory coloured in every nucleus) with direct,
+  indirect and hyperdirect pathways; the visual word form area is marked on the ventral surface.
+  0.11.31: reviewed against Brazis (Localization in Clinical Neurology 6e), Adams and Victor (12e) and Afifi
+  (Functional Neuroanatomy). New Cranial nerve exits group: each nerve traced on a ventral brainstem view from its
+  nucleus through its fascicle to its exit (interpeduncular fossa, dorsal midbrain, lateral mid pons, pontomedullary
+  sulcus, cerebellopontine angle, postolivary and preolivary sulci, lateral cervical cord). Corrections include the
+  corticospinal crossing fraction, reticulospinal laterality, trigeminal touch projections, accessory nerve
+  supranuclear control, vertical gaze crossings, the caudal lateral medullary pattern, conduction and transcortical
+  aphasia sites, apraxia definitions and seizure semiology details; review log kept outside the repo.
 
 Guidelines and cases sync through the **Guidelines** and **Cases** tabs (sync script version 20), are in
 backups, and show up in search everywhere.

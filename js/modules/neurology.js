@@ -14,7 +14,8 @@
      guidelines             your guidelines: links and PDFs, by topic
      cases, cases/<id>      your teaching cases
      eyes                   Ocular Motor Atlas: eye movement, pupil and visual pathway lesions
-     cerebellum             Cerebellar Pathways: circuits, lesions, anatomy, bedside exam
+     cerebellum             Cerebellar Pathways: circuits, lesions, anatomy, bedside exam (no card since 0.11.29;
+                            its circuits are a group in the Tract Atlas, the address still works)
      localizer              Neuro Localizer: draw a lesion; structures, deficits, syndromes, artery
      seizures               Seizure Semiology: lesion → seizure, or seizure signs → onset zone and side
      tracts                 Tract Atlas: all major pathways traced, cerebellar circuits included
@@ -69,9 +70,8 @@ const CLINICAL_TOOLS = [
   { sub: 'cases', name: 'Cases', icon: 'clipboard', line: () => (allCases().length ? plural(allCases().length, 'teaching case') : 'Your teaching cases') },
   { sub: 'localizer', name: 'Neuro Localizer', icon: 'pin', line: () => 'Draw a lesion · brain to conus · syndromes, arteries' },
   { sub: 'seizures', name: 'Seizure Semiology', icon: 'bolt', line: () => '16 onset zones · signs to region and side' },
-  { sub: 'tracts', name: 'Tract Atlas', icon: 'layers', line: () => '68 pathways · 14 groups · aphasias, apraxias, frontal circuits' },
+  { sub: 'tracts', name: 'Tract Atlas', icon: 'layers', line: () => '78 pathways · cranial nerve exits · aphasias, apraxias' },
   { sub: 'eyes', name: 'Ocular Motor Atlas', icon: 'eye', line: () => '45 lesions · eye movements, pupils, visual fields' },
-  { sub: 'cerebellum', name: 'Cerebellar Pathways', icon: 'brain', line: () => '6 circuits · 14 lesions · which side is ataxic' },
 ];
 
 function toolLink(t, { compact = false } = {}) {

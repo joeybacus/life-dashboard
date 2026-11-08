@@ -245,7 +245,7 @@ footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
 .catb[aria-pressed="true"] small{color:var(--panel);opacity:.75}
 .catline{margin:0 0 8px;color:var(--muted);font-size:14px}
 .pw[style] path.base{stroke:var(--c)}
-.pw path.base.dsh{stroke-dasharray:6 5}
+.pw path.base.dsh{stroke-dasharray:2 5;stroke-width:2;opacity:.8}
 .diaw{max-height:none}
 .dia svg{min-width:460px}
 .hemi{fill:var(--gm);stroke:var(--tract-line);stroke-width:1.1}
@@ -275,7 +275,8 @@ footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
 .xmark circle{fill:var(--panel);stroke:var(--lesion);stroke-width:1.6}
 .xmark path{stroke:var(--lesion);stroke-width:2;stroke-linecap:round}
 .stepb circle{fill:var(--panel);stroke:var(--fg);stroke-width:1.4}
-.stepb text{font-family:var(--f-label);font-size:10.5px;font-weight:600;fill:var(--fg);text-anchor:middle}
+.stepb text{font-family:var(--f-label);font-size:10.5px;font-weight:600;fill:var(--fg)}
+.stepb text:not(.stepl){text-anchor:middle}
 .stepb text.stepl{font-size:11.5px;font-weight:600;paint-order:stroke;stroke:var(--panel);stroke-width:3.5px;stroke-linejoin:round}
 .stepb.on circle{fill:var(--fg)}
 .stepb.on text:not(.stepl){fill:var(--panel)}
@@ -293,6 +294,17 @@ footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
 .tblw table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
 .tblw th,.tblw td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
 .tblw th{font-family:var(--f-label);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
+.sk *{vector-effect:non-scaling-stroke}
+.ipf{fill:var(--csf);stroke:var(--tract-line);stroke-width:.8}
+.mcp{fill:var(--tissue);stroke:var(--tract-line);stroke-width:1;opacity:.8}
+.sulc2{stroke:var(--tract-line);stroke-width:1.2}
+.pyr{fill:var(--tract);opacity:.18}
+.oliv{fill:var(--nuc);stroke:var(--tract);stroke-width:1.1}
+.root{fill:none;stroke:var(--tract-line);stroke-width:2.2;stroke-linecap:round}
+.dent{stroke:var(--tract-line);stroke-width:1;stroke-dasharray:1 4}
+.proj2 *{fill:none;stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3;opacity:.55}
+.sep{stroke:var(--line);stroke-width:1;stroke-dasharray:3 5}
+.fz{stroke:none}
 .box{fill:var(--panel-2);stroke:var(--tract-line);stroke-width:1}
 .boxt{font-family:var(--f-label);font-size:11.5px;font-weight:500;fill:var(--fg);text-anchor:middle}
 td.y{white-space:nowrap}
@@ -913,12 +925,12 @@ add("lang", "lateral", {id:"lang-name", name:"Naming", kind:"Word retrieval",
 /* ---- reading and writing ---- */
 add("read", "lateral", {id:"rw-read", name:"Reading aloud (phonological route)", kind:"Letters to sounds",
   routes:[["occ", "v4", "vwfa", "ag", "wernicke"]], dash:[["wernicke", "arcTurn", "arcTop", "arcMid", "broca"]],
-  steps:[S("occ", "Visual cortex", "Letters seen"), S("vwfa", "Visual word form area", "Left fusiform gyrus: letter strings"), S("ag", "Angular gyrus", "Letters converted to sounds"), S("wernicke", "Wernicke area", "Spoken word form"), S("broca", "Broca area", "Reading aloud (dashed)")],
+  steps:[S("occ", "Visual cortex", "Letters seen"), S("vwfa", "VWFA (underside)", "Visual word form area: left mid-fusiform gyrus and occipitotemporal sulcus on the underside of the brain (dashed outline); recognises letter strings as written words whatever the font or case"), S("ag", "Angular gyrus", "Letters converted to sounds"), S("wernicke", "Wernicke area", "Spoken word form"), S("broca", "Broca area", "Reading aloud (dashed)")],
   cross:"Uncrossed; left hemisphere", carries:"Sounding out written words and reading new words",
   lesion:"Left angular gyrus: alexia with agraphia (cannot read or write, often with Gerstmann features). Damage to this route spares familiar words but not new or nonsense words (phonological dyslexia)."});
 add("read", "lateral", {id:"rw-comp", name:"Understanding written text (lexical–semantic route)", kind:"Letters to meaning",
   routes:[["occ", "v4", "vwfa", "itg", "atl"]], dash:[["itg", "pmtg"]],
-  steps:[S("vwfa", "Visual word form area", "Whole written words recognised"), S("itg", "Inferior temporal", "Written word to meaning"), S("atl", "Anterior temporal lobe", "Meaning of the text"), S("pmtg", "Posterior MTG", "Joins the spoken-language meaning network (dashed)")],
+  steps:[S("vwfa", "VWFA (underside)", "Visual word form area, left ventral occipitotemporal cortex: whole written words recognised"), S("itg", "Inferior temporal", "Written word to meaning"), S("atl", "Anterior temporal lobe", "Meaning of the text"), S("pmtg", "Posterior MTG", "Joins the spoken-language meaning network (dashed)")],
   cross:"Uncrossed", carries:"Reading comprehension and irregular words (yacht, colonel)",
   lesion:"Left inferior temporal or anterior temporal damage: surface dyslexia (irregular words read as they are spelled, comprehension poor; semantic dementia). Any lesion that causes aphasia with poor comprehension also impairs reading comprehension."});
 add("read", "lateral", {id:"rw-write", name:"Writing", kind:"Spelling to hand",
@@ -928,7 +940,7 @@ add("read", "lateral", {id:"rw-write", name:"Writing", kind:"Spelling to hand",
   lesion:"Angular gyrus: agraphia with alexia (Gerstmann). Superior parietal or Exner area: apraxic agraphia, letters badly formed though spelling is known. Corpus callosum: left-hand agraphia. Aphasias give agraphia that mirrors the speech."});
 add("read", "visual", {id:"rw-alexia", name:"Alexia without agraphia (splenium disconnection)", kind:"Disconnection",
   routes:[["eyeT_R", "on_R", "chiasmLat_R", "ot_R", "lgn_R", "orUp_R", "orUp2_R", "v1Up_R"], ["v1Up_R", "splenium", "vwfa_L", "angular_L"]], x:["splenium"],
-  steps:[S("eyeT_R", "Left visual field", "Words seen in the left field"), S("v1Up_R", "Right visual cortex", "The only working visual cortex when the left one is infarcted"), S("splenium", "Splenium", "Must cross the splenium of the corpus callosum"), S("vwfa_L", "Left visual word form area", "Left fusiform gyrus"), S("angular_L", "Left angular gyrus", "Language areas for reading")],
+  steps:[S("eyeT_R", "Left visual field", "Words seen in the left field"), S("v1Up_R", "Right visual cortex", "The only working visual cortex when the left one is infarcted"), S("splenium", "Splenium", "Must cross the splenium of the corpus callosum"), S("vwfa_L", "Left VWFA", "Left visual word form area, mid-fusiform gyrus on the underside of the occipitotemporal lobe"), S("angular_L", "Left angular gyrus", "Language areas for reading")],
   cross:"Splenium of the corpus callosum", carries:"Written words from the left visual field to the left-hemisphere reading areas",
   lesion:"Left PCA infarct of the occipital lobe and splenium: right hemianopia, and words in the intact left field cannot reach the language areas. The patient writes but cannot read what they wrote; reads letter by letter; colour naming is often impaired. A lesion of the left visual word form area alone gives pure alexia too."});
 
@@ -1018,10 +1030,307 @@ const SIGNS = [
   ["Abulia, akinetic mutism", "No spontaneous speech or action", "Anterior cingulate cortex (bilateral), ventral striatum, MD thalamus", "loop-acc"]
 ];
 
+VIEWS.lateral.base = () => lateralBase() + `<ellipse class="proj" cx="594" cy="356" rx="26" ry="10"/>`;
+LLAB.push(["ventral surface", 594, 380, "middle", "sm it"]);
+
+/* ================= Frontostriatal circuits: one integrated drawing =================
+   Lateral and medial cortex above; one shared basal ganglia and thalamus below, each circuit with its own territory
+   in every nucleus (motor, oculomotor, dorsolateral prefrontal, orbitofrontal, anterior cingulate). */
+const LOOPCOL = {"loop-motor":"var(--lesion)", "loop-oculo":"var(--p2)", "loop-dlpfc":"var(--p4)", "loop-ofc":"var(--p5)", "loop-acc":"var(--p6)"};
+const FA = {
+  cMotor:[184,111], cSMA:[534,63], cFEF:[152,99], cDLPFC:[104,109], cLOFC:[89,180], cMOFC:[459,184], cACC:[500,124],
+  sPut:[642,612], sCaudBody:[440,424], sCaudDL:[456,454], sCaudVM:[414,472], sVS:[480,516],
+  eMot:[556,650], eOcu:[532,626], eDL:[522,662], eOFC:[506,682], eLim:[500,700],
+  iMot:[452,692], iOcu:[440,664], iDL:[430,680], iOFC:[420,704], vp:[362,690], nOcu:[512,772],
+  tMot:[346,734], tOcu:[322,738], tDL:[300,742], tOFC:[278,746], tLim:[254,750],
+  thVL:[192,492], thVA:[170,466], thMDpc:[140,512], thMDmc:[112,540], thMDpm:[98,576]
+};
+// zones: [type, cx, cy, rx, ry, rot] or ["p", d]
+const FZ = {
+  "loop-motor":[["p", "M181,56 L209,54 L184,168 L163,150 Z"], ["e", 534, 63, 17, 8, 0], ["e", 645, 615, 22, 56, -12], ["e", 556, 650, 13, 20, 10], ["e", 452, 692, 11, 12, 0], ["e", 346, 734, 16, 6, -8], ["e", 192, 492, 22, 15, -18]],
+  "loop-oculo":[["e", 152, 99, 12, 10, 0], ["e", 440, 424, 26, 10, -8], ["e", 532, 626, 10, 12, 10], ["e", 440, 664, 9, 9, 0], ["e", 512, 772, 18, 6, 0], ["e", 322, 738, 9, 5, -8], ["e", 170, 466, 18, 11, -18]],
+  "loop-dlpfc":[["e", 104, 109, 27, 20, -10], ["e", 456, 454, 22, 13, -12], ["e", 522, 662, 11, 14, 10], ["e", 430, 680, 9, 10, 0], ["e", 300, 742, 14, 6, -8], ["e", 140, 512, 20, 14, -18]],
+  "loop-ofc":[["e", 89, 180, 23, 9, 0], ["e", 459, 184, 24, 8, 0], ["e", 414, 472, 20, 11, -12], ["e", 506, 682, 9, 11, 10], ["e", 420, 704, 9, 9, 0], ["e", 278, 746, 11, 5, -8], ["e", 112, 540, 18, 13, -18]],
+  "loop-acc":[["e", 500, 124, 27, 14, -28], ["e", 480, 516, 28, 15, 0], ["e", 500, 700, 8, 9, 10], ["e", 362, 690, 22, 11, 0], ["e", 254, 750, 11, 5, -8], ["e", 98, 576, 16, 11, -18]]
+};
+function fscBase(activeId, all) {
+  const lat = lateralBase().replace(/<ellipse class="area"[^>]*\/>/g, "");
+  const med = medialBase().replace(/<ellipse class="proj"[^>]*\/>/g, "");
+  const zones = Object.entries(FZ).map(([id, list]) => {
+    const op = all ? .45 : activeId === id ? .62 : activeId ? .12 : .3;
+    return list.map(z => z[0] === "p" ? `<path class="fz" d="${z[1]}" style="fill:${LOOPCOL[id]};fill-opacity:${op}"/>`
+      : `<ellipse class="fz" cx="${z[1]}" cy="${z[2]}" rx="${z[3]}" ry="${z[4]}"${z[5] ? ` transform="rotate(${z[5]} ${z[1]} ${z[2]})"` : ""} style="fill:${LOOPCOL[id]};fill-opacity:${op}"/>`).join("");
+  }).join("");
+  return `<g class="sk" transform="translate(14,34) scale(.5)">${lat}</g><g class="sk" transform="translate(384,34) scale(.5)">${med}</g>
+<line class="sep" x1="20" y1="300" x2="740" y2="300"/>
+<ellipse class="gm" cx="150" cy="522" rx="84" ry="74" transform="rotate(-18 150 522)"/>
+<ellipse class="gm" cx="436" cy="452" rx="52" ry="42"/>
+<ellipse class="gm" cx="480" cy="516" rx="34" ry="20"/>
+<path class="gm" d="M600,520 C652,500 702,540 706,620 C710,700 682,760 642,760 C610,758 590,720 588,660 C586,600 580,540 600,520 Z"/>
+<ellipse class="gm2" cx="530" cy="660" rx="40" ry="62" transform="rotate(10 530 660)"/>
+<ellipse class="gm2" cx="440" cy="688" rx="40" ry="30" transform="rotate(-20 440 688)"/>
+<ellipse class="gm2" cx="362" cy="690" rx="27" ry="15"/>
+<ellipse class="gm2" cx="300" cy="742" rx="72" ry="14" transform="rotate(-8 300 742)"/>
+<ellipse class="gm2" cx="500" cy="772" rx="48" ry="11"/>
+${zones}`;
+}
+VIEWS.fsc = {w:760, h:800, A:FA, base:fscBase, norl:true,
+  lab:[["Lateral surface (left)", 190, 264, "middle", "sm it"], ["Medial surface", 576, 290, "middle", "sm it"],
+    ["Motor", 214, 66, "start", "sm"], ["SMA", 556, 60, "start", "sm"], ["FEF", 150, 84, "middle", "sm"], ["DLPFC", 104, 140, "middle", "sm"], ["Lat. OFC", 89, 202, "middle", "sm"],
+    ["ACC", 500, 100, "middle", "sm"], ["Med. OFC", 459, 204, "middle", "sm"],
+    ["THALAMUS", 150, 430, "middle", "lvl"], ["Caudate", 436, 400, "middle", "sm b"], ["Ventral striatum", 480, 552, "middle", "sm b"], ["Putamen", 652, 494, "middle", "sm b"],
+    ["GPe", 586, 608, "start", "sm b"], ["GPi", 398, 660, "end", "sm b"], ["Ventral pallidum", 362, 718, "middle", "sm b"], ["STN", 222, 744, "end", "sm b"], ["SNr", 554, 776, "start", "sm b"],
+    ["BASAL GANGLIA", 700, 460, "end", "lvl"], ["CORTEX", 20, 24, "start", "lvl"]],
+  cap:"Frontostriatal circuits on shared anatomy: cortex above, basal ganglia and thalamus below. Each colour is one circuit and its territory in every nucleus. Solid: cortex → striatum → GPi (direct pathway) → thalamus → back to cortex. Dashed: indirect pathway (striatum → GPe → STN → GPi) and hyperdirect pathway (cortex → STN). Schematic, after Alexander, DeLong and Strick and Cummings."};
+
+const FLOOP = {
+  "loop-motor":{routes:[["cMotor", [262,252], [520,400], [618,520], "sPut"], ["cSMA", [622,300], [650,500], "sPut"], ["sPut", [604,724], "iMot"], ["iMot", [360,620], "thVL"], ["thVL", [252,380], [232,240], "cMotor"]],
+    dash:[["sPut", "eMot", "tMot", "iMot"], ["cMotor", [282,330], [332,600], "tMot"]],
+    steps:[S("cMotor", "Motor cortex, SMA", "Primary motor cortex, SMA and premotor cortex"), S("sPut", "Putamen", "Dorsolateral, posterior putamen"), S("iMot", "GPi", "Ventrolateral GPi and caudolateral SNr: the direct pathway inhibits it, releasing the thalamus"), S("eMot", "GPe", "Indirect pathway: striatum inhibits GPe (dashed)"), S("tMot", "STN", "Released STN excites GPi; also driven straight from cortex (hyperdirect, dashed)"), S("thVL", "VL thalamus", "Ventrolateral and ventral anterior nuclei, back to motor cortex")]},
+  "loop-oculo":{routes:[["cFEF", [252,232], [398,360], "sCaudBody"], ["sCaudBody", [480,590], "nOcu"], ["sCaudBody", [470,600], "iOcu"], ["iOcu", [330,560], "thVA"], ["thVA", [240,330], [196,200], "cFEF"]],
+    dash:[["sCaudBody", "eOcu", "tOcu", "iOcu"]],
+    steps:[S("cFEF", "Frontal eye field", "Frontal and supplementary eye fields"), S("sCaudBody", "Caudate body", "Central body of the caudate"), S("nOcu", "SNr", "Ventrolateral SNr, which also gates the superior colliculus"), S("iOcu", "GPi", "Caudal dorsomedial GPi"), S("eOcu", "GPe", "Indirect pathway (dashed)"), S("tOcu", "STN", "Oculomotor part of the STN"), S("thVA", "VA, MD", "Ventral anterior and paralaminar mediodorsal nuclei, back to the eye fields")]},
+  "loop-dlpfc":{routes:[["cDLPFC", [232,262], [380,382], "sCaudDL"], ["sCaudDL", [482,612], "iDL"], ["iDL", [320,592], "thMDpc"], ["thMDpc", [202,362], [152,222], "cDLPFC"]],
+    dash:[["sCaudDL", "eDL", "tDL", "iDL"], ["cDLPFC", [250,330], [300,620], "tDL"]],
+    steps:[S("cDLPFC", "DLPFC", "Dorsolateral prefrontal cortex (Brodmann 9, 46)"), S("sCaudDL", "Dorsolateral caudate", "Dorsolateral head of the caudate"), S("iDL", "GPi", "Lateral dorsomedial GPi and rostrolateral SNr"), S("eDL", "GPe", "Indirect pathway (dashed)"), S("tDL", "STN", "Associative STN; hyperdirect input from prefrontal cortex (dashed)"), S("thMDpc", "MD, VA", "Parvocellular mediodorsal and ventral anterior nuclei, back to the DLPFC")]},
+  "loop-ofc":{routes:[["cLOFC", [212,302], [362,420], "sCaudVM"], ["cMOFC", [440,330], "sCaudVM"], ["sCaudVM", [470,632], "iOFC"], ["iOFC", [302,622], "thMDmc"], ["thMDmc", [152,382], [102,262], "cLOFC"]],
+    dash:[["sCaudVM", "eOFC", "tOFC", "iOFC"]],
+    steps:[S("cLOFC", "Orbitofrontal cortex", "Lateral (and medial) orbitofrontal cortex"), S("sCaudVM", "Ventromedial caudate", "Ventromedial head of the caudate"), S("iOFC", "GPi", "Medial dorsomedial GPi and rostromedial SNr"), S("eOFC", "GPe", "Indirect pathway (dashed)"), S("tOFC", "STN", "Limbic–associative STN"), S("thMDmc", "MD, VA", "Magnocellular mediodorsal and ventral anterior nuclei, back to the orbitofrontal cortex")]},
+  "loop-acc":{routes:[["cACC", [522,330], "sVS"], ["sVS", [430,602], "vp"], ["vp", [262,642], "thMDpm"], ["thMDpm", [58,452], [252,322], [440,212], "cACC"]],
+    dash:[["sVS", "eLim", "tLim", "vp"], ["cACC", [400,400], [270,640], "tLim"]],
+    steps:[S("cACC", "Anterior cingulate", "Anterior cingulate cortex (Brodmann 24)"), S("sVS", "Ventral striatum", "Nucleus accumbens, ventromedial caudate and putamen, olfactory tubercle"), S("vp", "Ventral pallidum", "Ventral pallidum and rostrolateral GPi"), S("eLim", "GPe", "Indirect pathway (dashed)"), S("tLim", "STN", "Limbic (medial) tip of the STN"), S("thMDpm", "MD", "Posteromedial mediodorsal nucleus, back to the anterior cingulate")]}
+};
+T.forEach(t => {
+  const f = FLOOP[t.id]; if (!f) return;
+  Object.assign(t, {view:"fsc", routes:f.routes, dash:f.dash, steps:f.steps, col:LOOPCOL[t.id],
+    cross:"Uncrossed; the circuits run in parallel and stay largely segregated, with some funnelling between them (spirals through the substantia nigra)"});
+});
+
+/* ================= Cranial nerves: nucleus → fascicle → exit =================
+   Ventral view of the brainstem and upper cord (front of the brainstem facing the viewer, patient's right on the viewer's
+   left). Nuclei lie deep, in the tegmentum; they are drawn as dashed outlines projected onto the ventral surface at
+   their real level. Sources: Brazis 6e ch 8–14; Afifi ch 5, 7, 9. */
+const SA = {
+  // nuclei (patient's right, projected)
+  n3:[371,148], n3ew:[376,138], n4:[369,214], n5mes:[352,214], n5mot:[352,296], n5main:[334,300], n5sp:[322,330], n5spMed:[326,470], n5spC2:[340,640],
+  n6:[370,376], n7:[338,394], n7up:[358,378], n7genu:[376,366], n7down:[318,388], nSSN:[348,386], nCoch:[300,412], nVest:[326,412],
+  nAmbR:[338,428], nAmbM:[338,466], nAmbC:[338,514], nISN:[352,424], nDMNX:[362,470], nNTS:[354,486], n12:[374,476], nAccC1:[360,600], nAccC5:[360,770],
+  // in-brainstem waypoints
+  rn:[360,166], sn:[352,176], aqueduct:[380,222], vel:[380,236], ml:[366,452], mlP:[360,392],
+  // exits (patient's right = viewer's left)
+  ex3:[364,190], ex4L:[412,240], ex5s:[270,302], ex5m:[278,288], ex6:[358,406], ex7:[262,400], ex8:[246,408],
+  ex9:[316,428], ex10:[316,452], ex11c:[316,484], ex12a:[351,446], ex12b:[351,476], ex12c:[351,504], exC1:[344,606], exC3:[344,690], exC5:[344,770],
+  // beyond the brainstem
+  pcaSca:[330,184], cav3:[270,136], orbit3:[200,96], around4:[470,196], cav4:[506,150], orbit4:[560,104], gangV:[196,300], face5:[120,300], v3:[200,340],
+  clivus6:[330,300], dorello:[300,222], orbit6:[210,120], iam:[206,404], stylo:[146,440], face7:[96,452], iam8:[196,416], ear8:[130,420],
+  jug:[268,456], ph9:[180,456], larynx10:[170,500], up11:[316,640], fm11:[312,560], scm11:[150,560], hgc:[280,520], tongue12:[180,540]
+};
+function stemBase() {
+  return `<path class="gm" d="M300,40 C330,30 430,30 460,40 L470,70 L290,70 Z" style="opacity:.6"/>
+<circle class="nuc" cx="366" cy="78" r="9"/><circle class="nuc" cx="394" cy="78" r="9"/>
+<path class="stem" d="M300,72 C320,70 350,96 364,118 L380,150 L396,118 C410,96 440,70 460,72 C474,74 470,120 458,160 C450,190 440,214 430,232 L330,232 C320,214 310,190 302,160 C290,120 286,74 300,72 Z"/>
+<path class="ipf" d="M364,118 L380,150 L396,118 C392,150 388,190 380,226 C372,190 368,150 364,118 Z"/>
+<path class="stem" d="M330,232 L430,232 C470,236 500,252 512,282 C520,312 520,350 504,378 C490,398 470,404 430,404 L330,404 C290,404 270,398 256,378 C240,350 240,312 248,282 C260,252 290,236 330,232 Z"/>
+<path class="mcp" d="M256,286 C226,290 206,306 200,330 C206,352 226,368 256,376 Z"/><path class="mcp" d="M504,286 C534,290 554,306 560,330 C554,352 534,368 504,376 Z"/>
+<line class="sulc2" x1="380" y1="236" x2="380" y2="400"/>
+<path class="stem" d="M330,404 L430,404 C440,440 444,500 436,548 L424,580 L336,580 L324,548 C316,500 320,440 330,404 Z"/>
+<path class="pyr" d="M362,408 C366,450 368,520 370,572 L378,572 L378,408 Z"/><path class="pyr" d="M398,408 C394,450 392,520 390,572 L382,572 L382,408 Z"/>
+<ellipse class="oliv" cx="336" cy="466" rx="12" ry="40"/><ellipse class="oliv" cx="424" cy="466" rx="12" ry="40"/>
+<path class="decus" d="M368,560 L392,580 M392,560 L368,580"/>
+<path class="cord" d="M336,580 L424,580 C420,640 418,720 416,800 L414,880 L346,880 L344,800 C342,720 340,640 336,580 Z"/>
+<line class="sulc2" x1="380" y1="584" x2="380" y2="876"/>
+${[606, 648, 690, 730, 770].map((y, k) => `<path class="root" d="M346,${y} L318,${y + 10}"/><path class="root" d="M414,${y} L442,${y + 10}"/>`).join("")}
+<line class="dent" x1="342" y1="600" x2="342" y2="860"/><line class="dent" x1="418" y1="600" x2="418" y2="860"/>
+<g class="proj2">
+<ellipse cx="371" cy="148" rx="9" ry="18"/><ellipse cx="389" cy="148" rx="9" ry="18"/><ellipse cx="369" cy="214" rx="5" ry="5"/><ellipse cx="391" cy="214" rx="5" ry="5"/>
+<path d="M352,190 L352,250"/><ellipse cx="352" cy="296" rx="7" ry="9"/><ellipse cx="334" cy="300" rx="9" ry="10"/>
+<path d="M322,312 C322,380 324,460 330,560 C334,600 338,624 340,648"/>
+<ellipse cx="370" cy="376" rx="7" ry="7"/><ellipse cx="390" cy="376" rx="7" ry="7"/><ellipse cx="338" cy="394" rx="9" ry="8"/>
+<ellipse cx="300" cy="412" rx="8" ry="6"/><ellipse cx="326" cy="412" rx="12" ry="7"/>
+<path d="M338,420 L338,522"/><ellipse cx="362" cy="476" rx="4" ry="22"/><ellipse cx="374" cy="476" rx="5" ry="22"/><ellipse cx="354" cy="476" rx="4" ry="26"/>
+<path d="M360,596 L360,780"/></g>`;
+}
+const STX = p => [Math.round(380 + (p[0] - 380) * 1.5), Math.round(40 + (p[1] - 40) * 1.5)];
+const SA2 = Object.fromEntries(Object.entries(SA).map(([k, p]) => [k, STX(p)]));
+Object.assign(SA2, {cav3:[215,184], orbit3:[110,124], around4:[515,274], cav4:[569,205], orbit4:[650,136], face5:[34,440], gangV:[110,446], v3:[110,505],
+  dorello:[260,313], orbit6:[125,160], ear8:[36,560], iam8:[122,578], iam:[132,604], stylo:[72,618], face7:[34,634],
+  jug:[212,676], ph9:[70,690], larynx10:[60,744], hgc:[225,772], tongue12:[70,796], scm11:[60,850], fm11:[270,836], up11:[284,940]});
+VIEWS.stem = {w:760, h:1340, A:SA2, base:() => `<g class="sk" transform="translate(380,40) scale(1.5) translate(-380,-40)">${stemBase()}</g>`,
+  lab:[["Optic chiasm and tracts", 380, 26, "middle", "sm"], ["Mammillary bodies", 470, 84, "start", "sm"], ["Cerebral peduncle (crus)", 474, 140, "start", "sm"], ["Interpeduncular fossa", 380, 112, "middle", "sm it"],
+    ["MIDBRAIN", 560, 200, "start", "lvl"], ["PONS", 560, 250, "start", "lvl"], ["Middle cerebellar peduncle", 590, 330, "start", "sm"], ["Basilar sulcus", 386, 262, "start", "sm it"],
+    ["Pontomedullary junction", 470, 420, "start", "sm"], ["MEDULLA", 560, 470, "start", "lvl"], ["Pyramid", 400, 540, "start", "sm"], ["Olive", 440, 470, "start", "sm"],
+    ["Pyramidal decussation", 400, 596, "start", "sm"], ["SPINAL CORD", 500, 640, "start", "lvl"], ["Dentate ligament", 300, 840, "end", "sm it"], ["C1", 470, 610, "start", "lvl"], ["C2", 470, 652, "start", "lvl"], ["C3", 470, 694, "start", "lvl"], ["C4", 470, 734, "start", "lvl"], ["C5", 470, 774, "start", "lvl"], ["Dashed outlines: nuclei, deep in the tegmentum", 20, 888, "start", "sm it"]],
+  cap0:"",
+  cap:"Ventral view of the brainstem and upper cervical cord; the patient’s right is on the left. Nuclei lie deep in the tegmentum and are projected as dashed outlines at their real level; each nerve is traced from its nucleus through its fascicle to where it leaves the brainstem. Schematic, after Brazis and Afifi."};
+
+const CNX = [
+ {id:"cnx-3", name:"Oculomotor nerve (III)", kind:"Exits the interpeduncular fossa",
+  routes:[["n3", "rn", "sn", "ex3", "pcaSca", "cav3", "orbit3"]], dash:[["n3", [384,160], [392,150]]],
+  steps:[S("n3", "Oculomotor complex", "Midbrain at the superior colliculus level, dorsal to the MLF, ventral to the periaqueductal grey. Subnuclei: inferior rectus, inferior oblique and medial rectus supply the same eye; the superior rectus subnucleus supplies the opposite eye (its fibers cross through the other nucleus, dashed); one central caudal nucleus supplies both levators. Edinger–Westphal (pupil, accommodation) lies dorsal and rostral"),
+    S("rn", "Fascicle through the red nucleus", "Fascicles sweep ventrally through the tegmentum, through or beside the red nucleus. Order from lateral to medial: inferior oblique, superior rectus, medial rectus and levator, inferior rectus, pupil"),
+    S("sn", "Medial substantia nigra and crus", "Then pass the medial substantia nigra and the medial edge of the cerebral peduncle"),
+    S("ex3", "Exit: interpeduncular fossa", "Leaves the medial side of the cerebral peduncle into the interpeduncular fossa"),
+    S("pcaSca", "Between PCA and SCA", "Passes between the posterior cerebral artery (above) and superior cerebellar artery (below), beside the posterior communicating artery; pupil fibers lie superficially (dorsomedial)"),
+    S("cav3", "Cavernous sinus", "Lateral wall of the cavernous sinus, then divides into superior and inferior divisions"),
+    S("orbit3", "Orbit", "Superior orbital fissure; superior division to levator and superior rectus, inferior division to medial and inferior recti, inferior oblique and (via the ciliary ganglion) the pupil")],
+  cross:"Only the superior rectus fibers cross (to the opposite superior rectus); the levator nucleus serves both sides",
+  carries:"Elevation, depression, adduction, lid elevation, pupil constriction and accommodation",
+  lesion:"Nucleus: same-side III palsy with opposite superior rectus weakness and bilateral ptosis. Fascicle: isolated or partial III palsy; with the crus (Weber: opposite hemiparesis), red nucleus and superior cerebellar peduncle (Claude: opposite ataxia and tremor), red nucleus and substantia nigra (Benedikt: opposite chorea or tremor). Subarachnoid compression (PComA aneurysm, uncal herniation) involves the pupil early; ischaemic (diabetic) palsy usually spares it."},
+ {id:"cnx-4", name:"Trochlear nerve (IV)", kind:"Crosses, exits dorsally",
+  routes:[["n4", "aqueduct", "vel", "ex4L", "around4", "cav4", "orbit4"]],
+  steps:[S("n4", "Trochlear nucleus", "Caudal midbrain at the inferior colliculus level, ventrolateral to the aqueduct and dorsal to the MLF"),
+    S("aqueduct", "Around the aqueduct", "Fascicles curve dorsally and caudally around the periaqueductal grey (drawn through the stem: the course is behind this surface)"),
+    S("vel", "Decussation", "Cross in the anterior (superior) medullary velum, the roof of the upper fourth ventricle"),
+    S("ex4L", "Exit: dorsal, opposite side", "Leave the dorsal surface just below the inferior colliculus on the opposite side: the only nerve that crosses and the only one that exits dorsally"),
+    S("around4", "Around the crus", "Long, thin cisternal course around the lateral midbrain under the tentorial edge"),
+    S("cav4", "Cavernous sinus", "Lateral wall, below III and above V1"),
+    S("orbit4", "Superior oblique", "Superior orbital fissure to the superior oblique of the eye opposite the nucleus")],
+  cross:"Completely, in the anterior medullary velum",
+  carries:"Intorsion and depression of the adducted eye",
+  lesion:"Nucleus or fascicle before the crossing: opposite superior oblique palsy (often with same-side Horner from the nearby sympathetic fibers, or an opposite RAPD from the brachium). Nerve after the crossing: same-side superior oblique palsy. Its long thin course makes it vulnerable to head trauma; both nerves can be damaged together at the velum."},
+ {id:"cnx-5", name:"Trigeminal nerve (V)", kind:"Lateral mid pons",
+  routes:[["face5", "gangV", "ex5s", "n5main"], ["ex5s", "n5sp", "n5spMed", "n5spC2"], ["n5mot", "ex5m", "gangV", "v3"]], dash:[["n5mes", "n5main"]],
+  steps:[S("face5", "Face, mouth, cornea", "Three divisions: ophthalmic, maxillary, mandibular"), S("gangV", "Gasserian ganglion", "In Meckel’s cave at the petrous apex"),
+    S("ex5s", "Entry: lateral mid pons", "Large sensory root (portio major) enters where the pons meets the middle cerebellar peduncle"),
+    S("n5main", "Main sensory nucleus", "Touch: to both thalami (crossed ventral and uncrossed dorsal trigeminothalamic tracts) to VPM"),
+    S("n5sp", "Spinal tract and nucleus", "Pain and temperature fibers descend in the spinal tract to C2–C4 (ophthalmic fibers lowest and most ventral); onion-skin map, perioral area rostral; second-order fibers cross to the ventral trigeminothalamic tract (some sources describe a mainly uncrossed projection)"),
+    S("n5mes", "Mesencephalic nucleus", "Proprioception from the jaw muscles; extends up to the superior colliculus (dashed)"),
+    S("n5mot", "Motor nucleus", "Mid pons, medial to the main sensory nucleus; bilateral cortical input"),
+    S("ex5m", "Exit: motor root", "Small motor root (portio minor) leaves anterior and medial to the sensory root, runs under the ganglion and out through the foramen ovale with V3"),
+    S("v3", "Muscles of mastication", "Masseter, temporalis, pterygoids; also tensor tympani, tensor veli palatini, mylohyoid, anterior digastric")],
+  cross:"Sensory projections from the spinal nucleus cross; main sensory nucleus projects to both sides; motor nucleus gets cortical input from both hemispheres",
+  carries:"Facial sensation, corneal reflex (afferent), chewing",
+  lesion:"Lateral medulla: same-side facial pain and temperature loss (spinal tract) with opposite body loss. Mid pons: all modalities and jaw weakness. Nerve: all modalities of one division or the whole side; jaw deviates toward the weak side on opening. Cervical cord lesions to C2–C4 can numb the face in an onion-skin pattern."},
+ {id:"cnx-6", name:"Abducens nerve (VI)", kind:"Pontomedullary sulcus",
+  routes:[["n6", "mlP", "ex6", "clivus6", "dorello", "orbit6"]], dash:[["n6", [380,370], [390,360], [392,300], [390,200], [386,148]]],
+  steps:[S("n6", "Abducens nucleus", "Floor of the fourth ventricle in the caudal pons, under the facial colliculus; motor neurons plus internuclear neurons whose axons cross into the opposite MLF to the medial rectus subnucleus (dashed)"),
+    S("mlP", "Fascicle", "Runs ventrally through the tegmentum beside the medial lemniscus and through the basis pontis near the corticospinal bundles"),
+    S("ex6", "Exit: pontomedullary sulcus", "Leaves the pontomedullary sulcus just lateral to the pyramid"),
+    S("clivus6", "Up the clivus", "Long ascent in the prepontine cistern along the clivus: stretched by raised intracranial pressure (false-localizing sign)"),
+    S("dorello", "Dorello canal, cavernous sinus", "Under the petroclinoid (Gruber) ligament, then inside the cavernous sinus beside the carotid"),
+    S("orbit6", "Lateral rectus", "Superior orbital fissure to the lateral rectus")],
+  cross:"The nerve does not cross; internuclear fibers cross to the opposite MLF",
+  carries:"Abduction; with the internuclear neurons, conjugate horizontal gaze",
+  lesion:"Nucleus: same-side horizontal gaze palsy (not just abduction), usually with facial palsy because the facial genu wraps the nucleus. Fascicle: same-side lateral rectus palsy; with the corticospinal tract (Raymond: opposite hemiparesis), and the facial fascicle (Millard–Gubler). Nerve: raised ICP, Gradenigo (petrous apex), cavernous sinus."},
+ {id:"cnx-7", name:"Facial nerve (VII)", kind:"Cerebellopontine angle",
+  routes:[["n7", "n7up", "n7genu", "n7down", "ex7", "iam", "stylo", "face7"]], dash:[["nSSN", "ex7"], ["nNTS", [330,430], "ex7"]],
+  steps:[S("n7", "Facial motor nucleus", "Ventrolateral tegmentum of the caudal pons, dorsal to the superior olive and medial to the spinal trigeminal nucleus"),
+    S("n7up", "Ascending root", "Axons run dorsomedially and rostrally toward the floor of the fourth ventricle"),
+    S("n7genu", "Internal genu", "Loop over the abducens nucleus, raising the facial colliculus"),
+    S("n7down", "Descending root", "Then run ventrolaterally and caudally through the pons"),
+    S("ex7", "Exit: cerebellopontine angle", "Leave the lateral pontomedullary junction; the nervus intermedius (taste, secretomotor from the superior salivatory nucleus, dashed) lies lateral, VIII most lateral"),
+    S("iam", "Internal auditory meatus", "Facial canal: labyrinthine segment, geniculate ganglion (greater petrosal nerve to the lacrimal gland), tympanic and mastoid segments (nerve to stapedius, chorda tympani)"),
+    S("stylo", "Stylomastoid foramen", "Into the parotid; temporofacial and cervicofacial divisions"),
+    S("face7", "Muscles of facial expression", "Plus stapedius, stylohyoid and posterior digastric")],
+  cross:"The nerve does not cross; cortical input to the lower-face neurons is mainly crossed",
+  carries:"Facial expression, eye closure, stapedius reflex, taste from the front two-thirds of the tongue, tears and saliva",
+  lesion:"Nucleus or fascicle: whole same-side face (lower motor neuron), with VI nucleus or PPRF (Foville) or the corticospinal tract (Millard–Gubler). Proximal to the geniculate ganglion: plus taste, hyperacusis, dry eye. At the stylomastoid foramen: face only. Supranuclear: opposite lower face only."},
+ {id:"cnx-8", name:"Vestibulocochlear nerve (VIII)", kind:"Enters at the pontomedullary junction",
+  routes:[["ear8", "iam8", "ex8", "nCoch"], ["ex8", "nVest"]],
+  steps:[S("ear8", "Cochlea and labyrinth", "Spiral ganglion (hearing); Scarpa ganglion (semicircular canals, utricle, saccule)"), S("iam8", "Internal auditory meatus", "With VII and the nervus intermedius"),
+    S("ex8", "Entry: lateral pontomedullary junction", "Enters most laterally at the cerebellopontine angle"),
+    S("nCoch", "Cochlear nuclei", "Dorsal and ventral cochlear nuclei on the inferior cerebellar peduncle; then mostly crossed through the trapezoid body"),
+    S("nVest", "Vestibular nuclei", "Superior, lateral, medial and inferior vestibular nuclei in the floor of the fourth ventricle")],
+  cross:"Cochlear projections cross mainly in the trapezoid body; hearing is represented on both sides above the cochlear nuclei",
+  carries:"Hearing, balance, head-movement signals for the VOR",
+  lesion:"Cerebellopontine angle (vestibular schwannoma): unilateral sensorineural hearing loss and tinnitus, then V (corneal reflex lost early), VII, cerebellar signs. AICA infarction: sudden deafness with vertigo."},
+ {id:"cnx-9", name:"Glossopharyngeal nerve (IX)", kind:"Postolivary sulcus",
+  routes:[["nAmbR", "ex9", "jug", "ph9"], ["nISN", "ex9"]], dash:[["ex9", "nNTS"]],
+  steps:[S("nAmbR", "Rostral nucleus ambiguus", "Motor to stylopharyngeus"), S("nISN", "Inferior salivatory nucleus", "Secretomotor: tympanic nerve, lesser petrosal nerve, otic ganglion, parotid"),
+    S("nNTS", "Solitary nucleus", "Taste from the back third of the tongue, carotid sinus and body (dashed, afferent)"),
+    S("ex9", "Exit: postolivary sulcus", "Leaves the posterolateral (retro-olivary) sulcus dorsal to the olive, the uppermost of the IX–X–XI rootlets"),
+    S("jug", "Jugular foramen", "With X and XI"), S("ph9", "Pharynx, tongue, carotid sinus", "Sensation of the pharynx and back of the tongue; afferent limb of the gag reflex")],
+  cross:"No", carries:"Pharyngeal sensation, taste (posterior third), parotid secretion, carotid baroreceptor and chemoreceptor input",
+  lesion:"Rarely isolated: reduced gag on one side, loss of taste and sensation of the posterior tongue. With X and XI at the jugular foramen: Vernet syndrome."},
+ {id:"cnx-10", name:"Vagus nerve (X)", kind:"Postolivary sulcus",
+  routes:[["nAmbM", [326,450], "ex10", "jug", "larynx10"], ["nDMNX", [344,458], "ex10"]],
+  steps:[S("nAmbM", "Nucleus ambiguus", "Middle part: palate, pharynx, larynx. Axons first run dorsomedially, then turn ventrolaterally"),
+    S("nDMNX", "Dorsal motor nucleus of X", "Parasympathetic, dorsolateral to the hypoglossal nucleus: heart, lungs, gut"),
+    S("ex10", "Exit: postolivary sulcus", "Rootlets leave between the olive and the inferior cerebellar peduncle, below IX"),
+    S("jug", "Jugular foramen", "Superior (jugular) and inferior (nodose) ganglia"),
+    S("larynx10", "Palate, pharynx, larynx, viscera", "Pharyngeal, superior laryngeal and recurrent laryngeal branches; thoracic and abdominal viscera")],
+  cross:"No; the nucleus ambiguus receives both hemispheres", carries:"Swallowing, phonation, palatal elevation, parasympathetic output to thoracic and abdominal organs",
+  lesion:"Nucleus ambiguus (lateral medulla, PICA/vertebral): dysphagia, hoarseness, palate droops on the same side with the uvula pulled away. Recurrent laryngeal nerve: hoarseness only. Unilateral supranuclear lesions cause little weakness."},
+ {id:"cnx-11", name:"Accessory nerve (XI)", kind:"Lateral cord, then jugular foramen",
+  routes:[["nAccC5", "nAccC1"], ["nAccC1", "exC1"], ["nAccC5", "exC5", "up11", "fm11", "jug", "scm11"]], dash:[["nAmbC", "ex11c", "jug"]],
+  steps:[S("nAccC5", "Accessory nucleus", "Dorsolateral ventral horn of C1–C5 (to C6): C1–C2 mainly sternocleidomastoid, C3–C4 trapezius"),
+    S("exC5", "Exit: lateral cord", "Rootlets leave the lateral cord between the dentate ligament and the dorsal roots (not with the ventral roots)"),
+    S("up11", "Ascends", "Join into a trunk that ascends beside the cord"), S("fm11", "Foramen magnum", "Enters the skull through the foramen magnum"),
+    S("nAmbC", "Cranial root", "From the caudal nucleus ambiguus; leaves the postolivary sulcus below X and joins the vagus to the larynx (dashed)"),
+    S("jug", "Jugular foramen", "Leaves the skull through the jugular foramen"), S("scm11", "SCM and trapezius", "Sternocleidomastoid, then across the posterior triangle to the upper trapezius")],
+  cross:"Nerve does not cross. Supranuclear: trapezius from the opposite hemisphere; sternocleidomastoid mainly from the same-side hemisphere, by a route that is not settled (a double decussation is one hypothesis)",
+  carries:"Head turning (SCM turns the head to the opposite side), shoulder elevation",
+  lesion:"Hemisphere stroke: weak shrug on the side of the hemiparesis and weak head turning toward the hemiparesis. Nerve (posterior triangle surgery): same-side shoulder drop and winging with intact SCM if injured below its SCM branch. Jugular foramen: with IX and X (Vernet)."},
+ {id:"cnx-12", name:"Hypoglossal nerve (XII)", kind:"Preolivary sulcus",
+  routes:[["n12", "ml", "ex12a"], ["n12", "ex12b"], ["n12", "ex12c"], ["ex12b", "hgc", "tongue12"]],
+  steps:[S("n12", "Hypoglossal nucleus", "Paramedian floor of the fourth ventricle (hypoglossal trigone), lower medulla; mainly crossed cortical input to the genioglossus neurons"),
+    S("ml", "Fascicles", "Rootlets run ventrally through the reticular formation, lateral to the MLF, medial lemniscus and pyramid, through the medial edge of the olive"),
+    S("ex12b", "Exit: preolivary sulcus", "Leave as 10–12 rootlets in the preolivary (anterolateral) sulcus between the pyramid and the olive, medial to IX–XI"),
+    S("hgc", "Hypoglossal canal", "Two bundles through the hypoglossal canal"), S("tongue12", "Tongue", "All intrinsic and extrinsic tongue muscles except palatoglossus")],
+  cross:"The nerve does not cross; cortical input mainly crossed",
+  carries:"Tongue movement",
+  lesion:"Fascicle with the pyramid and medial lemniscus (medial medullary, Dejerine): tongue deviates toward the lesion with wasting, opposite hemiparesis sparing the face, opposite loss of vibration and position. Supranuclear: tongue deviates toward the weak limbs, no wasting."}
+];
+VIEWS.stem.lab = VIEWS.stem.lab.map(l => { if (l[0].startsWith("Middle cerebellar")) return [l[0], 600, 560, "middle", l[4]]; const q = STX([l[1], l[2]]); return [l[0], l[0].startsWith("Dashed") ? 20 : Math.min(q[0], 700), l[0].startsWith("Dashed") ? 1326 : q[1], l[3], l[4]]; });
+const fixR = r => r.map(a => Array.isArray(a) ? STX(a) : a);
+CNX.forEach(o => { o.routes = (o.routes || []).map(fixR); o.dash = (o.dash || []).map(fixR); add("cnx", "stem", o); });
+CATS.splice(CATS.findIndex(c => c[0] === "cn") + 1, 0, ["cnx", "Cranial nerve exits", "Each cranial nerve from its nucleus through its fascicle to where it leaves the brainstem"]);
+const cn11 = T.find(t => t.id === "cn-xi");
+if (cn11) Object.assign(cn11, {
+  steps:[S("ctxArm_R", "Motor cortex", "Trapezius area of the precentral gyrus; the SCM is represented higher, between trunk and arm"), S("pyrDec", "Trapezius fibers cross", "Supranuclear fibers to the trapezius are crossed and run ventrally"),
+    S("xiX", "SCM: same side, route uncertain", "The SCM is supplied mainly by the same-side hemisphere; how is unsettled (a double decussation is one hypothesis, drawn here). These fibers run in the tegmentum"),
+    S("xiN_R", "Accessory nucleus", "C1–C5 ventral horn"), S("scm_R", "Same-side SCM", "Turns the head toward the opposite side, i.e., toward the opposite hemiparetic limbs"), S("trap_L", "Opposite trapezius", "Shoulder shrug on the hemiparetic side")],
+  cross:"Trapezius: crossed. SCM: mainly ipsilateral, mechanism uncertain"});
+const cnVii = T.find(t => t.id === "cn-vii");
+if (cnVii) cnVii.lesion += " An alternative view (Brazis, Afifi) is that upper-face neurons receive little direct cortical input at all, so they are spared by any single hemisphere lesion. Emotional (mimetic) movement uses a separate pathway that does not run in the internal capsule, so a smile may be symmetric despite voluntary weakness.";
+const cbt = T.find(t => t.id === "cbt");
+if (cbt) { cbt.steps.splice(3, 0, S(null, "Corticoreticulobulbar relay", "Some fibers end directly on the V, VII and XII nuclei; most reach the cranial nerve nuclei through the reticular formation (corticoreticulobulbar tract)")); }
+const cst = T.find(t => t.id === "cst");
+if (cst) { cst.cross = "Pyramidal decussation, lower medulla: 75–90% cross to form the lateral corticospinal tract; about 8% descend uncrossed as the anterior tract (Türck bundle) and cross segmentally in the cord; about 2% stay ipsilateral (tract of Barnes)"; cst.steps[6].t = "75–90% cross at the pyramidal decussation"; cst.steps[0].t = "Areas 4 and 6 (primary motor, premotor, SMA) and parietal cortex; leg medially, arm and face laterally"; }
+const ret = T.find(t => t.id === "retic");
+if (ret) { ret.steps = [S("pRF_R", "Pontine reticular formation", "Nuclei reticularis pontis oralis and caudalis: pontine (medial) reticulospinal tract, mainly ipsilateral, in the anterior funiculus; facilitates extensors"), S("rstT6_R", "Anterior funiculus", "Descends the whole cord"), S("mRF_R", "Medullary reticular formation", "Nucleus gigantocellularis: medullary (lateral) reticulospinal tract, mainly ipsilateral, in the lateral funiculus; facilitates flexors and inhibits extensors (dashed)"), S("leg_R", "Axial and proximal muscles", "Posture, locomotion, anticipatory postural control")]; ret.cross = "Both mainly ipsilateral (small crossed component)"; ret.dash = [["mRF_R", "lrstC6_R", "lrstL4_R"]]; }
+const trg = T.find(t => t.id === "trig");
+if (trg) { trg.steps[2].t = "Pain and temperature fibers descend in the spinal tract to C2–C4 (ophthalmic lowest); onion-skin map, perioral area rostral"; trg.steps[3].t = "Second neurons cross and ascend as the ventral trigeminothalamic tract (sources differ on how much stays uncrossed)"; trg.steps[4].t = "Touch fibers end in the main sensory nucleus in the pons, which projects to both thalami (crossed ventral and uncrossed dorsal trigeminothalamic tracts)"; trg.cross = "Spinal nucleus projections cross in the medulla; the main sensory nucleus projects to both sides"; }
+const vst = T.find(t => t.id === "vest");
+if (vst) { vst.steps[3].t = "Medial tract from the medial vestibular nucleus in both MLFs, to the cervical cord only (dashed)"; }
+const pon = T.find(t => t.id === "cb-pontine");
+if (pon) pon.carries += ". The largest corticofugal system (about 19 million fibers against about 1 million in the pyramidal tract); about 10% of the hemisphere projection and 30% of the vermis projection stay uncrossed";
+/* eye-movement corrections (Brazis ch 8, p 231–237, 248) */
+const vg = T.find(t => t.id === "vgaze");
+if (vg) { vg.steps = [S("rimlf_R", "riMLF", "Rostral interstitial nucleus of the MLF, in the prerubral field at the diencephalon–midbrain junction: burst neurons for vertical and torsional saccades. Fibers for the elevators go to both sides, crossing within the oculomotor nucleus; fibers for the depressors stay on the same side"),
+  S("inc_R", "Interstitial nucleus of Cajal", "Vertical neural integrator: holds vertical gaze; its fibers to the opposite side cross in the posterior commissure"),
+  S("pc", "Posterior commissure", "Carries the crossing INC and pretectal fibers for upgaze"),
+  S("iii_R", "III and IV nuclei", "Superior and inferior recti, obliques"), S("eye_L", "Both eyes", "Vertical gaze is always bilateral")];
+  vg.cross = "Upgaze fibers from the riMLF cross within the oculomotor nucleus; INC fibers cross in the posterior commissure; downgaze fibers stay ipsilateral";
+  vg.lesion = "Posterior commissure and pretectum (pineal tumours, hydrocephalus, dorsal midbrain stroke): upgaze palsy, light-near dissociation, convergence-retraction nystagmus, lid retraction (Parinaud). One riMLF: slow downward saccades, torsional nystagmus. Both riMLF: downgaze or combined vertical palsy (artery of Percheron infarct, PSP). INC: vertical gaze-holding failure, ocular tilt reaction."; }
+const hg = T.find(t => t.id === "hgaze");
+if (hg) { hg.steps[0].t = "Frontal eye field (area 8): voluntary saccades to the opposite side; also via the superior colliculus, so a frontal eye field lesion alone causes only transient gaze deviation"; hg.steps[1].t = "Descends with the frontopontine fibers and crosses above the PPRF (midbrain–pons)"; }
+/* aphasia table refinements (Adams ch 22 p 510–514) */
+(() => {
+  const row = n => APHASIA.find(r => r[0] === n);
+  const c = row("Conduction"); if (c) { c[2] = "Relatively preserved (better than Wernicke)"; c[5] = "Left supramarginal gyrus and upper bank of the Sylvian fissure with the underlying arcuate fasciculus; sometimes posterior superior temporal"; }
+  const s = row("Transcortical sensory"); if (s) s[5] = "Left posterior parieto-occipital and temporo-occipital region (MCA–PCA border zone), posterior MTG";
+  const m = row("Transcortical motor"); if (m) { m[2] = "Relatively preserved"; m[5] = "Left SMA, frontal aslant tract, prefrontal cortex; ACA–MCA border zone; also a partly recovered Broca aphasia and frontal abulia"; }
+  APHASIA.splice(1, 0, ["Aphemia (pure word mutism)", "Mute or effortful, then grammatically normal speech", "Preserved", "Preserved once speech returns", "Preserved", "Small lesion of the left inferior frontal gyrus or lower motor cortex; writing intact; usually transient", "lang-rep"]);
+})();
+/* praxis refinements (Adams ch 3 p 75–76) */
+(() => {
+  const im = T.find(t => t.id === "px-ideomotor");
+  if (im) { im.steps[0].t = "Language-dominant parietal lobe: supramarginal gyrus and superior parietal lobule (areas 5 and 7) hold the space–time plan of learned movements"; im.lesion = "Ideomotor apraxia: knows what to do but cannot carry it out (‘how to do it’): wrong orientation, timing, body part used as the tool; worst on pantomime, better with the real object. Left supramarginal or superior parietal lobe, or the white matter linking it to the left frontal lobe (right limbs); anterior corpus callosum: left hand only (callosal apraxia). Left MCA stroke, corticobasal syndrome."; }
+  const id = T.find(t => t.id === "px-ideational");
+  if (id) id.lesion = "Ideational apraxia (‘what to do’): cannot conceive or sequence an action (making tea, folding a letter into an envelope); networks of the dominant parietal lobe (areas 5, 7) with the premotor cortex and SMA of both hemispheres. Conceptual apraxia: tools misused (brushing teeth with a comb). Also diffuse disease (Alzheimer disease, delirium).";
+  SIGNS.splice(3, 0,
+    ["Oral-buccal-lingual apraxia", "Cannot lick the lips or blow out a pretend match on command; better with imitation or a real match", "Left inferior frontal cortex, deep frontal white matter, insula, basal ganglia (the commonest apraxia)", "px-ideomotor"],
+    ["Limb-kinetic apraxia", "Clumsy, poorly fractionated finger movements beyond any weakness", "Opposite premotor and motor cortex (corticobasal syndrome)", "px-ideomotor"],
+    ["Sympathetic apraxia", "Left-hand apraxia with a right hemiparesis", "Left frontal lesion cutting callosal fibers to the right hemisphere", "px-ideomotor"],
+    ["Alien hand", "A hand acts on its own: grasps, undoes what the other hand did", "Medial frontal and corpus callosum (ACA) or right parietal lobe", "cc"]);
+})();
+(() => { const b = T.find(t => t.id === "bladder"); if (b) { b.steps.splice(5, 0, S(null, "Sympathetic storage limb", "T11–L2 via the hypogastric nerves: relaxes the detrusor and contracts the internal sphincter during filling; the pudendal nerve (S2–S4, Onuf nucleus) contracts the external sphincter")); b.steps[2].t = "Pontine micturition centre (Barrington nucleus) in the dorsomedial pontine tegmentum: switches from storage to voiding, relaxing the sphincter as the detrusor contracts"; } })();
+
 const TBY = Object.fromEntries(T.map(t => [t.id, t]));
 const CBY = Object.fromEntries(CATS.map(c => [c[0], c]));
 const COLORS = ["var(--p1)", "var(--p2)", "var(--p3)", "var(--p4)", "var(--p5)", "var(--p6)"];
-const colorOf = t => t.cat === "cerebellar" ? COLORS[(t.n - 1) % 6] : COLORS[T.filter(x => x.cat === t.cat).indexOf(t) % 6];
+const colorOf = t => t.col ? t.col : t.cat === "cerebellar" ? COLORS[(t.n - 1) % 6] : COLORS[T.filter(x => x.cat === t.cat).indexOf(t) % 6];
 
 /* ================= Drawing ================= */
 function smooth(P) {
@@ -1036,27 +1345,32 @@ function smooth(P) {
 }
 let vuid = 0;
 function tractSVG(t, V, uid, o) {
-  const pts = r => r.map(a => { const p = V.A[a]; if (!p) console.warn("missing anchor", t.id, a); return p; }).filter(Boolean);
+  const pts = r => r.map(a => { const p = Array.isArray(a) ? a : V.A[a]; if (!p) console.warn("missing anchor", t.id, a); return p; }).filter(Boolean);
   const col = colorOf(t), mk = `mk-${uid}-${t.id}`;
   const quiet = !o.flow || RM;
   const seg = (r, dashed) => { const d = smooth(pts(r)); return `<path class="base${dashed ? " dsh" : ""}" d="${d}" marker-end="url(#${mk})"/>${dashed ? "" : `<path class="flow" d="${d}"/>`}`; };
   return `<marker id="${mk}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" style="fill:${col}"/></marker>
-<g class="pw${o.dim ? " dim" : ""}${quiet ? " quiet" : ""}" data-t="${t.id}" style="--c:${col}"><title>${esc(t.name)}</title>${(t.routes || []).map(r => seg(r)).join("")}${(t.dash || []).map(r => seg(r, true)).join("")}</g>`;
+<g class="pw${o.dim ? " dim" : ""}${quiet ? " quiet" : ""}" data-t="${t.id}" style="--c:${col}"><title>${esc(t.name)}</title>${(t.routes || []).map(r => seg(r)).join("")}${o.nodash ? "" : (t.dash || []).map(r => seg(r, true)).join("")}</g>`;
 }
 function badges(t, V, hi, boxes = []) {
   const used = new Set(); let out = "", n = 0;
   (t.x || []).forEach(a => { const p = V.A[a]; if (p) out += `<g class="xmark"><circle cx="${p[0]}" cy="${p[1]}" r="11"/><path d="M${p[0] - 4},${p[1] - 4} L${p[0] + 4},${p[1] + 4} M${p[0] + 4},${p[1] - 4} L${p[0] - 4},${p[1] + 4}"/></g>`; });
+  t.steps.forEach(s => { const p = s.a && V.A[s.a]; if (p) boxes.push([p[0] - 10, p[1] - 10, p[0] + 10, p[1] + 10]); });   // reserve every badge first
   t.steps.forEach(s => {
     n++;
     const p = s.a && V.A[s.a]; if (!p) return;
     const k = s.a; if (used.has(k)) return; used.add(k);
-    const right = p[0] >= V.w / 2 - 2, lx = right ? p[0] + 13 : p[0] - 13;
-    let ly = null;
+    const w = s.l ? s.l.length * 6.4 + 4 : 0;
+    let right = p[0] >= V.w / 2 - 2;
+    if (!right && p[0] - 15 - w < 4) right = true;          // not enough room on the left: label to the right
+    else if (right && p[0] + 15 + w > V.w - 4) right = false;
+    let lx = right ? p[0] + 15 : p[0] - 15, ly = null;
     if (s.l) {
-      const w = s.l.length * 6.4 + 4;
-      for (const dy of [0, 13, -13, 26, -26]) {
-        const y = p[1] + 4 + dy, b = right ? [lx, y - 10, lx + w, y + 3] : [lx - w, y - 10, lx, y + 3];
-        if (!boxes.some(c => b[0] < c[2] && c[0] < b[2] && b[1] < c[3] && c[1] < b[3])) { boxes.push(b); ly = y; break; }
+      const tries = [[right, 0], [right, 13], [right, -13], [!right, 0], [right, 26], [right, -26], [!right, 13], [!right, -13]];
+      for (const [rt, dy] of tries) {
+        const x0 = rt ? p[0] + 15 : p[0] - 15, y = p[1] + 4 + dy, b = rt ? [x0, y - 10, x0 + w, y + 3] : [x0 - w, y - 10, x0, y + 3];
+        if (b[0] < 2 || b[2] > V.w - 2) continue;
+        if (!boxes.some(c => b[0] < c[2] && c[0] < b[2] && b[1] < c[3] && c[1] < b[3])) { boxes.push(b); ly = y; right = rt; lx = x0; break; }
       }
     }
     out += `<g class="stepb${hi === n ? " on" : ""}" data-n="${n}"><circle cx="${p[0]}" cy="${p[1]}" r="9"/><text x="${p[0]}" y="${p[1] + 3.6}">${n}</text>${ly != null ? `<text class="stepl" x="${lx}" y="${ly}" text-anchor="${right ? "start" : "end"}">${esc(s.l)}</text>` : ""}</g>`;
@@ -1071,9 +1385,9 @@ function viewSVG(viewId, list, active, o = {}) {
     const w = t[0].length * 6.2, x0 = t[3] === "middle" ? t[1] - w / 2 : t[3] === "end" ? t[1] - w : t[1], b = [x0, t[2] - 10, x0 + w, t[2] + 3];
     return !sb.some(c => b[0] < c[2] && c[0] < b[2] && b[1] < c[3] && c[1] < b[3]);
   }).map(t => `<text class="lbl ${t[4] || ""}" x="${t[1]}" y="${t[2]}" text-anchor="${t[3]}">${esc(t[0])}</text>`).join("");
-  const draw = [...others.map(t => tractSVG(t, V, uid, {dim:!o.all, flow:o.all})), active ? tractSVG(active, V, uid, {flow:true}) : ""].join("");
+  const draw = [...(viewId === "fsc" && !o.all ? [] : others).map(t => tractSVG(t, V, uid, {dim:!o.all, flow:o.all, nodash:o.all && viewId === "fsc"})), active ? tractSVG(active, V, uid, {flow:true}) : ""].join("");
   const rl = !V.norl ? `<circle class="rlc" cx="34" cy="26" r="10"/><text class="rl" x="34" y="30">R</text><circle class="rlc" cx="${V.w - 34}" cy="26" r="10"/><text class="rl" x="${V.w - 34}" y="30">L</text>` : "";
-  return `<svg viewBox="0 0 ${V.w} ${V.h}" role="img" aria-label="${esc((active ? active.name + ": " : "") + viewId + " view")}"><g class="base-draw">${V.base()}</g>${lab}${draw}${marks}${rl}</svg>`;
+  return `<svg viewBox="0 0 ${V.w} ${V.h}" role="img" aria-label="${esc((active ? active.name + ": " : "") + viewId + " view")}"><g class="base-draw">${V.base(active ? active.id : null, !!o.all)}</g>${lab}${draw}${marks}${rl}</svg>`;
 }
 
 /* ================= Interface ================= */

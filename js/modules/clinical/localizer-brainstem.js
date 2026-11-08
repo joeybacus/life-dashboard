@@ -368,8 +368,8 @@ S.push(v({
   ],
   terr:medTerr("Posterior group: PICA (posterior medullary branches): inferior cerebellar peduncle, vestibular nuclei, solitary nucleus, dorsal vagal nucleus"),
   syn:[
-    {n:"Lateral medullary (Wallenberg) syndrome", need:[["spv"],["amb","stt","symp","vni","vnm","icp","ixr"]], t:"Vertigo, same-side facial pain and temperature loss, Horner, dysphagia, hoarseness and ataxia, with opposite body pain and temperature loss. Intracranial vertebral artery more often than PICA."},
-    {n:"Medial medullary (Dejerine) syndrome", need:[["pyr"],["ml","xiif","xiin"]], t:"Same-side tongue weakness with opposite hemiparesis (face spared) and opposite loss of vibration and position sense. Anterior spinal or paramedian vertebral branches."},
+    {n:"Lateral medullary (Wallenberg) syndrome", need:[["spv"],["amb","stt","symp","vni","vnm","icp","ixr"]], t:"Vertigo, nausea, same-side facial pain and temperature loss (often facial pain), Horner, dysphagia, hoarseness and limb ataxia, with opposite body pain and temperature loss; skew deviation with same-side hypotropia, ocular and body lateropulsion toward the lesion, hiccups. Rostral lesions give more dysphagia, hoarseness and facial weakness. Horner, ipsilateral ataxia and contralateral hypalgesia together identify it. Intracranial vertebral artery (often dissection) more often than PICA."},
+    {n:"Medial medullary (Dejerine) syndrome", need:[["pyr"],["ml","xiif","xiin"]], t:"Same-side tongue weakness with opposite hemiparesis (face usually spared) and opposite loss of vibration and position sense. The hypoglossal fibers run lateral to the lemniscus and pyramid, so the tongue may be spared (pure motor hemiparesis); a central facial palsy can occur because some corticofacial fibers loop down into the medulla. Anterior spinal or paramedian vertebral branches."},
     {n:"Hemimedullary (Babinski–Nageotte) syndrome", need:[["pyr"],["spv","amb","icp"]], t:"Lateral medullary syndrome plus opposite hemiparesis; intracranial vertebral artery."},
     {n:"Avellis syndrome", need:[["amb","ixr"],["stt"]], not:["spv"], t:"Same-side palate and vocal cord paralysis with opposite pain and temperature loss."},
     {n:"Jackson syndrome", need:[["xiin","xiif"],["amb"],["pyr"]], t:"Same-side tongue, palate and vocal cord paralysis with opposite hemiparesis."},
@@ -418,7 +418,7 @@ S.push(v({
   ],
   syn:[
     {n:"Medial medullary (Dejerine) syndrome", need:[["pyr"],["ml","xiif","xiin"]], t:"Same-side tongue weakness with opposite hemiparesis sparing the face and opposite proprioceptive loss. Anterior spinal artery."},
-    {n:"Lateral medullary syndrome (caudal)", need:[["spv"],["amb","stt","symp"]], t:"Caudal Wallenberg pattern; usually less vertigo, more sensory and swallowing signs. Vertebral artery."},
+    {n:"Lateral medullary syndrome (caudal)", need:[["spv"],["amb","stt","symp"]], t:"Caudal Wallenberg pattern: more vertigo, nystagmus and gait ataxia, less dysphagia and hoarseness than rostral lesions (Brazis); dissection is commoner with caudal lesions. Vertebral artery."},
     {n:"Area postrema syndrome", need:[["ap"]], t:"Unexplained intractable hiccups, nausea and vomiting; classic onset of aquaporin-4 neuromyelitis optica spectrum disorder."},
     {n:"Posterior column nuclei syndrome", need:[["gr","cu"]], t:"Same-side loss of vibration and position sense with sensory ataxia; posterior spinal artery."}
   ],
