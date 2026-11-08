@@ -131,11 +131,11 @@ S.push({
 
 /* ---------------- Coronal · anterior ---------------- */
 S.push({
-  id:"cor-a", group:"Cerebrum", name:"Coronal · anterior (caudate head)", w:600, h:500, center:[196,250],
+  id:"cor-a", group:"Cerebrum", name:"Coronal · anterior (caudate head)", w:600, h:500, center:[192,272],
   view:"Coronal, through the caudate head, anterior limb and anterior commissure · top of the head up",
-  outline:"M300,40 C420,36 540,110 548,240 C556,350 520,420 470,450 C440,470 400,470 370,452 L330,420 L300,428 L270,420 L230,452 C200,470 160,470 130,450 C80,420 44,350 52,240 C60,110 180,36 300,40 Z",
-  hemi:"M298,42 C180,40 60,110 54,240 C46,350 80,420 130,450 C160,470 200,470 230,452 L270,420 L298,428 Z",
-  inner:"M290,80 C200,80 98,140 92,240 C86,330 110,390 150,414 C180,430 214,428 240,410 L270,390 L298,396 Z",
+  outline:"M60.8,206.8 L60.8,253.6 L71.6,278.8 L68.0,296.8 L64.4,300.4 L68.0,329.1 L71.6,332.7 L68.0,386.7 L75.2,397.5 L82.4,422.7 L123.8,467.6 L138.1,474.8 L163.3,474.8 L177.7,482.0 L199.3,482.0 L213.7,474.8 L229.9,455.0 L229.9,440.6 L247.8,393.9 L247.8,372.3 L260.4,359.7 L289.2,359.7 L300.0,352.5 L310.8,359.7 L339.6,359.7 L352.2,372.3 L352.2,393.9 L370.1,440.6 L370.1,455.0 L386.3,474.8 L400.7,482.0 L422.3,482.0 L436.7,474.8 L461.9,474.8 L476.2,467.6 L521.2,415.5 L524.8,397.5 L532.0,386.7 L528.4,332.7 L532.0,329.1 L535.6,300.4 L532.0,296.8 L528.4,278.8 L539.2,253.6 L539.2,206.8 L535.6,203.2 L535.6,188.9 L532.0,185.3 L528.4,160.1 L517.6,145.7 L499.6,109.7 L479.8,89.9 L465.5,82.7 L443.9,61.2 L429.5,54.0 L415.1,54.0 L407.9,50.4 L393.5,32.4 L379.1,25.2 L328.8,18.0 L325.2,21.6 L318.0,21.6 L300.0,36.0 L282.0,21.6 L256.8,18.0 L253.2,21.6 L220.9,25.2 L206.5,32.4 L192.1,50.4 L184.9,54.0 L170.5,54.0 L156.1,61.2 L100.4,109.7 L82.4,145.7 L71.6,160.1 L68.0,185.3 L64.4,188.9 L64.4,203.2 Z",
+  hemi:"M60.8,206.8 L60.8,253.6 L71.6,278.8 L68.0,296.8 L64.4,300.4 L68.0,329.1 L71.6,332.7 L68.0,386.7 L75.2,397.5 L82.4,422.7 L123.8,467.6 L138.1,474.8 L163.3,474.8 L177.7,482.0 L199.3,482.0 L213.7,474.8 L229.9,455.0 L229.9,440.6 L247.8,393.9 L247.8,372.3 L260.4,359.7 L289.2,359.7 L298.2,354.3 L298.2,34.2 L282.0,21.6 L274.8,21.6 L271.2,18.0 L235.3,21.6 L206.5,32.4 L197.5,45.0 L184.9,54.0 L170.5,54.0 L156.1,61.2 L134.5,82.7 L120.2,89.9 L93.2,120.5 L82.4,145.7 L71.6,160.1 L68.0,185.3 L64.4,188.9 L64.4,203.2 Z",
+  inner:"M71.6,210.4 L71.6,235.6 L84.2,248.2 L91.4,244.6 L100.4,253.6 L100.4,260.8 L113.0,273.4 L116.6,269.8 L122.0,278.8 L114.8,311.1 L122.0,332.7 L118.4,375.9 L125.6,393.9 L116.6,402.9 L109.4,395.7 L96.8,408.3 L109.4,420.9 L123.8,406.5 L174.1,438.8 L208.3,408.3 L208.3,401.1 L197.5,390.3 L197.5,372.3 L201.1,354.3 L210.1,341.7 L220.9,330.9 L246.0,338.1 L260.4,334.5 L271.2,330.9 L285.6,316.5 L298.2,314.7 L298.2,196.0 L283.8,185.3 L287.4,178.1 L283.8,163.7 L258.6,142.1 L280.2,120.5 L262.2,98.9 L265.8,73.8 L280.2,52.2 L267.6,39.6 L246.0,61.2 L242.4,57.6 L229.9,70.2 L229.9,80.9 L210.1,97.1 L197.5,77.3 L181.3,61.2 L174.1,61.2 L157.9,77.3 L165.1,95.3 L156.1,104.3 L145.3,93.5 L134.5,93.5 L100.4,127.7 L113.0,140.3 L123.8,140.3 L134.5,133.1 L141.7,133.1 L143.5,138.5 L120.2,176.3 L95.0,158.3 L78.8,174.5 L86.0,188.9 L75.2,199.6 Z",
   structs:[
     {id:"cr", n:"Corona radiata (anterior: frontal projection fibers, anterior thalamic radiation)", a:"CR", k:"wm", sh:["w",290,90], clip:"wm", fn:"Frontal connections and descending fibers", d:[["Abulia, executive dysfunction","bi"],["{C} face and arm weakness if posterior fibers are involved","contra"]]},
     {id:"tstem", n:"Temporal stem (uncinate and inferior fronto-occipital fasciculi)", a:"TS", k:"wm", sh:["w",180,290], clip:"wm", fn:"Frontal to temporal connections", d:[["Semantic and naming deficits","bi","L"],["Behavioural change","bi","R"]]},
@@ -144,23 +144,23 @@ S.push({
     {id:"ifg", n:"Inferior frontal gyrus (Broca area on the left)", a:"IFG", k:"ctx", sh:["w",285,320], clip:"ctx", fn:"Speech production; prosody (right)", d:[["Broca (nonfluent) aphasia with apraxia of speech","bi","L"],["Expressive aprosodia","bi","R"]]},
     {id:"stg", n:"Anterior superior temporal gyrus and temporal pole", a:"aSTG", k:"ctx", sh:["w",240,285], clip:"ctx", fn:"Auditory association, semantic memory", d:[["Semantic deficits","bi","L"]]},
     {id:"itg", n:"Anterior middle and inferior temporal gyri", a:"aITG", k:"ctx", sh:["w",195,240], clip:"ctx", fn:"Semantic memory", d:[["Anomia","bi","L"]]},
-    {id:"cing", n:"Anterior cingulate gyrus", a:"ACC", k:"ctx", sh:["e",276,166,20,12], fn:"Motivation, error monitoring", d:[["Apathy; akinetic mutism if both sides","bi"]]},
-    {id:"lv", n:"Lateral ventricle, frontal horn", a:"FH", k:"csf", sh:["e",266,214,20,13,18], d:[]},
-    {id:"cau", n:"Caudate head", a:"Cd", k:"nuc", sh:["e",242,226,15,20], fn:"Associative and limbic loops", d:[["Abulia, apathy, disinhibition","bi"],["{C} chorea (rare)","contra"]]},
-    {id:"alic", n:"Anterior limb of the internal capsule", a:"ALIC", k:"tract", sh:["p","M224,204 L236,206 L228,300 L216,298 Z"], fn:"Frontopontine fibers and anterior thalamic radiation", d:[["Abulia, executive dysfunction","bi"],["Mild {C} face and arm weakness","contra"]]},
-    {id:"ins", n:"Insular cortex (anterior)", a:"Ins", k:"ctx", sh:["p","M146,228 C138,256 138,296 148,320 L154,318 C146,294 146,258 152,232 Z"], fn:"Speech planning, interoception, taste", d:[["Apraxia of speech","bi","L"],["Autonomic disturbance","bi","R"]]},
-    {id:"ext", n:"External capsule and claustrum", a:"EC", k:"wm", sh:["e",166,264,5,36], fn:"Corticocortical fibers", d:[["Often silent","bi"]]},
-    {id:"put", n:"Putamen", a:"Put", k:"nuc", sh:["e",190,262,17,40], fn:"Motor and associative striatum", d:[["{C} dystonia or hemichorea","contra"],["{C} hemiparesis if the capsule is involved","contra"]]},
-    {id:"gpe", n:"Globus pallidus (externa)", a:"GPe", k:"nuc", sh:["e",210,280,8,22], fn:"Indirect pathway", d:[["{C} dystonia","contra"]]},
-    {id:"nac", n:"Nucleus accumbens (ventral striatum)", a:"NAc", k:"nuc", sh:["e",246,272,12,10], fn:"Reward and motivation", d:[["Apathy","bi"]]},
-    {id:"bf", n:"Basal forebrain (nucleus basalis of Meynert, substantia innominata)", a:"BF", k:"nuc", sh:["e",238,310,24,8], fn:"Cholinergic projection to cortex", d:[["Amnesia with confabulation","bi"]]},
-    {id:"amyg", n:"Amygdala", a:"Amy", k:"nuc", sh:["e",214,370,18,14], fn:"Fear and emotional memory", d:[["Reduced fear; Klüver–Bucy if both sides","bi"]]},
-    {id:"cc", n:"Corpus callosum (genu and body)", a:"CC", k:"tract", s:"M", sh:["p","M222,186 C260,170 340,170 378,186 L374,200 C340,188 260,188 226,200 Z"], fn:"Connects the frontal lobes", d:[["Callosal disconnection: left-hand apraxia, alien hand","bi"]]},
-    {id:"sept", n:"Septum pellucidum and septal nuclei", a:"Sep", k:"nuc", s:"M", sh:["e",300,224,5,22], fn:"Limbic relay", d:[["Memory and emotional change","bi"]]},
-    {id:"fx", n:"Fornix (columns)", a:"Fx", k:"tract", s:"M", sh:["e",300,262,6,10], fn:"Hippocampal output", d:[["Anterograde amnesia","bi"]]},
-    {id:"ac", n:"Anterior commissure", a:"AC", k:"tract", s:"M", sh:["e",300,290,70,5], fn:"Connects the temporal lobes and olfactory structures", d:[["Rarely symptomatic alone","bi"]]},
-    {id:"hy", n:"Hypothalamus (preoptic and anterior)", a:"Hy", k:"nuc", s:"M", sh:["e",300,322,14,14], fn:"Temperature (heat loss), sleep onset, fluid balance", d:[["Hyperthermia, insomnia, diabetes insipidus","bi"]]},
-    {id:"och", n:"Optic chiasm", a:"OCh", k:"tract", s:"M", sh:["e",300,348,22,6], fn:"Crossing nasal fibers", d:[["Bitemporal hemianopia","bi"]]}
+    {id:"cing", n:"Anterior cingulate gyrus", a:"ACC", k:"ctx", sh:["e",283.8,161.9,15.1,19.8], fn:"Motivation, error monitoring", d:[["Apathy; akinetic mutism if both sides","bi"]]},
+    {id:"lv", n:"Lateral ventricle, frontal horn", a:"FH", k:"csf", sh:["p","M242.4,196.0 L256.8,199.6 L278.4,210.4 L295.7,217.6 L297.1,257.2 L294.6,291.4 L284.9,291.4 L278.4,271.6 L273.4,250.0 L267.6,233.8 L260.4,219.4 L247.8,205.0 Z"], d:[]},
+    {id:"cau", n:"Caudate head", a:"Cd", k:"nuc", sh:["p","M243.5,195.3 L229.9,201.4 L228.1,228.4 L238.9,259.0 L253.2,275.2 L269.4,287.8 L284.2,291.0 L278.4,271.6 L273.4,250.0 L267.6,233.8 L260.4,219.4 L247.8,205.0 Z"], fn:"Associative and limbic loops", d:[["Abulia, apathy, disinhibition","bi"],["{C} chorea (rare)","contra"]]},
+    {id:"alic", n:"Anterior limb of the internal capsule", a:"ALIC", k:"tract", sh:["p","M229.9,201.4 L222.7,206.8 L215.5,228.4 L220.9,253.6 L233.5,273.4 L249.6,287.4 L267.6,292.4 L269.4,287.8 L253.2,275.2 L238.9,259.0 L228.1,228.4 Z"], fn:"Frontopontine fibers and anterior thalamic radiation", d:[["Abulia, executive dysfunction","bi"],["Mild {C} face and arm weakness","contra"]]},
+    {id:"ins", n:"Insular cortex (anterior)", a:"Ins", k:"ctx", sh:["p","M170.5,214.0 L179.5,242.8 L181.3,278.8 L179.5,314.7 L174.1,336.3 L159.7,332.7 L150.7,304.0 L148.9,264.4 L152.5,232.0 L159.7,210.4 Z"], fn:"Speech planning, interoception, taste", d:[["Apraxia of speech","bi","L"],["Autonomic disturbance","bi","R"]]},
+    {id:"ext", n:"External capsule and claustrum", a:"EC", k:"wm", sh:["p","M210.1,224.8 L190.3,242.8 L181.3,275.2 L182.0,314.7 L192.1,332.7 L206.5,329.1 L190.3,307.6 L187.4,275.2 L197.5,246.4 L215.5,228.4 Z"], fn:"Corticocortical fibers", d:[["Often silent","bi"]]},
+    {id:"put", n:"Putamen", a:"Put", k:"nuc", sh:["p","M213.0,228.4 L201.1,239.2 L190.3,260.8 L186.7,282.4 L188.5,304.0 L193.9,321.9 L201.1,327.3 L215.5,318.3 L219.1,300.4 L222.7,278.8 L222.7,257.2 L219.1,239.2 Z"], fn:"Motor and associative striatum", d:[["{C} dystonia or hemichorea","contra"],["{C} hemiparesis if the capsule is involved","contra"]]},
+    {id:"gpe", n:"Globus pallidus (externa)", a:"GPe", k:"nuc", sh:["p","M224.5,260.8 L222.3,278.8 L218.7,300.4 L215.8,316.9 L231.7,318.3 L246.0,313.3 L246.0,296.8 L235.3,278.8 Z"], fn:"Indirect pathway", d:[["{C} dystonia","contra"]]},
+    {id:"nac", n:"Nucleus accumbens (ventral striatum)", a:"NAc", k:"nuc", sh:["e",262.2,300.4,14.4,10.1], fn:"Reward and motivation", d:[["Apathy","bi"]]},
+    {id:"bf", n:"Basal forebrain (nucleus basalis of Meynert, substantia innominata)", a:"BF", k:"nuc", sh:["e",249.6,337.8,28.8,7.2], fn:"Cholinergic projection to cortex", d:[["Amnesia with confabulation","bi"]]},
+    {id:"amyg", n:"Amygdala", a:"Amy", k:"nuc", sh:["e",220.9,383.1,23.4,21.6], fn:"Fear and emotional memory", d:[["Reduced fear; Klüver–Bucy if both sides","bi"]]},
+    {id:"cc", n:"Corpus callosum (genu and body)", a:"CC", k:"tract", s:"M", sh:["p","M361.1,185.3 L332.4,183.5 L300.0,186.7 L267.6,183.5 L238.9,185.3 L238.9,196.0 L253.2,197.5 L267.6,203.2 L285.6,210.4 L300.0,212.6 L314.4,210.4 L332.4,203.2 L346.8,197.5 L361.1,196.0 Z"], fn:"Connects the frontal lobes", d:[["Callosal disconnection: left-hand apraxia, alien hand","bi"]]},
+    {id:"sept", n:"Septum pellucidum and septal nuclei", a:"Sep", k:"nuc", s:"M", sh:["p","M303.6,214.0 L296.4,214.0 L296.4,289.6 L303.6,289.6 Z"], fn:"Limbic relay", d:[["Memory and emotional change","bi"]]},
+    {id:"fx", n:"Fornix (columns)", a:"Fx", k:"tract", s:"M", sh:["e",300.0,296.8,11.5,9.4], fn:"Hippocampal output", d:[["Anterograde amnesia","bi"]]},
+    {id:"ac", n:"Anterior commissure", a:"AC", k:"tract", s:"M", sh:["p","M379.1,316.2 L343.2,310.4 L300.0,306.1 L256.8,310.4 L220.9,316.2 L220.9,324.8 L256.8,319.1 L300.0,314.7 L343.2,319.1 L379.1,324.8 Z"], fn:"Connects the temporal lobes and olfactory structures", d:[["Rarely symptomatic alone","bi"]]},
+    {id:"hy", n:"Hypothalamus (preoptic and anterior)", a:"Hy", k:"nuc", s:"M", sh:["e",300.0,334.5,19.8,11.5], fn:"Temperature (heat loss), sleep onset, fluid balance", d:[["Hyperthermia, insomnia, diabetes insipidus","bi"]]},
+    {id:"och", n:"Optic chiasm", a:"OCh", k:"tract", s:"M", sh:["e",300.0,357.2,30.6,6.1], fn:"Crossing nasal fibers", d:[["Bitemporal hemianopia","bi"]]}
   ],
   terr:[
     {id:"mcas", n:"MCA superior division (M2–M4): prefrontal and opercular branches", f:"MCA", sh:["w",280,360]},
@@ -168,12 +168,12 @@ S.push({
     {id:"aca", n:"ACA (A2–A3): pericallosal and callosomarginal branches", f:"ACA", sh:["w",0,80]},
     {id:"pcat", n:"PCA anterior temporal branch (P2)", f:"PCA", sh:["w",150,200]},
     {id:"ws", n:"Anterior watershed: ACA–MCA cortical border zone", f:"WS", sh:["w",345,8], clip:"ctx"},
-    {id:"lsa", n:"Lateral lenticulostriate arteries (M1 MCA): putamen, globus pallidus externa, upper capsule", f:"MCAd", sh:["e",196,260,30,48]},
-    {id:"heub", n:"Recurrent artery of Heubner (A1–A2 junction): caudate head, anterior limb, anterior putamen", f:"ACAd", sh:["e",238,236,22,40]},
-    {id:"mlsa", n:"Medial lenticulostriate arteries (A1): accumbens, anterior hypothalamus, basal forebrain", f:"ACAd", sh:["e",246,300,22,16]},
-    {id:"acha", n:"Anterior choroidal artery (ICA): amygdala, uncus", f:"AChA", sh:["e",214,372,20,16]},
-    {id:"acom", n:"Anterior communicating artery perforators: septum, fornix columns, anterior hypothalamus", f:"ACAd", sh:["e",290,290,12,40]},
-    {id:"shy", n:"Superior hypophyseal arteries (ICA): optic chiasm", f:"ICA", sh:["e",290,348,12,8]}
+    {id:"lsa", n:"Lateral lenticulostriate arteries (M1 MCA): putamen, globus pallidus externa, upper capsule", f:"MCAd", sh:["p","M242.4,192.4 L220.9,203.2 L199.3,232.0 L184.9,264.4 L184.9,307.6 L195.7,329.1 L220.9,321.9 L235.3,293.2 L242.4,264.4 Z"]},
+    {id:"heub", n:"Recurrent artery of Heubner (A1–A2 junction): caudate head, anterior limb, anterior putamen", f:"ACAd", sh:["p","M243.5,196.0 L228.1,206.8 L222.7,242.8 L238.9,271.6 L246.0,300.4 L256.8,318.3 L278.4,314.7 L283.8,293.2 L278.4,264.4 L271.2,235.6 L260.4,214.0 Z"]},
+    {id:"mlsa", n:"Medial lenticulostriate arteries (A1): accumbens, anterior hypothalamus, basal forebrain", f:"ACAd", sh:["p","M249.6,307.6 L235.3,278.8 L220.9,286.0 L215.5,318.3 L228.1,325.5 L256.8,325.5 L267.6,314.7 Z"]},
+    {id:"acha", n:"Anterior choroidal artery (ICA): amygdala, uncus", f:"AChA", sh:["e",224.5,372.3,28.8,25.2]},
+    {id:"acom", n:"Anterior communicating artery perforators: septum, fornix columns, anterior hypothalamus", f:"ACAd", sh:["e",291.0,300.4,12.6,43.2]},
+    {id:"shy", n:"Superior hypophyseal arteries (ICA): optic chiasm", f:"ICA", sh:["e",289.2,350.7,18.0,10.8]}
   ],
   syn:[
     {n:"Recurrent artery of Heubner syndrome", need:[["cau"],["alic"]], t:"Opposite face and arm weakness, dysarthria and abulia from the caudate head and anterior limb."},
@@ -187,19 +187,19 @@ S.push({
     {n:"Hypothalamic syndrome", need:[["hy"]], t:"Temperature dysregulation, sleep disturbance, diabetes insipidus."}
   ],
   presets:[
-    {n:"Right Heubner (caudate head and anterior limb)", sh:[["e",236,230,16,26]]},
-    {n:"Left inferior frontal gyrus (Broca)", sh:[["e",512,184,18,16]]},
-    {n:"Basal forebrain and septum (ACoA)", sh:[["e",300,300,24,30]]}
+    {n:"Right Heubner (caudate head and anterior limb)", sh:[["p","M246.0,197.8 L228.1,206.8 L222.7,235.6 L235.3,264.4 L253.2,282.4 L271.2,289.6 L278.4,271.6 L273.0,246.4 L264.0,221.2 Z"]]},
+    {n:"Left inferior frontal gyrus (Broca)", sh:[["e",515.8,221.2,18.0,21.6]]},
+    {n:"Basal forebrain and septum (ACoA)", sh:[["p","M325.2,271.6 L274.8,271.6 L267.6,321.9 L278.4,347.1 L321.6,347.1 L332.4,321.9 Z"]]}
   ]
 });
 
 /* ---------------- Coronal · posterior ---------------- */
 S.push({
-  id:"cor-p", group:"Cerebrum", name:"Coronal · posterior (splenium)", w:600, h:560, center:[196,240],
+  id:"cor-p", group:"Cerebrum", name:"Coronal · posterior (splenium)", w:600, h:560, center:[198,258],
   view:"Coronal, through the splenium, atrium and parietal lobes · top of the head up",
-  outline:"M300,44 C420,40 534,120 540,250 C546,350 500,410 430,420 C400,424 370,420 340,412 L300,410 L260,412 C230,420 200,424 170,420 C100,410 54,350 60,250 C66,120 180,40 300,44 Z M300,428 C350,428 420,436 450,458 C480,482 470,526 420,538 C370,550 330,546 300,542 C270,546 230,550 180,538 C130,526 120,482 150,458 C180,436 250,428 300,428 Z",
-  hemi:"M298,46 C180,44 62,120 62,250 C58,350 102,410 170,420 C200,424 230,420 260,412 L298,410 Z",
-  inner:"M290,88 C196,90 104,150 102,250 C100,330 136,374 184,380 C214,384 244,378 268,372 L298,370 Z",
+  outline:"M53.3,302.1 L56.7,336.1 L63.5,346.4 L66.9,366.8 L82.2,388.9 L99.2,399.1 L109.5,399.1 L112.9,402.5 L140.1,402.5 L146.9,405.9 L152.0,411.0 L155.4,428.0 L165.6,441.6 L162.2,448.4 L165.6,465.4 L191.1,487.6 L197.9,487.6 L201.3,491.0 L242.2,491.0 L255.8,480.8 L264.3,489.3 L267.7,506.3 L277.9,526.7 L289.8,538.6 L303.4,542.0 L322.1,526.7 L332.3,506.3 L335.7,489.3 L344.2,480.8 L347.6,480.8 L357.8,491.0 L398.7,491.0 L402.1,487.6 L408.9,487.6 L434.4,465.4 L437.8,458.6 L434.4,441.6 L444.6,428.0 L448.0,411.0 L453.1,405.9 L459.9,402.5 L487.1,402.5 L490.5,399.1 L500.8,399.1 L517.8,388.9 L529.7,373.6 L536.5,346.4 L543.3,336.1 L543.3,319.1 L546.7,315.7 L546.7,302.1 L539.9,285.1 L543.3,261.3 L539.9,257.9 L536.5,196.6 L533.1,193.2 L529.7,162.6 L522.9,145.6 L505.9,125.2 L502.5,115.0 L487.1,99.7 L463.3,92.9 L432.7,62.2 L419.1,58.8 L402.1,48.6 L385.1,45.2 L364.6,24.8 L351.0,18.0 L337.4,18.0 L320.4,24.8 L303.4,41.8 L296.6,41.8 L279.6,24.8 L262.6,18.0 L249.0,18.0 L235.4,24.8 L214.9,45.2 L197.9,48.6 L180.9,58.8 L167.3,62.2 L136.7,92.9 L112.9,99.7 L97.5,115.0 L94.1,125.2 L77.1,145.6 L70.3,162.6 L70.3,172.8 L66.9,176.2 L66.9,193.2 L63.5,196.6 L63.5,230.7 L60.1,234.1 L60.1,257.9 L56.7,261.3 L60.1,285.1 Z",
+  hemi:"M53.3,302.1 L56.7,336.1 L63.5,346.4 L66.9,366.8 L82.2,388.9 L99.2,399.1 L109.5,399.1 L112.9,402.5 L140.1,402.5 L146.9,405.9 L152.0,411.0 L155.4,428.0 L165.6,441.6 L162.2,448.4 L165.6,465.4 L191.1,487.6 L197.9,487.6 L201.3,491.0 L242.2,491.0 L255.8,480.8 L264.3,489.3 L267.7,506.3 L277.9,526.7 L289.8,538.6 L298.3,540.3 L298.3,43.5 L279.6,24.8 L262.6,18.0 L249.0,18.0 L235.4,24.8 L214.9,45.2 L197.9,48.6 L180.9,58.8 L167.3,62.2 L136.7,92.9 L112.9,99.7 L97.5,115.0 L94.1,125.2 L77.1,145.6 L70.3,162.6 L70.3,172.8 L66.9,176.2 L66.9,193.2 L63.5,196.6 L63.5,230.7 L60.1,234.1 L60.1,257.9 L56.7,261.3 L60.1,285.1 Z",
+  inner:"M70.3,251.1 L82.2,263.0 L92.4,256.2 L107.8,257.9 L104.4,261.3 L107.8,278.3 L104.4,302.1 L99.2,310.6 L85.6,310.6 L73.7,325.9 L85.6,337.8 L106.1,334.4 L116.3,354.9 L153.7,358.3 L163.9,368.5 L170.7,365.1 L196.2,394.0 L203.0,411.0 L197.9,426.3 L221.7,446.7 L252.4,446.7 L264.3,458.6 L274.5,479.1 L274.5,499.5 L281.3,513.1 L296.6,528.4 L298.3,230.7 L277.9,213.6 L288.1,203.4 L288.1,196.6 L276.2,184.7 L262.6,188.1 L254.1,179.6 L271.1,152.4 L259.2,140.5 L252.4,147.3 L247.3,145.6 L250.7,111.6 L266.0,99.7 L276.2,99.7 L288.1,87.8 L291.5,57.1 L284.7,43.5 L269.4,28.2 L249.0,28.2 L233.6,43.5 L237.1,77.5 L231.9,89.5 L191.1,103.1 L180.9,113.3 L174.1,106.5 L162.2,118.4 L169.0,125.2 L160.5,133.7 L129.9,106.5 L114.6,118.4 L118.0,152.4 L109.5,160.9 L95.8,157.5 L83.9,169.4 L83.9,176.2 L94.1,189.8 L83.9,200.0 L100.9,220.5 Z",
   structs:[
     {id:"wmp", n:"Parietal white matter (SLF, arcuate fasciculus)", a:"P-WM", k:"wm", sh:["w",260,90], clip:"wm", fn:"Parieto-frontal and parieto-temporal association fibers", d:[["{C} neglect","contra","R"],["Conduction aphasia, ideomotor apraxia","bi","L"]]},
     {id:"wmo", n:"Temporo-occipital white matter (inferior longitudinal fasciculus)", a:"TO-WM", k:"wm", sh:["w",150,260], clip:"wm", fn:"Ventral visual stream", d:[["Visual agnosia when both sides are involved","bi"]]},
@@ -209,15 +209,15 @@ S.push({
     {id:"pmtg", n:"Posterior middle and inferior temporal gyri (MT/V5)", a:"MT", k:"ctx", sh:["w",200,260], clip:"ctx", fn:"Visual motion, smooth pursuit", d:[["Impaired pursuit toward the {I} side","ipsi"],["Anomia","bi","L"]]},
     {id:"fus", n:"Posterior fusiform and parahippocampal gyri", a:"Fus", k:"ctx", sh:["w",150,200], clip:"ctx", fn:"Faces, words, scenes", d:[["Prosopagnosia","bi","R"],["Pure alexia","bi","L"],["Topographic agnosia","bi"]]},
     {id:"rsp", n:"Retrosplenial cortex and cingulate isthmus", a:"RSp", k:"ctx", sh:["w",95,150], clip:"ctx", fn:"Memory and navigation", d:[["Retrosplenial amnesia and topographic disorientation","bi"]]},
-    {id:"arc", n:"Arcuate fasciculus", a:"AF", k:"tract", sh:["e",158,250,12,30], fn:"Links Wernicke and Broca areas", d:[["Conduction aphasia","bi","L"],["{C} neglect","contra","R"]]},
-    {id:"or", n:"Optic radiation (sagittal stratum, lateral wall of the atrium)", a:"OR", k:"tract", sh:["p","M212,246 L226,250 L216,320 L202,316 Z"], fn:"LGN to calcarine cortex", d:[D.hemianopia]},
-    {id:"atr", n:"Lateral ventricle, atrium", a:"Atr", k:"csf", sh:["e",252,266,24,22], d:[]},
-    {id:"chp", n:"Choroid plexus (glomus)", a:"ChP", k:"nuc", sh:["e",252,268,10,8], fn:"CSF production", d:[["Calcifies normally; intraventricular hemorrhage source","bi"]]},
-    {id:"fxc", n:"Crus of the fornix", a:"Fx", k:"tract", sh:["e",264,244,8,5], fn:"Hippocampal output", d:[["Anterograde amnesia","bi"]]},
-    {id:"hipt", n:"Hippocampal tail", a:"Hip", k:"ctx", sh:["e",236,300,13,8], fn:"Episodic memory", d:[D.amnesia]},
-    {id:"ccs", n:"Corpus callosum, splenium", a:"CCs", k:"tract", s:"M", sh:["p","M232,224 C262,206 338,206 368,224 L360,244 C334,228 266,228 240,244 Z"], fn:"Connects parietal and occipital lobes", d:[["Left visual field anomia; alexia without agraphia with a left occipital lesion","bi"]]},
-    {id:"cbs", n:"Cerebellar hemisphere (superior)", a:"Cb", k:"ctx", sh:["r",0,428,300,140], clip:"out", fn:"Limb coordination", d:[D.ataxI,["Dysarthria","bi"]]},
-    {id:"verm", n:"Cerebellar vermis (superior and posterior)", a:"Verm", k:"ctx", s:"M", sh:["e",300,480,20,44], fn:"Gait and eye movements", d:[["Gait and truncal ataxia, nystagmus","bi"]]}
+    {id:"arc", n:"Arcuate fasciculus", a:"AF", k:"tract", sh:["e",163.9,210.2,13.6,27.2], fn:"Links Wernicke and Broca areas", d:[["Conduction aphasia","bi","L"],["{C} neglect","contra","R"]]},
+    {id:"or", n:"Optic radiation (sagittal stratum, lateral wall of the atrium)", a:"OR", k:"tract", sh:["p","M209.8,222.2 L199.6,237.5 L194.5,254.5 L191.1,268.1 L186.0,280.0 L179.2,291.9 L169.0,308.9 L177.5,315.7 L186.0,297.0 L191.1,288.5 L196.2,278.3 L199.6,268.1 L202.7,254.5 L206.1,240.9 L214.9,225.6 Z"], fn:"LGN to calcarine cortex", d:[D.hemianopia]},
+    {id:"atr", n:"Lateral ventricle, atrium", a:"Atr", k:"csf", sh:["p","M228.5,218.8 L240.5,227.3 L243.9,240.9 L241.1,257.9 L238.8,268.1 L228.5,273.2 L218.3,276.6 L208.1,283.4 L201.3,293.6 L194.5,302.1 L180.9,314.4 L178.2,308.9 L186.0,297.0 L191.1,288.5 L196.2,278.3 L199.6,268.1 L202.7,254.5 L206.1,240.9 L214.9,225.6 Z"], d:[]},
+    {id:"chp", n:"Choroid plexus (glomus)", a:"ChP", k:"nuc", sh:["e",221.7,254.5,10.2,8.5], fn:"CSF production", d:[["Calcifies normally; intraventricular hemorrhage source","bi"]]},
+    {id:"fxc", n:"Crus of the fornix", a:"Fx", k:"tract", sh:["e",255.8,276.6,10.9,5.1], fn:"Hippocampal output", d:[["Anterograde amnesia","bi"]]},
+    {id:"hipt", n:"Hippocampal tail", a:"Hip", k:"ctx", sh:["e",233.6,291.2,32.3,8.2], fn:"Episodic memory", d:[D.amnesia]},
+    {id:"ccs", n:"Corpus callosum, splenium", a:"CCs", k:"tract", s:"M", sh:["p","M354.4,227.3 L327.2,220.5 L300.0,221.8 L272.8,220.5 L245.6,227.3 L242.2,254.5 L240.5,271.5 L266.0,274.9 L300.0,274.2 L334.0,274.9 L359.5,271.5 L357.8,254.5 Z"], fn:"Connects parietal and occipital lobes", d:[["Left visual field anomia; alexia without agraphia with a left occipital lesion","bi"]]},
+    {id:"cbs", n:"Cerebellar hemisphere (superior)", a:"Cb", k:"ctx", sh:["p","M298.3,383.8 L279.6,390.6 L262.6,402.5 L231.9,422.9 L208.1,439.9 L187.7,445.0 L167.3,446.7 L163.9,462.0 L174.1,475.6 L187.7,485.9 L208.1,491.0 L238.8,492.7 L266.0,485.9 L283.0,496.1 L298.3,502.9 Z"], clip:"out", fn:"Limb coordination", d:[D.ataxI,["Dysarthria","bi"]]},
+    {id:"verm", n:"Cerebellar vermis (superior and posterior)", a:"Verm", k:"ctx", s:"M", sh:["p","M320.4,387.2 L279.6,387.2 L269.4,414.4 L269.4,496.1 L330.6,496.1 L330.6,414.4 Z"], fn:"Gait and eye movements", d:[["Gait and truncal ataxia, nystagmus","bi"]]}
   ],
   terr:[
     {id:"mcas", n:"MCA superior division (M4): posterior parietal branches", f:"MCA", sh:["w",290,15]},
@@ -226,9 +226,9 @@ S.push({
     {id:"pca", n:"PCA (P3–P4): parieto-occipital, posterior temporal and hippocampal branches", f:"PCA", sh:["w",80,225]},
     {id:"wsa", n:"ACA–MCA cortical border zone (posterior parasagittal)", f:"WS", sh:["w",8,24], clip:"ctx"},
     {id:"wsp", n:"Posterior watershed: MCA–PCA cortical border zone", f:"WS", sh:["w",215,235], clip:"ctx"},
-    {id:"spl", n:"Posterior pericallosal (splenial) artery (PCA)", f:"PCA", sh:["e",282,224,22,14]},
-    {id:"chp", n:"Lateral posterior choroidal artery (P2) and anterior choroidal artery: atrial choroid plexus", f:"PCAd", sh:["e",252,266,14,12]},
-    {id:"sca", n:"Superior cerebellar artery: superior hemisphere and vermis", f:"SCA", sh:["r",0,428,300,140], clip:"out"}
+    {id:"spl", n:"Posterior pericallosal (splenial) artery (PCA)", f:"PCA", sh:["e",276.2,247.7,27.2,23.8]},
+    {id:"chp", n:"Lateral posterior choroidal artery (P2) and anterior choroidal artery: atrial choroid plexus", f:"PCAd", sh:["e",221.7,254.5,17.0,13.6]},
+    {id:"sca", n:"Superior cerebellar artery: superior hemisphere and vermis", f:"SCA", sh:["p","M298.3,383.8 L279.6,390.6 L262.6,402.5 L231.9,422.9 L208.1,439.9 L187.7,445.0 L167.3,446.7 L163.9,462.0 L174.1,475.6 L187.7,485.9 L208.1,491.0 L238.8,492.7 L266.0,485.9 L283.0,496.1 L298.3,502.9 Z"], clip:"out"}
   ],
   syn:[
     {n:"Gerstmann syndrome", only:"L", need:[["ipl"]], t:"Agraphia, acalculia, finger agnosia, left-right confusion; dominant angular gyrus (MCA inferior division)."},
@@ -241,9 +241,9 @@ S.push({
     {n:"Superior cerebellar (SCA) infarct", need:[["cbs"]], t:"Same-side limb ataxia and dysarthria; watch for swelling and hydrocephalus."}
   ],
   presets:[
-    {n:"Left inferior parietal lobule", sh:[["e",514,200,18,18]]},
-    {n:"Left splenium and occipital radiation", sh:[["p","M296,214 L330,214 L392,250 L398,320 L376,326 L360,246 L296,236 Z"]]},
-    {n:"Right superior cerebellum (SCA)", sh:[["e",190,476,50,30]]}
+    {n:"Left inferior parietal lobule", sh:[["e",514.4,196.6,18.7,22.1]]},
+    {n:"Left splenium and occipital radiation", sh:[["p","M303.4,223.9 L340.8,222.2 L371.5,218.8 L391.9,230.7 L405.5,257.9 L419.1,291.9 L429.3,312.3 L412.3,305.5 L398.7,274.9 L388.5,254.5 L361.2,261.3 L327.2,271.5 L303.4,271.5 Z"]]},
+    {n:"Right superior cerebellum (SCA)", sh:[["e",225.1,460.3,37.4,18.7]]}
   ]
 });
 

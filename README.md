@@ -343,7 +343,10 @@ workout (the "Workout saved" message and the finished workout's page).
   atlas as outlines on top; **Drawing** switches back to the coloured diagram (the choice is remembered). The 20 images are
   in `js/modules/clinical/mri/` (about 330 KB, cached for offline use); spinal levels have no template image. Template
   copyright © 1993–2009 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University,
-  credited in the page footer as its licence requires. **Own scan** (0.11.18): load your own
+  credited in the page footer as its licence requires. 0.11.20: the basal ganglia slice (z 10, at the genu and splenium)
+  and the three coronal slices (y +2 at the anterior commissure, y −13 at the mid-thalamus, y −40 at the splenium) are
+  redrawn from the template itself — true brain outline, cortex and white-matter boundaries, and every nucleus, capsule
+  limb, ventricle and territory placed on the real anatomy, with no stretching. **Own scan** (0.11.18): load your own
   scan under the drawing (uncompressed DICOM, a whole series to scroll through, PNG or JPG; drag in or paste a screenshot),
   switch the atlas to outline, and line it up (drag, zoom, rotate, flip; window/level). Each slice keeps its own
   alignment; scans stay in the page and are never uploaded, saved, synced or backed up
