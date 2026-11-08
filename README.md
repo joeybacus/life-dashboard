@@ -355,7 +355,10 @@ workout (the "Workout saved" message and the finished workout's page).
   of the nine brainstem levels is fitted to the real brainstem: its outline is traced on the template (crura and
   interpeduncular fossa, fourth-ventricle floor, olives, obex) and the drawing is bent onto it by a thin-plate spline
   (`localizer-bswarp.js`, generated), so nuclei, tracts, territories and example lesions follow the image while the MRI
-  itself is not distorted. **Own scan** (0.11.18): load your own
+  itself is not distorted. 0.11.24: brainstem outlines are traced at the real tissue edge (the steepest fall in signal
+  along rays from the centre, not a fixed threshold, so the averaged CSF ring is left out), past the aqueduct so the
+  tectum stays in, and capped where the brainstem merges with the cerebellum; slices now open with no example lesion.
+  **Own scan** (0.11.18): load your own
   scan under the drawing (uncompressed DICOM, a whole series to scroll through, PNG or JPG; drag in or paste a screenshot),
   switch the atlas to outline, and line it up (drag, zoom, rotate, flip; window/level). Each slice keeps its own
   alignment; scans stay in the page and are never uploaded, saved, synced or backed up

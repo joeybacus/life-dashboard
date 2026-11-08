@@ -590,8 +590,7 @@ function loadSlice(id) {
   svg.innerHTML = svgFor(B);
   cv.width = sl.w * SCALE; cv.height = sl.h * SCALE;
   cx.clearRect(0, 0, cv.width, cv.height);
-  if (saved[id]) cx.putImageData(saved[id], 0, 0);
-  else if (!visited[id] && sl.presets && sl.presets[0]) paintShapes(sl.presets[0].sh, sl);
+  if (saved[id]) cx.putImageData(saved[id], 0, 0);   // a slice opens empty; your own drawing is kept when you come back
   visited[id] = true;
   undo[id] = undo[id] || [];
   $("#sname").textContent = sl.name;
