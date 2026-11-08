@@ -351,7 +351,11 @@ workout (the "Workout saved" message and the finished workout's page).
   areas are now bounded by the real sulci (precentral, central, postcentral, cingulate, parieto-occipital, calcarine)
   instead of angle wedges. 0.11.22: the posterior fossa slice (z −28) is redrawn from the template (pons, fourth
   ventricle, peduncles, dentate, nodulus, vermis), the midline brainstem is corrected, and labels sit inside the visible
-  part of their structure and never overlap. The tool frame no longer shows its title as a hover tooltip. **Own scan** (0.11.18): load your own
+  part of their structure and never overlap. The tool frame no longer shows its title as a hover tooltip. 0.11.23: each
+  of the nine brainstem levels is fitted to the real brainstem: its outline is traced on the template (crura and
+  interpeduncular fossa, fourth-ventricle floor, olives, obex) and the drawing is bent onto it by a thin-plate spline
+  (`localizer-bswarp.js`, generated), so nuclei, tracts, territories and example lesions follow the image while the MRI
+  itself is not distorted. **Own scan** (0.11.18): load your own
   scan under the drawing (uncompressed DICOM, a whole series to scroll through, PNG or JPG; drag in or paste a screenshot),
   switch the atlas to outline, and line it up (drag, zoom, rotate, flip; window/level). Each slice keeps its own
   alignment; scans stay in the page and are never uploaded, saved, synced or backed up

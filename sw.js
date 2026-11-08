@@ -2,7 +2,7 @@
    Strategy: always try the network first (so you get updates right away),
    and fall back to the saved copy when offline or the network is too slow.
    When adding files in a later phase, add them to SHELL and bump CACHE_VERSION. */
-const CACHE_VERSION = 'v0.11.22';
+const CACHE_VERSION = 'v0.11.23';
 const CACHE = `life-dashboard-${CACHE_VERSION}`;
 const NETWORK_TIMEOUT_MS = 3500;
 
@@ -134,6 +134,7 @@ const SHELL = [
   'js/modules/clinical/localizer-slices.js',
   'js/modules/clinical/localizer-cerebrum.js',
   'js/modules/clinical/localizer-brainstem.js',
+  'js/modules/clinical/localizer-bswarp.js',
   'js/modules/clinical/localizer-spine.js',
   'js/modules/clinical/localizer-ref.js',
   'js/modules/clinical/mri/ax-bg.jpg',

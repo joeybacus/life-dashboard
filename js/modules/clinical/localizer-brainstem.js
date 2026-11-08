@@ -137,7 +137,7 @@ S.push(v({
   ],
   presets:[
     {n:"Midline decussation infarct", sh:[["e",300,220,26,16]]},
-    {n:"Right trochlear nucleus and sympathetic", sh:[["e",256,278,38,14]]},
+    {n:"Right trochlear nucleus and sympathetic", sh:[["e",244,274,46,16]]},
     {n:"Left lateral tegmentum (SCA)", sh:[["e",420,280,26,30]]}
   ]
 }));
