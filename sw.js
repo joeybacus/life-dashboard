@@ -2,7 +2,7 @@
    Strategy: always try the network first (so you get updates right away),
    and fall back to the saved copy when offline or the network is too slow.
    When adding files in a later phase, add them to SHELL and bump CACHE_VERSION. */
-const CACHE_VERSION = 'v0.11.18';
+const CACHE_VERSION = 'v0.11.19';
 const CACHE = `life-dashboard-${CACHE_VERSION}`;
 const NETWORK_TIMEOUT_MS = 3500;
 
@@ -136,6 +136,26 @@ const SHELL = [
   'js/modules/clinical/localizer-brainstem.js',
   'js/modules/clinical/localizer-spine.js',
   'js/modules/clinical/localizer-ref.js',
+  'js/modules/clinical/mri/ax-bg.jpg',
+  'js/modules/clinical/mri/ax-cr.jpg',
+  'js/modules/clinical/mri/ax-ml.jpg',
+  'js/modules/clinical/mri/ax-pf.jpg',
+  'js/modules/clinical/mri/ax-vx.jpg',
+  'js/modules/clinical/mri/cor-a.jpg',
+  'js/modules/clinical/mri/cor-p.jpg',
+  'js/modules/clinical/mri/cor.jpg',
+  'js/modules/clinical/mri/m-l.jpg',
+  'js/modules/clinical/mri/m-m.jpg',
+  'js/modules/clinical/mri/m-u.jpg',
+  'js/modules/clinical/mri/mb-l.jpg',
+  'js/modules/clinical/mri/mb-u.jpg',
+  'js/modules/clinical/mri/p-l.jpg',
+  'js/modules/clinical/mri/p-m.jpg',
+  'js/modules/clinical/mri/p-u.jpg',
+  'js/modules/clinical/mri/para-L.jpg',
+  'js/modules/clinical/mri/para-R.jpg',
+  'js/modules/clinical/mri/pmj.jpg',
+  'js/modules/clinical/mri/sag.jpg',
   'js/modules/ward/arrange.js',
   'js/modules/ward/board.js',
   'js/modules/ward/labtable.js',

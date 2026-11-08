@@ -115,7 +115,8 @@ select.tsel{font-family:var(--f-label);font-size:12.5px;padding:6px 8px;border-r
 .stage.has-mri{background:#000}
 .stage.aligning #cv{cursor:move}
 .stage.drop{outline:2px dashed var(--accent);outline-offset:-4px}
-#svg.outline .st > *{fill:transparent!important;stroke:#ffd24a;stroke-width:1.1}
+#svg.outline .st > *{fill:transparent!important;stroke:#ffd24a;stroke-width:1.1;stroke-opacity:.85}
+#svg.outline .k-wm > *{stroke-opacity:.35}
 #svg.outline .o-bg{fill:transparent}
 #svg.outline .o-line{stroke:#ffd24a}
 #svg.outline .st.hit > *{stroke:#ff4d7d;stroke-width:2.4}
@@ -236,6 +237,7 @@ body{margin:0}
       <nav class="slices" id="slices" aria-label="Slices"></nav>
       <div class="panel stagewrap">
         <div class="toolbar">
+          <div class="seg" role="group" aria-label="View" id="viewSeg"><button type="button" id="vMri" aria-pressed="true">MRI</button><button type="button" id="vDraw" aria-pressed="false">Drawing</button></div>
           <div class="seg" role="group" aria-label="Pen"><button type="button" id="mDraw" aria-pressed="true">Draw</button><button type="button" id="mErase" aria-pressed="false">Erase</button></div>
           <div class="seg" role="group" aria-label="Hemisphere shown" id="paraSeg" hidden><span>Hemisphere</span><button type="button" id="pR" aria-pressed="true">Right</button><button type="button" id="pL" aria-pressed="false">Left</button></div>
           <label class="brush">Brush <input type="range" id="brush" min="4" max="44" value="14" aria-label="Brush size"></label>
@@ -244,7 +246,7 @@ body{margin:0}
           <select class="tsel" id="preset" aria-label="Example lesions"></select>
           <label class="toggle"><input type="checkbox" id="tLabels" checked> Labels</label>
           <label class="toggle"><input type="checkbox" id="tTerr"> Arteries</label>
-          <button type="button" class="tbtn mri-btn" id="mriBtn" aria-expanded="false" aria-controls="mriPanel">MRI overlay</button>
+          <button type="button" class="tbtn mri-btn" id="mriBtn" aria-expanded="false" aria-controls="mriPanel">Own scan</button>
         </div>
         <div class="mripanel" id="mriPanel" hidden>
           <div class="mrirow">
@@ -272,7 +274,7 @@ body{margin:0}
         <div class="shead"><div><p class="sname" id="sname"></p><p class="sview" id="sview"></p></div><div class="locator" id="locator" hidden></div></div>
         <div class="stage" id="stage"><canvas id="mri" class="mri" hidden aria-label="MRI scan"></canvas><svg id="svg" aria-hidden="true"></svg><canvas id="cv" aria-label="Drawing surface: paint the lesion here"></canvas><span class="side-l">R</span><span class="side-r">L</span><div class="tip" id="tip" hidden></div></div>
         <div class="legend" id="legend" hidden></div>
-        <p class="hint">Use “MRI overlay” to put a scan underneath, line it up, then paint on it; the report still comes from the atlas. Hover to name a structure. Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
+        <p class="hint">MRI view shows a real brain (MNI152 template) under the atlas outlines; switch to Drawing for the coloured diagram, or use Own scan for your patient’s images. Hover to name a structure. Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
       </div>
       <aside class="panel report" id="report" aria-live="polite"></aside>
     </div>
@@ -316,7 +318,7 @@ body{margin:0}
     <div class="tblw"><table id="cordTable"></table></div>
   </section>
 </main>
-<footer class="wrap">Educational reference. Drawings are schematic and simplified; territories vary between people. Check clinical decisions against imaging and current sources.</footer>
+<footer class="wrap">MRI images: ICBM 2009a nonlinear symmetric template (MNI152), copyright © 1993–2009 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University; used under its licence, which permits copying and modification with this notice. It is an average of 152 adults, so small structures are approximate. Educational reference. Drawings are schematic and simplified; territories vary between people. Check clinical decisions against imaging and current sources.</footer>
 
 <script src="localizer-slices.js"></script>
 <script src="localizer-cerebrum.js"></script>
@@ -449,11 +451,14 @@ function svgFor(B) {
   const tr = B.ter.map((o, i) => `<g class="tr f-${o.t.f}" data-t="${i}"${attrFor(o.clip, o.side, null)}>${o.svg}</g>`).join("");
   const lab = B.inst.map((o, i) => o.n >= 5 && o.s.k !== "wm" ? `<text class="tl" data-l="${i}" x="${o.cx.toFixed(1)}" y="${(o.cy + 3.5).toFixed(1)}">${esc(o.s.a || "")}</text>` : "").join("");
   const midline = mid ? "" : `<line class="mid" x1="${W / 2}" y1="0" x2="${W / 2}" y2="${H}"/>`;
-  return `<defs>${defs}</defs><g clip-path="url(#ol-${u})"><path class="o-bg" d="${sl.outline}"/>${st}</g><g id="terrLayer"${state.terr ? "" : " hidden"} clip-path="url(#ol-${u})">${tr}</g><path class="o-line" d="${sl.outline}"/>${midline}<g id="labLayer"${state.labels ? "" : " hidden"}>${lab}</g>`;
+  const msrc = mriSrc(sl);
+  return `<defs>${defs}</defs>${msrc ? `<image id="mriImg" href="${msrc}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none"/>` : ""}<g clip-path="url(#ol-${u})"><path class="o-bg" d="${sl.outline}"/>${st}</g><g id="terrLayer"${state.terr ? "" : " hidden"} clip-path="url(#ol-${u})">${tr}</g><path class="o-line" d="${sl.outline}"/>${midline}<g id="labLayer"${state.labels ? "" : " hidden"}>${lab}</g>`;
 }
 
 /* ---------- state ---------- */
-const state = {slice:"ax-bg", mode:"draw", brush:14, labels:true, terr:false, tab:"mapper", paraSide:"R"};
+const state = {slice:"ax-bg", mode:"draw", brush:14, labels:true, terr:false, tab:"mapper", paraSide:"R", view:"mri"};
+const MRI_IMG = new Set(["ax-vx","ax-cr","ax-bg","ax-ml","cor-a","cor","cor-p","sag","ax-pf","mb-u","mb-l","p-u","p-m","p-l","pmj","m-u","m-m","m-l"]);
+const mriSrc = sl => sl.id === "para" ? `mri/para-${state.paraSide}.jpg` : (MRI_IMG.has(sl.id) ? `mri/${sl.id}.jpg` : "");
 const saved = {}, visited = {}, undo = {};
 const cv = $("#cv"), cx = cv.getContext("2d"), svg = $("#svg"), stage = $("#stage");
 let B = null;
@@ -801,6 +806,12 @@ function renderMRI() {
   svg.classList.toggle("outline", mri.atlas === "line");
   svg.style.opacity = mri.atlas === "off" ? "0" : String(has ? mri.atOp : 1);
   if (has) { const p = cur(); p.idx = Math.min(p.idx, mri.frames.length - 1); paintFrame(mri.frames[p.idx], p); placeMRI(); }
+  const bimg = svg.querySelector("#mriImg"), builtin = !has && state.view === "mri" && !!bimg;
+  if (bimg) bimg.style.display = builtin ? "" : "none";
+  if (!has) { svg.classList.toggle("outline", builtin); svg.style.opacity = "1"; stage.classList.toggle("has-mri", builtin); }
+  const sl = BYS[state.slice];
+  $("#vMri").disabled = !mriSrc(sl); $("#vMri").title = mriSrc(sl) ? "" : "No MRI template for this level";
+  $("#vMri").setAttribute("aria-pressed", String(state.view === "mri" && !!mriSrc(sl))); $("#vDraw").setAttribute("aria-pressed", String(!(state.view === "mri" && mriSrc(sl))));
   syncMriControls();
 }
 function clearMRI() { mri.urls.forEach(u => URL.revokeObjectURL(u)); mri.urls = []; mri.frames = []; mri.per = {}; mri.align = false; mri.atlas = "fill"; $("#mriInfo").textContent = "No scan loaded"; renderMRI(); }
@@ -824,6 +835,9 @@ function alignUp(e) { ptrs.delete(e.pointerId); }
 cv.addEventListener("wheel", e => { if (!alignActive()) return; e.preventDefault(); const p = cur(); p.z = Math.min(8, Math.max(0.2, p.z * Math.exp(-e.deltaY * 0.0015))); placeMRI(); $("#mriZoom").value = String(Math.round(p.z * 100)); }, {passive:false});
 
 /* controls */
+$("#vMri").onclick = () => { state.view = "mri"; try { localStorage.setItem("loc-view", "mri"); } catch (x) {} renderMRI(); };
+$("#vDraw").onclick = () => { state.view = "draw"; try { localStorage.setItem("loc-view", "draw"); } catch (x) {} renderMRI(); };
+try { if (localStorage.getItem("loc-view") === "draw") state.view = "draw"; } catch (x) {}
 $("#mriBtn").onclick = () => { const open = $("#mriPanel").hidden; $("#mriPanel").hidden = !open; $("#mriBtn").setAttribute("aria-expanded", String(open)); };
 $("#mriFile").addEventListener("change", e => { loadFiles(e.target.files); e.target.value = ""; });
 $("#mriClear").onclick = clearMRI;
@@ -855,7 +869,7 @@ addEventListener("resize", () => placeMRI());
 $("#mDraw").onclick = () => { state.mode = "draw"; $("#mDraw").setAttribute("aria-pressed", "true"); $("#mErase").setAttribute("aria-pressed", "false"); stage.classList.remove("erase"); };
 $("#mErase").onclick = () => { state.mode = "erase"; $("#mErase").setAttribute("aria-pressed", "true"); $("#mDraw").setAttribute("aria-pressed", "false"); stage.classList.add("erase"); };
 $("#brush").oninput = e => { state.brush = +e.target.value; };
-const setPara = side => { state.paraSide = side; $("#pR").setAttribute("aria-pressed", String(side === "R")); $("#pL").setAttribute("aria-pressed", String(side === "L")); analyze(); };
+const setPara = side => { state.paraSide = side; svg.querySelector("#mriImg")?.setAttribute("href", mriSrc(BYS[state.slice])); $("#pR").setAttribute("aria-pressed", String(side === "R")); $("#pL").setAttribute("aria-pressed", String(side === "L")); analyze(); };
 $("#pR").onclick = () => setPara("R"); $("#pL").onclick = () => setPara("L");
 $("#undo").onclick = () => { const u = undo[state.slice]; if (u && u.length) { cx.putImageData(u.pop(), 0, 0); analyze(); } };
 $("#clear").onclick = () => { pushUndo(); cx.clearRect(0, 0, cv.width, cv.height); analyze(); };

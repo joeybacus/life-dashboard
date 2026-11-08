@@ -338,7 +338,12 @@ workout (the "Workout saved" message and the finished workout's page).
 - **Neuro Localizer** (0.11.12–0.11.16): draw a lesion on 24 schematic slices (axial at the vertex, corona radiata, basal
   ganglia and midbrain/temporal level; anterior, mid-thalamic and posterior coronal; midline and parasagittal, with a
   Right/Left hemisphere switch for the parasagittal view; posterior fossa;
-  nine brainstem levels; and five spinal cord levels from C2 to the conus). **MRI overlay** (0.11.18): load your own
+  nine brainstem levels; and five spinal cord levels from C2 to the conus). **Built-in MRI** (0.11.19, the default view):
+  every brain and brainstem slice shows a matching cut of the MNI152 template (ICBM 2009a nonlinear symmetric) with the
+  atlas as outlines on top; **Drawing** switches back to the coloured diagram (the choice is remembered). The 20 images are
+  in `js/modules/clinical/mri/` (about 330 KB, cached for offline use); spinal levels have no template image. Template
+  copyright © 1993–2009 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University,
+  credited in the page footer as its licence requires. **Own scan** (0.11.18): load your own
   scan under the drawing (uncompressed DICOM, a whole series to scroll through, PNG or JPG; drag in or paste a screenshot),
   switch the atlas to outline, and line it up (drag, zoom, rotate, flip; window/level). Each slice keeps its own
   alignment; scans stay in the page and are never uploaded, saved, synced or backed up
