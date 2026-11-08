@@ -65,7 +65,7 @@ const CLINICAL_TOOLS = [
     return all.length ? `${plural(all.length, 'guideline')}${pdfs ? ` · ${plural(pdfs, 'PDF')}` : ''}` : 'Links and PDFs, by topic';
   } },
   { sub: 'cases', name: 'Cases', icon: 'clipboard', line: () => (allCases().length ? plural(allCases().length, 'teaching case') : 'Your teaching cases') },
-  { sub: 'localizer', name: 'Neuro Localizer', icon: 'pin', line: () => 'Draw a lesion · 18 slices · tracts, syndromes, arteries' },
+  { sub: 'localizer', name: 'Neuro Localizer', icon: 'pin', line: () => 'Draw a lesion · brain to conus · syndromes, arteries' },
   { sub: 'eyes', name: 'Ocular Motor Atlas', icon: 'eye', line: () => '45 lesions · eye movements, pupils, visual fields' },
   { sub: 'cerebellum', name: 'Cerebellar Pathways', icon: 'brain', line: () => '6 circuits · 14 lesions · which side is ataxic' },
 ];

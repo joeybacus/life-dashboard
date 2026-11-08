@@ -290,9 +290,93 @@ S.push({
   ]
 });
 
+/* ---------------- Parasagittal · internal capsule ---------------- */
+const PARA_CB = "M330,382 C370,368 450,360 500,372 C540,384 552,420 524,442 C490,462 400,462 360,446 C330,434 316,404 330,382 Z";
+const PARA_CR = "M88,236 C70,160 130,66 256,46 C386,30 502,74 540,168 C560,226 552,288 516,312 C482,334 440,330 404,318 L398,318 C376,352 330,372 276,370 C232,368 200,352 188,330 C176,312 178,300 190,292 L168,290 C130,290 100,272 88,236 Z";
+S.push({
+  id:"para", group:"Cerebrum", name:"Parasagittal · internal capsule", w:600, h:470, center:[300,200], mid:true, para:true,
+  view:"Sagittal, about 2 cm from the midline through the internal capsule and thalamus · front of the head to the left · choose the hemisphere above",
+  outline:PARA_CR + " " + PARA_CB, hemi:PARA_CR,
+  inner:"M128,234 C116,170 160,96 258,82 C374,66 476,104 506,176 C520,222 512,268 484,286 C456,302 424,298 398,288 C380,314 340,334 280,334 C240,334 220,322 214,306 L196,262 C150,262 132,254 128,234 Z",
+  structs:[
+    {id:"wmcr", n:"Corona radiata and centrum semiovale", a:"CR", k:"wm", sh:["w",300,60], clip:"wm", fn:"Projection fibers fanning toward the internal capsule", d:[["{C} face, arm and leg weakness (upper motor neuron)","contra"],["{C} hemisensory loss","contra"]]},
+    {id:"wmf", n:"Frontal white matter", a:"F-WM", k:"wm", sh:["w",232,300], clip:"wm", fn:"Frontostriatal and frontothalamic fibers", d:[["Apathy, executive dysfunction","bi"]]},
+    {id:"wmp", n:"Parieto-occipital white matter (SLF, optic radiation upper fibers)", a:"PO-WM", k:"wm", sh:["w",60,140], clip:"wm", fn:"Parietal association and visual fibers", d:[["{C} inferior quadrantanopia","contra"],["{C} neglect","contra","R"]]},
+    {id:"wmt", n:"Temporal white matter (temporal stem)", a:"T-WM", k:"wm", sh:["w",140,232], clip:"wm", fn:"Temporal association fibers", d:[["Naming and semantic deficits","bi","L"]]},
+    {id:"ofc", n:"Frontal pole and lateral orbitofrontal cortex", a:"OFC", k:"ctx", sh:["w",232,262], clip:"ctx", fn:"Social behaviour, decision-making", d:[["Disinhibition, poor judgment","bi"]]},
+    {id:"pfc", n:"Prefrontal cortex (superior and middle frontal gyri)", a:"PFC", k:"ctx", sh:["w",262,318], clip:"ctx", fn:"Executive control, working memory", d:[["Dysexecutive syndrome","bi"]]},
+    {id:"pm", n:"Premotor cortex and frontal eye field", a:"PM", k:"ctx", sh:["w",318,345], clip:"ctx", fn:"Movement planning, voluntary saccades", d:[["Eyes deviate toward the {I} side acutely","ipsi"],["{C} proximal weakness, limb-kinetic apraxia","contra"]]},
+    {id:"m1", n:"Precentral gyrus (primary motor: leg and trunk near the top, arm lower)", a:"M1", k:"ctx", sh:["w",345,5], clip:"ctx", fn:"Voluntary movement", d:[["{C} leg, trunk and arm weakness","contra"]]},
+    {id:"s1", n:"Postcentral gyrus (primary somatosensory)", a:"S1", k:"ctx", sh:["w",5,20], clip:"ctx", fn:"Discriminative touch and position sense", d:[["{C} cortical sensory loss","contra"]]},
+    {id:"par", n:"Parietal lobule (superior parietal and supramarginal)", a:"Par", k:"ctx", sh:["w",20,55], clip:"ctx", fn:"Reaching, praxis, spatial attention", d:[["{C} optic ataxia","contra"],["{C} neglect","contra","R"],["Ideomotor apraxia","bi","L"]]},
+    {id:"ang", n:"Angular gyrus and parieto-occipital cortex", a:"AG", k:"ctx", sh:["w",55,85], clip:"ctx", fn:"Reading, writing, calculation (left); attention (right)", d:[["Gerstmann syndrome, alexia with agraphia","bi","L"],["{C} hemispatial neglect","contra","R"]]},
+    {id:"occ", n:"Occipital cortex (lateral occipital and pole)", a:"Occ", k:"ctx", sh:["w",85,125], clip:"ctx", fn:"Vision; macular representation at the pole", d:[["{C} homonymous field defect, central if the pole is involved","contra"]]},
+    {id:"tocc", n:"Inferior temporo-occipital and fusiform cortex", a:"Fus", k:"ctx", sh:["w",125,160], clip:"ctx", fn:"Faces, words, colour", d:[["Prosopagnosia","bi","R"],["Pure alexia","bi","L"]]},
+    {id:"tmp", n:"Middle and inferior temporal gyri", a:"MTG", k:"ctx", sh:["w",160,205], clip:"ctx", fn:"Semantic memory, auditory association", d:[["Anomia, comprehension deficits","bi","L"]]},
+    {id:"tp", n:"Temporal pole", a:"TP", k:"ctx", sh:["w",205,232], clip:"ctx", fn:"Semantic and social knowledge", d:[["Semantic deficits","bi","L"],["Behavioural change","bi","R"]]},
+    {id:"lv", n:"Lateral ventricle (frontal horn and body)", a:"LV", k:"csf", sh:["p","M200,176 C240,150 330,146 380,170 L376,180 C330,160 248,164 206,188 Z"], d:[]},
+    {id:"cau", n:"Caudate nucleus (head and body)", a:"Cd", k:"nuc", sh:["p","M196,190 C230,166 300,162 360,178 L356,190 C300,176 240,182 206,206 C196,210 190,198 196,190 Z"], fn:"Associative and limbic striatum", d:[["Abulia, apathy, executive dysfunction","bi"]]},
+    {id:"alic", n:"Internal capsule, anterior limb", a:"ALIC", k:"tract", sh:["p","M212,208 L246,200 L262,250 L230,258 Z"], fn:"Frontopontine fibers, anterior thalamic radiation", d:[["Abulia, executive dysfunction","bi"],["Mild {C} face and arm weakness","contra"]]},
+    {id:"genu", n:"Internal capsule, genu", a:"Genu", k:"tract", sh:["p","M246,200 L272,198 L280,248 L262,250 Z"], fn:"Corticobulbar fibers", d:[["{C} lower face and tongue weakness, dysarthria","contra"]]},
+    {id:"plic", n:"Internal capsule, posterior limb (corticospinal and sensory radiation)", a:"PLIC", k:"tract", sh:["p","M272,198 L318,196 L308,252 L280,248 Z"], fn:"Corticospinal fibers, thalamocortical sensory radiation", d:[["{C} face, arm and leg weakness (upper motor neuron)","contra"],["{C} hemisensory loss (posterior part)","contra"]]},
+    {id:"rlic", n:"Internal capsule, retrolenticular part", a:"RL", k:"tract", sh:["p","M318,196 L350,200 L332,256 L308,252 Z"], fn:"Optic radiation leaving the lateral geniculate", d:[["{C} homonymous hemianopia","contra"]]},
+    {id:"thal", n:"Thalamus (lateral: VL, VPL, VPM, pulvinar)", a:"Th", k:"nuc", sh:["e",346,232,30,20], fn:"Motor and sensory relay, visual attention", d:[["{C} loss of all sensation in face, arm and leg; later central pain","contra"],["{C} ataxia","contra"]]},
+    {id:"lent", n:"Lentiform nucleus (putamen and globus pallidus)", a:"Lent", k:"nuc", sh:["e",262,274,42,16], fn:"Motor basal ganglia loop", d:[["{C} dystonia, hemichorea or parkinsonism","contra"],["{C} hemiparesis if the capsule is involved","contra"]]},
+    {id:"stn", n:"Subthalamic nucleus", a:"STN", k:"nuc", sh:["e",324,268,12,6], fn:"Indirect pathway of the basal ganglia", d:[["{C} hemiballism","contra"]]},
+    {id:"cp", n:"Cerebral peduncle (descending fibers)", a:"CP", k:"tract", sh:["p","M290,290 L318,286 L322,332 L296,334 Z"], fn:"Corticospinal and corticobulbar fibers entering the brainstem", d:[["{C} face, arm and leg weakness","contra"]]},
+    {id:"orad", n:"Optic radiation (to the occipital lobe)", a:"OR", k:"tract", sh:["p","M360,252 C410,250 460,240 506,214 L508,226 C462,254 412,264 362,264 Z"], fn:"LGN to calcarine cortex", d:[["{C} homonymous hemianopia","contra"]]},
+    {id:"mey", n:"Meyer loop (optic radiation over the temporal horn)", a:"Mey", k:"tract", sh:["p","M352,262 C320,278 290,292 268,300 L272,310 C292,302 324,290 358,274 Z"], fn:"Fibers for the upper visual field", d:[["{C} superior quadrantanopia","contra"]]},
+    {id:"atr", n:"Atrium and occipital horn", a:"Atr", k:"csf", sh:["e",420,236,24,10,-15], d:[]},
+    {id:"th", n:"Temporal horn", a:"TH", k:"csf", sh:["e",300,318,40,6,4], d:[]},
+    {id:"amyg", n:"Amygdala", a:"Amy", k:"nuc", sh:["e",238,318,16,12], fn:"Fear and emotional memory", d:[["Reduced fear and emotional memory","bi"]]},
+    {id:"hip", n:"Hippocampus", a:"Hip", k:"ctx", sh:["e",318,334,46,9,4], fn:"Episodic memory", d:[["Anterograde amnesia (verbal if left, visual if right; severe if both)","bi"]]},
+    {id:"cbl", n:"Cerebellar hemisphere", a:"Cb", k:"ctx", sh:["p",PARA_CB], fn:"Limb coordination", d:[["{I} limb ataxia","ipsi"],["Dysarthria","bi"]]},
+    {id:"dent", n:"Dentate nucleus", a:"Dent", k:"nuc", sh:["p","M410,404 Q418,392 430,400 Q442,392 452,404 Q458,416 448,422 Q436,430 426,422 Q414,430 408,418 Q404,410 410,404 Z"], fn:"Cerebellar output", d:[["{I} intention tremor, dysmetria","ipsi"]]}
+  ],
+  terr:[
+    {id:"aca", n:"ACA (A3–A4): callosomarginal branches, superior frontal and paracentral", f:"ACA", sh:["w",300,35]},
+    {id:"mcaf", n:"MCA superior division (M2–M4): frontal and orbitofrontal branches", f:"MCA", sh:["w",232,300]},
+    {id:"mcap", n:"MCA (M4): anterior parietal and angular branches", f:"MCA", sh:["w",35,70]},
+    {id:"pca", n:"PCA (P3–P4): calcarine, parieto-occipital, posterior and inferior temporal branches", f:"PCA", sh:["w",70,170]},
+    {id:"mcat", n:"MCA inferior division and anterior temporal artery: anterior and middle temporal lobe", f:"MCA", sh:["w",170,232]},
+    {id:"wsa", n:"ACA–MCA cortical border zone", f:"WS", sh:["w",28,42], clip:"ctx"},
+    {id:"wsp", n:"MCA–PCA cortical border zone", f:"WS", sh:["w",64,78], clip:"ctx"},
+    {id:"lsa", n:"Lateral lenticulostriate arteries (M1 MCA): caudate body, upper capsule, lentiform nucleus", f:"MCAd", sh:["p","M196,190 L360,176 L320,200 L310,252 L300,292 L222,292 L210,240 Z"]},
+    {id:"heub", n:"Recurrent artery of Heubner (A1–A2 junction): caudate head, anterior limb", f:"ACAd", sh:["e",220,222,24,30]},
+    {id:"acha", n:"Anterior choroidal artery (ICA): lower posterior limb, retrolenticular capsule, start of the optic radiation", f:"AChA", sh:["p","M282,236 L334,236 L332,262 L284,262 Z"]},
+    {id:"acha2", n:"Anterior choroidal artery (ICA): amygdala, hippocampal head, uncus", f:"AChA", sh:["e",250,320,30,14]},
+    {id:"phip", n:"PCA hippocampal branches (P2): hippocampal body and tail", f:"PCA", sh:["e",340,332,34,12]},
+    {id:"tg", n:"Inferolateral (thalamogeniculate) arteries (P2 PCA): lateral thalamus", f:"PCAd", sh:["e",340,232,24,20]},
+    {id:"lpch", n:"Lateral posterior choroidal artery (P2): pulvinar, lateral geniculate", f:"PCAd", sh:["e",370,238,10,16]},
+    {id:"mes", n:"Mesencephalic perforators of P1 and the posterior communicating artery: subthalamic nucleus, peduncle", f:"PCAd", sh:["p","M284,262 L330,262 L324,334 L292,336 Z"]},
+    {id:"sca", n:"Superior cerebellar artery: superior cerebellar hemisphere and dentate", f:"SCA", sh:["r",300,350,280,62]},
+    {id:"pica", n:"PICA: inferior cerebellar hemisphere", f:"PICA", sh:["r",300,412,280,70]}
+  ],
+  syn:[
+    {n:"Pure motor hemiparesis (lacunar)", need:[["plic","genu"]], not:["thal","m1","s1","par","rlic"], t:"Opposite face, arm and leg weakness without sensory or visual signs; lenticulostriate (upper) or anterior choroidal (lower) perforator."},
+    {n:"Thalamic sensory stroke", need:[["thal"]], not:["plic"], t:"Opposite hemisensory loss, sometimes later central pain; thalamogeniculate perforators."},
+    {n:"Sensorimotor stroke", need:[["plic"],["thal"]], t:"Weakness and sensory loss together."},
+    {n:"Anterior choroidal artery syndrome", need:[["plic","rlic"],["orad","mey","rlic"]], t:"Hemiparesis, hemisensory loss and homonymous hemianopia with preserved cognition."},
+    {n:"Recurrent artery of Heubner syndrome", need:[["cau"],["alic"]], t:"Face and arm weakness, dysarthria and abulia."},
+    {n:"Striatocapsular infarct", need:[["lent"],["plic","alic","genu"]], t:"Several lenticulostriates at once, usually from M1 embolism."},
+    {n:"Hemiballism", need:[["stn"]], t:"Flinging movements of the opposite limbs."},
+    {n:"Meyer loop quadrantanopia", need:[["mey"]], t:"Opposite superior quadrantanopia (pie in the sky); temporal lobectomy, MCA inferior division or AChA territory."},
+    {n:"Hippocampal infarct (PCA)", need:[["hip"]], t:"Verbal (left) or visual (right) memory impairment; severe amnesia needs both sides."},
+    {n:"Gerstmann syndrome", only:"L", need:[["ang"]], t:"Agraphia, acalculia, finger agnosia, left-right confusion."},
+    {n:"Hemispatial neglect", only:"R", need:[["par","ang"]], t:"Left neglect and anosognosia."},
+    {n:"Cerebellar hemisphere syndrome", need:[["cbl","dent"]], t:"Same-side limb ataxia and intention tremor; watch for swelling."}
+  ],
+  presets:[
+    {n:"Posterior limb lacune", sh:[["e",294,222,9,12]]},
+    {n:"Caudate head and anterior limb (Heubner)", sh:[["e",222,214,16,20]]},
+    {n:"Meyer loop and hippocampus (temporal)", sh:[["p","M342,264 L366,264 L368,338 L342,338 Z"]]},
+    {n:"Lateral thalamus", sh:[["e",346,232,14,10]]}
+  ]
+});
+
 /* rename the original coronal slice and put the slices in anatomical order */
 const cor = S.find(s => s.id === "cor"); if (cor) cor.name = "Coronal · mid-thalamus";
-const ORDER = ["ax-vx", "ax-cr", "ax-bg", "ax-ml", "cor-a", "cor", "cor-p", "sag", "ax-pf"];
+const ORDER = ["ax-vx", "ax-cr", "ax-bg", "ax-ml", "cor-a", "cor", "cor-p", "sag", "para", "ax-pf"];
 const rank = id => { const i = ORDER.indexOf(id); return i < 0 ? 99 : i; };
 const sorted = S.slice().sort((a, b) => rank(a.id) - rank(b.id));
 S.length = 0; sorted.forEach(s => S.push(s));

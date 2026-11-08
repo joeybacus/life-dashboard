@@ -86,6 +86,7 @@ main.wrap{padding-block:20px 56px}
 .stagewrap{padding:12px}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:10px}
 .seg{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
+.seg span{font-family:var(--f-label);font-size:11px;color:var(--muted);padding:0 6px 0 8px;text-transform:uppercase;letter-spacing:.08em}
 .seg button{border:0;background:none;color:var(--fg);padding:5px 12px;border-radius:999px;font-family:var(--f-label);font-weight:600;font-size:12.5px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel)}
 .tbtn{font-family:var(--f-label);font-weight:600;font-size:12.5px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
@@ -110,6 +111,27 @@ select.tsel{font-family:var(--f-label);font-size:12.5px;padding:6px 8px;border-r
 .sview{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:0 0 8px}
 .stage{position:relative;width:100%;max-width:100%;margin:0 auto;border-radius:8px;background:var(--s-out);overflow:hidden;touch-action:none}
 .stage svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage canvas.mri{position:absolute;inset:auto;left:50%;top:50%;width:auto;height:auto;opacity:1;pointer-events:none;transform-origin:center;max-width:none}
+.stage.has-mri{background:#000}
+.stage.aligning #cv{cursor:move}
+.stage.drop{outline:2px dashed var(--accent);outline-offset:-4px}
+#svg.outline .st > *{fill:transparent!important;stroke:#ffd24a;stroke-width:1.1}
+#svg.outline .o-bg{fill:transparent}
+#svg.outline .o-line{stroke:#ffd24a}
+#svg.outline .st.hit > *{stroke:#ff4d7d;stroke-width:2.4}
+#svg.outline .tl{fill:#fff;stroke:#000}
+#svg.outline .mid{stroke:#ffd24a}
+.mripanel{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:grid;gap:8px;background:var(--panel-2)}
+.mrirow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.mriinfo{font-family:var(--f-label);font-size:12.5px;color:var(--muted)}
+.mrihint{margin:0;font-size:12.5px;color:var(--muted)}
+.filebtn{position:relative;overflow:hidden;display:inline-flex;align-items:center}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.rng{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-label);font-size:12px;color:var(--muted)}
+.rng input{width:96px;accent-color:var(--accent)}
+.rng output{font-variant-numeric:tabular-nums;min-width:44px;color:var(--fg)}
+.mri-btn[aria-expanded="true"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+#alignBtn[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
 .stage canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.55;cursor:crosshair;touch-action:none}
 .stage.erase canvas{cursor:cell}
 .side-l,.side-r{position:absolute;top:8px;font-family:var(--f-label);font-weight:600;font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:1px 9px;pointer-events:none}
@@ -203,7 +225,7 @@ body{margin:0}
       <a href="#thal" data-tab="thal">Thalamus and hypothalamus</a>
       <a href="#auto" data-tab="auto">Autonomic</a>
       <a href="#vessels" data-tab="vessels">Arteries</a>
-      <a href="#bsyn" data-tab="bsyn">Brainstem syndromes</a>
+      <a href="#bsyn" data-tab="bsyn">Brainstem and cord syndromes</a>
     </nav>
   </div>
 </header>
@@ -215,17 +237,42 @@ body{margin:0}
       <div class="panel stagewrap">
         <div class="toolbar">
           <div class="seg" role="group" aria-label="Pen"><button type="button" id="mDraw" aria-pressed="true">Draw</button><button type="button" id="mErase" aria-pressed="false">Erase</button></div>
+          <div class="seg" role="group" aria-label="Hemisphere shown" id="paraSeg" hidden><span>Hemisphere</span><button type="button" id="pR" aria-pressed="true">Right</button><button type="button" id="pL" aria-pressed="false">Left</button></div>
           <label class="brush">Brush <input type="range" id="brush" min="4" max="44" value="14" aria-label="Brush size"></label>
           <button type="button" class="tbtn" id="undo">Undo</button>
           <button type="button" class="tbtn" id="clear">Clear</button>
           <select class="tsel" id="preset" aria-label="Example lesions"></select>
           <label class="toggle"><input type="checkbox" id="tLabels" checked> Labels</label>
           <label class="toggle"><input type="checkbox" id="tTerr"> Arteries</label>
+          <button type="button" class="tbtn mri-btn" id="mriBtn" aria-expanded="false" aria-controls="mriPanel">MRI overlay</button>
+        </div>
+        <div class="mripanel" id="mriPanel" hidden>
+          <div class="mrirow">
+            <label class="tbtn filebtn">Load scan…<input type="file" id="mriFile" accept=".dcm,.dicom,.ima,application/dicom,image/*" multiple></label>
+            <span class="mriinfo" id="mriInfo">No scan loaded</span>
+            <button type="button" class="tbtn" id="mriClear" hidden>Remove scan</button>
+          </div>
+          <p class="mrihint">DICOM (uncompressed; select a whole series to scroll through it), PNG or JPG. You can also drag files onto the image or paste a screenshot. Scans stay in this page only: nothing is uploaded, saved or synced.</p>
+          <div class="mrirow" id="mriCtl" hidden>
+            <label class="rng" id="mriFrameWrap">Image <input type="range" id="mriFrame" min="0" max="0" value="0" aria-label="Image in the series"><output id="mriFrameOut">1 / 1</output></label>
+            <label class="rng">Scan <input type="range" id="mriOp" min="0" max="100" value="100" aria-label="Scan opacity"></label>
+            <div class="seg" role="group" aria-label="Atlas drawing"><span>Atlas</span><button type="button" id="mFill" aria-pressed="false">Filled</button><button type="button" id="mLine" aria-pressed="true">Outline</button><button type="button" id="mOff" aria-pressed="false">Hidden</button></div>
+            <label class="rng">Atlas <input type="range" id="atOp" min="10" max="100" value="85" aria-label="Atlas opacity"></label>
+          </div>
+          <div class="mrirow" id="mriAlignRow" hidden>
+            <button type="button" class="tbtn" id="alignBtn" aria-pressed="false">Align scan</button>
+            <label class="rng">Zoom <input type="range" id="mriZoom" min="20" max="400" value="100" aria-label="Scan zoom"></label>
+            <label class="rng">Rotate <input type="range" id="mriRot" min="-45" max="45" value="0" aria-label="Scan rotation"></label>
+            <button type="button" class="tbtn" id="mriFlip">Flip left–right</button>
+            <button type="button" class="tbtn" id="mriReset">Reset</button>
+            <label class="rng"><span id="mriALab">Window</span> <input type="range" id="mriA" aria-label="Window or contrast"></label>
+            <label class="rng"><span id="mriBLab">Level</span> <input type="range" id="mriB" aria-label="Level or brightness"></label>
+          </div>
         </div>
         <div class="shead"><div><p class="sname" id="sname"></p><p class="sview" id="sview"></p></div><div class="locator" id="locator" hidden></div></div>
-        <div class="stage" id="stage"><svg id="svg" aria-hidden="true"></svg><canvas id="cv" aria-label="Drawing surface: paint the lesion here"></canvas><span class="side-l">R</span><span class="side-r">L</span><div class="tip" id="tip" hidden></div></div>
+        <div class="stage" id="stage"><canvas id="mri" class="mri" hidden aria-label="MRI scan"></canvas><svg id="svg" aria-hidden="true"></svg><canvas id="cv" aria-label="Drawing surface: paint the lesion here"></canvas><span class="side-l">R</span><span class="side-r">L</span><div class="tip" id="tip" hidden></div></div>
         <div class="legend" id="legend" hidden></div>
-        <p class="hint">Hover to name a structure. Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
+        <p class="hint">Use “MRI overlay” to put a scan underneath, line it up, then paint on it; the report still comes from the atlas. Hover to name a structure. Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
       </div>
       <aside class="panel report" id="report" aria-live="polite"></aside>
     </div>
@@ -265,6 +312,8 @@ body{margin:0}
   <section class="view" data-view="bsyn" hidden>
     <div class="vhead"><h2>Brainstem syndromes by level</h2><p>Upper and lower midbrain, upper, middle and lower pons, upper and lower medulla: structures, findings and the artery involved. Open a level in the mapper to draw it.</p></div>
     <div class="tblw"><table id="bsynTable"></table></div>
+    <h3 class="h3s">Spinal cord syndromes</h3>
+    <div class="tblw"><table id="cordTable"></table></div>
   </section>
 </main>
 <footer class="wrap">Educational reference. Drawings are schematic and simplified; territories vary between people. Check clinical decisions against imaging and current sources.</footer>
@@ -272,6 +321,7 @@ body{margin:0}
 <script src="localizer-slices.js"></script>
 <script src="localizer-cerebrum.js"></script>
 <script src="localizer-brainstem.js"></script>
+<script src="localizer-spine.js"></script>
 <script src="localizer-ref.js"></script>
 <script>
 (() => {
@@ -403,7 +453,7 @@ function svgFor(B) {
 }
 
 /* ---------- state ---------- */
-const state = {slice:"ax-bg", mode:"draw", brush:14, labels:true, terr:false, tab:"mapper"};
+const state = {slice:"ax-bg", mode:"draw", brush:14, labels:true, terr:false, tab:"mapper", paraSide:"R"};
 const saved = {}, visited = {}, undo = {};
 const cv = $("#cv"), cx = cv.getContext("2d"), svg = $("#svg"), stage = $("#stage");
 let B = null;
@@ -431,15 +481,20 @@ function loadSlice(id) {
   undo[id] = undo[id] || [];
   $("#sname").textContent = sl.name;
   $("#sview").textContent = sl.view;
+  $("#paraSeg").hidden = !sl.para;
+  $(".side-l").textContent = sl.mid ? "Front" : "R";
+  $(".side-r").textContent = sl.mid ? "Back" : "L";
   $("#preset").innerHTML = `<option value="">Example lesions…</option>` + (sl.presets || []).map((p, i) => `<option value="${i}">${esc(p.n)}</option>`).join("");
   $$("#slices .sl").forEach(b => b.setAttribute("aria-current", String(b.dataset.s === id)));
   renderLegend();
   renderLocator(sl);
+  renderMRI();
   analyze();
 }
 const LEVELS = [["mb-u",24,"III"],["mb-l",52,"IV"],["p-u",78,"rostral"],["p-m",104,"V"],["p-l",130,"VI VII"],["pmj",148,"VIII"],["m-u",170,"IX X"],["m-m",192,"XII"],["m-l",214,"decuss."]];
 function renderLocator(sl) {
   const box = $("#locator");
+  if (sl.group === "Spinal cord") { box.hidden = false; box.innerHTML = spineLocator(sl); return; }
   if (sl.group !== "Brainstem") { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = `<svg viewBox="0 0 96 232" role="img" aria-label="Brainstem level locator, side view">
@@ -447,6 +502,13 @@ function renderLocator(sl) {
 <path class="lc-stem" d="M22,8 L46,8 L48,70 C52,96 50,130 46,142 L44,224 L28,224 L26,142 C10,128 8,84 24,70 Z"/>
 ${LEVELS.map(([id, y, t]) => `<g data-s="${id}"><title>${esc(BYS[id] ? BYS[id].name : id)}</title><line class="lc-hit" x1="4" y1="${y}" x2="52" y2="${y}"/><line class="lc-l${id === sl.id ? " on" : ""}" x1="6" y1="${y}" x2="50" y2="${y}"/><text class="lc-t${id === sl.id ? " on" : ""}" x="78" y="${y + 3}">${t}</text></g>`).join("")}
 <text class="lc-t" x="2" y="6">front</text></svg>`;
+}
+const SPINE = [["sc-c2",34,"C2–4"],["sc-c6",70,"C6"],["sc-t6",130,"T6"],["sc-l4",190,"L4"],["sc-s3",214,"S3"]];
+function spineLocator(sl) {
+  return `<svg viewBox="0 0 96 232" role="img" aria-label="Spinal cord level locator">
+<path class="lc-stem" d="M30,8 C28,40 26,60 30,90 C32,120 32,150 30,176 C26,196 28,206 34,224 L40,224 C46,206 48,196 44,176 C42,150 42,120 44,90 C48,60 46,40 44,8 Z"/>
+${SPINE.map(([id, y, t]) => `<g data-s="${id}"><title>${esc(BYS[id] ? BYS[id].name : id)}</title><line class="lc-hit" x1="10" y1="${y}" x2="64" y2="${y}"/><line class="lc-l${id === sl.id ? " on" : ""}" x1="14" y1="${y}" x2="60" y2="${y}"/><text class="lc-t${id === sl.id ? " on" : ""}" x="66" y="${y + 3}">${t}</text></g>`).join("")}
+<text class="lc-t" x="2" y="6">top</text></svg>`;
 }
 $("#locator").addEventListener("click", e => { const g = e.target.closest("[data-s]"); if (g) go(g.dataset.s); });
 function renderLegend() {
@@ -471,15 +533,18 @@ function pushUndo() { const u = undo[state.slice]; u.push(cx.getImageData(0, 0, 
 cv.addEventListener("pointerdown", e => {
   e.preventDefault();
   try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+  if (alignActive()) { alignDown(e); return; }
   pushUndo(); drawing = true; last = pt(e); stroke(last, last); $("#tip").hidden = true;
 });
 cv.addEventListener("pointermove", e => {
+  if (alignActive()) { alignMove(e); return; }
   const p = pt(e);
   if (drawing) { stroke(last, p); last = p; const now = performance.now(); if (now - pending > 180) { pending = now; analyze(); } return; }
   hover(p, e);
 });
 const endDraw = () => { if (!drawing) return; drawing = false; analyze(); };
-cv.addEventListener("pointerup", endDraw); cv.addEventListener("pointercancel", endDraw);
+const endAll = e => { alignUp(e); endDraw(); };
+cv.addEventListener("pointerup", endAll); cv.addEventListener("pointercancel", endAll);
 cv.addEventListener("pointerleave", () => { $("#tip").hidden = true; setHover(-1); });
 
 let hovI = -1;
@@ -534,16 +599,16 @@ function evalSyndromes(sl, hits) {
   const hit = (id, side) => isM(id) ? (has.has(id + "_M")) : has.has(id + "_" + side);
   const out = [];
   (sl.syn || []).forEach(sy => {
-    if (sy.bi) { if (sy.bi.every(g => g.some(id => hit(id, "R")) && g.some(id => hit(id, "L")))) out.push({sy, side:"B"}); return; }
+    if (sy.bi) { if (sy.bi.every(g => g.some(id => hit(id, "R")) && g.some(id => hit(id, "L"))) && !(sy.not && sy.not.some(id => hit(id, "R") || hit(id, "L")))) out.push({sy, side:"B"}); return; }
     const allM = (sy.need || []).every(g => g.every(isM));
-    const sides = sl.mid || allM ? ["M"] : ["R", "L"];
+    const sides = sl.para ? [state.paraSide] : (sl.mid || allM ? ["M"] : ["R", "L"]);
     let midOnly = false;
     sides.forEach(side => {
       if (sy.only && side !== sy.only) return;
       if (!sy.need.every(g => g.some(id => hit(id, side)))) return;
       if (sy.not && sy.not.some(id => hit(id, side))) return;
       const sided = side !== "M" && sy.need.some(g => g.some(id => !isM(id) && hit(id, side)));
-      if (!sided && side !== "M") { midOnly = true; return; }
+      if (!sided && side !== "M" && !sl.para) { midOnly = true; return; }
       out.push({sy, side});
     });
     if (midOnly && !out.some(x => x.sy === sy)) out.push({sy, side:"M"});
@@ -558,9 +623,12 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
       <div><div class="lab">On this slice</div><p class="empty" style="margin-top:6px">${esc(sl.view)}. ${sl.structs.length} structures and ${(sl.terr || []).length} arterial territories are mapped; hover to name them, or switch on Arteries.</p></div>`;
     return;
   }
-  const sideTxt = sl.mid ? "Midline view (hemisphere not shown)" : onR && onL ? (Math.min(onR, onL) / Math.max(onR, onL) > .25 ? "Both sides" : (onR > onL ? "Mainly the patient’s right" : "Mainly the patient’s left")) : (onR ? "Patient’s right" : "Patient’s left");
+  const sideTxt = sl.para ? (state.paraSide === "R" ? "Right hemisphere (parasagittal)" : "Left hemisphere (parasagittal)") : sl.mid ? "Midline view (hemisphere not shown)" : onR && onL ? (Math.min(onR, onL) / Math.max(onR, onL) > .25 ? "Both sides" : (onR > onL ? "Mainly the patient’s right" : "Mainly the patient’s left")) : (onR ? "Patient’s right" : "Patient’s left");
   const real = hits.filter(h => h.o.s.k !== "csf");
-  const syn = evalSyndromes(sl, hits);
+  const synRaw = evalSyndromes(sl, hits);
+  // one card per syndrome; matches on both sides read as "both sides"
+  const syn = [];
+  synRaw.forEach(x => { const e = syn.find(y => y.sy.n === x.sy.n); if (!e) syn.push({sy:x.sy, side:x.side}); else if (e.side !== x.side) e.side = "B"; });
   // deficits
   const hitKeys = new Set(real.map(h => h.o.s.id + "_" + h.o.side));
   const seen = new Map();
@@ -568,8 +636,9 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
     (h.o.s.d || []).forEach(d => {
       const [t, , only] = d;
       if (only === "BOTH") { if (!(hitKeys.has(h.o.s.id + "_R") && hitKeys.has(h.o.s.id + "_L"))) return; }
-      else if (only && (h.o.side === "M" || h.o.side !== only)) return;
-      const line = phrase(t, h.o.side);
+      const eff = sl.para && h.o.side === "M" ? state.paraSide : h.o.side;
+      if (only && only !== "BOTH" && (eff === "M" || eff !== only)) return;
+      const line = phrase(t, eff);
       if (!seen.has(line)) seen.set(line, []);
       const arr = seen.get(line); if (!arr.includes(h.o.s.n)) arr.push(h.o.s.n);
     });
@@ -590,13 +659,204 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
     <div><div class="lab">Expected deficits</div>${csfOnly ? `<p class="empty" style="margin-top:6px">Only CSF spaces are marked: no deficit by itself. Watch for hydrocephalus.</p>` : `<ul class="defs" style="margin-top:6px">${[...seen.entries()].map(([l, src]) => `<li>${esc(l)}<span class="src">${esc(src.join(" · "))}</span></li>`).join("") || "<li>No specific deficit listed for these structures.</li>"}</ul>`}</div>
     <div><div class="lab">Structures involved</div><div class="bars" style="margin-top:8px">${real.slice(0, 18).map(h => `<div class="bar"><span class="bt">${esc(h.o.s.n)}${h.o.side === "M" ? "" : ` <span style="color:var(--muted)">· ${h.o.side === "R" ? "right" : "left"}</span>`}</span><span class="bp">${h.pct}%</span><span class="bb"><i style="width:${h.pct}%;background:var(--lesion)"></i></span></div>`).join("")}</div>${real.length > 18 ? `<p class="empty" style="font-size:13px;margin-top:6px">and ${real.length - 18} more</p>` : ""}<p class="empty" style="font-size:12.5px;margin-top:6px">Percent of each structure covered by the lesion.</p></div>
     <div><div class="lab">Arterial territory</div><div class="bars" style="margin-top:8px">${tlist.map(t => `<div class="bar"><span class="bt"><i class="sw" style="background:var(--f${t.o.t.f})"></i>${esc(sideOf(t) + t.o.t.n)}</span><span class="bp">${t.pct}%</span><span class="bb"><i style="width:${t.pct}%;background:var(--f${t.o.t.f})"></i></span></div>`).join("") || `<p class="empty">No territory mapped here.</p>`}</div><p class="empty" style="font-size:12.5px;margin-top:6px">Share of the lesion inside each territory. Territories vary between people.</p></div>
-    ${notes}`;
+    ${sl.note ? `<p class="note">${esc(sl.note)}</p>` : ""}${notes}`;
 }
+
+/* ---------- MRI overlay ----------
+   A scan (DICOM series, PNG or JPG) shown under the atlas drawing. Scans stay in this page only:
+   never uploaded, saved or synced. Each atlas slice keeps its own image choice and alignment. */
+const mriCv = $("#mri"), mctx = mriCv.getContext("2d");
+const mri = {frames:[], isDicom:false, op:1, atlas:"fill", atOp:0.85, align:false, per:{}, urls:[]};
+const alignActive = () => mri.align && mri.frames.length > 0;
+function cur() {
+  if (!mri.per[state.slice]) mri.per[state.slice] = {tx:0, ty:0, z:1, rot:0, flip:false, idx:Math.floor(mri.frames.length / 2), ww:null, wc:null, b:100, c:100};
+  return mri.per[state.slice];
+}
+
+/* Minimal DICOM reader: uncompressed little-endian (implicit or explicit VR), 8/16-bit grey or 8-bit RGB, multi-frame. */
+function parseDicom(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), N = u8.length;
+  const pre = N > 132 && u8[128] === 68 && u8[129] === 73 && u8[130] === 67 && u8[131] === 77;
+  let off = pre ? 132 : 0;
+  const LONG = new Set(["OB", "OW", "OF", "SQ", "UT", "UN", "OD", "OL", "UC", "UR", "OV", "SV", "UV"]);
+  const str = (o, n) => { let s = ""; for (let i = 0; i < n && o + i < N; i++) { const c = u8[o + i]; if (c) s += String.fromCharCode(c); } return s.trim(); };
+  const readEl = (o, ex) => {
+    const g = dv.getUint16(o, true), e = dv.getUint16(o + 2, true);
+    if (g === 0xFFFE) return {g, e, vr:"", len:dv.getUint32(o + 4, true), hdr:8};
+    if (ex) { const vr = String.fromCharCode(u8[o + 4], u8[o + 5]); return LONG.has(vr) ? {g, e, vr, len:dv.getUint32(o + 8, true), hdr:12} : {g, e, vr, len:dv.getUint16(o + 6, true), hdr:8}; }
+    return {g, e, vr:"", len:dv.getUint32(o + 4, true), hdr:8};
+  };
+  const skipItem = (o, ex) => { while (o < N - 8) { const g = dv.getUint16(o, true), e = dv.getUint16(o + 2, true); if (g === 0xFFFE && e === 0xE00D) return o + 8; const el = readEl(o, ex); o += el.hdr; o = el.len === 0xFFFFFFFF ? skipSeq(o, ex) : o + el.len; } return o; };
+  const skipSeq = (o, ex) => { while (o < N - 8) { const g = dv.getUint16(o, true), e = dv.getUint16(o + 2, true), len = dv.getUint32(o + 4, true); o += 8; if (g === 0xFFFE && e === 0xE0DD) return o; if (g === 0xFFFE && e === 0xE000) { o = len === 0xFFFFFFFF ? skipItem(o, ex) : o + len; continue; } return o; } return o; };
+  const T = {}; let ts = "1.2.840.10008.1.2.1", explicit = true, pixel = null;
+  while (off < N - 8) {
+    const g = dv.getUint16(off, true);
+    const ex = g === 0x0002 ? true : explicit;
+    const el = readEl(off, ex);
+    const vo = off + el.hdr;
+    if (el.g === 0x7FE0 && el.e === 0x0010) { pixel = {o:vo, len:el.len}; break; }
+    if (el.len === 0xFFFFFFFF) { off = skipSeq(vo, ex); continue; }
+    const key = ((el.g << 16) | el.e) >>> 0;
+    if (el.g === 0x0002 && el.e === 0x0010) { ts = str(vo, el.len).replace(/\0/g, ""); explicit = ts !== "1.2.840.10008.1.2"; }
+    if (el.g === 0x0028 || el.g === 0x0020) T[key] = {o:vo, len:el.len};
+    off = vo + el.len;
+    if (g === 0x0002 && off < N - 4 && dv.getUint16(off, true) !== 0x0002) explicit = ts !== "1.2.840.10008.1.2";
+  }
+  if (/^1\.2\.840\.10008\.1\.2\.(4|5|2)/.test(ts)) throw new Error("This DICOM is compressed or big-endian. Export the image as PNG or JPG, or as uncompressed DICOM.");
+  if (!pixel || pixel.len === 0xFFFFFFFF) throw new Error("No readable pixel data (possibly compressed).");
+  const us = k => T[k] ? dv.getUint16(T[k].o, true) : null;
+  const ds = k => T[k] ? parseFloat(str(T[k].o, T[k].len).split("\\")[0]) : null;
+  const rows = us(0x00280010), cols = us(0x00280011), bits = us(0x00280100) || 16, sign = us(0x00280103) || 0, spp = us(0x00280002) || 1;
+  const nfr = Math.max(1, parseInt(T[0x00280008] ? str(T[0x00280008].o, T[0x00280008].len) : "1", 10) || 1);
+  const slope = ds(0x00281053) ?? 1, icpt = ds(0x00281052) ?? 0, wc = ds(0x00281050), ww = ds(0x00281051);
+  const photo = T[0x00280004] ? str(T[0x00280004].o, T[0x00280004].len) : "MONOCHROME2";
+  const inst = ds(0x00200013), loc = ds(0x00201041);
+  if (!rows || !cols) throw new Error("Image size not found in this DICOM file.");
+  const bpp = bits / 8, per = rows * cols * spp * bpp, out = [];
+  for (let f = 0; f < nfr; f++) {
+    const base = pixel.o + f * per;
+    if (base + per > N) break;
+    if (spp === 3) { const rgb = new Uint8ClampedArray(rows * cols * 4); for (let i = 0; i < rows * cols; i++) { rgb[i * 4] = u8[base + i * 3]; rgb[i * 4 + 1] = u8[base + i * 3 + 1]; rgb[i * 4 + 2] = u8[base + i * 3 + 2]; rgb[i * 4 + 3] = 255; } out.push({w:cols, h:rows, rgb, inst:(inst ?? 0) * 1000 + f, loc}); continue; }
+    const v = new Float32Array(rows * cols); let mn = Infinity, mx = -Infinity;
+    for (let i = 0; i < rows * cols; i++) {
+      let raw = bpp === 2 ? (sign ? dv.getInt16(base + i * 2, true) : dv.getUint16(base + i * 2, true)) : u8[base + i];
+      const x = raw * slope + icpt; v[i] = x; if (x < mn) mn = x; if (x > mx) mx = x;
+    }
+    out.push({w:cols, h:rows, v, min:mn, max:mx, wc:wc ?? (mn + mx) / 2, ww:ww ?? Math.max(1, mx - mn), inv:photo === "MONOCHROME1", inst:(inst ?? 0) * 1000 + f, loc});
+  }
+  if (!out.length) throw new Error("No image frames found.");
+  return out;
+}
+
+async function loadFiles(list) {
+  const files = [...list].filter(Boolean);
+  if (!files.length) return;
+  $("#mriInfo").textContent = "Reading…";
+  const frames = []; let dicom = 0, errors = [];
+  for (const f of files) {
+    try {
+      if (f.type && f.type.startsWith("image/")) {
+        const url = URL.createObjectURL(f); mri.urls.push(url);
+        const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error("Could not open " + f.name)); im.src = url; });
+        frames.push({w:img.naturalWidth, h:img.naturalHeight, img, name:f.name || ""});
+      } else {
+        const fr = parseDicom(await f.arrayBuffer()); fr.forEach(x => frames.push(x)); dicom++;
+      }
+    } catch (e) { errors.push(e.message || String(e)); }
+  }
+  if (!frames.length) { $("#mriInfo").textContent = errors[0] || "No image could be read. Use DICOM (uncompressed), PNG or JPG."; return; }
+  if (dicom) frames.sort((a, b) => (a.loc ?? a.inst ?? 0) - (b.loc ?? b.inst ?? 0) || (a.inst ?? 0) - (b.inst ?? 0));
+  else frames.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, {numeric:true}));
+  mri.frames = frames; mri.isDicom = !!dicom && !frames.some(f => f.img); mri.per = {};
+  if (mri.atlas === "fill") mri.atlas = "line";
+  const f0 = frames[0];
+  $("#mriInfo").textContent = `${mri.isDicom ? "DICOM" : "Image"} · ${frames.length} image${frames.length === 1 ? "" : "s"} · ${f0.w}×${f0.h}${errors.length ? ` · ${errors.length} file${errors.length === 1 ? "" : "s"} skipped` : ""}`;
+  renderMRI();
+}
+
+function paintFrame(f, p) {
+  if (mriCv.width !== f.w || mriCv.height !== f.h) { mriCv.width = f.w; mriCv.height = f.h; }
+  if (f.img) { mctx.clearRect(0, 0, f.w, f.h); mctx.drawImage(f.img, 0, 0); return; }
+  const id = mctx.createImageData(f.w, f.h), d = id.data;
+  if (f.rgb) { d.set(f.rgb); mctx.putImageData(id, 0, 0); return; }
+  const wc = p.wc ?? f.wc, ww = Math.max(1, p.ww ?? f.ww), lo = wc - ww / 2;
+  for (let i = 0; i < f.v.length; i++) {
+    let g = (f.v[i] - lo) / ww * 255; g = g < 0 ? 0 : g > 255 ? 255 : g; if (f.inv) g = 255 - g;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = g; d[i * 4 + 3] = 255;
+  }
+  mctx.putImageData(id, 0, 0);
+}
+function placeMRI() {
+  if (!mri.frames.length) return;
+  const p = cur(), f = mri.frames[p.idx], r = stage.getBoundingClientRect();
+  if (!r.width) return;
+  const a = f.w / f.h, A = r.width / r.height;
+  const bw = a > A ? r.width : r.height * a, bh = bw / a;
+  mriCv.style.width = bw + "px"; mriCv.style.height = bh + "px";
+  mriCv.style.transform = `translate(-50%,-50%) translate(${(p.tx * r.width).toFixed(1)}px,${(p.ty * r.height).toFixed(1)}px) rotate(${p.rot}deg) scale(${(p.flip ? -1 : 1) * p.z},${p.z})`;
+  mriCv.style.opacity = String(mri.op);
+  mriCv.style.filter = f.img ? `brightness(${p.b}%) contrast(${p.c}%)` : "";
+}
+function syncMriControls() {
+  const has = mri.frames.length > 0, p = has ? cur() : null;
+  $("#mriCtl").hidden = !has; $("#mriAlignRow").hidden = !has; $("#mriClear").hidden = !has;
+  ["mFill", "mLine", "mOff"].forEach(id => $("#" + id).setAttribute("aria-pressed", String({mFill:"fill", mLine:"line", mOff:"off"}[id] === mri.atlas)));
+  $("#alignBtn").setAttribute("aria-pressed", String(mri.align));
+  $("#alignBtn").textContent = mri.align ? "Aligning: drag to move, wheel or pinch to zoom" : "Align scan";
+  stage.classList.toggle("aligning", alignActive());
+  if (!has) return;
+  const fr = $("#mriFrame"); fr.max = String(mri.frames.length - 1); fr.value = String(p.idx);
+  $("#mriFrameWrap").hidden = mri.frames.length < 2;
+  $("#mriFrameOut").textContent = `${p.idx + 1} / ${mri.frames.length}`;
+  $("#mriZoom").value = String(Math.round(p.z * 100)); $("#mriRot").value = String(p.rot);
+  const f = mri.frames[p.idx], wl = !f.img && !f.rgb;
+  $("#mriALab").textContent = wl ? "Window" : "Contrast"; $("#mriBLab").textContent = wl ? "Level" : "Brightness";
+  const A = $("#mriA"), Bs = $("#mriB");
+  if (wl) { const span = Math.max(1, f.max - f.min); A.min = "1"; A.max = String(Math.ceil(span * 2)); A.step = String(Math.max(1, span / 400)); A.value = String(p.ww ?? f.ww); Bs.min = String(Math.floor(f.min)); Bs.max = String(Math.ceil(f.max)); Bs.step = A.step; Bs.value = String(p.wc ?? f.wc); }
+  else { A.min = "30"; A.max = "300"; A.step = "1"; A.value = String(p.c); Bs.min = "30"; Bs.max = "250"; Bs.step = "1"; Bs.value = String(p.b); }
+}
+function renderMRI() {
+  const has = mri.frames.length > 0;
+  mriCv.hidden = !has; stage.classList.toggle("has-mri", has);
+  svg.classList.toggle("outline", mri.atlas === "line");
+  svg.style.opacity = mri.atlas === "off" ? "0" : String(has ? mri.atOp : 1);
+  if (has) { const p = cur(); p.idx = Math.min(p.idx, mri.frames.length - 1); paintFrame(mri.frames[p.idx], p); placeMRI(); }
+  syncMriControls();
+}
+function clearMRI() { mri.urls.forEach(u => URL.revokeObjectURL(u)); mri.urls = []; mri.frames = []; mri.per = {}; mri.align = false; mri.atlas = "fill"; $("#mriInfo").textContent = "No scan loaded"; renderMRI(); }
+
+/* aligning: drag to move, wheel or two fingers to zoom */
+const ptrs = new Map();
+function alignDown(e) { ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY}); }
+function alignMove(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  const p = cur(), r = stage.getBoundingClientRect();
+  if (ptrs.size === 1) { const q = ptrs.get(e.pointerId); p.tx += (e.clientX - q.x) / r.width; p.ty += (e.clientY - q.y) / r.height; }
+  else if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], other = [...ptrs.entries()].find(([id]) => id !== e.pointerId)[1];
+    const d0 = Math.hypot(a.x - b.x, a.y - b.y), d1 = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+    if (d0 > 4) p.z = Math.min(8, Math.max(0.2, p.z * d1 / d0));
+  }
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  placeMRI(); $("#mriZoom").value = String(Math.round(p.z * 100));
+}
+function alignUp(e) { ptrs.delete(e.pointerId); }
+cv.addEventListener("wheel", e => { if (!alignActive()) return; e.preventDefault(); const p = cur(); p.z = Math.min(8, Math.max(0.2, p.z * Math.exp(-e.deltaY * 0.0015))); placeMRI(); $("#mriZoom").value = String(Math.round(p.z * 100)); }, {passive:false});
+
+/* controls */
+$("#mriBtn").onclick = () => { const open = $("#mriPanel").hidden; $("#mriPanel").hidden = !open; $("#mriBtn").setAttribute("aria-expanded", String(open)); };
+$("#mriFile").addEventListener("change", e => { loadFiles(e.target.files); e.target.value = ""; });
+$("#mriClear").onclick = clearMRI;
+$("#mriFrame").oninput = e => { const p = cur(); p.idx = +e.target.value; renderMRI(); };
+$("#mriOp").oninput = e => { mri.op = +e.target.value / 100; placeMRI(); };
+$("#atOp").oninput = e => { mri.atOp = +e.target.value / 100; renderMRI(); };
+$("#mFill").onclick = () => { mri.atlas = "fill"; renderMRI(); };
+$("#mLine").onclick = () => { mri.atlas = "line"; renderMRI(); };
+$("#mOff").onclick = () => { mri.atlas = "off"; renderMRI(); };
+$("#alignBtn").onclick = () => { mri.align = !mri.align; syncMriControls(); };
+$("#mriZoom").oninput = e => { cur().z = +e.target.value / 100; placeMRI(); };
+$("#mriRot").oninput = e => { cur().rot = +e.target.value; placeMRI(); };
+$("#mriFlip").onclick = () => { const p = cur(); p.flip = !p.flip; placeMRI(); };
+$("#mriReset").onclick = () => { Object.assign(cur(), {tx:0, ty:0, z:1, rot:0, flip:false}); renderMRI(); };
+$("#mriA").oninput = e => { const p = cur(), f = mri.frames[p.idx]; if (f.img || f.rgb) { p.c = +e.target.value; placeMRI(); } else { p.ww = +e.target.value; paintFrame(f, p); } };
+$("#mriB").oninput = e => { const p = cur(), f = mri.frames[p.idx]; if (f.img || f.rgb) { p.b = +e.target.value; placeMRI(); } else { p.wc = +e.target.value; paintFrame(f, p); } };
+stage.addEventListener("dragover", e => { e.preventDefault(); stage.classList.add("drop"); });
+stage.addEventListener("dragleave", () => stage.classList.remove("drop"));
+stage.addEventListener("drop", e => { e.preventDefault(); stage.classList.remove("drop"); if (e.dataTransfer?.files?.length) { $("#mriPanel").hidden = false; loadFiles(e.dataTransfer.files); } });
+document.addEventListener("paste", e => {
+  if (state.tab !== "mapper") return;
+  const items = [...(e.clipboardData?.items || [])].filter(i => i.type.startsWith("image/")).map(i => i.getAsFile());
+  if (items.length) { e.preventDefault(); $("#mriPanel").hidden = false; loadFiles(items); }
+});
+try { new ResizeObserver(() => placeMRI()).observe(stage); } catch (x) {}
+addEventListener("resize", () => placeMRI());
 
 /* ---------- toolbar ---------- */
 $("#mDraw").onclick = () => { state.mode = "draw"; $("#mDraw").setAttribute("aria-pressed", "true"); $("#mErase").setAttribute("aria-pressed", "false"); stage.classList.remove("erase"); };
 $("#mErase").onclick = () => { state.mode = "erase"; $("#mErase").setAttribute("aria-pressed", "true"); $("#mDraw").setAttribute("aria-pressed", "false"); stage.classList.add("erase"); };
 $("#brush").oninput = e => { state.brush = +e.target.value; };
+const setPara = side => { state.paraSide = side; $("#pR").setAttribute("aria-pressed", String(side === "R")); $("#pL").setAttribute("aria-pressed", String(side === "L")); analyze(); };
+$("#pR").onclick = () => setPara("R"); $("#pL").onclick = () => setPara("L");
 $("#undo").onclick = () => { const u = undo[state.slice]; if (u && u.length) { cx.putImageData(u.pop(), 0, 0); analyze(); } };
 $("#clear").onclick = () => { pushUndo(); cx.clearRect(0, 0, cv.width, cv.height); analyze(); };
 $("#preset").onchange = e => { const i = e.target.value; if (i === "") return; pushUndo(); cx.clearRect(0, 0, cv.width, cv.height); paintShapes(B.sl.presets[+i].sh, B.sl); analyze(); e.target.value = ""; };
@@ -627,6 +887,8 @@ function renderVessels() {
 $("#vq").addEventListener("input", renderVessels);
 const LEVEL2SLICE = {"Pontomedullary junction":"pmj", "Middle medulla":"m-m", "Upper midbrain":"mb-u", "Lower midbrain":"mb-l", "Upper pons":"p-u", "Upper / middle pons":"p-m", "Middle pons":"p-m", "Lower pons":"p-l", "Pons, bilateral":"p-u", "Upper medulla":"m-u", "Lower medulla":"m-l"};
 $("#bsynTable").innerHTML = `<thead><tr><th>Syndrome</th><th>Level</th><th>Structures</th><th>Findings</th><th>Artery</th><th></th></tr></thead><tbody>${(REF.bsyn || []).map(r => `<tr><td>${esc(r[1])}</td><td class="grp">${esc(r[0])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td><td>${esc(r[4])}</td><td>${LEVEL2SLICE[r[0]] ? `<a href="#${LEVEL2SLICE[r[0]]}" style="font-family:var(--f-label);font-weight:600;font-size:12.5px;text-decoration:none;white-space:nowrap">Draw it →</a>` : ""}</td></tr>`).join("")}</tbody>`;
+
+$("#cordTable").innerHTML = `<thead><tr><th>Syndrome</th><th>Damage</th><th>Findings</th><th>Causes</th><th>Artery</th><th></th></tr></thead><tbody>${(window.LOC_REF_CORD || []).map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td><td>${esc(r[4])}</td><td><a href="#${r[5]}" style="font-family:var(--f-label);font-weight:600;font-size:12.5px;text-decoration:none;white-space:nowrap">Draw it →</a></td></tr>`).join("")}</tbody>`;
 
 /* ---------- routing ---------- */
 const TABS = ["mapper", "tracts", "cortex", "thal", "auto", "vessels", "bsyn"];

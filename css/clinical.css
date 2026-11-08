@@ -6,13 +6,16 @@
 @media (min-width: 700px) { .neuro-tools { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1280px) { .neuro-tools { grid-template-columns: repeat(3, 1fr); } }
 
-/* ---- Ocular Motor Atlas (0.11.10): a self-contained page in a frame ---- */
+/* ---- Teaching atlases (0.11.10): a self-contained page in a frame ----
+   Until it loads, the frame fills most of the screen; then atlas-page.js sets its height to the
+   height of the page inside (0.11.17), so the whole tool scrolls with the app instead of in a box. */
 .atlas-wrap { margin-top: 12px; }
 .atlas-frame {
   display: block; width: 100%;
-  height: calc(100dvh - var(--tabbar-h) - var(--tabbar-gap) - 190px); min-height: 520px;
+  height: 85dvh; min-height: 520px;
   border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-solid);
 }
+.atlas-frame.is-fitted { min-height: 0; }
 
 /* ---- Score calculators ---- */
 .sc-page { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }

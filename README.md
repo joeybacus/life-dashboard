@@ -328,20 +328,25 @@ workout (the "Workout saved" message and the finished workout's page).
 - **Ocular Motor Atlas** (0.11.10): 45 eye movement, pupil and visual pathway lesions, each with its exact
   location on a schematic section, a live eye simulator (lesion side, voluntary gaze or doll's head, nine
   positions of gaze), visual field charts, nerve pathways, a nystagmus table and a case quiz. It's one
-  self-contained page (`js/modules/clinical/ocular-motor-atlas.html`) shown in a frame, saved for offline use,
+  self-contained page (`js/modules/clinical/ocular-motor-atlas.html`) shown in a frame that grows to the height of
+  the page inside it (0.11.17), so the whole tool scrolls with the app; saved for offline use,
   following the app's light or dark setting. It stores nothing except the last lesion side you picked.
 - **Cerebellar Pathways** (0.11.11): six traced cerebellar circuits (where each crosses and which peduncle it
   uses), 14 lesions with their exact location and which side of the body is ataxic, peduncles, functional zones,
   the cortical microcircuit, blood supply, a bedside exam guide and a case quiz
   (`js/modules/clinical/cerebellar-pathways.html`, shown and cached the same way).
-- **Neuro Localizer** (0.11.12–0.11.14): draw a lesion on 18 schematic slices (axial at the vertex, corona radiata, basal
-  ganglia and midbrain/temporal level; anterior, mid-thalamic and posterior coronal; midline sagittal; posterior fossa;
-  and nine brainstem levels)
+- **Neuro Localizer** (0.11.12–0.11.16): draw a lesion on 24 schematic slices (axial at the vertex, corona radiata, basal
+  ganglia and midbrain/temporal level; anterior, mid-thalamic and posterior coronal; midline and parasagittal, with a
+  Right/Left hemisphere switch for the parasagittal view; posterior fossa;
+  nine brainstem levels; and five spinal cord levels from C2 to the conus). **MRI overlay** (0.11.18): load your own
+  scan under the drawing (uncompressed DICOM, a whole series to scroll through, PNG or JPG; drag in or paste a screenshot),
+  switch the atlas to outline, and line it up (drag, zoom, rotate, flip; window/level). Each slice keeps its own
+  alignment; scans stay in the page and are never uploaded, saved, synced or backed up
   (0.11.13: the brainstem has nine detailed levels, including the pontomedullary junction and the obex, with
   territories in the anteromedial, anterolateral, lateral and posterior groups) and it lists the structures and tracts hit, the expected deficits with their side, matching syndromes and the arterial
   branch involved (for example the recurrent artery of Heubner or the short circumferential branches of the basilar
   artery). Reference tabs cover tracts, cortical syndromes, thalamus and hypothalamus, autonomic pathways, arteries and
-  brainstem syndromes. `neuro-localizer.html` loads `localizer-slices.js`, `localizer-cerebrum.js`, `localizer-brainstem.js` and `localizer-ref.js` from the same folder.
+  brainstem syndromes. `neuro-localizer.html` loads `localizer-slices.js`, `localizer-cerebrum.js`, `localizer-brainstem.js`, `localizer-spine.js` and `localizer-ref.js` from the same folder.
 
 Guidelines and cases sync through the **Guidelines** and **Cases** tabs (sync script version 20), are in
 backups, and show up in search everywhere.
