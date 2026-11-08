@@ -1,0 +1,1216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Shown inside the Life Dashboard: hide the atlas's own title and follow the app's light/dark choice. */
+(function () {
+  var d = document.documentElement;
+  try {
+    if (window.parent === window) return;
+    d.classList.add("embed");
+    var p = window.parent.document.documentElement;
+    var sync = function () { if (p.dataset.theme) d.dataset.theme = p.dataset.theme; };
+    sync();
+    new MutationObserver(sync).observe(p, { attributes: true, attributeFilter: ["data-theme"] });
+  } catch (e) { /* not the same site: keep the system theme */ }
+})();
+</script>
+<title>Seizure Semiology</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a reading-room light box. Slice list on the left, the film you draw on in the middle, the report on the right. */
+:root{
+  --bg:#f2f3f7; --panel:#ffffff; --panel-2:#e9ebf2; --fg:#1a1d2b; --muted:#5a5f75; --line:#d5d8e3;
+  --accent:#3b3896; --accent-weak:#e7e6f6; --lesion:#cc2858; --lesion-weak:#fbe3ea; --ok:#2f8a57; --focus:#1fb2ff; --focus-ink:#0a6fa8; --heat:#f26b1d;
+  --s-ctx:#e6dde6; --s-wm:#f3f3f7; --s-nuc:#d6dbef; --s-tract:#bfc6e6; --s-csf:#e3f0f8; --s-edge:#9aa0c0; --s-out:#fbfbfd;
+  --fACA:#2a6fb0; --fACAd:#5a9be0; --fMCA:#2f8a57; --fMCAd:#86b95a; --fPCA:#c4741a; --fPCAd:#e0a443; --fAChA:#8a4aa6; --fPCom:#c2416e;
+  --fWS:#7c8194; --fICA:#9c3d5a; --fBA:#0d7a77; --fSCA:#6a5acd; --fAICA:#b5730a; --fPICA:#a0522d; --fVA:#6f5a3a; --fASA:#3b3896; --fPSA:#5a6a2a;
+  --f-display:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-label:"IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+    --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28; --ok:#5fcf8f; --focus:#38c0ff; --focus-ink:#7fd6ff; --heat:#ff8a3d;
+    --s-ctx:#3a3247; --s-wm:#262836; --s-nuc:#343a58; --s-tract:#3f4774; --s-csf:#1b2a38; --s-edge:#5d6290; --s-out:#15161f;
+    --fACA:#6fb2f2; --fACAd:#9cc8f5; --fMCA:#5fcf8f; --fMCAd:#a8d67a; --fPCA:#f0a14a; --fPCAd:#f5c46e; --fAChA:#d29af0; --fPCom:#f07aa4;
+    --fWS:#a5aabd; --fICA:#e07898; --fBA:#4fd1c9; --fSCA:#a99cf5; --fAICA:#f0b04a; --fPICA:#e0906a; --fVA:#c4a57a; --fASA:#aaa7ff; --fPSA:#b5c97a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+  --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28; --ok:#5fcf8f; --focus:#38c0ff; --focus-ink:#7fd6ff; --heat:#ff8a3d;
+  --s-ctx:#3a3247; --s-wm:#262836; --s-nuc:#343a58; --s-tract:#3f4774; --s-csf:#1b2a38; --s-edge:#5d6290; --s-out:#15161f;
+  --fACA:#6fb2f2; --fACAd:#9cc8f5; --fMCA:#5fcf8f; --fMCAd:#a8d67a; --fPCA:#f0a14a; --fPCAd:#f5c46e; --fAChA:#d29af0; --fPCom:#f07aa4;
+  --fWS:#a5aabd; --fICA:#e07898; --fBA:#4fd1c9; --fSCA:#a99cf5; --fAICA:#f0b04a; --fPICA:#e0906a; --fVA:#c4a57a; --fASA:#aaa7ff; --fPSA:#b5c97a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1480px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header.top{background:var(--panel);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:24px 0}
+.kicker{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--lesion)}
+h1{font-family:var(--f-display);font-weight:500;font-size:clamp(32px,4.4vw,48px);line-height:1.02;letter-spacing:-.015em;margin:6px 0 0}
+h1 em{font-style:italic;color:var(--accent)}
+.lede{color:var(--muted);max-width:70ch;margin:10px 0 16px;font-size:15.5px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-bottom:-1px}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{font-family:var(--f-label);font-weight:600;font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:12px 14px 11px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;white-space:nowrap}
+nav.tabs a:hover{color:var(--fg)}
+nav.tabs a[aria-current="page"]{background:var(--bg);border-color:var(--line);color:var(--fg)}
+main.wrap{padding-block:20px 56px}
+.vhead{margin:0 0 16px;max-width:76ch}
+.vhead h2{font-family:var(--f-display);font-weight:500;font-size:clamp(25px,3vw,32px);margin:0 0 6px;line-height:1.1}
+.vhead p{margin:0;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.lab{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+
+/* mapper */
+.mapper{display:grid;grid-template-columns:200px minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+.slices{display:flex;flex-direction:column;gap:4px;position:sticky;top:12px}
+.slices h3{margin:10px 6px 2px}
+.slices h3:first-child{margin-top:0}
+.sl{text-align:left;width:100%;font:inherit;font-size:14px;line-height:1.25;padding:7px 9px;border:0;border-radius:6px;background:none;color:var(--fg);cursor:pointer}
+.sl:hover{background:var(--panel-2)}
+.sl[aria-current="true"]{background:var(--accent-weak);color:var(--accent);font-weight:600}
+.stagewrap{padding:12px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:10px}
+.seg{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
+.seg span{font-family:var(--f-label);font-size:11px;color:var(--muted);padding:0 6px 0 8px;text-transform:uppercase;letter-spacing:.08em}
+.seg button{border:0;background:none;color:var(--fg);padding:5px 12px;border-radius:999px;font-family:var(--f-label);font-weight:600;font-size:12.5px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel)}
+.tbtn{font-family:var(--f-label);font-weight:600;font-size:12.5px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.tbtn:hover{border-color:var(--fg)}
+.brush{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-label);font-size:12px;color:var(--muted)}
+.brush input{width:90px;accent-color:var(--lesion)}
+select.tsel{font-family:var(--f-label);font-size:12.5px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);max-width:220px}
+.toggle{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-label);font-size:12.5px;color:var(--fg);cursor:pointer}
+.toggle input{accent-color:var(--accent)}
+.shead{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.shead > div:first-child{min-width:0}
+.locator{flex:none;width:96px}
+.locator svg{display:block;width:100%;height:auto}
+.lc-stem{fill:var(--s-nuc);stroke:var(--s-edge);stroke-width:1}
+.lc-cb{fill:var(--s-ctx);stroke:var(--s-edge);stroke-width:1}
+.lc-l{stroke:var(--muted);stroke-width:1.2;cursor:pointer}
+.lc-l.on{stroke:var(--lesion);stroke-width:3}
+.lc-hit{stroke:transparent;stroke-width:9;cursor:pointer}
+.lc-t{font-family:var(--f-label);font-size:9px;fill:var(--muted)}
+.lc-t.on{fill:var(--lesion);font-weight:600}
+.sname{font-family:var(--f-display);font-size:20px;margin:0}
+.sview{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:0 0 8px}
+.stage{position:relative;width:100%;max-width:100%;margin:0 auto;border-radius:8px;background:var(--s-out);overflow:hidden;touch-action:none}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage canvas.mri{position:absolute;inset:auto;left:50%;top:50%;width:auto;height:auto;opacity:1;pointer-events:none;transform-origin:center;max-width:none}
+.stage.has-mri{background:#000}
+.stage.aligning #cv{cursor:move}
+.stage.drop{outline:2px dashed var(--accent);outline-offset:-4px}
+#svg.outline .st > *{fill:transparent!important;stroke:#ffd24a;stroke-width:1.1;stroke-opacity:.85}
+#svg.outline .k-wm > *{stroke-opacity:.35}
+#svg.outline .o-bg{fill:transparent}
+#svg.outline .o-line{stroke:#ffd24a}
+#svg.outline .st.hit > *{stroke:#ff4d7d;stroke-width:2.4}
+#svg.outline .tl{fill:#fff;stroke:#000}
+#svg.outline .mid{stroke:#ffd24a}
+.mripanel{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:grid;gap:8px;background:var(--panel-2)}
+.mrirow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.mriinfo{font-family:var(--f-label);font-size:12.5px;color:var(--muted)}
+.mrihint{margin:0;font-size:12.5px;color:var(--muted)}
+.filebtn{position:relative;overflow:hidden;display:inline-flex;align-items:center}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.rng{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-label);font-size:12px;color:var(--muted)}
+.rng input{width:96px;accent-color:var(--accent)}
+.rng output{font-variant-numeric:tabular-nums;min-width:44px;color:var(--fg)}
+.mri-btn[aria-expanded="true"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+#alignBtn[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.55;cursor:crosshair;touch-action:none}
+.stage.erase canvas{cursor:cell}
+.side-l,.side-r{position:absolute;top:8px;font-family:var(--f-label);font-weight:600;font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:1px 9px;pointer-events:none}
+.side-l{left:8px}.side-r{right:8px}
+.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--panel);font-family:var(--f-label);font-size:12px;padding:3px 8px;border-radius:6px;max-width:260px;transform:translate(-50%,-130%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+.o-bg{fill:var(--s-out)}
+.o-line{fill:none;stroke:var(--s-edge);stroke-width:1.4}
+.st > *{stroke:var(--s-edge);stroke-width:.7}
+.k-ctx > *{fill:var(--s-ctx)} .k-wm > *{fill:var(--s-wm)} .k-nuc > *{fill:var(--s-nuc)} .k-tract > *{fill:var(--s-tract)} .k-csf > *{fill:var(--s-csf)}
+.st.hit > *{stroke:var(--lesion);stroke-width:2}
+.st.hov > *{stroke:var(--fg);stroke-width:2}
+.mid{stroke:var(--s-edge);stroke-width:1;stroke-dasharray:4 4;opacity:.7}
+.tr > *{opacity:.42;stroke:var(--panel);stroke-width:1}
+.tl{font-family:var(--f-label);font-size:10.5px;font-weight:500;fill:var(--fg);text-anchor:middle;paint-order:stroke;stroke:var(--s-out);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+.tl.hitl{fill:var(--lesion);font-weight:600}
+.f-ACA > *{fill:var(--fACA)} .f-ACAd > *{fill:var(--fACAd)} .f-MCA > *{fill:var(--fMCA)} .f-MCAd > *{fill:var(--fMCAd)} .f-PCA > *{fill:var(--fPCA)} .f-PCAd > *{fill:var(--fPCAd)}
+.f-AChA > *{fill:var(--fAChA)} .f-PCom > *{fill:var(--fPCom)} .f-WS > *{fill:var(--fWS)} .f-ICA > *{fill:var(--fICA)} .f-BA > *{fill:var(--fBA)} .f-SCA > *{fill:var(--fSCA)}
+.f-AICA > *{fill:var(--fAICA)} .f-PICA > *{fill:var(--fPICA)} .f-VA > *{fill:var(--fVA)} .f-ASA > *{fill:var(--fASA)} .f-PSA > *{fill:var(--fPSA)}
+
+/* focus: a structure picked from the report, shown on the image */
+#svg.focusing .st:not(.foc):not(.foc2):not(.heat) > *{opacity:.28}
+#svg.focusing .tl:not(.focl){opacity:.3}
+#svg .st.foc > *{fill:var(--focus)!important;fill-opacity:.55;stroke:var(--focus)!important;stroke-width:2.6;stroke-opacity:1;opacity:1;animation:focpulse 1.2s ease-out 2}
+#svg .st.foc2 > *{fill:var(--focus)!important;fill-opacity:.22;stroke:var(--focus)!important;stroke-width:1.6;stroke-dasharray:5 3;opacity:1}
+#svg .tl.focl{fill:#fff;stroke:#00324a;font-weight:700;font-size:12px}
+@keyframes focpulse{0%{fill-opacity:.85;stroke-width:5}100%{fill-opacity:.55;stroke-width:2.6}}
+@media (prefers-reduced-motion:reduce){#svg .st.foc > *{animation:none}}
+.sref{all:unset;cursor:pointer;color:inherit;border-bottom:1px dotted currentColor;border-radius:2px}
+.sref:hover,.sref:focus-visible{color:var(--focus-ink);border-bottom-style:solid;outline:none}
+.sref[aria-pressed="true"]{color:var(--focus-ink);font-weight:600;border-bottom-style:solid}
+.focus{margin-top:10px;border:1px solid var(--focus);border-left-width:4px;border-radius:10px;padding:12px 14px;background:var(--panel-2);display:grid;gap:8px}
+.focus .fh{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.focus h4{margin:0;font-size:17px;line-height:1.25}
+.focus h4 small{display:block;font-family:var(--f-label);font-size:12px;font-weight:500;color:var(--muted);margin-top:2px}
+.focus .x{all:unset;cursor:pointer;font-family:var(--f-label);font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.focus .x:hover{color:var(--fg)}
+.focus p{margin:0;font-size:14px}
+.focus .flab{font-family:var(--f-label);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.focus ul{margin:0;padding-left:18px;font-size:14px}
+.course{display:flex;flex-wrap:wrap;gap:4px 2px;align-items:center;font-size:13px}
+.course span{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+.course span.here{border-color:var(--focus);background:var(--focus);color:#00243a;font-weight:600}
+.course i{font-style:normal;color:var(--muted);padding:0 2px}
+.also{display:flex;flex-wrap:wrap;gap:6px}
+.also button{all:unset;cursor:pointer;font-family:var(--f-label);font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--panel)}
+.also button:hover,.also button:focus-visible{border-color:var(--focus);color:var(--focus-ink)}
+.also button b{font-weight:600}
+
+/* seizure page */
+.appbar{display:flex;justify-content:flex-start;margin-bottom:10px}
+.seg.big button{font-size:14.5px;padding:7px 14px}
+body.app-sign .drawonly{display:none!important}
+body.app-sign #cv{opacity:0;cursor:default}
+#svg .st.heat > *{fill:var(--heat)!important;fill-opacity:var(--h);stroke:var(--heat)!important;stroke-width:1.8;stroke-opacity:1;opacity:1}
+.zcs{display:grid;gap:12px}
+.zc{border:1px solid var(--line);border-left:4px solid var(--focus);border-radius:10px;padding:12px 14px;background:var(--panel-2);display:grid;gap:8px}
+.zc .zh{display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+.zc h4{margin:0;font-size:17px;line-height:1.25}
+.zc .zm{margin:2px 0 0;font-family:var(--f-label);font-size:12px;color:var(--muted)}
+.zc ul{margin:0;padding-left:18px;font-size:14px}
+.zc .zl{margin:0;font-size:13.5px}
+.zc .zl.ref{color:var(--muted)}
+.zc .zh a,.zbtn{all:unset;cursor:pointer;font-family:var(--f-label);font-size:12.5px;font-weight:600;border:1px solid var(--focus);color:var(--focus-ink);border-radius:999px;padding:3px 12px;white-space:nowrap}
+.zbtn[aria-pressed="true"]{background:var(--focus);color:#00243a}
+.zgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.sgg{border:0;margin:0 0 12px;padding:0}
+.sgg legend{font-family:var(--f-label);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0;margin-bottom:4px}
+.sgi{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:5px 8px;border-radius:8px;font-size:14px}
+.sgi.on{background:var(--accent-weak)}
+.sgi label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;flex:1 1 220px}
+.sgi input{margin-top:3px;accent-color:var(--accent)}
+.sgs{display:none;align-items:center;gap:4px;font-family:var(--f-label);font-size:12px;color:var(--muted)}
+.sgi.on .sgs{display:inline-flex}
+.sgs button{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:999px;padding:1px 9px;color:var(--fg);background:var(--panel)}
+.sgs button[aria-pressed="true"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.rowb{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:6px}
+.bar.zr .why{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+.bar.zr.top .bt{font-weight:600}
+.lat{margin:10px 0 0;font-size:14px}
+
+/* report */
+.report{padding:16px 18px;display:flex;flex-direction:column;gap:18px}
+.rhead{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.chip{font-family:var(--f-label);font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--lesion-weak);color:var(--lesion)}
+.chip.n{background:var(--panel-2);color:var(--fg);font-weight:500}
+.empty{color:var(--muted);font-size:14.5px;margin:0}
+.syn{border:1px solid var(--lesion);border-radius:10px;padding:12px 14px;background:color-mix(in srgb,var(--lesion) 7%,var(--panel))}
+.syn h4{margin:0 0 3px;font-family:var(--f-display);font-weight:500;font-size:19px}
+.syn h4 small{font-family:var(--f-label);font-size:12px;color:var(--lesion);font-weight:600;margin-left:6px;letter-spacing:.04em}
+.syn p{margin:0;font-size:14px}
+.syns{display:grid;gap:8px}
+.defs{margin:0;padding-left:18px}
+.defs li{margin:4px 0}
+.defs .src{display:block;font-family:var(--f-label);font-size:11.5px;color:var(--muted)}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:2px 10px;align-items:center;font-size:13.5px}
+.bar .bt{min-width:0}
+.bar .bp{font-family:var(--f-label);font-variant-numeric:tabular-nums;text-align:right;color:var(--muted);font-size:12.5px}
+.bar .bb{grid-column:1/-1;height:5px;border-radius:3px;background:var(--panel-2);overflow:hidden}
+.bar .bb i{display:block;height:100%;border-radius:3px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.note{font-size:13.5px;padding:10px 12px;border-radius:8px;background:var(--accent-weak);margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-family:var(--f-label);font-size:12px;color:var(--muted);margin-top:8px}
+
+/* reference */
+.search{margin-bottom:12px}
+.search input{width:100%;max-width:460px;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg)}
+.tblw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:10px 13px;border-bottom:1px solid var(--line)}
+th{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--panel-2);position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--f-display);font-size:16px;min-width:170px}
+td.grp{font-family:var(--f-label);font-size:12px;color:var(--muted);white-space:nowrap}
+.course{font-size:13.5px}
+.lobe{margin-bottom:26px}
+.lobe h3{font-family:var(--f-display);font-weight:500;font-size:24px;margin:0}
+.lobe .art{font-family:var(--f-label);font-size:12.5px;color:var(--muted);margin:2px 0 10px}
+.h3s{font-family:var(--f-display);font-weight:500;font-size:24px;margin:28px 0 10px}
+.chain{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.chain article{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.chain h3{font-family:var(--f-display);font-weight:500;font-size:20px;margin:0 0 10px}
+.steps{list-style:none;margin:0;padding:0;counter-reset:st}
+.steps li{counter-increment:st;position:relative;padding:0 0 12px 32px;font-size:14px}
+.steps li::before{content:counter(st);position:absolute;left:0;top:0;width:21px;height:21px;border-radius:50%;border:1px solid var(--line);font-family:var(--f-label);font-size:11.5px;font-weight:600;display:grid;place-items:center;color:var(--muted)}
+.steps li:not(:last-child)::after{content:"";position:absolute;left:10px;top:24px;bottom:2px;width:1px;background:var(--line)}
+.steps b{display:block}
+.steps .les{color:var(--muted);font-size:13.5px}
+footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
+
+@media (max-width:1180px){ .mapper{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .slices{grid-column:1/-1;position:static;flex-direction:row;flex-wrap:wrap} .slices h3{width:100%;margin:6px 4px 0} .sl{width:auto;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:13px} }
+@media (max-width:860px){ .mapper{grid-template-columns:minmax(0,1fr)} }
+</style>
+<style>
+body{margin:0}
+.embed .kicker,.embed h1,.embed .lede{display:none}
+.embed header.top .wrap{padding-block:10px 0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="kicker">Epileptology · seizure localization</div>
+    <h1>Seizure <em>Semiology</em></h1>
+    <p class="lede">Two ways to localize a seizure. Draw a lesion on a brain slice to see the seizures its cortex produces, sided to the lesion; or tick the semiology you saw to rank the likely onset zones, infer the side and light them up on a real MRI.</p>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#mapper" data-tab="mapper">Map</a>
+      <a href="#zones" data-tab="zones">Onset zones</a>
+      <a href="#patterns" data-tab="patterns">Seizure patterns</a>
+      <a href="#lat" data-tab="lat">Lateralizing signs</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="view" data-view="mapper">
+    <div class="mapper">
+      <nav class="slices" id="slices" aria-label="Slices"></nav>
+      <div class="panel stagewrap">
+        <div class="appbar"><div class="seg big" role="group" aria-label="Mode"><button type="button" id="aLes" aria-pressed="true">Lesion → seizure</button><button type="button" id="aSign" aria-pressed="false">Seizure → region</button></div></div>
+        <div class="toolbar">
+          <div class="seg" role="group" aria-label="View" id="viewSeg"><button type="button" id="vMri" aria-pressed="true">MRI</button><button type="button" id="vDraw" aria-pressed="false">Drawing</button></div>
+          <div class="seg drawonly" role="group" aria-label="Pen"><button type="button" id="mDraw" aria-pressed="true">Draw</button><button type="button" id="mErase" aria-pressed="false">Erase</button></div>
+          <div class="seg" role="group" aria-label="Hemisphere shown" id="paraSeg" hidden><span>Hemisphere</span><button type="button" id="pR" aria-pressed="true">Right</button><button type="button" id="pL" aria-pressed="false">Left</button></div>
+          <label class="brush drawonly">Brush <input type="range" id="brush" min="4" max="44" value="14" aria-label="Brush size"></label>
+          <button type="button" class="tbtn drawonly" id="undo">Undo</button>
+          <button type="button" class="tbtn drawonly" id="clear">Clear</button>
+          <select class="tsel drawonly" id="preset" aria-label="Example lesions"></select>
+          <label class="toggle"><input type="checkbox" id="tLabels" checked> Labels</label>
+          
+          <button type="button" class="tbtn mri-btn" id="mriBtn" aria-expanded="false" aria-controls="mriPanel">Own scan</button>
+        </div>
+        <div class="mripanel" id="mriPanel" hidden>
+          <div class="mrirow">
+            <label class="tbtn filebtn">Load scan…<input type="file" id="mriFile" accept=".dcm,.dicom,.ima,application/dicom,image/*" multiple></label>
+            <span class="mriinfo" id="mriInfo">No scan loaded</span>
+            <button type="button" class="tbtn" id="mriClear" hidden>Remove scan</button>
+          </div>
+          <p class="mrihint">DICOM (uncompressed; select a whole series to scroll through it), PNG or JPG. You can also drag files onto the image or paste a screenshot. Scans stay in this page only: nothing is uploaded, saved or synced.</p>
+          <div class="mrirow" id="mriCtl" hidden>
+            <label class="rng" id="mriFrameWrap">Image <input type="range" id="mriFrame" min="0" max="0" value="0" aria-label="Image in the series"><output id="mriFrameOut">1 / 1</output></label>
+            <label class="rng">Scan <input type="range" id="mriOp" min="0" max="100" value="100" aria-label="Scan opacity"></label>
+            <div class="seg" role="group" aria-label="Atlas drawing"><span>Atlas</span><button type="button" id="mFill" aria-pressed="false">Filled</button><button type="button" id="mLine" aria-pressed="true">Outline</button><button type="button" id="mOff" aria-pressed="false">Hidden</button></div>
+            <label class="rng">Atlas <input type="range" id="atOp" min="10" max="100" value="85" aria-label="Atlas opacity"></label>
+          </div>
+          <div class="mrirow" id="mriAlignRow" hidden>
+            <button type="button" class="tbtn" id="alignBtn" aria-pressed="false">Align scan</button>
+            <label class="rng">Zoom <input type="range" id="mriZoom" min="20" max="400" value="100" aria-label="Scan zoom"></label>
+            <label class="rng">Rotate <input type="range" id="mriRot" min="-45" max="45" value="0" aria-label="Scan rotation"></label>
+            <button type="button" class="tbtn" id="mriFlip">Flip left–right</button>
+            <button type="button" class="tbtn" id="mriReset">Reset</button>
+            <label class="rng"><span id="mriALab">Window</span> <input type="range" id="mriA" aria-label="Window or contrast"></label>
+            <label class="rng"><span id="mriBLab">Level</span> <input type="range" id="mriB" aria-label="Level or brightness"></label>
+          </div>
+        </div>
+        <div class="shead"><div><p class="sname" id="sname"></p><p class="sview" id="sview"></p></div><div class="locator" id="locator" hidden></div></div>
+        <div class="stage" id="stage"><canvas id="mri" class="mri" hidden aria-label="MRI scan"></canvas><svg id="svg" aria-hidden="true"></svg><canvas id="cv" aria-label="Drawing surface: paint the lesion here"></canvas><span class="side-l">R</span><span class="side-r">L</span><div class="tip" id="tip" hidden></div></div>
+        <div class="focus" id="focus" hidden aria-live="polite"></div>
+        <div class="legend" id="legend" hidden></div>
+        <p class="hint">MRI view shows a real brain (MNI152 template) under the atlas outlines; switch to Drawing for the coloured diagram. Hover to name a structure and its seizure-onset zone; press Show in the report to highlight a zone. Anything on the patient’s right is on the left of the image. A teaching aid: seizure semiology localizes the symptomatogenic zone, which can differ from where the seizure starts; confirm with EEG and imaging.</p>
+      </div>
+      <aside class="panel report" id="report" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section class="view" data-view="zones" hidden>
+    <div class="vhead"><h2>Seizure-onset zones</h2><p>Each cortical region, the aura it gives, its ictal and postictal signs, how it lateralizes and where it spreads. Phrased for a left-hemisphere focus where it matters; open any zone on the map.</p></div>
+    <div class="zgrid" id="zoneBox"></div>
+  </section>
+  <section class="view" data-view="patterns" hidden>
+    <div class="vhead"><h2>Common focal seizure patterns</h2><p>Clinical type and the region it points to, after the classic table in Adams and Victor’s Principles of Neurology, with the zone on the map.</p></div>
+    <div class="tblw"><table id="patTable"></table></div>
+  </section>
+  <section class="view" data-view="lat" hidden>
+    <div class="vhead"><h2>Lateralizing signs</h2><p>Which hemisphere a sign points to, and how far to trust it. Language is assumed to be left-dominant unless set otherwise.</p></div>
+    <div class="tblw"><table id="latTable"></table></div>
+  </section>
+</main>
+<footer class="wrap">Sources: focal seizure pattern table after Adams and Victor’s Principles of Neurology; ILAE 2017 operational classification of seizure types; Loddenkemper and Kotagal, Lateralizing signs during seizures in focal epilepsy (Epilepsy &amp; Behavior, 2005). MRI images: ICBM 2009a nonlinear symmetric template (MNI152), copyright © 1993–2009 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University; used under its licence, which permits copying and modification with this notice. Educational reference: semiology localizes the symptomatogenic zone, which may differ from the epileptogenic zone. Check clinical decisions against EEG, imaging and current sources.</footer>
+
+<script src="localizer-slices.js"></script>
+<script src="localizer-cerebrum.js"></script>
+<script src="seizure-data.js"></script>
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const SL = (window.LOC_SLICES || []).filter(s => s.group === "Cerebrum"), REF = {};
+const BYS = Object.fromEntries(SL.map(s => [s.id, s]));
+const SCALE = 2;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const FAMNAME = {ACA:"ACA", ACAd:"ACA perforators", MCA:"MCA", MCAd:"MCA perforators", PCA:"PCA", PCAd:"PCA perforators", AChA:"Anterior choroidal", PCom:"PComm", WS:"Border zone", ICA:"ICA", BA:"Basilar", SCA:"SCA", AICA:"AICA", PICA:"PICA", VA:"Vertebral", ASA:"Anterior spinal", PSA:"Posterior spinal"};
+
+/* ---------- geometry ---------- */
+function mirrorD(d, W) { let i = 0; return d.replace(/-?\d*\.?\d+(?:e-?\d+)?/g, n => (i++ % 2 === 0) ? String(+(W - parseFloat(n)).toFixed(2)) : n); }
+function wedgeD(sl, a1, a2) {
+  const [cx, cy] = sl.center; let b = a2; if (b <= a1) b += 360;
+  const pts = [[cx, cy]];
+  for (let a = a1; a <= b + 0.001; a += 3) { const r = a * Math.PI / 180; pts.push([cx + Math.sin(r) * 900, cy - Math.cos(r) * 900]); }
+  const r = b * Math.PI / 180; pts.push([cx + Math.sin(r) * 900, cy - Math.cos(r) * 900]);
+  return "M" + pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" L") + " Z";
+}
+/* Brainstem levels: the drawing is bent onto the real brainstem of the template by a thin-plate spline
+   (localizer-bswarp.js). Shapes are flattened to polygons, mirrored if needed, then warped point by point. */
+function tps(w) {
+  const C = w.c, Wt = w.w, A = w.a;
+  return (x, y) => {
+    let fx = A[0][0] + A[1][0] * x + A[2][0] * y, fy = A[0][1] + A[1][1] * x + A[2][1] * y;
+    for (let i = 0; i < C.length; i++) {
+      const dx = x - C[i][0], dy = y - C[i][1], r2 = dx * dx + dy * dy;
+      if (r2 > 0) { const u = 0.5 * r2 * Math.log(r2); fx += Wt[i][0] * u; fy += Wt[i][1] * u; }
+    }
+    return [fx, fy];
+  };
+}
+function flattenD(d) {
+  const t = d.match(/[MLHVCQZ]|-?\d*\.?\d+(?:e-?\d+)?/g) || [], out = [];
+  let i = 0, cmd = null, cur = [0, 0], pl = null;
+  const num = () => parseFloat(t[i++]);
+  while (i < t.length) {
+    if (/^[A-Z]$/.test(t[i])) { cmd = t[i++]; if (cmd === "Z") { if (pl && pl.length > 1) out.push(pl); pl = null; continue; } }
+    if (cmd === "M") { if (pl && pl.length > 1) out.push(pl); cur = [num(), num()]; pl = [cur]; cmd = "L"; }
+    else if (cmd === "L") { cur = [num(), num()]; pl.push(cur); }
+    else if (cmd === "H") { cur = [num(), cur[1]]; pl.push(cur); }
+    else if (cmd === "V") { cur = [cur[0], num()]; pl.push(cur); }
+    else if (cmd === "C") {
+      const a = [num(), num()], b = [num(), num()], c = [num(), num()];
+      for (let k = 1; k <= 10; k++) { const u = k / 10, v = 1 - u;
+        pl.push([v*v*v*cur[0] + 3*v*v*u*a[0] + 3*v*u*u*b[0] + u*u*u*c[0], v*v*v*cur[1] + 3*v*v*u*a[1] + 3*v*u*u*b[1] + u*u*u*c[1]]); }
+      cur = c;
+    } else if (cmd === "Q") {
+      const a = [num(), num()], c = [num(), num()];
+      for (let k = 1; k <= 8; k++) { const u = k / 8, v = 1 - u; pl.push([v*v*cur[0] + 2*v*u*a[0] + u*u*c[0], v*v*cur[1] + 2*v*u*a[1] + u*u*c[1]]); }
+      cur = c;
+    } else i++;
+  }
+  if (pl && pl.length > 1) out.push(pl);
+  return out;
+}
+function densify(pl, step) {
+  const out = [];
+  for (let i = 0; i < pl.length; i++) {
+    const a = pl[i], b = pl[(i + 1) % pl.length], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step));
+    for (let k = 0; k < n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]);
+  }
+  return out;
+}
+function warpedShape(sh, sl, m) {
+  const W = sl.w, X = x => m ? W - x : x;
+  let polys;
+  if (sh[0] === "e" || sh[0] === "c") {
+    const cx = X(sh[1]), cy = sh[2], rx = sh[3], ry = sh[0] === "c" ? sh[3] : sh[4], rot = ((sh[0] === "e" && sh[5]) || 0) * (m ? -1 : 1) * Math.PI / 180;
+    const pl = [];
+    for (let k = 0; k < 40; k++) { const t = k / 40 * Math.PI * 2, ex = rx * Math.cos(t), ey = ry * Math.sin(t);
+      pl.push([cx + ex * Math.cos(rot) - ey * Math.sin(rot), cy + ex * Math.sin(rot) + ey * Math.cos(rot)]); }
+    polys = [pl];
+  } else if (sh[0] === "r") {
+    const x = m ? W - sh[1] - sh[3] : sh[1];
+    polys = [[[x, sh[2]], [x + sh[3], sh[2]], [x + sh[3], sh[2] + sh[4]], [x, sh[2] + sh[4]]]];
+  } else polys = flattenD(m ? mirrorD(sh[1], W) : sh[1]);
+  const d = polys.map(pl => "M" + densify(pl, 5).map(p => { const q = sl.warp(p[0], p[1]); return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" L") + " Z").join(" ");
+  return {p:new Path2D(d), svg:`<path d="${d}"/>`};
+}
+SL.forEach(sl => { const w = (window.LOC_WARP || {})[sl.id]; if (w) { sl.outline = w.outline; sl.warp = tps(w); } });
+
+function shape(sh, sl, side) {
+  const W = sl.w, m = side === "L", X = x => m ? W - x : x;
+  // catch-all half-plane rectangles (reticular formation, arterial groups) stay as they are
+  if (sl.warp && !(sh[0] === "r" && sh[3] >= 0.4 * W) && sh[0] !== "w") return warpedShape(sh, sl, m);
+  if (sh[0] === "e") {
+    const cx = X(sh[1]), cy = sh[2], rx = sh[3], ry = sh[4], rot = (sh[5] || 0) * (m ? -1 : 1);
+    const p = new Path2D(); p.ellipse(cx, cy, rx, ry, rot * Math.PI / 180, 0, Math.PI * 2);
+    return {p, svg:`<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${rot ? ` transform="rotate(${rot} ${cx} ${cy})"` : ""}/>`};
+  }
+  if (sh[0] === "c") { const cx = X(sh[1]); const p = new Path2D(); p.arc(cx, sh[2], sh[3], 0, Math.PI * 2); return {p, svg:`<circle cx="${cx}" cy="${sh[2]}" r="${sh[3]}"/>`}; }
+  if (sh[0] === "r") { const x = m ? W - sh[1] - sh[3] : sh[1]; const p = new Path2D(); p.rect(x, sh[2], sh[3], sh[4]); return {p, svg:`<rect x="${x}" y="${sh[2]}" width="${sh[3]}" height="${sh[4]}"/>`}; }
+  let d = sh[0] === "w" ? wedgeD(sl, sh[1], sh[2]) : sh[1];
+  if (m) d = mirrorD(d, W);
+  return {p:new Path2D(d), svg:`<path d="${d}"/>`};
+}
+
+/* ---------- build a slice: instances, masks and the sampling grid ---------- */
+const probe = document.createElement("canvas").getContext("2d");
+const CACHE = {};
+function build(sl) {
+  if (CACHE[sl.id]) return CACHE[sl.id];
+  const W = sl.w, H = sl.h, mid = !!sl.mid;
+  const outline = new Path2D(sl.outline);
+  const hemi = {}, inner = {};
+  if (sl.hemi) {
+    if (mid) { hemi.M = new Path2D(sl.hemi); inner.M = new Path2D(sl.inner); }
+    else { hemi.R = new Path2D(sl.hemi); hemi.L = new Path2D(mirrorD(sl.hemi, W)); inner.R = new Path2D(sl.inner); inner.L = new Path2D(mirrorD(sl.inner, W)); }
+  }
+  const inst = [], byKey = {};
+  sl.structs.forEach(s => {
+    const sides = mid || s.s === "M" ? ["M"] : ["R", "L"];
+    sides.forEach(side => {
+      const g = shape(s.sh, sl, side);
+      const o = {s, side, key:s.id + "_" + side, p:g.p, svg:g.svg, n:0, sx:0, sy:0, clip:s.clip, parent:s.in ? s.in + "_" + side : null};
+      byKey[o.key] = o; inst.push(o);
+    });
+  });
+  const ter = [];
+  (sl.terr || []).forEach(t => {
+    const sides = mid ? ["M"] : ["R", "L"];
+    sides.forEach(side => { const g = shape(t.sh, sl, side); ter.push({t, side, p:g.p, svg:g.svg, n:0, clip:t.clip || (t.sh[0] === "w" && sl.hemi ? "hemi" : null)}); });
+  });
+  const sideOK = (side, x) => side === "M" || (side === "R" ? x <= W / 2 + 6 : x >= W / 2 - 6);
+  const inClip = (clip, side, x, y) => {
+    const hs = mid ? "M" : side;
+    if (!clip) return true;
+    if (clip === "ctx") return probe.isPointInPath(hemi[hs], x, y) && !probe.isPointInPath(inner[hs], x, y);
+    if (clip === "wm") return probe.isPointInPath(inner[hs], x, y);
+    if (clip === "hemi") return probe.isPointInPath(hemi[hs], x, y);
+    if (clip === "out") return side === "M" || (side === "R" ? x <= W / 2 : x >= W / 2);
+    return true;
+  };
+  const step = W > 590 && H > 500 ? 5 : 4;
+  const cols = Math.ceil(W / step), rows = Math.ceil(H / step);
+  const own = new Int16Array(cols * rows).fill(-1), tow = new Int16Array(cols * rows).fill(-1);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const x = c * step + step / 2, y = r * step + step / 2;
+    if (!probe.isPointInPath(outline, x, y)) continue;
+    const k = r * cols + c;
+    own[k] = -2; tow[k] = -2;
+    for (let i = inst.length - 1; i >= 0; i--) {
+      const o = inst[i];
+      if (!sideOK(o.side, x)) continue;
+      if (!probe.isPointInPath(o.p, x, y)) continue;
+      if (!inClip(o.clip, o.side, x, y)) continue;
+      if (o.parent && !probe.isPointInPath(byKey[o.parent].p, x, y)) continue;
+      own[k] = i; o.n++; o.sx += x; o.sy += y; break;
+    }
+    for (let i = ter.length - 1; i >= 0; i--) {
+      const o = ter[i];
+      if (!sideOK(o.side, x)) continue;
+      if (!probe.isPointInPath(o.p, x, y)) continue;
+      if (!inClip(o.clip, o.side, x, y)) continue;
+      tow[k] = i; o.n++; break;
+    }
+  }
+  inst.forEach(o => { o.cx = o.n ? o.sx / o.n : 0; o.cy = o.n ? o.sy / o.n : 0; });
+  /* Label anchor: a point well inside the part of the shape that is actually visible, as close to its middle as
+     possible. A ring (PAG around the aqueduct) or a region partly covered by another structure (basis pontis under
+     the corticospinal bundle) then gets its own spot instead of sharing a centroid with its neighbour. */
+  const dist = new Float32Array(cols * rows).fill(1e9);
+  const ownAt = (r, c) => (r < 0 || c < 0 || r >= rows || c >= cols) ? -9 : own[r * cols + c];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const o = own[r * cols + c]; if (o < 0) continue;
+    if (ownAt(r - 1, c) !== o || ownAt(r + 1, c) !== o || ownAt(r, c - 1) !== o || ownAt(r, c + 1) !== o) dist[r * cols + c] = 1;
+  }
+  const relax = (k, j, d) => { if (own[j] === own[k] && dist[j] + d < dist[k]) dist[k] = dist[j] + d; };
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const k = r * cols + c; if (own[k] < 0) continue;
+    if (r > 0) { relax(k, k - cols, 1); if (c > 0) relax(k, k - cols - 1, 1.41); if (c < cols - 1) relax(k, k - cols + 1, 1.41); }
+    if (c > 0) relax(k, k - 1, 1);
+  }
+  for (let r = rows - 1; r >= 0; r--) for (let c = cols - 1; c >= 0; c--) {
+    const k = r * cols + c; if (own[k] < 0) continue;
+    if (r < rows - 1) { relax(k, k + cols, 1); if (c < cols - 1) relax(k, k + cols + 1, 1.41); if (c > 0) relax(k, k + cols - 1, 1.41); }
+    if (c < cols - 1) relax(k, k + 1, 1);
+  }
+  const best = inst.map(() => -1e9), at = inst.map(() => null);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const k = r * cols + c, i = own[k]; if (i < 0) continue;
+    const o = inst[i], x = c * step + step / 2, y = r * step + step / 2;
+    const score = Math.min(dist[k], 4) * 10 - Math.hypot(x - o.cx, y - o.cy) / step;
+    if (score > best[i]) { best[i] = score; at[i] = [x, y]; }
+  }
+  inst.forEach((o, i) => { if (at[i]) { o.cx = at[i][0]; o.cy = at[i][1]; } });
+  return (CACHE[sl.id] = {sl, inst, ter, own, tow, step, cols, rows, byKey});
+}
+
+/* ---------- SVG ---------- */
+function svgFor(B) {
+  const sl = B.sl, W = sl.w, H = sl.h, mid = !!sl.mid, u = sl.id;
+  let defs = "";
+  if (sl.hemi) {
+    const sides = mid ? [["M", sl.hemi, sl.inner]] : [["R", sl.hemi, sl.inner], ["L", mirrorD(sl.hemi, W), mirrorD(sl.inner, W)]];
+    sides.forEach(([s, h, i]) => {
+      defs += `<mask id="ctx-${u}-${s}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><path d="${h}" fill="#fff"/><path d="${i}" fill="#000"/></mask>`;
+      defs += `<mask id="wm-${u}-${s}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><path d="${i}" fill="#fff"/></mask>`;
+      defs += `<mask id="hemi-${u}-${s}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><path d="${h}" fill="#fff"/></mask>`;
+    });
+  }
+  ["R", "L"].forEach(s => { defs += `<clipPath id="out-${u}-${s}"><rect x="${s === "R" ? 0 : W / 2}" y="0" width="${W / 2}" height="${H}"/></clipPath>`; });
+  defs += `<clipPath id="ol-${u}"><path d="${sl.outline}"/></clipPath>`;
+  const attrFor = (clip, side, parent) => {
+    const hs = mid ? "M" : side;
+    let a = "";
+    if (clip === "ctx" || clip === "wm" || clip === "hemi") a += ` mask="url(#${clip}-${u}-${hs})"`;
+    if (clip === "out" && side !== "M") a += ` clip-path="url(#out-${u}-${side})"`;
+    if (parent) a += ` clip-path="url(#par-${u}-${parent})"`;
+    return a;
+  };
+  B.inst.forEach(o => { if (o.parent) defs += `<clipPath id="par-${u}-${o.parent}">${B.byKey[o.parent].svg}</clipPath>`; });
+  const st = B.inst.map((o, i) => `<g class="st k-${o.s.k}" data-i="${i}"${attrFor(o.clip, o.side, o.parent)}>${o.svg}</g>`).join("");
+  const tr = B.ter.map((o, i) => `<g class="tr f-${o.t.f}" data-t="${i}"${attrFor(o.clip, o.side, null)}>${o.svg}</g>`).join("");
+  // Labels: larger structures place first; a label that would collide slides to the nearest free spot close by
+  const boxes = [], pos = {};
+  B.inst.map((o, i) => [o, i]).filter(([o]) => o.n >= 2 && o.s.k !== "wm" && o.s.a)
+    .sort((a, b) => b[0].n - a[0].n).forEach(([o, i]) => {
+      const w = o.s.a.length * 6.1 + 4, h = 11;
+      const tries = [[0, 0]];
+      for (const r of [8, 12, 17, 23]) for (const [ux, uy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-.7, -.7], [.7, -.7], [-.7, .7], [.7, .7]])
+        tries.push([ux * (r + w * .35 * Math.abs(ux)), uy * r]);
+      let placed = false;
+      for (const [dx, dy] of tries) {
+        const x = o.cx + dx, y = o.cy + dy, b = [x - w / 2, y - h / 2, x + w / 2, y + h / 2];
+        if (boxes.some(c => b[0] < c[2] && c[0] < b[2] && b[1] < c[3] && c[1] < b[3])) continue;
+        boxes.push(b); pos[i] = [x, y]; placed = true; break;
+      }
+      if (!placed) pos[i] = [o.cx, o.cy];   // crowded spot: keep the label rather than lose it
+    });
+  const lab = B.inst.map((o, i) => pos[i] ? `<text class="tl" data-l="${i}" x="${pos[i][0].toFixed(1)}" y="${(pos[i][1] + 3.5).toFixed(1)}">${esc(o.s.a)}</text>` : "").join("");
+  const midline = mid ? "" : `<line class="mid" x1="${W / 2}" y1="0" x2="${W / 2}" y2="${H}"/>`;
+  const msrc = mriSrc(sl);
+  return `<defs>${defs}</defs>${msrc ? `<image id="mriImg" href="${msrc}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none"/>` : ""}<g clip-path="url(#ol-${u})"><path class="o-bg" d="${sl.outline}"/>${st}</g><g id="terrLayer"${state.terr ? "" : " hidden"} clip-path="url(#ol-${u})">${tr}</g><path class="o-line" d="${sl.outline}"/>${midline}<g id="labLayer"${state.labels ? "" : " hidden"}>${lab}</g>`;
+}
+
+/* ---------- state ---------- */
+const state = {slice:"ax-bg", mode:"draw", brush:14, labels:true, terr:false, tab:"mapper", paraSide:"R", view:"mri"};
+const MRI_IMG = new Set(["ax-vx","ax-cr","ax-bg","ax-ml","cor-a","cor","cor-p","sag","ax-pf","mb-u","mb-l","p-u","p-m","p-l","pmj","m-u","m-m","m-l"]);
+const mriSrc = sl => sl.id === "para" ? `mri/para-${state.paraSide}.jpg` : (MRI_IMG.has(sl.id) ? `mri/${sl.id}.jpg` : "");
+const saved = {}, visited = {}, undo = {};
+const cv = $("#cv"), cx = cv.getContext("2d"), svg = $("#svg"), stage = $("#stage");
+let B = null;
+
+function paintShapes(shapes, sl) {
+  cx.save(); cx.setTransform(SCALE, 0, 0, SCALE, 0, 0); cx.fillStyle = "#cc2858";
+  shapes.forEach(sh => { const g = shape(sh, sl, "R"); cx.fill(g.p); });
+  cx.restore();
+}
+function loadSlice(id) {
+  if (!BYS[id]) return;
+  if (B) saved[B.sl.id] = cx.getImageData(0, 0, cv.width, cv.height);
+  state.slice = id;
+  const sl = BYS[id];
+  B = build(sl);
+  stage.style.aspectRatio = `${sl.w} / ${sl.h}`;
+  stage.style.maxWidth = sl.h > sl.w * 0.9 ? "560px" : "100%";
+  svg.setAttribute("viewBox", `0 0 ${sl.w} ${sl.h}`);
+  svg.innerHTML = svgFor(B);
+  cv.width = sl.w * SCALE; cv.height = sl.h * SCALE;
+  cx.clearRect(0, 0, cv.width, cv.height);
+  if (saved[id]) cx.putImageData(saved[id], 0, 0);   // a slice opens empty; your own drawing is kept when you come back
+  visited[id] = true;
+  undo[id] = undo[id] || [];
+  $("#sname").textContent = sl.name;
+  $("#sview").textContent = sl.view;
+  $("#paraSeg").hidden = !sl.para;
+  $(".side-l").textContent = sl.mid ? "Front" : "R";
+  $(".side-r").textContent = sl.mid ? "Back" : "L";
+  $("#preset").innerHTML = `<option value="">Example lesions…</option>` + exFor(sl).map((p, i) => `<option value="${i}">${esc(p.n)}</option>`).join("");
+  $$("#slices .sl").forEach(b => b.setAttribute("aria-current", String(b.dataset.s === id)));
+  renderLegend();
+  renderLocator(sl);
+  renderMRI();
+  analyze();
+  state.focus = state.pendingFocus || null; state.pendingFocus = null;   // a focus survives only a jump from its own card
+  applyFocus();
+}
+const LEVELS = [["mb-u",24,"III"],["mb-l",52,"IV"],["p-u",78,"rostral"],["p-m",104,"V"],["p-l",130,"VI VII"],["pmj",148,"VIII"],["m-u",170,"IX X"],["m-m",192,"XII"],["m-l",214,"decuss."]];
+function renderLocator(sl) {
+  const box = $("#locator");
+  if (sl.group === "Spinal cord") { box.hidden = false; box.innerHTML = spineLocator(sl); return; }
+  if (sl.group !== "Brainstem") { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = `<svg viewBox="0 0 96 232" role="img" aria-label="Brainstem level locator, side view">
+<ellipse class="lc-cb" cx="62" cy="128" rx="13" ry="34"/>
+<path class="lc-stem" d="M22,8 L46,8 L48,70 C52,96 50,130 46,142 L44,224 L28,224 L26,142 C10,128 8,84 24,70 Z"/>
+${LEVELS.map(([id, y, t]) => `<g data-s="${id}"><title>${esc(BYS[id] ? BYS[id].name : id)}</title><line class="lc-hit" x1="4" y1="${y}" x2="52" y2="${y}"/><line class="lc-l${id === sl.id ? " on" : ""}" x1="6" y1="${y}" x2="50" y2="${y}"/><text class="lc-t${id === sl.id ? " on" : ""}" x="78" y="${y + 3}">${t}</text></g>`).join("")}
+<text class="lc-t" x="2" y="6">front</text></svg>`;
+}
+const SPINE = [["sc-c2",34,"C2–4"],["sc-c6",70,"C6"],["sc-t6",130,"T6"],["sc-l4",190,"L4"],["sc-s3",214,"S3"]];
+function spineLocator(sl) {
+  return `<svg viewBox="0 0 96 232" role="img" aria-label="Spinal cord level locator">
+<path class="lc-stem" d="M30,8 C28,40 26,60 30,90 C32,120 32,150 30,176 C26,196 28,206 34,224 L40,224 C46,206 48,196 44,176 C42,150 42,120 44,90 C48,60 46,40 44,8 Z"/>
+${SPINE.map(([id, y, t]) => `<g data-s="${id}"><title>${esc(BYS[id] ? BYS[id].name : id)}</title><line class="lc-hit" x1="10" y1="${y}" x2="64" y2="${y}"/><line class="lc-l${id === sl.id ? " on" : ""}" x1="14" y1="${y}" x2="60" y2="${y}"/><text class="lc-t${id === sl.id ? " on" : ""}" x="66" y="${y + 3}">${t}</text></g>`).join("")}
+<text class="lc-t" x="2" y="6">top</text></svg>`;
+}
+$("#locator").addEventListener("click", e => { const g = e.target.closest("[data-s]"); if (g) go(g.dataset.s); });
+function renderLegend() {
+  const fams = [...new Set(B.ter.map(o => o.t.f))];
+  const lg = $("#legend");
+  lg.hidden = !state.terr;
+  lg.innerHTML = fams.map(f => `<span><i class="sw" style="background:var(--f${f})"></i>${FAMNAME[f] || f}</span>`).join("");
+}
+
+/* ---------- drawing ---------- */
+let drawing = false, last = null, pending = 0;
+function pt(e) { const r = cv.getBoundingClientRect(); return {x:(e.clientX - r.left) / r.width * B.sl.w, y:(e.clientY - r.top) / r.height * B.sl.h}; }
+function stroke(a, b) {
+  cx.save(); cx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  cx.globalCompositeOperation = state.mode === "erase" ? "destination-out" : "source-over";
+  cx.strokeStyle = "#cc2858"; cx.fillStyle = "#cc2858"; cx.lineWidth = state.brush; cx.lineCap = "round"; cx.lineJoin = "round";
+  cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke();
+  cx.beginPath(); cx.arc(b.x, b.y, state.brush / 2, 0, Math.PI * 2); cx.fill();
+  cx.restore();
+}
+function pushUndo() { const u = undo[state.slice]; u.push(cx.getImageData(0, 0, cv.width, cv.height)); if (u.length > 25) u.shift(); }
+cv.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+  if (alignActive()) { alignDown(e); return; }
+  if (state.app === "sign") return;
+  pushUndo(); drawing = true; last = pt(e); stroke(last, last); $("#tip").hidden = true;
+});
+cv.addEventListener("pointermove", e => {
+  if (alignActive()) { alignMove(e); return; }
+  const p = pt(e);
+  if (drawing) { stroke(last, p); last = p; const now = performance.now(); if (now - pending > 180) { pending = now; analyze(); } return; }
+  hover(p, e);
+});
+const endDraw = () => { if (!drawing) return; drawing = false; analyze(); };
+const endAll = e => { alignUp(e); endDraw(); };
+cv.addEventListener("pointerup", endAll); cv.addEventListener("pointercancel", endAll);
+cv.addEventListener("pointerleave", () => { $("#tip").hidden = true; setHover(-1); });
+
+let hovI = -1;
+function setHover(i) { if (i === hovI) return; if (hovI >= 0) svg.querySelector(`.st[data-i="${hovI}"]`)?.classList.remove("hov"); hovI = i; if (i >= 0) svg.querySelector(`.st[data-i="${i}"]`)?.classList.add("hov"); }
+function hover(p, e) {
+  const c = Math.floor(p.x / B.step), r = Math.floor(p.y / B.step);
+  const i = (c >= 0 && r >= 0 && c < B.cols && r < B.rows) ? B.own[r * B.cols + c] : -1;
+  const tip = $("#tip");
+  if (i < 0) { tip.hidden = true; setHover(-1); return; }
+  const o = B.inst[i];
+  const sideTxt = o.side === "M" ? "" : (o.side === "R" ? " · right" : " · left");
+  let t = o.s.n + sideTxt;
+  const zs = zonesOf(o.s); if (zs.length) t += " — " + zs.map(z => z.name.split(" (")[0]).join(", ");
+  if (state.terr) { const ti = B.tow[r * B.cols + c]; if (ti >= 0) t += " — " + B.ter[ti].t.n.split(":")[0]; }
+  tip.textContent = t; tip.hidden = false;
+  const sr = stage.getBoundingClientRect();
+  tip.style.left = (e.clientX - sr.left) + "px"; tip.style.top = (e.clientY - sr.top) + "px";
+  setHover(i);
+}
+
+/* ---------- analysis ---------- */
+function phrase(t, side) {
+  let s;
+  if (side === "M") s = t.replace(/\{C\}/g, "opposite-side").replace(/\{I\}/g, "same-side");
+  else { const C = side === "R" ? "left" : "right", I = side === "R" ? "right" : "left"; s = t.replace(/\{C\}/g, C).replace(/\{I\}/g, I); }
+  return cap(s);
+}
+function analyze() {
+  const sl = B.sl, img = cx.getImageData(0, 0, cv.width, cv.height).data, Wpx = cv.width;
+  const hitN = new Map(), terN = new Map();
+  let total = 0, onR = 0, onL = 0, outside = 0;
+  for (let r = 0; r < B.rows; r++) for (let c = 0; c < B.cols; c++) {
+    const x = c * B.step + B.step / 2, y = r * B.step + B.step / 2;
+    const px = Math.min(cv.width - 1, Math.round(x * SCALE)), py = Math.min(cv.height - 1, Math.round(y * SCALE));
+    if (img[(py * Wpx + px) * 4 + 3] < 60) continue;
+    const k = r * B.cols + c, o = B.own[k];
+    if (o === -1) { outside++; continue; }
+    total++;
+    if (x < sl.w / 2 - 2) onR++; else if (x > sl.w / 2 + 2) onL++;
+    if (o >= 0) hitN.set(o, (hitN.get(o) || 0) + 1);
+    const t = B.tow[k]; if (t >= 0) terN.set(t, (terN.get(t) || 0) + 1);
+  }
+  $$(".st.hit", svg).forEach(g => g.classList.remove("hit"));
+  $$(".tl.hitl", svg).forEach(g => g.classList.remove("hitl"));
+  const hits = [...hitN.entries()].map(([i, n]) => ({o:B.inst[i], i, n, pct:Math.min(100, Math.round(100 * n / Math.max(1, B.inst[i].n)))})).sort((a, b) => b.n - a.n);
+  hits.forEach(h => { svg.querySelector(`.st[data-i="${h.i}"]`)?.classList.add("hit"); svg.querySelector(`.tl[data-l="${h.i}"]`)?.classList.add("hitl"); });
+  renderReport({sl, total, onR, onL, outside, hits, terN});
+}
+
+function evalSyndromes(sl, hits) {
+  const has = new Set(hits.filter(h => h.o.s.k !== "csf").map(h => h.o.s.id + "_" + h.o.side));
+  const isM = id => { const s = sl.structs.find(x => x.id === id); return sl.mid || (s && s.s === "M"); };
+  const hit = (id, side) => isM(id) ? (has.has(id + "_M")) : has.has(id + "_" + side);
+  const out = [];
+  (sl.syn || []).forEach(sy => {
+    if (sy.bi) { if (sy.bi.every(g => g.some(id => hit(id, "R")) && g.some(id => hit(id, "L"))) && !(sy.not && sy.not.some(id => hit(id, "R") || hit(id, "L")))) out.push({sy, side:"B"}); return; }
+    const allM = (sy.need || []).every(g => g.every(isM));
+    const sides = sl.para ? [state.paraSide] : (sl.mid || allM ? ["M"] : ["R", "L"]);
+    let midOnly = false;
+    sides.forEach(side => {
+      if (sy.only && side !== sy.only) return;
+      if (!sy.need.every(g => g.some(id => hit(id, side)))) return;
+      if (sy.not && sy.not.some(id => hit(id, side))) return;
+      const sided = side !== "M" && sy.need.some(g => g.some(id => !isM(id) && hit(id, side)));
+      if (!sided && side !== "M" && !sl.para) { midOnly = true; return; }
+      out.push({sy, side});
+    });
+    if (midOnly && !out.some(x => x.sy === sy)) out.push({sy, side:"M"});
+  });
+  return out;
+}
+
+/* ---------- seizure zones ----------
+   Two ways in. Lesion → seizure: paint a lesion; every seizure-onset zone it touches is listed with the aura, ictal
+   signs, postictal signs and lateralizing clues it produces, phrased for the side of the lesion. Seizure → region:
+   tick what was seen; zones are ranked by the signs that point to them, the side is inferred from lateralizing signs,
+   and the likely regions glow on the image. */
+const SZ = window.SZ || {zones:[], signs:[], lat:[], examples:[]};
+const ZONES = SZ.zones.map(z => ({...z, rx:new RegExp(z.re, "i")}));
+const ZBY = Object.fromEntries(ZONES.map(z => [z.id, z]));
+const zonesOf = s => (s.k === "ctx" || s.k === "nuc") ? ZONES.filter(z => z.rx.test(s.n)) : [];
+const exFor = sl => SZ.examples.filter(x => x.slice === sl.id);
+const sideWord = s => s === "R" ? "right" : s === "L" ? "left" : "";
+const otherSide = s => s === "R" ? "L" : "R";
+function sameSide(o, side) { return o.side === "M" || side === "M" || o.side === side; }
+state.app = "lesion"; state.signs = {}; state.dom = "L";
+try { if (localStorage.getItem("sz-dom") === "R") state.dom = "R"; } catch (x) {}
+
+function paintParts(parts) {
+  cx.save(); cx.setTransform(SCALE, 0, 0, SCALE, 0, 0); cx.fillStyle = "#cc2858";
+  parts.forEach(([id, side]) => {
+    const idx = new Set(); B.inst.forEach((o, i) => { if (o.s.id === id && (o.side === side || o.side === "M" || side === "M")) idx.add(i); });
+    for (let r = 0; r < B.rows; r++) for (let c = 0; c < B.cols; c++) if (idx.has(B.own[r * B.cols + c])) cx.fillRect(c * B.step - .6, r * B.step - .6, B.step + 1.2, B.step + 1.2);
+  });
+  cx.restore();
+}
+
+/* ----- seizure → region: scoring ----- */
+function signResult() {
+  const score = {}, why = {}, votes = {R:0, L:0}, vwhy = {R:[], L:[]};
+  SZ.signs.forEach(sg => {
+    if (!(sg.id in state.signs)) return;
+    Object.entries(sg.z || {}).forEach(([z, w]) => { score[z] = (score[z] || 0) + w; (why[z] = why[z] || []).push(sg.t); });
+    let side = null; const bs = state.signs[sg.id];
+    if (sg.lat === "contra" && bs) side = otherSide(bs);
+    else if (sg.lat === "ipsi" && bs) side = bs;
+    else if (sg.lat === "dom") side = state.dom;
+    else if (sg.lat === "nondom") side = otherSide(state.dom);
+    if (side) { votes[side] += sg.w || 1; vwhy[side].push(sg.lat === "dom" || sg.lat === "nondom" ? sg.t : `${sg.t.replace(/ of one side| on one side| one side|of one /, " ").trim()} (${sg.sided ? sg.sided.toLowerCase() + " " : ""}${sideWord(bs)})`); }
+  });
+  const tot = Object.values(score).reduce((a, b) => a + b, 0), max = Math.max(0, ...Object.values(score));
+  const norm = {}; Object.entries(score).forEach(([z, v]) => { norm[z] = max ? v / max : 0; });
+  const ranked = Object.entries(score).sort((a, b) => b[1] - a[1]).map(([z, v]) => ({z:ZBY[z], v, pct:Math.round(100 * v / tot), why:why[z]})).filter(x => x.z);
+  let side = null, conflict = false;
+  if (votes.R || votes.L) {
+    const hi = votes.R >= votes.L ? "R" : "L", lo = otherSide(hi);
+    if (votes[hi] >= 2 && votes[hi] >= 2 * votes[lo]) side = hi; else conflict = votes[lo] > 0;
+  }
+  return {ranked, norm, top:ranked[0] || null, side, conflict, votes, vwhy, n:Object.keys(state.signs).length};
+}
+
+/* ----- highlight on the image ----- */
+function applyFocus() {
+  $$(".st.foc,.st.heat", svg).forEach(g => { g.classList.remove("foc", "heat"); g.style.removeProperty("--h"); });
+  $$(".tl.focl", svg).forEach(t => t.classList.remove("focl"));
+  let any = false;
+  if (state.app === "sign") {
+    const r = signResult();
+    if (r.top) B.inst.forEach((o, i) => {
+      let h = 0; zonesOf(o.s).forEach(z => { h = Math.max(h, r.norm[z.id] || 0); });
+      if (r.side && o.side !== "M" && o.side !== r.side) h *= .2;
+      if (h < .15) return;
+      any = true;
+      const g = svg.querySelector(`.st[data-i="${i}"]`); if (g) { g.classList.add("heat"); g.style.setProperty("--h", (.18 + .62 * h).toFixed(2)); }
+      if (h >= .5) svg.querySelector(`.tl[data-l="${i}"]`)?.classList.add("focl");
+    });
+  } else if (state.focus) {
+    const z = ZBY[state.focus.zone];
+    if (z) B.inst.forEach((o, i) => {
+      if (!(o.s.k === "ctx" || o.s.k === "nuc") || !z.rx.test(o.s.n) || !sameSide(o, state.focus.side)) return;
+      any = true; svg.querySelector(`.st[data-i="${i}"]`)?.classList.add("foc"); svg.querySelector(`.tl[data-l="${i}"]`)?.classList.add("focl");
+    });
+  }
+  svg.classList.toggle("focusing", any);
+  $$("#report [data-zone]").forEach(b => b.setAttribute("aria-pressed", String(!!(state.focus && state.focus.zone === b.dataset.zone && state.focus.side === b.dataset.side))));
+}
+function zoneSlices(z, except) {
+  return SL.filter(t => t.id !== except && t.structs.some(s => (s.k === "ctx" || s.k === "nuc") && z.rx.test(s.n)));
+}
+
+/* ----- lesion → seizure report ----- */
+const li = (arr, side) => (arr || []).map(t => `<li>${esc(phrase(t, side))}</li>`).join("");
+function zoneCard(z, side, pct, opts = {}) {
+  const domSide = state.dom;
+  const domTxt = side === "M" ? "" : (side === domSide ? "dom" : "nondom");
+  const lang = side === "M"
+    ? [z.dom && z.dom.length ? `<p class="zl"><b>If in the language-dominant hemisphere:</b> ${z.dom.map(t => esc(phrase(t, side))).join("; ")}</p>` : "", z.nondom && z.nondom.length ? `<p class="zl"><b>If non-dominant:</b> ${z.nondom.map(t => esc(phrase(t, side))).join("; ")}</p>` : ""].join("")
+    : (domTxt === "dom" && z.dom && z.dom.length ? `<p class="zl"><b>Language-dominant side${state.dom === "L" ? " (left, as set)" : " (right, as set)"}:</b> ${z.dom.map(t => esc(phrase(t, side))).join("; ")}</p>`
+      : domTxt === "nondom" && z.nondom && z.nondom.length ? `<p class="zl"><b>Non-dominant side:</b> ${z.nondom.map(t => esc(phrase(t, side))).join("; ")}</p>` : "");
+  const others = zoneSlices(z, B.sl.id);
+  return `<article class="zc">
+    <div class="zh"><div><h4>${esc(z.name)}</h4><p class="zm">${side === "M" ? "Midline view" : `Patient’s ${sideWord(side)} hemisphere`} · ${esc(z.lobe)}${pct != null ? ` · ${pct}% of this region on the slice` : ""}</p></div>
+      <button type="button" class="zbtn" data-zone="${z.id}" data-side="${side}" aria-pressed="false">Show</button></div>
+    ${z.aura && z.aura.length ? `<div><div class="flab">Aura / first symptom</div><ul>${li(z.aura, side)}</ul></div>` : ""}
+    <div><div class="flab">During the seizure</div><ul>${li(z.ictal, side)}</ul>${lang}</div>
+    ${z.post && z.post.length ? `<div><div class="flab">After the seizure</div><ul>${li(z.post, side)}</ul></div>` : ""}
+    ${z.lat && z.lat.length ? `<div><div class="flab">Lateralizing clues</div><ul>${li(z.lat, side)}</ul></div>` : ""}
+    ${opts.brief ? "" : `<p class="zl"><b>Spread:</b> ${esc(z.spread)}</p>
+    ${z.pearls && z.pearls.length ? `<div><div class="flab">Pearls</div><ul>${li(z.pearls, side)}</ul></div>` : ""}
+    <p class="zl"><b>Typical lesions:</b> ${esc(z.causes)}</p>
+    ${z.table && z.table.length ? `<p class="zl ref"><b>Reference table:</b> ${z.table.map(r => `${esc(r[0])} → ${esc(r[1])}`).join("; ")}</p>` : ""}
+    ${others.length ? `<div class="also">${others.map(t => `<button type="button" data-go="${t.id}" data-zone="${z.id}" data-side="${side}">${esc(t.name.replace(/^[^·]*·\s*/, ""))}</button>`).join("")}</div>` : ""}`}
+  </article>`;
+}
+
+function renderReport({sl, total, onR, onL, outside, hits}) {
+  if (state.app === "sign") { renderSigns(); return; }
+  const rep = $("#report");
+  if (!total) {
+    rep.innerHTML = `<div><div class="lab">Report</div><p class="empty" style="margin-top:6px">${outside ? "That stroke is outside the brain. Paint inside the outline." : "Paint the lesion on the slice, or pick an example above the image. The report lists the seizures that the cortex under it produces: aura, ictal signs, postictal signs and the lateralizing clues, sided to the lesion."}</p></div>
+      <div><div class="lab">On this slice</div><p class="empty" style="margin-top:6px">${esc(sl.view)}. Seizure-onset zones here: ${esc([...new Set(sl.structs.flatMap(s => zonesOf(s).map(z => z.name.split(" (")[0])))].join(", ") || "none")}.</p></div>`;
+    applyFocus(); return;
+  }
+  const real = hits.filter(h => h.o.s.k !== "csf");
+  // seizure-onset zones touched, per side
+  const agg = new Map();
+  real.forEach(h => {
+    zonesOf(h.o.s).forEach(z => {
+      const side = sl.para && h.o.side === "M" ? state.paraSide : h.o.side;
+      const k = z.id + "_" + side;
+      if (!agg.has(k)) agg.set(k, {z, side, n:0});
+      agg.get(k).n += h.n;
+    });
+  });
+  const zoneN = (z, side) => B.inst.filter(o => (o.s.k === "ctx" || o.s.k === "nuc") && z.rx.test(o.s.n) && (sl.para ? true : (o.side === side || o.side === "M" || side === "M"))).reduce((a, o) => a + o.n, 0);
+  const list = [...agg.values()].filter(x => x.n >= 2).sort((a, b) => b.n - a.n).map(x => ({...x, pct:Math.min(100, Math.round(100 * x.n / Math.max(1, zoneN(x.z, x.side))))}));
+  const sideTxt = sl.para ? (state.paraSide === "R" ? "Right hemisphere (parasagittal)" : "Left hemisphere (parasagittal)") : sl.mid ? "Midline view" : onR && onL ? (Math.min(onR, onL) / Math.max(onR, onL) > .25 ? "Both sides" : (onR > onL ? "Mainly the patient’s right" : "Mainly the patient’s left")) : (onR ? "Patient’s right" : "Patient’s left");
+  const deepOnly = !list.length;
+  rep.innerHTML = `
+    <div class="rhead"><span class="chip">${esc(sideTxt)}</span><span class="chip n">${list.length} seizure-onset zone${list.length === 1 ? "" : "s"}</span></div>
+    ${deepOnly ? `<div><div class="lab">Seizure risk</div><p class="note" style="margin-top:6px">This lesion lies in white matter, deep grey matter or CSF. Lesions confined there rarely cause seizures: epileptic seizures arise from cortex. If the lesion reaches nearby cortex, paint that part to see its semiology.</p></div>`
+      : `<div><div class="lab">Expected seizure semiology</div><p class="empty" style="font-size:13px;margin:4px 0 8px">The first symptom shows where the seizure starts; later signs show where it spreads. A lesion causes seizures only when it is epileptogenic (tumour, dysplasia, scar, cavernoma, hippocampal sclerosis).</p><div class="zcs">${list.map((x, k) => zoneCard(x.z, x.side, x.pct, {brief:k > 0 && list.length > 2})).join("")}</div></div>`}
+    ${list.length > 1 ? `<p class="note">The lesion touches several zones: the seizure usually starts in one (the aura tells which) and spreads to the others.</p>` : ""}
+    <div><div class="lab">Language dominance</div><div class="seg" role="group" style="margin-top:6px"><button type="button" data-dom="L" aria-pressed="${state.dom === "L"}">Left-dominant</button><button type="button" data-dom="R" aria-pressed="${state.dom === "R"}">Right-dominant</button></div></div>`;
+  applyFocus();
+}
+
+/* ----- seizure → region: checklist and results ----- */
+function renderSigns() {
+  const rep = $("#report");
+  if (!rep.querySelector("#szlist")) {
+    const groups = [...new Set(SZ.signs.map(s => s.g))];
+    rep.innerHTML = `<div id="szres"></div>
+      <div><div class="lab">What was seen</div><p class="empty" style="font-size:13px;margin:4px 0 8px">Tick every feature you saw or the patient reported, and the side where it applies. The first symptom matters most.</p>
+      <div id="szlist">${groups.map(g => `<fieldset class="sgg"><legend>${esc(g)}</legend>${SZ.signs.filter(s => s.g === g).map(s => `<div class="sgi" data-sg="${s.id}"><label><input type="checkbox" data-sg="${s.id}"> ${esc(s.t)}</label>${s.sided ? `<span class="sgs"><span>${esc(s.sided)}</span><button type="button" data-sgs="${s.id}" data-v="R" aria-pressed="false">right</button><button type="button" data-sgs="${s.id}" data-v="L" aria-pressed="false">left</button></span>` : ""}</div>`).join("")}</fieldset>`).join("")}</div>
+      <div class="rowb"><button type="button" class="tbtn" id="szClear">Clear all</button><span class="seg" role="group"><span>Language</span><button type="button" data-dom="L" aria-pressed="${state.dom === "L"}">Left-dominant</button><button type="button" data-dom="R" aria-pressed="${state.dom === "R"}">Right-dominant</button></span></div></div>`;
+  }
+  // sync the checklist with the state
+  $$("#szlist input[data-sg]").forEach(i => { i.checked = i.dataset.sg in state.signs; i.closest(".sgi").classList.toggle("on", i.checked); });
+  $$("#szlist [data-sgs]").forEach(b => b.setAttribute("aria-pressed", String(state.signs[b.dataset.sgs] === b.dataset.v)));
+  const r = signResult(), box = $("#szres");
+  if (!r.n) { box.innerHTML = `<div><div class="lab">Likely onset</div><p class="empty" style="margin-top:6px">Tick the features below. The most likely seizure-onset zones are ranked here and light up on the image, on one side when the signs lateralize.</p></div>`; applyFocus(); return; }
+  const sideLine = r.side ? `<p class="lat"><b>${r.side === "R" ? "Right" : "Left"} hemisphere</b> is favoured: ${esc(r.vwhy[r.side].join("; "))}.${r.votes[otherSide(r.side)] ? ` Against: ${esc(r.vwhy[otherSide(r.side)].join("; "))}.` : ""}</p>`
+    : r.conflict ? `<p class="lat">Lateralizing signs conflict (right ${r.votes.R}, left ${r.votes.L}): ${esc([...r.vwhy.R.map(x => "right: " + x), ...r.vwhy.L.map(x => "left: " + x)].join("; "))}. Spread can produce signs from both sides; trust the earliest.</p>`
+    : r.votes.R || r.votes.L ? `<p class="lat">Only a weak lateralizing signal so far (${esc([...r.vwhy.R, ...r.vwhy.L].join("; "))}).</p>`
+    : `<p class="lat">No lateralizing sign yet. Choose the side for one-sided signs to lateralize.</p>`;
+  const top = r.ranked.slice(0, 4);
+  box.innerHTML = `<div><div class="lab">Likely onset</div>
+    <div class="bars" style="margin-top:8px">${top.map((x, k) => `<div class="bar zr${k === 0 ? " top" : ""}"><span class="bt"><button type="button" class="sref" data-go="${x.z.slice}" title="Open the best slice for this region">${esc(x.z.name.split(" (")[0])}</button> <span style="color:var(--muted);font-size:12.5px">· ${esc(x.z.lobe)}</span></span><span class="bp">${x.pct}%</span><span class="bb"><i style="width:${x.pct}%;background:var(--heat)"></i></span><span class="why">${esc(x.why.join("; "))}</span></div>`).join("")}</div>
+    ${sideLine}</div>
+    ${r.top ? `<div><div class="lab">${esc(r.top.z.name.split(" (")[0])}: what else to look for</div><div style="margin-top:6px">${zoneCard(r.top.z, r.side || "M", null, {brief:true})}</div></div>` : ""}`;
+  applyFocus();
+}
+$("#report").addEventListener("change", e => {
+  const i = e.target.closest("input[data-sg]"); if (!i) return;
+  if (i.checked) state.signs[i.dataset.sg] = state.signs[i.dataset.sg] || ""; else delete state.signs[i.dataset.sg];
+  renderSigns();
+});
+$("#report").addEventListener("click", e => {
+  const d = e.target.closest("[data-dom]");
+  if (d) { state.dom = d.dataset.dom; try { localStorage.setItem("sz-dom", state.dom); } catch (x) {} analyze(); return; }
+  const s = e.target.closest("[data-sgs]");
+  if (s) { const id = s.dataset.sgs; state.signs[id] = state.signs[id] === s.dataset.v ? "" : s.dataset.v; renderSigns(); return; }
+  if (e.target.closest("#szClear")) { state.signs = {}; renderSigns(); return; }
+  const g = e.target.closest("[data-go]");
+  if (g) { if (g.dataset.zone) state.pendingFocus = {zone:g.dataset.zone, side:g.dataset.side || "M"}; go(g.dataset.go); return; }
+  const z = e.target.closest("[data-zone]");
+  if (z) {
+    state.focus = state.focus && state.focus.zone === z.dataset.zone && state.focus.side === z.dataset.side ? null : {zone:z.dataset.zone, side:z.dataset.side};
+    applyFocus();
+    const r = stage.getBoundingClientRect(); if (state.focus && (r.bottom < 60 || r.top > innerHeight - 120)) stage.scrollIntoView({block:"center"});
+  }
+});
+addEventListener("keydown", e => { if (e.key === "Escape" && state.focus) { state.focus = null; applyFocus(); } });
+function setApp(app) {
+  state.app = app; state.focus = null;
+  document.body.classList.toggle("app-sign", app === "sign");
+  $("#aLes").setAttribute("aria-pressed", String(app === "lesion")); $("#aSign").setAttribute("aria-pressed", String(app === "sign"));
+  $("#report").innerHTML = "";
+  analyze();
+}
+$("#aLes").onclick = () => setApp("lesion");
+$("#aSign").onclick = () => setApp("sign");
+
+
+/* ---------- MRI overlay ----------
+   A scan (DICOM series, PNG or JPG) shown under the atlas drawing. Scans stay in this page only:
+   never uploaded, saved or synced. Each atlas slice keeps its own image choice and alignment. */
+const mriCv = $("#mri"), mctx = mriCv.getContext("2d");
+const mri = {frames:[], isDicom:false, op:1, atlas:"fill", atOp:0.85, align:false, per:{}, urls:[]};
+const alignActive = () => mri.align && mri.frames.length > 0;
+function cur() {
+  if (!mri.per[state.slice]) mri.per[state.slice] = {tx:0, ty:0, z:1, rot:0, flip:false, idx:Math.floor(mri.frames.length / 2), ww:null, wc:null, b:100, c:100};
+  return mri.per[state.slice];
+}
+
+/* Minimal DICOM reader: uncompressed little-endian (implicit or explicit VR), 8/16-bit grey or 8-bit RGB, multi-frame. */
+function parseDicom(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), N = u8.length;
+  const pre = N > 132 && u8[128] === 68 && u8[129] === 73 && u8[130] === 67 && u8[131] === 77;
+  let off = pre ? 132 : 0;
+  const LONG = new Set(["OB", "OW", "OF", "SQ", "UT", "UN", "OD", "OL", "UC", "UR", "OV", "SV", "UV"]);
+  const str = (o, n) => { let s = ""; for (let i = 0; i < n && o + i < N; i++) { const c = u8[o + i]; if (c) s += String.fromCharCode(c); } return s.trim(); };
+  const readEl = (o, ex) => {
+    const g = dv.getUint16(o, true), e = dv.getUint16(o + 2, true);
+    if (g === 0xFFFE) return {g, e, vr:"", len:dv.getUint32(o + 4, true), hdr:8};
+    if (ex) { const vr = String.fromCharCode(u8[o + 4], u8[o + 5]); return LONG.has(vr) ? {g, e, vr, len:dv.getUint32(o + 8, true), hdr:12} : {g, e, vr, len:dv.getUint16(o + 6, true), hdr:8}; }
+    return {g, e, vr:"", len:dv.getUint32(o + 4, true), hdr:8};
+  };
+  const skipItem = (o, ex) => { while (o < N - 8) { const g = dv.getUint16(o, true), e = dv.getUint16(o + 2, true); if (g === 0xFFFE && e === 0xE00D) return o + 8; const el = readEl(o, ex); o += el.hdr; o = el.len === 0xFFFFFFFF ? skipSeq(o, ex) : o + el.len; } return o; };
+  const skipSeq = (o, ex) => { while (o < N - 8) { const g = dv.getUint16(o, true), e = dv.getUint16(o + 2, true), len = dv.getUint32(o + 4, true); o += 8; if (g === 0xFFFE && e === 0xE0DD) return o; if (g === 0xFFFE && e === 0xE000) { o = len === 0xFFFFFFFF ? skipItem(o, ex) : o + len; continue; } return o; } return o; };
+  const T = {}; let ts = "1.2.840.10008.1.2.1", explicit = true, pixel = null;
+  while (off < N - 8) {
+    const g = dv.getUint16(off, true);
+    const ex = g === 0x0002 ? true : explicit;
+    const el = readEl(off, ex);
+    const vo = off + el.hdr;
+    if (el.g === 0x7FE0 && el.e === 0x0010) { pixel = {o:vo, len:el.len}; break; }
+    if (el.len === 0xFFFFFFFF) { off = skipSeq(vo, ex); continue; }
+    const key = ((el.g << 16) | el.e) >>> 0;
+    if (el.g === 0x0002 && el.e === 0x0010) { ts = str(vo, el.len).replace(/\0/g, ""); explicit = ts !== "1.2.840.10008.1.2"; }
+    if (el.g === 0x0028 || el.g === 0x0020) T[key] = {o:vo, len:el.len};
+    off = vo + el.len;
+    if (g === 0x0002 && off < N - 4 && dv.getUint16(off, true) !== 0x0002) explicit = ts !== "1.2.840.10008.1.2";
+  }
+  if (/^1\.2\.840\.10008\.1\.2\.(4|5|2)/.test(ts)) throw new Error("This DICOM is compressed or big-endian. Export the image as PNG or JPG, or as uncompressed DICOM.");
+  if (!pixel || pixel.len === 0xFFFFFFFF) throw new Error("No readable pixel data (possibly compressed).");
+  const us = k => T[k] ? dv.getUint16(T[k].o, true) : null;
+  const ds = k => T[k] ? parseFloat(str(T[k].o, T[k].len).split("\\")[0]) : null;
+  const rows = us(0x00280010), cols = us(0x00280011), bits = us(0x00280100) || 16, sign = us(0x00280103) || 0, spp = us(0x00280002) || 1;
+  const nfr = Math.max(1, parseInt(T[0x00280008] ? str(T[0x00280008].o, T[0x00280008].len) : "1", 10) || 1);
+  const slope = ds(0x00281053) ?? 1, icpt = ds(0x00281052) ?? 0, wc = ds(0x00281050), ww = ds(0x00281051);
+  const photo = T[0x00280004] ? str(T[0x00280004].o, T[0x00280004].len) : "MONOCHROME2";
+  const inst = ds(0x00200013), loc = ds(0x00201041);
+  if (!rows || !cols) throw new Error("Image size not found in this DICOM file.");
+  const bpp = bits / 8, per = rows * cols * spp * bpp, out = [];
+  for (let f = 0; f < nfr; f++) {
+    const base = pixel.o + f * per;
+    if (base + per > N) break;
+    if (spp === 3) { const rgb = new Uint8ClampedArray(rows * cols * 4); for (let i = 0; i < rows * cols; i++) { rgb[i * 4] = u8[base + i * 3]; rgb[i * 4 + 1] = u8[base + i * 3 + 1]; rgb[i * 4 + 2] = u8[base + i * 3 + 2]; rgb[i * 4 + 3] = 255; } out.push({w:cols, h:rows, rgb, inst:(inst ?? 0) * 1000 + f, loc}); continue; }
+    const v = new Float32Array(rows * cols); let mn = Infinity, mx = -Infinity;
+    for (let i = 0; i < rows * cols; i++) {
+      let raw = bpp === 2 ? (sign ? dv.getInt16(base + i * 2, true) : dv.getUint16(base + i * 2, true)) : u8[base + i];
+      const x = raw * slope + icpt; v[i] = x; if (x < mn) mn = x; if (x > mx) mx = x;
+    }
+    out.push({w:cols, h:rows, v, min:mn, max:mx, wc:wc ?? (mn + mx) / 2, ww:ww ?? Math.max(1, mx - mn), inv:photo === "MONOCHROME1", inst:(inst ?? 0) * 1000 + f, loc});
+  }
+  if (!out.length) throw new Error("No image frames found.");
+  return out;
+}
+
+async function loadFiles(list) {
+  const files = [...list].filter(Boolean);
+  if (!files.length) return;
+  $("#mriInfo").textContent = "Reading…";
+  const frames = []; let dicom = 0, errors = [];
+  for (const f of files) {
+    try {
+      if (f.type && f.type.startsWith("image/")) {
+        const url = URL.createObjectURL(f); mri.urls.push(url);
+        const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error("Could not open " + f.name)); im.src = url; });
+        frames.push({w:img.naturalWidth, h:img.naturalHeight, img, name:f.name || ""});
+      } else {
+        const fr = parseDicom(await f.arrayBuffer()); fr.forEach(x => frames.push(x)); dicom++;
+      }
+    } catch (e) { errors.push(e.message || String(e)); }
+  }
+  if (!frames.length) { $("#mriInfo").textContent = errors[0] || "No image could be read. Use DICOM (uncompressed), PNG or JPG."; return; }
+  if (dicom) frames.sort((a, b) => (a.loc ?? a.inst ?? 0) - (b.loc ?? b.inst ?? 0) || (a.inst ?? 0) - (b.inst ?? 0));
+  else frames.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, {numeric:true}));
+  mri.frames = frames; mri.isDicom = !!dicom && !frames.some(f => f.img); mri.per = {};
+  if (mri.atlas === "fill") mri.atlas = "line";
+  const f0 = frames[0];
+  $("#mriInfo").textContent = `${mri.isDicom ? "DICOM" : "Image"} · ${frames.length} image${frames.length === 1 ? "" : "s"} · ${f0.w}×${f0.h}${errors.length ? ` · ${errors.length} file${errors.length === 1 ? "" : "s"} skipped` : ""}`;
+  renderMRI();
+}
+
+function paintFrame(f, p) {
+  if (mriCv.width !== f.w || mriCv.height !== f.h) { mriCv.width = f.w; mriCv.height = f.h; }
+  if (f.img) { mctx.clearRect(0, 0, f.w, f.h); mctx.drawImage(f.img, 0, 0); return; }
+  const id = mctx.createImageData(f.w, f.h), d = id.data;
+  if (f.rgb) { d.set(f.rgb); mctx.putImageData(id, 0, 0); return; }
+  const wc = p.wc ?? f.wc, ww = Math.max(1, p.ww ?? f.ww), lo = wc - ww / 2;
+  for (let i = 0; i < f.v.length; i++) {
+    let g = (f.v[i] - lo) / ww * 255; g = g < 0 ? 0 : g > 255 ? 255 : g; if (f.inv) g = 255 - g;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = g; d[i * 4 + 3] = 255;
+  }
+  mctx.putImageData(id, 0, 0);
+}
+function placeMRI() {
+  if (!mri.frames.length) return;
+  const p = cur(), f = mri.frames[p.idx], r = stage.getBoundingClientRect();
+  if (!r.width) return;
+  const a = f.w / f.h, A = r.width / r.height;
+  const bw = a > A ? r.width : r.height * a, bh = bw / a;
+  mriCv.style.width = bw + "px"; mriCv.style.height = bh + "px";
+  mriCv.style.transform = `translate(-50%,-50%) translate(${(p.tx * r.width).toFixed(1)}px,${(p.ty * r.height).toFixed(1)}px) rotate(${p.rot}deg) scale(${(p.flip ? -1 : 1) * p.z},${p.z})`;
+  mriCv.style.opacity = String(mri.op);
+  mriCv.style.filter = f.img ? `brightness(${p.b}%) contrast(${p.c}%)` : "";
+}
+function syncMriControls() {
+  const has = mri.frames.length > 0, p = has ? cur() : null;
+  $("#mriCtl").hidden = !has; $("#mriAlignRow").hidden = !has; $("#mriClear").hidden = !has;
+  ["mFill", "mLine", "mOff"].forEach(id => $("#" + id).setAttribute("aria-pressed", String({mFill:"fill", mLine:"line", mOff:"off"}[id] === mri.atlas)));
+  $("#alignBtn").setAttribute("aria-pressed", String(mri.align));
+  $("#alignBtn").textContent = mri.align ? "Aligning: drag to move, wheel or pinch to zoom" : "Align scan";
+  stage.classList.toggle("aligning", alignActive());
+  if (!has) return;
+  const fr = $("#mriFrame"); fr.max = String(mri.frames.length - 1); fr.value = String(p.idx);
+  $("#mriFrameWrap").hidden = mri.frames.length < 2;
+  $("#mriFrameOut").textContent = `${p.idx + 1} / ${mri.frames.length}`;
+  $("#mriZoom").value = String(Math.round(p.z * 100)); $("#mriRot").value = String(p.rot);
+  const f = mri.frames[p.idx], wl = !f.img && !f.rgb;
+  $("#mriALab").textContent = wl ? "Window" : "Contrast"; $("#mriBLab").textContent = wl ? "Level" : "Brightness";
+  const A = $("#mriA"), Bs = $("#mriB");
+  if (wl) { const span = Math.max(1, f.max - f.min); A.min = "1"; A.max = String(Math.ceil(span * 2)); A.step = String(Math.max(1, span / 400)); A.value = String(p.ww ?? f.ww); Bs.min = String(Math.floor(f.min)); Bs.max = String(Math.ceil(f.max)); Bs.step = A.step; Bs.value = String(p.wc ?? f.wc); }
+  else { A.min = "30"; A.max = "300"; A.step = "1"; A.value = String(p.c); Bs.min = "30"; Bs.max = "250"; Bs.step = "1"; Bs.value = String(p.b); }
+}
+function renderMRI() {
+  const has = mri.frames.length > 0;
+  mriCv.hidden = !has; stage.classList.toggle("has-mri", has);
+  svg.classList.toggle("outline", mri.atlas === "line");
+  svg.style.opacity = mri.atlas === "off" ? "0" : String(has ? mri.atOp : 1);
+  if (has) { const p = cur(); p.idx = Math.min(p.idx, mri.frames.length - 1); paintFrame(mri.frames[p.idx], p); placeMRI(); }
+  const bimg = svg.querySelector("#mriImg"), builtin = !has && state.view === "mri" && !!bimg;
+  if (bimg) bimg.style.display = builtin ? "" : "none";
+  if (!has) { svg.classList.toggle("outline", builtin); svg.style.opacity = "1"; stage.classList.toggle("has-mri", builtin); }
+  const sl = BYS[state.slice];
+  $("#vMri").disabled = !mriSrc(sl); $("#vMri").title = mriSrc(sl) ? "" : "No MRI template for this level";
+  $("#vMri").setAttribute("aria-pressed", String(state.view === "mri" && !!mriSrc(sl))); $("#vDraw").setAttribute("aria-pressed", String(!(state.view === "mri" && mriSrc(sl))));
+  syncMriControls();
+}
+function clearMRI() { mri.urls.forEach(u => URL.revokeObjectURL(u)); mri.urls = []; mri.frames = []; mri.per = {}; mri.align = false; mri.atlas = "fill"; $("#mriInfo").textContent = "No scan loaded"; renderMRI(); }
+
+/* aligning: drag to move, wheel or two fingers to zoom */
+const ptrs = new Map();
+function alignDown(e) { ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY}); }
+function alignMove(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  const p = cur(), r = stage.getBoundingClientRect();
+  if (ptrs.size === 1) { const q = ptrs.get(e.pointerId); p.tx += (e.clientX - q.x) / r.width; p.ty += (e.clientY - q.y) / r.height; }
+  else if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], other = [...ptrs.entries()].find(([id]) => id !== e.pointerId)[1];
+    const d0 = Math.hypot(a.x - b.x, a.y - b.y), d1 = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+    if (d0 > 4) p.z = Math.min(8, Math.max(0.2, p.z * d1 / d0));
+  }
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  placeMRI(); $("#mriZoom").value = String(Math.round(p.z * 100));
+}
+function alignUp(e) { ptrs.delete(e.pointerId); }
+cv.addEventListener("wheel", e => { if (!alignActive()) return; e.preventDefault(); const p = cur(); p.z = Math.min(8, Math.max(0.2, p.z * Math.exp(-e.deltaY * 0.0015))); placeMRI(); $("#mriZoom").value = String(Math.round(p.z * 100)); }, {passive:false});
+
+/* controls */
+$("#vMri").onclick = () => { state.view = "mri"; try { localStorage.setItem("loc-view", "mri"); } catch (x) {} renderMRI(); };
+$("#vDraw").onclick = () => { state.view = "draw"; try { localStorage.setItem("loc-view", "draw"); } catch (x) {} renderMRI(); };
+try { if (localStorage.getItem("loc-view") === "draw") state.view = "draw"; } catch (x) {}
+$("#mriBtn").onclick = () => { const open = $("#mriPanel").hidden; $("#mriPanel").hidden = !open; $("#mriBtn").setAttribute("aria-expanded", String(open)); };
+$("#mriFile").addEventListener("change", e => { loadFiles(e.target.files); e.target.value = ""; });
+$("#mriClear").onclick = clearMRI;
+$("#mriFrame").oninput = e => { const p = cur(); p.idx = +e.target.value; renderMRI(); };
+$("#mriOp").oninput = e => { mri.op = +e.target.value / 100; placeMRI(); };
+$("#atOp").oninput = e => { mri.atOp = +e.target.value / 100; renderMRI(); };
+$("#mFill").onclick = () => { mri.atlas = "fill"; renderMRI(); };
+$("#mLine").onclick = () => { mri.atlas = "line"; renderMRI(); };
+$("#mOff").onclick = () => { mri.atlas = "off"; renderMRI(); };
+$("#alignBtn").onclick = () => { mri.align = !mri.align; syncMriControls(); };
+$("#mriZoom").oninput = e => { cur().z = +e.target.value / 100; placeMRI(); };
+$("#mriRot").oninput = e => { cur().rot = +e.target.value; placeMRI(); };
+$("#mriFlip").onclick = () => { const p = cur(); p.flip = !p.flip; placeMRI(); };
+$("#mriReset").onclick = () => { Object.assign(cur(), {tx:0, ty:0, z:1, rot:0, flip:false}); renderMRI(); };
+$("#mriA").oninput = e => { const p = cur(), f = mri.frames[p.idx]; if (f.img || f.rgb) { p.c = +e.target.value; placeMRI(); } else { p.ww = +e.target.value; paintFrame(f, p); } };
+$("#mriB").oninput = e => { const p = cur(), f = mri.frames[p.idx]; if (f.img || f.rgb) { p.b = +e.target.value; placeMRI(); } else { p.wc = +e.target.value; paintFrame(f, p); } };
+stage.addEventListener("dragover", e => { e.preventDefault(); stage.classList.add("drop"); });
+stage.addEventListener("dragleave", () => stage.classList.remove("drop"));
+stage.addEventListener("drop", e => { e.preventDefault(); stage.classList.remove("drop"); if (e.dataTransfer?.files?.length) { $("#mriPanel").hidden = false; loadFiles(e.dataTransfer.files); } });
+document.addEventListener("paste", e => {
+  if (state.tab !== "mapper") return;
+  const items = [...(e.clipboardData?.items || [])].filter(i => i.type.startsWith("image/")).map(i => i.getAsFile());
+  if (items.length) { e.preventDefault(); $("#mriPanel").hidden = false; loadFiles(items); }
+});
+try { new ResizeObserver(() => placeMRI()).observe(stage); } catch (x) {}
+addEventListener("resize", () => placeMRI());
+
+/* ---------- toolbar ---------- */
+$("#mDraw").onclick = () => { state.mode = "draw"; $("#mDraw").setAttribute("aria-pressed", "true"); $("#mErase").setAttribute("aria-pressed", "false"); stage.classList.remove("erase"); };
+$("#mErase").onclick = () => { state.mode = "erase"; $("#mErase").setAttribute("aria-pressed", "true"); $("#mDraw").setAttribute("aria-pressed", "false"); stage.classList.add("erase"); };
+$("#brush").oninput = e => { state.brush = +e.target.value; };
+const setPara = side => { state.paraSide = side; svg.querySelector("#mriImg")?.setAttribute("href", mriSrc(BYS[state.slice])); $("#pR").setAttribute("aria-pressed", String(side === "R")); $("#pL").setAttribute("aria-pressed", String(side === "L")); analyze(); };
+$("#pR").onclick = () => setPara("R"); $("#pL").onclick = () => setPara("L");
+$("#undo").onclick = () => { const u = undo[state.slice]; if (u && u.length) { cx.putImageData(u.pop(), 0, 0); analyze(); } };
+$("#clear").onclick = () => { pushUndo(); cx.clearRect(0, 0, cv.width, cv.height); analyze(); };
+$("#preset").onchange = e => { const i = e.target.value; if (i === "") return; pushUndo(); cx.clearRect(0, 0, cv.width, cv.height); paintParts(exFor(B.sl)[+i].parts); analyze(); e.target.value = ""; };
+$("#tLabels").onchange = e => { state.labels = e.target.checked; $("#labLayer", svg)?.toggleAttribute("hidden", !state.labels); };
+if ($("#tTerr")) $("#tTerr").onchange = e => { state.terr = e.target.checked; $("#terrLayer", svg)?.toggleAttribute("hidden", !state.terr); renderLegend(); };
+
+const groups = [...new Set(SL.map(s => s.group))];
+$("#slices").innerHTML = groups.map(g => `<h3 class="lab">${g}</h3>` + SL.filter(s => s.group === g).map(s => `<button type="button" class="sl" data-s="${s.id}" aria-current="false">${esc(s.name)}</button>`).join("")).join("");
+$("#slices").addEventListener("click", e => { const b = e.target.closest(".sl"); if (b) go(b.dataset.s); });
+
+/* ---------- reference views ---------- */
+const zbtn = (z, label) => `<a href="#${z.slice}" data-zgo="${z.id}">${label || "Show on the map"}</a>`;
+$("#zoneBox").innerHTML = ZONES.map(z => `<article class="zc"><div class="zh"><div><h4>${esc(z.name)}</h4><p class="zm">${esc(z.lobe)}</p></div>${zbtn(z, "Map")}</div>
+  ${z.aura && z.aura.length ? `<div><div class="flab">Aura</div><ul>${li(z.aura, "L")}</ul></div>` : ""}
+  <div><div class="flab">Ictal</div><ul>${li(z.ictal, "L")}</ul></div>
+  ${z.post && z.post.length ? `<div><div class="flab">Postictal</div><ul>${li(z.post, "L")}</ul></div>` : ""}
+  ${z.lat && z.lat.length ? `<div><div class="flab">Lateralizing</div><ul>${li(z.lat, "L")}</ul></div>` : ""}
+  <p class="zl"><b>Spread:</b> ${esc(z.spread)}</p><p class="zl"><b>Typical lesions:</b> ${esc(z.causes)}</p></article>`).join("");
+const PAT = []; ZONES.forEach(z => (z.table || []).forEach(r => { const e = PAT.find(p => p[0] === r[0] && p[1] === r[1]); if (e) e[2].push(z); else PAT.push([r[0], r[1], [z]]); }));
+$("#patTable").innerHTML = `<thead><tr><th>Clinical type</th><th>Localization</th><th>On the map</th></tr></thead><tbody>${PAT.map(p => `<tr><td>${esc(p[0])}</td><td>${esc(p[1])}</td><td>${p[2].map(z => zbtn(z, esc(z.name.split(" (")[0]))).join("<br>")}</td></tr>`).join("")}</tbody>`;
+$("#latTable").innerHTML = `<thead><tr><th>Sign</th><th>Points to</th><th>Reliability</th><th>Note</th></tr></thead><tbody>${SZ.lat.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td></tr>`).join("")}</tbody>`;
+document.addEventListener("click", e => { const a = e.target.closest("[data-zgo]"); if (!a) return; e.preventDefault(); if (state.app !== "lesion") setApp("lesion"); state.pendingFocus = {zone:a.dataset.zgo, side:"M"}; const z = ZBY[a.dataset.zgo]; if (B && B.sl.id === z.slice) { state.focus = state.pendingFocus; state.pendingFocus = null; showTab("mapper"); setHash(z.slice); applyFocus(); } else go(z.slice); });
+
+/* ---------- routing ---------- */
+const TABS = ["mapper", "zones", "patterns", "lat"];
+const EMBED = document.documentElement.classList.contains("embed");
+function setHash(h) { if (EMBED) { history.replaceState(null, "", "#" + h); route(); } else location.hash = h; }
+document.addEventListener("click", e => {
+  if (!EMBED) return;
+  const a = e.target.closest('a[href^="#"]'); if (!a) return;
+  e.preventDefault(); setHash(a.getAttribute("href").slice(1));
+});
+function go(id) { if (location.hash.slice(1) !== id) setHash(id); else route(); }
+function showTab(tab) {
+  state.tab = tab;
+  $$(".view").forEach(v => { v.hidden = v.dataset.view !== tab; });
+  $$("nav.tabs a").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+}
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (BYS[h]) { showTab("mapper"); if (!B || B.sl.id !== h) loadSlice(h); }
+  else if (TABS.includes(h)) { showTab(h); if (h === "mapper" && !B) loadSlice(state.slice); }
+  else { showTab("mapper"); if (!B) loadSlice(state.slice); }
+}
+addEventListener("hashchange", route);
+route();
+})();
+</script>
+
+</body>
+</html>

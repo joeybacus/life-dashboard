@@ -3,6 +3,8 @@
                              eye simulator, visual fields, nystagmus, quiz
      #/neurology/localizer   Neuro Localizer — draw a lesion on brain, brainstem and spinal cord slices: structures,
                              deficits, syndromes and the arterial branch; reference tables (loads data scripts beside it)
+     #/neurology/seizures    Seizure Semiology — draw a lesion to see the seizures its cortex produces, or tick the
+                             semiology to rank onset zones and the side (same slices and MRI as the localizer)
      #/neurology/cerebellum  Cerebellar Pathways — traced circuits, lesions and which side is
                              affected, anatomy, bedside exam, quiz
    Each atlas is one HTML file next to this one, saved for offline use by the service worker.
@@ -63,6 +65,7 @@ function framePage({ src, title, label }) {
 export const ATLAS_SRC = 'js/modules/clinical/ocular-motor-atlas.html';
 export const CEREBELLUM_SRC = 'js/modules/clinical/cerebellar-pathways.html';
 export const LOCALIZER_SRC = 'js/modules/clinical/neuro-localizer.html';
+export const SEIZURE_SRC = 'js/modules/clinical/seizure-semiology.html';
 
 export const atlasPage = framePage({
   src: ATLAS_SRC, title: 'Ocular Motor Atlas',
@@ -72,6 +75,11 @@ export const atlasPage = framePage({
 export const localizerPage = framePage({
   src: LOCALIZER_SRC, title: 'Neuro Localizer',
   label: 'Neuro Localizer: draw a lesion on brain and brainstem slices; tracts, cortex, thalamus, autonomic, arteries',
+});
+
+export const seizurePage = framePage({
+  src: SEIZURE_SRC, title: 'Seizure Semiology',
+  label: 'Seizure Semiology: lesion to seizure, seizure signs to onset zone and side, on MRI slices',
 });
 
 export const cerebellumPage = framePage({

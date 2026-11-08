@@ -372,6 +372,14 @@ workout (the "Workout saved" message and the finished workout's page).
   artery). Reference tabs cover tracts, cortical syndromes, thalamus and hypothalamus, autonomic pathways, arteries and
   brainstem syndromes. `neuro-localizer.html` loads `localizer-slices.js`, `localizer-cerebrum.js`, `localizer-brainstem.js`, `localizer-spine.js` and `localizer-ref.js` from the same folder.
 
+- **Seizure Semiology** (0.11.26, `#/neurology/seizures`): the localizer's brain slices and MRI, for epilepsy. *Lesion →
+  seizure*: paint a lesion and each seizure-onset zone it touches is listed with its aura, ictal and postictal signs,
+  lateralizing clues, spread, pearls and typical lesions, sided to the lesion (language dominance can be set).
+  *Seizure → region*: tick the semiology seen (auras, motor signs, automatisms, postictal signs, with the side for
+  one-sided signs); onset zones are ranked, the hemisphere is inferred from lateralizing signs, and the likely regions
+  glow on the slice. Tabs list the 16 onset zones, the common focal seizure patterns (after Adams and Victor) and
+  lateralizing signs. `seizure-semiology.html` loads `localizer-slices.js`, `localizer-cerebrum.js` and `seizure-data.js`.
+
 Guidelines and cases sync through the **Guidelines** and **Cases** tabs (sync script version 20), are in
 backups, and show up in search everywhere.
 
