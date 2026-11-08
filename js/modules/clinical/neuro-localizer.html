@@ -25,7 +25,7 @@
 /* Layout: a reading-room light box. Slice list on the left, the film you draw on in the middle, the report on the right. */
 :root{
   --bg:#f2f3f7; --panel:#ffffff; --panel-2:#e9ebf2; --fg:#1a1d2b; --muted:#5a5f75; --line:#d5d8e3;
-  --accent:#3b3896; --accent-weak:#e7e6f6; --lesion:#cc2858; --lesion-weak:#fbe3ea; --ok:#2f8a57;
+  --accent:#3b3896; --accent-weak:#e7e6f6; --lesion:#cc2858; --lesion-weak:#fbe3ea; --ok:#2f8a57; --focus:#1fb2ff; --focus-ink:#0a6fa8;
   --s-ctx:#e6dde6; --s-wm:#f3f3f7; --s-nuc:#d6dbef; --s-tract:#bfc6e6; --s-csf:#e3f0f8; --s-edge:#9aa0c0; --s-out:#fbfbfd;
   --fACA:#2a6fb0; --fACAd:#5a9be0; --fMCA:#2f8a57; --fMCAd:#86b95a; --fPCA:#c4741a; --fPCAd:#e0a443; --fAChA:#8a4aa6; --fPCom:#c2416e;
   --fWS:#7c8194; --fICA:#9c3d5a; --fBA:#0d7a77; --fSCA:#6a5acd; --fAICA:#b5730a; --fPICA:#a0522d; --fVA:#6f5a3a; --fASA:#3b3896; --fPSA:#5a6a2a;
@@ -36,7 +36,7 @@
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
-    --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28; --ok:#5fcf8f;
+    --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28; --ok:#5fcf8f; --focus:#38c0ff; --focus-ink:#7fd6ff;
     --s-ctx:#3a3247; --s-wm:#262836; --s-nuc:#343a58; --s-tract:#3f4774; --s-csf:#1b2a38; --s-edge:#5d6290; --s-out:#15161f;
     --fACA:#6fb2f2; --fACAd:#9cc8f5; --fMCA:#5fcf8f; --fMCAd:#a8d67a; --fPCA:#f0a14a; --fPCAd:#f5c46e; --fAChA:#d29af0; --fPCom:#f07aa4;
     --fWS:#a5aabd; --fICA:#e07898; --fBA:#4fd1c9; --fSCA:#a99cf5; --fAICA:#f0b04a; --fPICA:#e0906a; --fVA:#c4a57a; --fASA:#aaa7ff; --fPSA:#b5c97a;
@@ -45,7 +45,7 @@
 }
 :root[data-theme="dark"]{
   --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
-  --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28; --ok:#5fcf8f;
+  --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28; --ok:#5fcf8f; --focus:#38c0ff; --focus-ink:#7fd6ff;
   --s-ctx:#3a3247; --s-wm:#262836; --s-nuc:#343a58; --s-tract:#3f4774; --s-csf:#1b2a38; --s-edge:#5d6290; --s-out:#15161f;
   --fACA:#6fb2f2; --fACAd:#9cc8f5; --fMCA:#5fcf8f; --fMCAd:#a8d67a; --fPCA:#f0a14a; --fPCAd:#f5c46e; --fAChA:#d29af0; --fPCom:#f07aa4;
   --fWS:#a5aabd; --fICA:#e07898; --fBA:#4fd1c9; --fSCA:#a99cf5; --fAICA:#f0b04a; --fPICA:#e0906a; --fVA:#c4a57a; --fASA:#aaa7ff; --fPSA:#b5c97a;
@@ -152,6 +152,35 @@ select.tsel{font-family:var(--f-label);font-size:12.5px;padding:6px 8px;border-r
 .f-ACA > *{fill:var(--fACA)} .f-ACAd > *{fill:var(--fACAd)} .f-MCA > *{fill:var(--fMCA)} .f-MCAd > *{fill:var(--fMCAd)} .f-PCA > *{fill:var(--fPCA)} .f-PCAd > *{fill:var(--fPCAd)}
 .f-AChA > *{fill:var(--fAChA)} .f-PCom > *{fill:var(--fPCom)} .f-WS > *{fill:var(--fWS)} .f-ICA > *{fill:var(--fICA)} .f-BA > *{fill:var(--fBA)} .f-SCA > *{fill:var(--fSCA)}
 .f-AICA > *{fill:var(--fAICA)} .f-PICA > *{fill:var(--fPICA)} .f-VA > *{fill:var(--fVA)} .f-ASA > *{fill:var(--fASA)} .f-PSA > *{fill:var(--fPSA)}
+
+/* focus: a structure picked from the report, shown on the image */
+#svg.focusing .st:not(.foc):not(.foc2) > *{opacity:.28}
+#svg.focusing .tl:not(.focl){opacity:.3}
+#svg .st.foc > *{fill:var(--focus)!important;fill-opacity:.55;stroke:var(--focus)!important;stroke-width:2.6;stroke-opacity:1;opacity:1;animation:focpulse 1.2s ease-out 2}
+#svg .st.foc2 > *{fill:var(--focus)!important;fill-opacity:.22;stroke:var(--focus)!important;stroke-width:1.6;stroke-dasharray:5 3;opacity:1}
+#svg .tl.focl{fill:#fff;stroke:#00324a;font-weight:700;font-size:12px}
+@keyframes focpulse{0%{fill-opacity:.85;stroke-width:5}100%{fill-opacity:.55;stroke-width:2.6}}
+@media (prefers-reduced-motion:reduce){#svg .st.foc > *{animation:none}}
+.sref{all:unset;cursor:pointer;color:inherit;border-bottom:1px dotted currentColor;border-radius:2px}
+.sref:hover,.sref:focus-visible{color:var(--focus-ink);border-bottom-style:solid;outline:none}
+.sref[aria-pressed="true"]{color:var(--focus-ink);font-weight:600;border-bottom-style:solid}
+.focus{margin-top:10px;border:1px solid var(--focus);border-left-width:4px;border-radius:10px;padding:12px 14px;background:var(--panel-2);display:grid;gap:8px}
+.focus .fh{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.focus h4{margin:0;font-size:17px;line-height:1.25}
+.focus h4 small{display:block;font-family:var(--f-label);font-size:12px;font-weight:500;color:var(--muted);margin-top:2px}
+.focus .x{all:unset;cursor:pointer;font-family:var(--f-label);font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.focus .x:hover{color:var(--fg)}
+.focus p{margin:0;font-size:14px}
+.focus .flab{font-family:var(--f-label);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.focus ul{margin:0;padding-left:18px;font-size:14px}
+.course{display:flex;flex-wrap:wrap;gap:4px 2px;align-items:center;font-size:13px}
+.course span{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+.course span.here{border-color:var(--focus);background:var(--focus);color:#00243a;font-weight:600}
+.course i{font-style:normal;color:var(--muted);padding:0 2px}
+.also{display:flex;flex-wrap:wrap;gap:6px}
+.also button{all:unset;cursor:pointer;font-family:var(--f-label);font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--panel)}
+.also button:hover,.also button:focus-visible{border-color:var(--focus);color:var(--focus-ink)}
+.also button b{font-weight:600}
 
 /* report */
 .report{padding:16px 18px;display:flex;flex-direction:column;gap:18px}
@@ -273,8 +302,9 @@ body{margin:0}
         </div>
         <div class="shead"><div><p class="sname" id="sname"></p><p class="sview" id="sview"></p></div><div class="locator" id="locator" hidden></div></div>
         <div class="stage" id="stage"><canvas id="mri" class="mri" hidden aria-label="MRI scan"></canvas><svg id="svg" aria-hidden="true"></svg><canvas id="cv" aria-label="Drawing surface: paint the lesion here"></canvas><span class="side-l">R</span><span class="side-r">L</span><div class="tip" id="tip" hidden></div></div>
+        <div class="focus" id="focus" hidden aria-live="polite"></div>
         <div class="legend" id="legend" hidden></div>
-        <p class="hint">MRI view shows a real brain (MNI152 template) under the atlas outlines; switch to Drawing for the coloured diagram, or use Own scan for your patient’s images. Hover to name a structure. Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
+        <p class="hint">MRI view shows a real brain (MNI152 template) under the atlas outlines; switch to Drawing for the coloured diagram, or use Own scan for your patient’s images. Hover to name a structure; click a structure name in the report to show it on the image and follow its pathway. Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
       </div>
       <aside class="panel report" id="report" aria-live="polite"></aside>
     </div>
@@ -604,6 +634,8 @@ function loadSlice(id) {
   renderLocator(sl);
   renderMRI();
   analyze();
+  state.focus = state.pendingFocus || null; state.pendingFocus = null;   // a focus survives only a jump from its own card
+  applyFocus();
 }
 const LEVELS = [["mb-u",24,"III"],["mb-l",52,"IV"],["p-u",78,"rostral"],["p-m",104,"V"],["p-l",130,"VI VII"],["pmj",148,"VIII"],["m-u",170,"IX X"],["m-m",192,"XII"],["m-l",214,"decuss."]];
 function renderLocator(sl) {
@@ -730,6 +762,109 @@ function evalSyndromes(sl, hits) {
   return out;
 }
 
+/* ---------- focus: click a structure in the report to see it on the image ----------
+   The picked structure is filled on the slice and everything else dims. Structures of the same pathway on this slice
+   are shown dashed, a card gives its function, deficits and the whole course of the pathway, and chips jump to the
+   other slices where the same pathway can be seen. */
+const FAM = [
+  ["Corticospinal (pyramidal) tract", /corticospinal|pyramid|posterior limb|corona radiata: motor|centrum semiovale: corticospinal|cerebral peduncle|crus cerebri|middle three-fifths|corona radiata and centrum/i],
+  ["Corticobulbar tract", /corticobulbar|capsule, genu|corona radiata: motor/i],
+  ["Dorsal column–medial lemniscus", /medial lemniscus|gracil|cuneat|dorsal column|internal arcuate|sensory radiation|posterolateral|posterior limb of internal capsule, posterior/i],
+  ["Spinothalamic tract (anterolateral system)", /spinothalamic|anterolateral/i],
+  ["Trigeminal pathways", /trigemin|posteromedial/i],
+  ["Spinocerebellar tracts", /spinocerebellar|inferior cerebellar peduncle/i],
+  ["Corticopontocerebellar pathway", /frontopontine|occipitopontine|pontine nuclei|transverse pontine|middle cerebellar peduncle|basis pontis/i],
+  ["Dentatorubrothalamic pathway", /superior cerebellar peduncle|dentate|red nucleus|ventral anterior and ventral lateral/i],
+  ["Medial longitudinal fasciculus", /medial longitudinal/i],
+  ["Central tegmental tract", /central tegmental|inferior olivary/i],
+  ["Optic pathway", /optic|geniculate|calcarine|meyer|chiasm|sagittal stratum|retrolenticular|lingual|cuneus/i],
+  ["Auditory pathway", /lateral lemniscus|trapezoid|cochlear|inferior colliculus|heschl|medial geniculate|auditory/i],
+  ["Arcuate fasciculus / SLF III", /arcuate fasciculus|slf iii|superior longitudinal and arcuate|parietal white matter \(slf/i],
+  ["Superior longitudinal fasciculus I–II", /superior longitudinal|slf i\b|slf ii|frontal aslant|association fibers|\(slf,/i],
+  ["Inferior fronto-occipital fasciculus", /fronto-occipital|external capsule|extreme|temporal stem/i],
+  ["Inferior longitudinal fasciculus", /inferior longitudinal/i],
+  ["Uncinate fasciculus", /uncinate|temporal stem|temporal pole/i],
+  ["Cingulum", /cingul/i],
+  ["Corpus callosum", /corpus callosum/i],
+  ["Anterior commissure", /anterior commissure/i],
+  ["Fornix", /fornix|mammillary|hippocamp|fimbria/i],
+  ["Hypothalamospinal (descending sympathetic) tract", /sympathetic|hypothalamospinal/i],
+  ["Nigrostriatal pathway", /nigra|putamen|caudate|striat|lentiform/i],
+  ["Vestibulospinal tracts", /vestibul/i],
+  ["Rubrospinal tract", /rubrospinal|red nucleus/i],
+  ["Tectospinal tract", /tectospinal|superior collicul|tectum/i]
+].map(([name, re]) => ({name, re, ref:(REF.tracts || []).find(r => r[0] === name)}));
+const famsOf = n => FAM.filter(f => f.re.test(n));
+const sref = (id, side, n) => `<button type="button" class="sref" data-sid="${esc(id)}" data-side="${side}" aria-pressed="${!!(state.focus && state.focus.ids.includes(id) && state.focus.side === side)}" title="Show on the image">${esc(n)}</button>`;
+const sideWord = s => s === "R" ? "right" : s === "L" ? "left" : "";
+function sameSide(o, side) { return o.side === "M" || side === "M" || o.side === side; }
+
+function applyFocus() {
+  $$(".st.foc,.st.foc2", svg).forEach(g => g.classList.remove("foc", "foc2"));
+  $$(".tl.focl", svg).forEach(t => t.classList.remove("focl"));
+  const f = state.focus, card = $("#focus");
+  svg.classList.toggle("focusing", !!f);
+  $$("#report .sref").forEach(b => b.setAttribute("aria-pressed", String(!!(f && f.ids.includes(b.dataset.sid) && f.side === b.dataset.side))));
+  if (!f) { card.hidden = true; card.innerHTML = ""; return; }
+  const sl = B.sl, prim = [], sec = [];
+  const famRe = f.fams.length ? new RegExp(f.fams.map(x => x.re.source).join("|"), "i") : null;
+  B.inst.forEach((o, i) => {
+    if (f.ids.includes(o.s.id) && sameSide(o, f.side)) prim.push(i);
+    else if (famRe && famRe.test(o.s.n) && sameSide(o, f.side) && o.s.k !== "csf") sec.push(i);
+  });
+  prim.forEach(i => { svg.querySelector(`.st[data-i="${i}"]`)?.classList.add("foc"); svg.querySelector(`.tl[data-l="${i}"]`)?.classList.add("focl"); });
+  sec.forEach(i => { svg.querySelector(`.st[data-i="${i}"]`)?.classList.add("foc2"); svg.querySelector(`.tl[data-l="${i}"]`)?.classList.add("focl"); });
+  const s0 = sl.structs.find(x => x.id === f.ids[0]);
+  const eff = sl.para && f.side === "M" ? state.paraSide : f.side;
+  const defs = (s0 && s0.d || []).filter(d => { const only = d[2]; return !only || only === "BOTH" || (eff !== "M" && only === eff); }).map(d => phrase(d[0], eff));
+  const others = f.ids.length > 1 ? f.ids.slice(1).map(id => sl.structs.find(x => x.id === id)).filter(Boolean) : [];
+  const secNames = [...new Set(sec.map(i => B.inst[i].s.n))];
+  // the whole pathway, with the step that matches this structure marked
+  const tokens = (s0 ? s0.n : "").toLowerCase().replace(/[(),:;]/g, " ").split(/\s+/).filter(w => w.length >= 5 && !/^(fibers|tract|tracts|nucleus|nuclei|fasciculus|anterior|posterior|lateral|medial|superior|inferior|primary)$/.test(w));
+  const courseOf = fam => {
+    const steps = fam.ref[3].split(/\s*→\s*/); let best = -1, bs = 0;
+    const lv = sl.name.toLowerCase(), hint = /pons|pontine/.test(lv) ? ["pont", "pons"] : /midbrain/.test(lv) ? ["peduncle", "midbrain", "crus", "tegment", "collicul"] : /medulla/.test(lv) ? ["medull", "pyramid", "olive", "decussation", "nucleus gracilis"] : /cord|conus/.test(lv) ? ["spinal", "cord", "horn", "lateral corticospinal", "fasciculi"] : /vertex|corona|centrum/.test(lv) ? ["corona", "centrum", "white matter"] : /capsule|basal ganglia|thalamus|caudate/.test(lv) ? ["capsule", "thalam"] : [];
+    steps.forEach((st, k) => { const t0 = st.toLowerCase(); const sc = tokens.filter(t => t0.includes(t)).length + 2 * hint.filter(t => t0.includes(t)).length; if (sc > bs) { bs = sc; best = k; } });
+    return `<div><div class="flab">Pathway: ${esc(fam.name)}</div><div class="course">${fam.ref[2] ? `<span>${esc(fam.ref[2].split(/[;(]/)[0].trim())}</span><i>→</i>` : ""}${steps.map((st, k) => `<span${k === best ? ' class="here"' : ""}>${esc(st)}</span>`).join("<i>→</i>")}</div>${fam.ref[4] ? `<p style="font-size:13px;color:var(--muted);margin-top:4px">Crossing: ${esc(fam.ref[4])}</p>` : ""}</div>`;
+  };
+  const courses = f.fams.filter(x => x.ref).slice(0, 2).map(courseOf).join("");
+  // other slices where the same pathway (or the same structure) appears
+  const also = [];
+  SL.forEach(t => {
+    if (t.id === sl.id) return;
+    const m = t.structs.filter(x => x.k !== "csf" && (famRe ? famRe.test(x.n) : (s0 && x.n === s0.n)));
+    const main = f.fams.length ? m.filter(x => f.fams[0].re.test(x.n)) : m;
+    const use = main.length ? main : m;
+    if (m.length) also.push({id:t.id, name:t.name, ids:use.map(x => x.id), ab:[...new Set(use.map(x => x.a))].slice(0, 3).join(", ")});
+  });
+  card.innerHTML = `<div class="fh"><h4>${esc(f.title || (s0 ? s0.n : ""))}<small>${eff !== "M" ? `Patient’s ${sideWord(eff)} side · ` : ""}${esc(sl.name)}${f.title ? " · shown: " + esc([s0, ...others].map(x => x.a).join(", ")) : ""}</small></h4><button type="button" class="x" data-act="close">Close</button></div>
+    ${f.title && s0 ? `<p><b>${esc(s0.n)}</b>${s0.fn ? ": " + esc(s0.fn) : ""}</p>` : s0 && s0.fn ? `<p>${esc(s0.fn)}</p>` : ""}
+    ${defs.length ? `<div><div class="flab">If damaged</div><ul>${defs.map(d => `<li>${esc(d)}</li>`).join("")}</ul></div>` : ""}
+    ${secNames.length ? `<p style="font-size:13px;color:var(--muted)">Dashed on the image: the same pathway elsewhere on this slice (${esc(secNames.join("; "))}).</p>` : ""}
+    ${courses}
+    ${also.length ? `<div><div class="flab">Follow it on other slices</div><div class="also">${also.map(a => `<button type="button" data-go="${a.id}" data-ids="${esc(a.ids.join(","))}" title="${esc(a.name)}"><b>${esc(a.name.replace(/^[^·]*·\s*/, ""))}</b> · ${esc(a.ab)}</button>`).join("")}</div></div>` : ""}`;
+  card.hidden = false;
+}
+function setFocus(id, side) {
+  const sl = B.sl, s0 = sl.structs.find(x => x.id === id); if (!s0) return;
+  if (state.focus && state.focus.ids[0] === id && state.focus.side === side) { state.focus = null; applyFocus(); return; }   // second click turns it off
+  state.focus = {ids:[id], side, fams:famsOf(s0.n)};
+  applyFocus();
+  const r = stage.getBoundingClientRect();
+  if (r.bottom < 60 || r.top > innerHeight - 120) stage.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"center"});
+}
+$("#report").addEventListener("click", e => { const b = e.target.closest(".sref"); if (b) setFocus(b.dataset.sid, b.dataset.side); });
+$("#report").addEventListener("mouseover", e => { const b = e.target.closest(".sref"); if (!b) return; const i = B.inst.findIndex(o => o.s.id === b.dataset.sid && o.side === b.dataset.side); if (i >= 0) setHover(i); });
+$("#report").addEventListener("mouseout", e => { if (e.target.closest(".sref")) setHover(-1); });
+$("#focus").addEventListener("click", e => {
+  if (e.target.closest('[data-act="close"]')) { state.focus = null; applyFocus(); return; }
+  const g = e.target.closest("[data-go]"); if (!g) return;
+  const f = state.focus;
+  state.pendingFocus = {ids:g.dataset.ids.split(","), side:f ? f.side : "R", fams:f ? f.fams : [], title:f && f.fams[0] ? f.fams[0].name : ""};
+  go(g.dataset.go);
+});
+addEventListener("keydown", e => { if (e.key === "Escape" && state.focus) { state.focus = null; applyFocus(); } });
+
 function renderReport({sl, total, onR, onL, outside, hits, terN}) {
   const rep = $("#report");
   if (!total) {
@@ -754,7 +889,7 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
       if (only && only !== "BOTH" && (eff === "M" || eff !== only)) return;
       const line = phrase(t, eff);
       if (!seen.has(line)) seen.set(line, []);
-      const arr = seen.get(line); if (!arr.includes(h.o.s.n)) arr.push(h.o.s.n);
+      const arr = seen.get(line); if (!arr.some(a => a.id === h.o.s.id && a.side === h.o.side)) arr.push({n:h.o.s.n, id:h.o.s.id, side:h.o.side});
     });
   });
   const csfOnly = hits.length && !real.length;
@@ -770,8 +905,8 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
   rep.innerHTML = `
     <div class="rhead"><span class="chip">${esc(sideTxt)}</span><span class="chip n">${real.length} structure${real.length === 1 ? "" : "s"}</span>${syn.length ? `<span class="chip n">${syn.length} syndrome match${syn.length === 1 ? "" : "es"}</span>` : ""}</div>
     ${syn.length ? `<div><div class="lab">Syndrome</div><div class="syns" style="margin-top:6px">${syn.map(x => `<div class="syn"><h4>${esc(x.sy.n)}<small>${x.side === "B" ? "both sides" : x.side === "M" ? "" : (x.side === "R" ? "right-sided lesion" : "left-sided lesion")}</small></h4><p>${esc(x.sy.t)}</p></div>`).join("")}</div></div>` : ""}
-    <div><div class="lab">Expected deficits</div>${csfOnly ? `<p class="empty" style="margin-top:6px">Only CSF spaces are marked: no deficit by itself. Watch for hydrocephalus.</p>` : `<ul class="defs" style="margin-top:6px">${[...seen.entries()].map(([l, src]) => `<li>${esc(l)}<span class="src">${esc(src.join(" · "))}</span></li>`).join("") || "<li>No specific deficit listed for these structures.</li>"}</ul>`}</div>
-    <div><div class="lab">Structures involved</div><div class="bars" style="margin-top:8px">${real.slice(0, 18).map(h => `<div class="bar"><span class="bt">${esc(h.o.s.n)}${h.o.side === "M" ? "" : ` <span style="color:var(--muted)">· ${h.o.side === "R" ? "right" : "left"}</span>`}</span><span class="bp">${h.pct}%</span><span class="bb"><i style="width:${h.pct}%;background:var(--lesion)"></i></span></div>`).join("")}</div>${real.length > 18 ? `<p class="empty" style="font-size:13px;margin-top:6px">and ${real.length - 18} more</p>` : ""}<p class="empty" style="font-size:12.5px;margin-top:6px">Percent of each structure covered by the lesion.</p></div>
+    <div><div class="lab">Expected deficits</div>${csfOnly ? `<p class="empty" style="margin-top:6px">Only CSF spaces are marked: no deficit by itself. Watch for hydrocephalus.</p>` : `<ul class="defs" style="margin-top:6px">${[...seen.entries()].map(([l, src]) => `<li>${esc(l)}<span class="src">${src.map(a => sref(a.id, a.side, a.n)).join(" · ")}</span></li>`).join("") || "<li>No specific deficit listed for these structures.</li>"}</ul>`}</div>
+    <div><div class="lab">Structures involved</div><div class="bars" style="margin-top:8px">${real.slice(0, 18).map(h => `<div class="bar"><span class="bt">${sref(h.o.s.id, h.o.side, h.o.s.n)}${h.o.side === "M" ? "" : ` <span style="color:var(--muted)">· ${h.o.side === "R" ? "right" : "left"}</span>`}</span><span class="bp">${h.pct}%</span><span class="bb"><i style="width:${h.pct}%;background:var(--lesion)"></i></span></div>`).join("")}</div>${real.length > 18 ? `<p class="empty" style="font-size:13px;margin-top:6px">and ${real.length - 18} more</p>` : ""}<p class="empty" style="font-size:12.5px;margin-top:6px">Percent of each structure covered by the lesion.</p></div>
     <div><div class="lab">Arterial territory</div><div class="bars" style="margin-top:8px">${tlist.map(t => `<div class="bar"><span class="bt"><i class="sw" style="background:var(--f${t.o.t.f})"></i>${esc(sideOf(t) + t.o.t.n)}</span><span class="bp">${t.pct}%</span><span class="bb"><i style="width:${t.pct}%;background:var(--f${t.o.t.f})"></i></span></div>`).join("") || `<p class="empty">No territory mapped here.</p>`}</div><p class="empty" style="font-size:12.5px;margin-top:6px">Share of the lesion inside each territory. Territories vary between people.</p></div>
     ${sl.note ? `<p class="note">${esc(sl.note)}</p>` : ""}${notes}`;
 }

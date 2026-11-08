@@ -358,6 +358,10 @@ workout (the "Workout saved" message and the finished workout's page).
   itself is not distorted. 0.11.24: brainstem outlines are traced at the real tissue edge (the steepest fall in signal
   along rays from the centre, not a fixed threshold, so the averaged CSF ring is left out), past the aqueduct so the
   tectum stays in, and capped where the brainstem merges with the cerebellum; slices now open with no example lesion.
+  0.11.25: structure names in the report are buttons. A click fills that structure on the image (the rest dims, the
+  same pathway elsewhere on the slice is dashed) and opens a card with its function, deficits and the whole course of
+  its pathway from the reference tracts, with the current step marked; chips jump to every other slice where the same
+  pathway is mapped, keeping the side (for example the corticospinal tract from the vertex to the sacral cord).
   **Own scan** (0.11.18): load your own
   scan under the drawing (uncompressed DICOM, a whole series to scroll through, PNG or JPG; drag in or paste a screenshot),
   switch the atlas to outline, and line it up (drag, zoom, rotate, flip; window/level). Each slice keeps its own
