@@ -548,6 +548,21 @@ button.wbadge { cursor: pointer; }
   .ptb--c3.ptb--w2 .ptb__cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr); }
   .ptb--c3.ptb--w3 .ptb__cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr); }
 }
+/* Freeze (0.11.35): a tile and the ones under it in its column stay just under the
+   bar while you scroll the other columns. Its column runs the whole height of the
+   tiles so they have room to stay; taller than the window, they scroll on their own.
+   Not on a phone, where the tiles stack and it would cover the rest. */
+.ptb__freeze { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (min-width: 760px) {
+  .ptb__col.has-freeze { align-self: stretch; }
+  .ptb__freeze {
+    position: sticky;
+    top: calc(var(--ptb-bar-h, 0px) + 14px);
+    max-height: calc(100dvh - var(--ptb-bar-h, 0px) - 28px - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
 .ptt {
   --ptt-scale: 1;
   display: flex;

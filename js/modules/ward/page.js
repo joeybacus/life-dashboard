@@ -665,7 +665,7 @@ function tileBody(p, c, t) {
     : html`<p class="faint">Empty in the logsheet.</p>${removedNote(p, c.col)}`;
 }
 
-/** The buttons under a tile while you customize: move it, its text size, two columns, hide. */
+/** The buttons under a tile while you customize: move it, its text size, two columns, freeze, hide. */
 function tileTools(c, t, at, board) {
   const b = (op, label, iconName, { off = false, pressed = null, text = '' } = {}) => html`<button type="button" class="ptt__tool${text ? ' ptt__tool--text' : ''}" data-bact="${op}" data-col="${c.col}" data-focus="b-${op}-${c.col}"
     aria-label="${label}: ${c.label}" title="${label}"${pressed == null ? '' : raw(` aria-pressed="${pressed}"`)}${off ? raw(' disabled') : ''}>${iconName ? icon(iconName) : ''}${text}</button>`;
@@ -682,6 +682,7 @@ function tileTools(c, t, at, board) {
       ${b('smaller', 'Smaller text', '', { off: t.size <= -2, text: 'A−' })}
       ${b('bigger', 'Larger text', '', { off: t.size >= 2, text: 'A+' })}
       ${b('flow', 'Text in two columns', 'columns', { pressed: t.flow === 2 ? 'true' : 'false' })}
+      ${b('freeze', z === 0 ? 'Freeze works on tiles in a column' : 'Freeze: stays on screen as you scroll', 'pushpin', { off: z === 0, pressed: t.freeze && z > 0 ? 'true' : 'false', text: 'Freeze' })}
       ${b('hide', 'Hide', 'eye', { text: 'Hide' })}
     </span>
   </div>`;
@@ -707,7 +708,7 @@ function boardSetup(v, board, byCol) {
   const opt = (op, n, label, on) => html`<button type="button" class="chip-toggle" data-bact="${op}" data-n="${n}" data-focus="b-${op}-${n}" aria-pressed="${on ? 'true' : 'false'}">${label}</button>`;
   const hidden = board.zones.flat().filter((t) => t.hidden && byCol.has(t.col));
   return html`<div class="ptb__setup">
-    <p class="ptb__hint">${icon('sliders')}<span>This layout is the same for every patient in “${v.name}” and shows on all your devices. Changes save as you go. On a phone the tiles stack: the top ones first, then column 1, 2 and 3.</span></p>
+    <p class="ptb__hint">${icon('sliders')}<span>This layout is the same for every patient in “${v.name}” and shows on all your devices. Changes save as you go. Freeze keeps a tile, and the ones under it, on screen while you scroll the other columns (Plans is frozen to begin with). On a phone the tiles stack: the top ones first, then column 1, 2 and 3.</span></p>
     <div class="ptb__opts">
       <div class="ptb__opt"><span class="ptb__opt-label">Columns</span><span class="chips chips--sm">${[1, 2, 3].map((n) => opt('cols', n, String(n), board.cols === n))}</span></div>
       ${board.cols > 1 ? html`<div class="ptb__opt"><span class="ptb__opt-label">Wider column</span><span class="chips chips--sm">${opt('wide', 0, 'Even', board.wide === 0)}${Array.from({ length: board.cols }, (_, i) => opt('wide', i + 1, String(i + 1), board.wide === i + 1))}</span></div>` : ''}
@@ -839,7 +840,10 @@ function detailBody(p, v, { editing = false } = {}) {
         ${top.length ? html`<div class="ptb__top">${top}</div>` : ''}
         <div class="ptb__cols">${board.zones.slice(1).map((_, k) => {
           const tiles = zone(k + 1);
-          return html`<div class="ptb__col">${tiles}${editing && !tiles.length ? html`<p class="ptb__empty">Column ${k + 1} is empty — move tiles here with ${icon('arrowLeft')} ${icon('arrowRight')}</p>` : ''}</div>`;
+          // A frozen tile and the ones under it stay on screen while you scroll (wide screens; ward.css)
+          const from = board.zones[k + 1].filter((t) => !t.hidden).findIndex((t) => t.freeze);
+          const shown = from < 0 ? tiles : [...tiles.slice(0, from), html`<div class="ptb__freeze" data-freeze="${k + 1}">${tiles.slice(from)}</div>`];
+          return html`<div class="ptb__col${from < 0 ? '' : ' has-freeze'}">${shown}${editing && !tiles.length ? html`<p class="ptb__empty">Column ${k + 1} is empty — move tiles here with ${icon('arrowLeft')} ${icon('arrowRight')}</p>` : ''}</div>`;
         })}</div>
       </div>
       ${historySlot()}
@@ -859,6 +863,19 @@ async function openPatient(openId) {
   let editing = false;
   let saving = Promise.resolve();
   let keepAt = null; // where the page was scrolled before the last redraw
+  // Frozen tiles sit just under the bar at the top, however tall it is (it wraps on a narrow window)
+  const barWatch = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(() => {
+      const bar = dialog?.querySelector('.ptb__bar');
+      if (bar) dialog.querySelector('.dlg__panel')?.style.setProperty('--ptb-bar-h', `${Math.ceil(bar.getBoundingClientRect().height)}px`);
+    })
+    : null;
+  const watchBar = () => {
+    const bar = dialog?.querySelector('.ptb__bar');
+    if (!barWatch || !bar) return;
+    barWatch.disconnect();
+    barWatch.observe(bar);
+  };
   const redraw = () => {
     const body = dialog?.querySelector('.dlg__body');
     const v = current()?.view();
@@ -868,6 +885,7 @@ async function openPatient(openId) {
     // up after every save (e.g. typing in the History box): keep your place.
     const scroller = dialog.querySelector('.dlg__panel');
     const top = scroller?.scrollTop ?? 0;
+    const frozenAt = new Map([...body.querySelectorAll('[data-freeze]')].map((el) => [el.dataset.freeze, el.scrollTop]));
     keepNotes(body);
     keepHistory(body);
     keepCt(body);
@@ -876,6 +894,8 @@ async function openPatient(openId) {
     mountNotes(body, listId);
     mountHistory(body, shown, v);
     mountCt(body, { hn: shown?.hn });
+    body.querySelectorAll('[data-freeze]').forEach((el) => { el.scrollTop = frozenAt.get(el.dataset.freeze) ?? 0; });
+    watchBar();
     if (focused) {
       const again = body.querySelector(`[data-focus="${focused}"]`);
       (again && !again.disabled ? again : body.querySelector('[data-dact="customize"]'))?.focus({ preventScroll: true });
@@ -912,6 +932,7 @@ async function openPatient(openId) {
     redraw();
     keepAt = null; // another patient: start at the top
     dialog.querySelector('.dlg__panel')?.scrollTo?.({ top: 0 });
+    dialog.querySelectorAll('[data-freeze]').forEach((el) => { el.scrollTop = 0; });
     dialog.scrollTo?.({ top: 0 });
     announce(`${next.name}`);
   };
@@ -937,6 +958,7 @@ async function openPatient(openId) {
       mountNotes(dlg.querySelector('.dlg__body'), listId);
       mountHistory(dlg.querySelector('.dlg__body'), p, list.view());
       mountCt(dlg.querySelector('.dlg__body'), { hn: p.hn });
+      watchBar();
       dlg.addEventListener('click', async (event) => {
         const tool = event.target.closest('[data-bact]');
         if (tool) {
@@ -979,6 +1001,7 @@ async function openPatient(openId) {
     },
   });
   stop();
+  barWatch?.disconnect();
   historyClosed();
   ctClosed();
   document.removeEventListener('keydown', onKey);
