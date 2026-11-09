@@ -405,6 +405,37 @@ workout (the "Workout saved" message and the finished workout's page).
   corticospinal crossing fraction, reticulospinal laterality, trigeminal touch projections, accessory nerve
   supranuclear control, vertical gaze crossings, the caudal lateral medullary pattern, conduction and transcortical
   aphasia sites, apraxia definitions and seizure semiology details; review log kept outside the repo.
+  0.11.32: Tract Atlas drawings checked so every structure sits inside its outline. The lateral view's lower
+  temporo-occipital margin is fuller, with V4, fusiform gyrus and the visual word form area inside it; the medial view
+  shows the medial temporal lobe, so the hippocampus and parahippocampal gyrus sit inside it. The neuraxis drawing
+  bridges the hemispheres with the corpus callosum and septum. The rostral medulla widens at the inferior
+  cerebellar peduncle, where the cochlear and vestibular nuclei now sit.
+
+- **EEG Study Guide** (0.11.33, `#/neurology/eeg`): a zero-to-hero course, adults first, on its own Clinical tools
+  card next to Seizure Semiology. Ten levels (orientation and the 10–20 system, montages and localization, the normal
+  awake adult, normal sleep, artifacts, benign variants, abnormal non-epileptiform patterns, epileptiform discharges,
+  seizures and status, ICU EEG and coma), each with goals, teaching tables, pearls and traps, EEG tracings and a
+  level-up quiz (80% clears it). The 38 tracings are simulated in the page: potentials are built at each 10–20
+  electrode and every montage (double banana, transverse, ear reference, average) is computed from them, so phase
+  reversals, fields, ear-reference contamination and artifacts behave as on a real recording. Each tracing has
+  sensitivity, old/new electrode names (T3/T7), page arrows for 20-second records, an EKG channel and Show markings
+  (hidden until you ask, so you spot the finding first). Level 10 is 19 adult cases (read the unmarked EEG, answer two
+  questions, then markings and teaching points open); acing 12 gives the EEG Hero rank. A Path tab shows rank,
+  progress and an 8-week study plan; a Cheat sheet tab has the numbers, rules, overcall list and report structure.
+  Progress is saved on the device only (not synced or backed up). `eeg-guide.html` loads `eeg-sim.js` (simulator and
+  the patterns) and `eeg-data.js` (levels, quizzes, cases).
+
+- **EEG case library** (0.11.34, `#/neurology/eeg`, **100 cases** tab): 100 high-yield adult cases, mostly
+  pathologic, in five tiers of 20: 1 Spot it (one clear abnormality), 2 Localize it (phase reversals, end of the
+  chain, the ear-reference trap, the flat channel), 3 Name it (ACNS terms: LPDs, GPDs, BIPDs, LRDA, GRDA, plus
+  features, SIRPIDs, BIRDs, continuity, reactivity), 4 Seizure or not (evolution, the ictal–interictal continuum,
+  Salzburg, benzodiazepine trial, ictal asystole, functional seizures, syncope, artifacts) and 5 Hero (post-arrest
+  prognosis, alpha and spindle coma, CJD, SSPE, extreme delta brush, PRES, drug and metabolic causes). Each case has
+  a stem, a simulated tracing, two questions and a teaching point. **Where to look** draws gold dashed boxes on the
+  channels and seconds that matter (and lists them under the tracing) without giving the answer; after answering,
+  blue labels name each finding and the Look for text opens. Acing 16 of 20 clears a tier; progress shows on the
+  Path tab. Tracings come from adjustable pattern families (site, side, rate, shape, plus features, evolution) in
+  `eeg-library.js`, which also holds the cases. Marking labels now step down instead of overlapping.
 
 Guidelines and cases sync through the **Guidelines** and **Cases** tabs (sync script version 20), are in
 backups, and show up in search everywhere.

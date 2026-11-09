@@ -510,6 +510,7 @@ function neuraxisBase() {
 <circle class="nuc" cx="172" cy="552" r="7"/><circle class="nuc" cx="170" cy="446" r="6"/>
 </g>`;
   return `<path class="cc" d="M318,96 C350,82 410,82 442,96"/>${hemi(false)}${hemi(true)}
+<path class="wm" d="M362,79 C372,77 388,77 398,79 L398,97 C388,95 372,95 362,97 Z"/><rect class="wm" x="374" y="95" width="12" height="102"/>
 <rect class="csf" x="373" y="196" width="14" height="96" rx="6"/><ellipse class="gm" cx="362" cy="300" rx="10" ry="8"/><ellipse class="gm" cx="398" cy="300" rx="10" ry="8"/>
 <path class="stem" d="M334,326 L426,326 C432,356 436,376 440,404 C452,436 458,496 448,538 C442,560 434,580 430,602 L426,650 L334,650 L330,602 C326,580 318,560 312,538 C302,496 308,436 320,404 C324,376 328,356 334,326 Z"/>
 <ellipse class="gm" cx="380" cy="466" rx="52" ry="30" style="opacity:.55"/>
@@ -559,11 +560,11 @@ const VLAB = [["Right eye", 270, 14, "middle", "sm"], ["Left eye", 490, 14, "mid
   ["Temporal horn", 186, 450, "middle", "sm it"], ["Calcarine cortex (V1)", 380, 698, "middle", "sm"], ["FRONT", 380, 140, "middle", "lvl"]];
 
 /* lateral surface of the left hemisphere, front on the left */
-const LA = {broca:[234,262], wernicke:[496,286], smg:[498,214], ag:[566,236], fefL:[268,140], sma:[300,62], dlpfc:[168,170], ofc:[138,290], tpole:[198,332],
+const LA = {broca:[234,262], wernicke:[496,286], smg:[498,214], ag:[566,236], fefL:[268,140], sma:[300,62], dlpfc:[168,170], ofc:[138,290], tpole:[216,328],
   occ:[664,262], occInf:[640,306], itg:[470,364], parSup:[530,104], frontDors:[196,112], ext:[312,266], arcTurn:[528,240], arcTop:[470,196], arcMid:[380,206],
   slf2a:[500,170], slf2b:[260,160], slfMid:[380,96], slfMid2:[380,150], ifofA:[560,296], ifofB:[420,292], ifofC:[220,236], ilfA:[560,340], uncA:[214,296], fatMid:[262,190]};
 function lateralBase() {
-  return `<path class="hemi" d="M70,236 C56,140 160,44 330,36 C510,28 650,92 694,200 C712,252 690,296 652,312 C600,332 540,346 480,380 C440,404 380,412 330,396 C280,382 230,360 206,340 C186,330 160,324 140,310 C100,292 76,276 70,236 Z"/>
+  return `<path class="hemi" d="M70,236 C56,140 160,44 330,36 C510,28 650,92 694,200 C712,258 700,306 664,328 C620,354 548,376 480,392 C440,404 380,414 330,398 C280,382 230,360 206,340 C186,330 160,324 140,310 C100,292 76,276 70,236 Z"/>
 <path class="sulc" d="M196,300 C260,286 360,272 470,262 C490,258 506,244 516,228"/><path class="sulc" d="M392,40 C384,90 372,140 358,190 C350,220 344,246 340,270"/><path class="sulc dsh" d="M330,44 C322,100 310,160 296,230"/><path class="sulc dsh" d="M454,48 C444,110 430,170 420,240"/>
 <ellipse class="area" cx="234" cy="258" rx="30" ry="16"/><ellipse class="area" cx="496" cy="286" rx="34" ry="16"/>`;
 }
@@ -575,16 +576,16 @@ const MA = {hipp:[522,338], fornixPost:[532,236], fornixBody:[420,200], fornixCo
   cingAnt:[198,232], cingMid:[380,114], cingPost:[566,206], phg:[470,368], vta:[392,320], mfb:[332,292], nac:[248,262], mfb2:[220,226], pfcM:[136,170],
   amyg:[412,338], stPost:[512,292], stTop:[470,196], stAnt:[318,206], bnst:[290,258], hypM:[318,282], snM:[418,322], caudM:[274,214], putM:[300,244]};
 function medialBase() {
-  return `<path class="hemi" d="M78,250 C62,150 150,48 320,36 C500,24 652,90 690,200 C708,262 680,300 640,312 C600,322 560,318 520,330 C480,342 452,352 430,350 C400,348 380,330 350,322 C300,310 250,330 200,330 C140,330 92,310 78,250 Z"/>
+  return `<path class="hemi" d="M78,250 C62,150 150,48 320,36 C500,24 652,90 690,200 C708,262 690,306 650,326 C610,346 570,370 520,386 C480,398 430,400 404,382 C388,370 378,336 350,322 C300,310 250,330 200,330 C140,330 92,310 78,250 Z"/>
 <path class="cingb" d="M190,222 C194,150 270,116 380,112 C482,110 560,140 576,204"/>
 <path class="ccm" d="M196,206 C210,170 260,150 380,146 C470,144 520,160 546,192 C552,206 540,218 526,210 C500,186 460,176 380,178 C290,180 240,192 226,214 C220,228 200,226 196,206 Z"/>
 <ellipse class="gm" cx="396" cy="238" rx="48" ry="28"/><ellipse class="gm" cx="318" cy="282" rx="24" ry="16"/><circle class="nuc" cx="306" cy="300" r="7"/>
 <path class="stem" d="M376,300 C410,294 440,300 452,320 L474,486 L420,486 L398,334 Z"/>
-<ellipse class="cbghost" cx="574" cy="404" rx="94" ry="60"/>
+<ellipse class="cbghost" cx="590" cy="424" rx="90" ry="52"/>
 <ellipse class="proj" cx="490" cy="342" rx="44" ry="12" transform="rotate(-8 490 342)"/><ellipse class="proj" cx="412" cy="338" rx="14" ry="10"/><ellipse class="proj" cx="250" cy="262" rx="14" ry="10"/><ellipse class="proj" cx="278" cy="220" rx="22" ry="14"/>`;
 }
 const MLAB = [["Corpus callosum", 380, 166, "middle", "sm"], ["Cingulate gyrus", 380, 102, "middle", "sm"], ["Thalamus", 420, 246, "middle", "sm"], ["Hypothalamus", 300, 326, "end", "sm"],
-  ["Brainstem", 470, 470, "start", "sm"], ["Cerebellum", 600, 404, "middle", "sm it"], ["Hippocampus (deep)", 560, 362, "start", "sm it"], ["FRONT", 60, 470, "start", "lvl"], ["Right hemisphere, medial surface", 700, 470, "end", "sm it"]];
+  ["Brainstem", 470, 470, "start", "sm"], ["Cerebellum", 600, 436, "middle", "sm it"], ["Hippocampus (deep)", 560, 362, "start", "sm it"], ["FRONT", 60, 470, "start", "lvl"], ["Right hemisphere, medial surface", 700, 470, "end", "sm it"]];
 
 const VIEWS = {
   neuraxis:{w:760, h:1050, A:NA, base:neuraxisBase, lab:NLAB, cap:"Front view of the whole neuraxis, cortex to sacral cord, schematic and not to scale. The patient’s right is on the left (R and L marked). Pathways are traced from the right side of the brain or body."},
@@ -809,7 +810,7 @@ PATHS.forEach(p => add("cerebellar", "cerebellar", {id:"cb-" + p.id, name:p.name
 
 /* ================= More views ================= */
 // lateral surface: extra cortical anchors
-Object.assign(LA, {heschl:[420,284], pmtg:[452,330], atl:[262,346], ips:[548,160], spl:[520,104], v5:[606,292], v4:[626,334], fus:[566,372], vwfa:[594,354],
+Object.assign(LA, {heschl:[420,284], pmtg:[452,330], atl:[262,346], ips:[548,160], spl:[520,104], v5:[606,292], v4:[624,318], fus:[548,352], vwfa:[590,338],
   exner:[288,152], handM1:[362,112], mouthM1:[330,236], pmd:[304,108], handS1:[404,118], s2:[424,250], tpj:[548,282]});
 // the same surface for the right hemisphere (mirror image, front on the right)
 const LAR = {}; Object.entries(LA).forEach(([k, p]) => { LAR[k] = [760 - p[0], p[1]]; });
@@ -1030,8 +1031,8 @@ const SIGNS = [
   ["Abulia, akinetic mutism", "No spontaneous speech or action", "Anterior cingulate cortex (bilateral), ventral striatum, MD thalamus", "loop-acc"]
 ];
 
-VIEWS.lateral.base = () => lateralBase() + `<ellipse class="proj" cx="594" cy="356" rx="26" ry="10"/>`;
-LLAB.push(["ventral surface", 594, 380, "middle", "sm it"]);
+VIEWS.lateral.base = () => lateralBase() + `<ellipse class="proj" cx="590" cy="340" rx="26" ry="9" transform="rotate(-18 590 340)"/>`;
+VIEWS.lateral.cap += " The dashed oval at the lower back edge is the visual word form area, which lies on the underside (fusiform gyrus) and is projected onto this view.";
 
 /* ================= Frontostriatal circuits: one integrated drawing =================
    Lateral and medial cortex above; one shared basal ganglia and thalamus below, each circuit with its own territory
@@ -1113,7 +1114,7 @@ T.forEach(t => {
 const SA = {
   // nuclei (patient's right, projected)
   n3:[371,148], n3ew:[376,138], n4:[369,214], n5mes:[352,214], n5mot:[352,296], n5main:[334,300], n5sp:[322,330], n5spMed:[326,470], n5spC2:[340,640],
-  n6:[370,376], n7:[338,394], n7up:[358,378], n7genu:[376,366], n7down:[318,388], nSSN:[348,386], nCoch:[300,412], nVest:[326,412],
+  n6:[370,376], n7:[338,394], n7up:[358,378], n7genu:[376,366], n7down:[318,388], nSSN:[348,386], nCoch:[310,418], nVest:[333,420],
   nAmbR:[338,428], nAmbM:[338,466], nAmbC:[338,514], nISN:[352,424], nDMNX:[362,470], nNTS:[354,486], n12:[374,476], nAccC1:[360,600], nAccC5:[360,770],
   // in-brainstem waypoints
   rn:[360,166], sn:[352,176], aqueduct:[380,222], vel:[380,236], ml:[366,452], mlP:[360,392],
@@ -1133,7 +1134,7 @@ function stemBase() {
 <path class="stem" d="M330,232 L430,232 C470,236 500,252 512,282 C520,312 520,350 504,378 C490,398 470,404 430,404 L330,404 C290,404 270,398 256,378 C240,350 240,312 248,282 C260,252 290,236 330,232 Z"/>
 <path class="mcp" d="M256,286 C226,290 206,306 200,330 C206,352 226,368 256,376 Z"/><path class="mcp" d="M504,286 C534,290 554,306 560,330 C554,352 534,368 504,376 Z"/>
 <line class="sulc2" x1="380" y1="236" x2="380" y2="400"/>
-<path class="stem" d="M330,404 L430,404 C440,440 444,500 436,548 L424,580 L336,580 L324,548 C316,500 320,440 330,404 Z"/>
+<path class="stem" d="M294,404 L466,404 C462,418 446,430 436,446 C442,480 444,510 436,548 L424,580 L336,580 L324,548 C316,510 318,480 324,446 C314,430 298,418 294,404 Z"/>
 <path class="pyr" d="M362,408 C366,450 368,520 370,572 L378,572 L378,408 Z"/><path class="pyr" d="M398,408 C394,450 392,520 390,572 L382,572 L382,408 Z"/>
 <ellipse class="oliv" cx="336" cy="466" rx="12" ry="40"/><ellipse class="oliv" cx="424" cy="466" rx="12" ry="40"/>
 <path class="decus" d="M368,560 L392,580 M392,560 L368,580"/>
@@ -1146,7 +1147,7 @@ ${[606, 648, 690, 730, 770].map((y, k) => `<path class="root" d="M346,${y} L318,
 <path d="M352,190 L352,250"/><ellipse cx="352" cy="296" rx="7" ry="9"/><ellipse cx="334" cy="300" rx="9" ry="10"/>
 <path d="M322,312 C322,380 324,460 330,560 C334,600 338,624 340,648"/>
 <ellipse cx="370" cy="376" rx="7" ry="7"/><ellipse cx="390" cy="376" rx="7" ry="7"/><ellipse cx="338" cy="394" rx="9" ry="8"/>
-<ellipse cx="300" cy="412" rx="8" ry="6"/><ellipse cx="326" cy="412" rx="12" ry="7"/>
+<ellipse cx="310" cy="418" rx="7" ry="6"/><ellipse cx="333" cy="420" rx="11" ry="7"/>
 <path d="M338,420 L338,522"/><ellipse cx="362" cy="476" rx="4" ry="22"/><ellipse cx="374" cy="476" rx="5" ry="22"/><ellipse cx="354" cy="476" rx="4" ry="26"/>
 <path d="M360,596 L360,780"/></g>`;
 }

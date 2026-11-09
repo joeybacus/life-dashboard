@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Shown inside the Life Dashboard: hide the page's own title and follow the app's light/dark choice. */
+(function () {
+  var d = document.documentElement;
+  try {
+    if (window.parent === window) return;
+    d.classList.add("embed");
+    var p = window.parent.document.documentElement;
+    var sync = function () { if (p.dataset.theme) d.dataset.theme = p.dataset.theme; else delete d.dataset.theme; };
+    sync();
+    new MutationObserver(sync).observe(p, { attributes: true, attributeFilter: ["data-theme"] });
+  } catch (e) { /* not the same site: keep the system theme */ }
+})();
+</script>
+<title>EEG Study Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* EEG Study Guide: a path of levels (left rail on wide screens, chips on phones), tracings drawn on canvas,
+   a quiz to clear each level, case trials and a cheat sheet. Tokens match the other neurology atlases. */
+:root{
+  --bg:#f2f3f7; --panel:#ffffff; --panel-2:#e9ebf2; --fg:#1a1d2b; --muted:#5a5f75; --line:#d5d8e3;
+  --accent:#3b3896; --accent-weak:#e7e6f6; --lesion:#cc2858; --lesion-weak:#fbe3ea; --ok:#2f8a57; --ok-weak:#e1f2e8; --focus:#1fb2ff; --focus-ink:#0a6fa8;
+  --gold:#a8670f; --gold-weak:#fbf0db; --trace:#1d2233; --ekg:#b0365a; --paper:#fbfbfd;
+  --f-display:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-label:"IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+    --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28; --ok:#5fcf8f; --ok-weak:#16301f; --focus:#38c0ff; --focus-ink:#7fd6ff;
+    --gold:#f2c14e; --gold-weak:#3a2f12; --trace:#d5d8e6; --ekg:#ff7aa0; --paper:#15161f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11121a; --panel:#191b25; --panel-2:#232635; --fg:#e7e8f0; --muted:#9ca0b6; --line:#2f3345;
+  --accent:#aaa7ff; --accent-weak:#29284f; --lesion:#ff5a88; --lesion-weak:#3d1a28; --ok:#5fcf8f; --ok-weak:#16301f; --focus:#38c0ff; --focus-ink:#7fd6ff;
+  --gold:#f2c14e; --gold-weak:#3a2f12; --trace:#d5d8e6; --ekg:#ff7aa0; --paper:#15161f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header.top{background:var(--panel);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:24px 0}
+.kicker{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--lesion)}
+h1{font-family:var(--f-display);font-weight:500;font-size:clamp(32px,4.4vw,48px);line-height:1.02;letter-spacing:-.015em;margin:6px 0 0}
+h1 em{font-style:italic;color:var(--accent)}
+.lede{color:var(--muted);max-width:72ch;margin:10px 0 16px;font-size:15.5px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-bottom:-1px}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{font-family:var(--f-label);font-weight:600;font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:12px 14px 11px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;white-space:nowrap}
+nav.tabs a:hover{color:var(--fg)}
+nav.tabs a[aria-current="page"]{background:var(--bg);border-color:var(--line);color:var(--fg)}
+main.wrap{padding-block:20px 56px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.lab{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.tbtn{font-family:var(--f-label);font-weight:600;font-size:12.5px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.tbtn:hover{border-color:var(--fg)}
+.tbtn[aria-pressed="true"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.tbtn:disabled{opacity:.5;cursor:default}
+.tbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.seg{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel);flex-wrap:wrap}
+.seg > span{font-family:var(--f-label);font-size:11px;color:var(--muted);padding:0 6px 0 8px;text-transform:uppercase;letter-spacing:.08em}
+.seg button{border:0;background:none;color:var(--fg);padding:5px 11px;border-radius:999px;font-family:var(--f-label);font-weight:600;font-size:12.5px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel)}
+.tblw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0 16px}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600}
+
+/* path */
+.hero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px 28px;padding:20px 22px;align-items:center}
+.rname{font-family:var(--f-display);font-weight:500;font-size:clamp(30px,4vw,42px);line-height:1.05;margin:4px 0 6px;color:var(--gold)}
+.rline{margin:0;color:var(--muted)}
+.xpbar{height:10px;border-radius:999px;background:var(--panel-2);overflow:hidden;margin:6px 0 8px}
+.xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--gold));border-radius:999px;transition:width .4s}
+.xpstat{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.ladder{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:10px;position:relative}
+.ladder::before{content:"";position:absolute;left:23px;top:10px;bottom:10px;width:2px;background:var(--line)}
+.node{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center}
+.node .num{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-label);font-weight:600;font-size:17px;background:var(--panel);border:2px solid var(--line);color:var(--muted);position:relative;z-index:1}
+.node.done .num{background:var(--ok);border-color:var(--ok);color:var(--panel)}
+.node.next .num{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px var(--accent-weak)}
+.node.hero-node .num{border-color:var(--gold);color:var(--gold)}
+.node.hero-node.done .num{background:var(--gold);color:var(--panel)}
+.node a.card{display:block;text-decoration:none;color:inherit;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
+.node a.card:hover{border-color:var(--accent)}
+.node .nt{font-family:var(--f-display);font-size:19px;line-height:1.2}
+.node .ns{font-size:13.5px;color:var(--muted)}
+.chip{font-family:var(--f-label);font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
+.chip.ok{background:var(--ok-weak);color:var(--ok)}
+.chip.go{background:var(--accent-weak);color:var(--accent)}
+.chip.gold{background:var(--gold-weak);color:var(--gold)}
+.plan{margin-top:28px}
+.h3s{font-family:var(--f-display);font-weight:500;font-size:24px;margin:28px 0 10px}
+.reset{margin-top:24px;font-size:13px;color:var(--muted)}
+
+/* levels */
+.learn{display:grid;grid-template-columns:230px minmax(0,1fr);gap:22px;align-items:start}
+.rail{display:flex;flex-direction:column;gap:3px;position:sticky;top:12px}
+.rail a{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--fg);padding:7px 9px;border-radius:8px;font-size:14px;line-height:1.25}
+.rail a:hover{background:var(--panel-2)}
+.rail a[aria-current="true"]{background:var(--accent-weak);color:var(--accent);font-weight:600}
+.rail .rn{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-label);font-size:12px;font-weight:600;border:1px solid var(--line);color:var(--muted);background:var(--panel)}
+.rail a.done .rn{background:var(--ok);border-color:var(--ok);color:var(--panel)}
+.lesson{min-width:0;max-width:900px}
+.lhead .kick{font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--lesion)}
+.lhead h2{font-family:var(--f-display);font-weight:500;font-size:clamp(28px,3.4vw,38px);line-height:1.08;margin:4px 0 4px}
+.lsub{margin:0;color:var(--muted);font-size:16px}
+.lmeta{margin:6px 0 0;font-family:var(--f-label);font-size:12.5px;color:var(--muted)}
+.goals{padding:12px 16px;margin:16px 0 8px}
+.goals ul{margin:6px 0 0;padding-left:20px}
+.lesson h3{font-family:var(--f-display);font-weight:500;font-size:24px;line-height:1.15;margin:28px 0 8px}
+.lesson p{margin:8px 0}
+.lesson ul,.lesson ol{padding-left:22px;margin:8px 0}
+.lesson li{margin:4px 0}
+.call{border-radius:10px;padding:10px 14px;margin:14px 0;border-left:4px solid;font-size:14.5px}
+.call b.cl{display:block;font-family:var(--f-label);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px}
+.call.pearl{border-color:var(--ok);background:var(--ok-weak)}
+.call.pearl b.cl{color:var(--ok)}
+.call.trap{border-color:var(--lesion);background:var(--lesion-weak)}
+.call.trap b.cl{color:var(--lesion)}
+.call.key{border-color:var(--accent);background:var(--accent-weak)}
+.call.key b.cl{color:var(--accent)}
+.lnav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;flex-wrap:wrap}
+
+/* tracings */
+.eegfig{margin:18px 0;padding:12px 12px 14px}
+.fhead{display:flex;gap:10px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;margin:0 2px 8px}
+.fhead h4{margin:0;font-family:var(--f-display);font-weight:500;font-size:20px;line-height:1.2}
+.fhead .hint{font-family:var(--f-label);font-size:12px;color:var(--muted)}
+.fbar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:10px}
+.fbar select{font-family:var(--f-label);font-size:12.5px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+.fbar label{font-family:var(--f-label);font-size:12px;color:var(--muted);display:inline-flex;gap:6px;align-items:center}
+.seg button .sh{display:none}
+.pager{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-label);font-size:12.5px;color:var(--muted)}
+.pager button{width:30px;height:30px;padding:0;justify-content:center;font-size:15px}
+.cvwrap{background:var(--paper);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.cvwrap canvas{display:block;width:100%}
+.eegfig figcaption{margin:10px 2px 0;font-size:14.5px;display:grid;gap:6px}
+.eegfig figcaption p{margin:0}
+.eegfig figcaption .tip{color:var(--muted);font-size:13.5px}
+.locked{font-family:var(--f-label);font-size:12.5px;color:var(--muted)}
+
+/* electrode map and bands */
+.headmap{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px;align-items:start;padding:14px;margin:14px 0}
+.headmap svg{width:100%;height:auto;display:block}
+.hm-head{fill:var(--paper);stroke:var(--muted);stroke-width:.018}
+.hm-el circle{fill:var(--panel);stroke:var(--muted);stroke-width:.012;cursor:pointer}
+.hm-el text{font-family:var(--f-label);font-size:.085px;font-weight:600;fill:var(--fg);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.hm-el.on circle{fill:var(--accent);stroke:var(--accent)}
+.hm-el.on text{fill:var(--panel)}
+.hm-el:focus-visible circle{stroke:var(--focus);stroke-width:.03}
+.hm-chain{fill:none;stroke-width:.03;stroke-linecap:round;opacity:.55}
+.hminfo{font-size:14.5px}
+.hminfo h4{margin:6px 0 4px;font-family:var(--f-display);font-weight:500;font-size:22px}
+.bands svg{width:100%;height:auto;display:block}
+.bands{padding:12px 14px;margin:14px 0}
+.bands text{font-family:var(--f-label);font-size:12px;fill:var(--muted)}
+.bands .bt{fill:var(--fg);font-weight:600}
+.bands path.w{fill:none;stroke:var(--trace);stroke-width:1.4}
+.bands line{stroke:var(--line)}
+
+/* quiz */
+.quiz{margin-top:32px;padding:16px 18px;border:1px solid var(--accent);border-radius:12px;background:var(--panel)}
+.quiz h3{margin:0!important}
+.quiz .qintro{margin:4px 0 0;color:var(--muted);font-size:14px}
+.qs{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:18px;counter-reset:q}
+.q{counter-increment:q}
+.qt{margin:0 0 6px;font-weight:600}
+.qt::before{content:counter(q) ". ";color:var(--muted)}
+.opt{display:block;width:100%;text-align:left;font:inherit;font-size:14.5px;line-height:1.4;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:6px 0;cursor:pointer;background:var(--panel);color:var(--fg)}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--ok);background:var(--ok-weak)}
+.opt.wrong{border-color:var(--lesion);background:var(--lesion-weak)}
+.opt.right::after{content:"  ✓";color:var(--ok);font-weight:600}
+.opt.wrong::after{content:"  ✗";color:var(--lesion);font-weight:600}
+.qwhy{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.qres{margin-top:16px}
+.qres .banner{border-radius:10px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.qres .banner.pass{background:var(--ok-weak);border:1px solid var(--ok)}
+.qres .banner.fail{background:var(--gold-weak);border:1px solid var(--gold)}
+.qres .banner b{font-family:var(--f-display);font-weight:500;font-size:20px}
+
+/* cases */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.ccard{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:inherit;padding:14px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
+.ccard:hover{border-color:var(--accent)}
+.ccard .ct{font-family:var(--f-display);font-size:19px;line-height:1.2}
+.ccard .cs{font-size:13.5px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ccard .chip{align-self:flex-start}
+.casehead{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.stem{font-size:16px;padding:14px 16px;margin:12px 0}
+.teach{padding:12px 16px;margin-top:18px}
+.teach ul{margin:6px 0 0;padding-left:20px}
+.vhead{margin:0 0 16px;max-width:76ch}
+.vhead h2{font-family:var(--f-display);font-weight:500;font-size:clamp(25px,3vw,32px);margin:0 0 6px;line-height:1.1}
+.vhead p{margin:0;color:var(--muted)}
+.cheat{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;align-items:start}
+.cheat section{padding:14px 16px}
+.cheat h3{font-family:var(--f-display);font-weight:500;font-size:22px;margin:0 0 6px}
+.cheat .tblw{margin:6px 0 0}
+.cheat ul,.cheat ol{padding-left:20px;margin:6px 0 0}
+.cheat li{margin:4px 0}
+footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
+
+.tbtn.hintb[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--panel)}
+.where{margin:10px 2px 0;padding:10px 14px;border-radius:10px;background:var(--gold-weak);border:1px dashed var(--gold);font-size:14px}
+.where .lab{color:var(--gold)}
+.where ul{margin:4px 0 6px;padding-left:18px}
+.where li{margin:3px 0}
+.where p{margin:0;color:var(--muted);font-size:13px}
+.tierbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+.tierbar a[aria-current="page"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.tiers{display:grid;gap:30px}
+.tierhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:0 0 8px}
+.tierhead h3{font-family:var(--f-display);font-weight:500;font-size:23px;margin:0;line-height:1.15}
+.tierhead p{margin:0;color:var(--muted);font-size:14px;flex:1 1 100%}
+.tmeter{height:6px;border-radius:999px;background:var(--panel-2);overflow:hidden;margin:0 0 10px}
+.tmeter i{display:block;height:100%;background:var(--ok);border-radius:999px}
+.tiertip{font-size:13.5px;color:var(--muted);margin:0 0 12px}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.lcard{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
+.lcard:hover{border-color:var(--accent)}
+.lcard.ace{border-color:var(--ok)}
+.lcard .ln{font-family:var(--f-label);font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.lcard.ace .ln span:last-child{color:var(--ok);font-weight:600}
+.lcard .lt{font-weight:600;font-size:14.5px;line-height:1.25}
+.libpanel{padding:16px 18px;margin-top:22px}
+.libpanel p{margin:4px 0 0;color:var(--muted)}
+.tchips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 14px}
+.tchips a.chip{text-decoration:none}
+.libpanel .h3s{margin:4px 0 0}
+@media (max-width:900px){
+  .learn{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;flex-direction:row;flex-wrap:wrap;gap:6px}
+  .rail a{border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 4px;font-size:13px}
+  .rail a .rt{display:none}
+  .rail a[aria-current="true"] .rt{display:inline}
+  .hero{grid-template-columns:minmax(0,1fr)}
+  .headmap{grid-template-columns:minmax(0,1fr)}
+  .headmap svg{max-width:320px;margin:0 auto}
+}
+@media (max-width:560px){
+  .node{grid-template-columns:40px minmax(0,1fr)}
+  .node .num{width:40px;height:40px;font-size:15px}
+  .ladder::before{left:19px}
+  .node .chip{grid-column:2;justify-self:start}
+  .eegfig{padding:10px 8px 12px;margin-inline:-6px}
+  .eegfig .seg button{padding:5px 9px}
+  .eegfig .seg button .lg{display:none}
+  .eegfig .seg button .sh{display:inline}
+  .cheat{grid-template-columns:minmax(0,1fr)}
+}
+.embed .kicker,.embed h1,.embed .lede{display:none}
+.embed header.top .wrap{padding-block:10px 0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="kicker">Neurophysiology · zero to hero</div>
+    <h1>EEG <em>Study Guide</em></h1>
+    <p class="lede">Ten levels from the 10–20 system to ICU EEG, adults first. Each level has tracings you can re-montage and a quiz to clear, then case trials and a 100-case library in five tiers. The tracings are teaching drawings made in the page, not patient recordings.</p>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#path" data-tab="path">Path</a>
+      <a href="#L0" data-tab="learn" id="tabLearn">Levels</a>
+      <a href="#cases" data-tab="cases">Cases</a>
+      <a href="#lib" data-tab="lib">100 cases</a>
+      <a href="#cheat" data-tab="cheat">Cheat sheet</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <section class="view" data-view="path" id="vPath"></section>
+  <section class="view" data-view="learn" hidden><div class="learn"><nav class="rail" id="rail" aria-label="Levels"></nav><article class="lesson" id="lesson"></article></div></section>
+  <section class="view" data-view="cases" id="vCases" hidden></section>
+  <section class="view" data-view="lib" id="vLib" hidden></section>
+  <section class="view" data-view="cheat" id="vCheat" hidden></section>
+</main>
+<footer class="wrap">Sources: ACNS Standardized Critical Care EEG Terminology (2021); IFCN glossary and criteria for interictal epileptiform discharges (Kane et al., 2017); Salzburg consensus criteria for nonconvulsive status epilepticus (2013, validated 2016); ACNS guidelines on montages and on electrocerebral inactivity; ERC–ESICM post-resuscitation care guidelines (2021). Tracings are simulated for teaching and are not recordings from patients. Educational reference: check clinical decisions against the full EEG, the patient and current sources. Progress is saved on this device only.</footer>
+
+<script src="eeg-sim.js"></script>
+<script src="eeg-data.js"></script>
+<script src="eeg-library.js"></script>
+<script>
+(function () {
+"use strict";
+const SIM = window.EEGSIM, D = window.EEGDATA;
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const LEVELS = D.LEVELS, CASES = D.CASES, LBY = {}, CBY = {};
+LEVELS.forEach((l, i) => { l.n = i; LBY[l.id] = l; });
+CASES.forEach((c, i) => { c.n = i; CBY[c.id] = c; });
+const LIBT = window.EEGLIB.TIERS, LIBC = window.EEGLIB.CASES, LIB = {};
+LIBC.forEach(c => { LIB[c.id] = c; c.qs = c.q.map(([q, o, why]) => ({q, o, why})); });
+const PASS = 0.8, HERO_CASES = 12;
+
+/* ---------- progress (this device only) ---------- */
+const KEY = "eeg-guide-v1";
+let P = {lv:{}, cs:{}, lib:{}, last:"L0", old:false};
+try { P = Object.assign(P, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} };
+const cleared = id => (P.lv[id] || 0) >= PASS;
+const aced = id => !!(P.cs[id] && P.cs[id].ace);
+const levelsCleared = () => LEVELS.filter(l => !l.cases && cleared(l.id)).length;
+const casesAced = () => CASES.filter(c => aced(c.id)).length;
+const heroDone = () => casesAced() >= HERO_CASES;
+function rank() {
+  const score = levelsCleared() + (levelsCleared() === 10 && heroDone() ? 1 : 0);
+  let r = D.RANKS[0]; D.RANKS.forEach(x => { if (score >= x.min) r = x; });
+  return r;
+}
+function tierStats(n) {
+  const cs = LIBC.filter(c => c.t === n), aced = cs.filter(c => P.lib[c.id] && P.lib[c.id].ace).length;
+  return {n: cs.length, aced, done: cs.filter(c => P.lib[c.id]).length, cleared: aced >= Math.ceil(PASS * cs.length)};
+}
+const nextLevel = () => LEVELS.find(l => l.cases ? !heroDone() : !cleared(l.id)) || LEVELS[LEVELS.length - 1];
+
+/* seeded shuffle so options stay in the same order each visit; options are written correct-first */
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function order(q) {
+  let a = hash(q.q + "|" + q.o.join("|")); const idx = q.o.map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) { a = Math.imul(a ^ (a >>> 15), 2246822507) >>> 0; const j = a % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  return idx;
+}
+
+/* ---------- tracings ---------- */
+const figs = new Map();
+const SENS = [2, 3, 5, 7, 10, 15, 20, 30];
+const SHORT = {bipolar:"Banana", transverse:"Transv.", ear:"Ear", avg:"Avg"};
+const HEAD = {learn:["", "Spot it first, then show the markings"], case:["The EEG", "Read it before you answer"], lib:["The EEG", "Read it cold. Stuck? Tap Where to look"]};
+function figHTML(id, mode = "learn") {
+  const sp = SIM.SPECS[id]; if (!sp) return "";
+  const lib = mode === "lib";
+  return `<figure class="panel eegfig" data-spec="${id}" data-mode="${mode}">
+  <div class="fhead"><h4>${HEAD[mode][0] || esc(sp.title)}</h4><span class="hint">${HEAD[mode][1]}</span></div>
+  <div class="fbar">
+    <div class="seg" role="group" aria-label="Montage">${Object.entries(SIM.MONTAGES).map(([k, m]) => `<button type="button" data-m="${k}" title="${esc(m.long)}"><span class="lg">${esc(m.name)}</span><span class="sh">${esc(SHORT[k])}</span></button>`).join("")}</div>
+    <label>Sensitivity <select data-sens aria-label="Sensitivity in microvolts per millimetre">${SENS.map(s => `<option value="${s}">${s} µV/mm</option>`).join("")}</select></label>
+    <button type="button" class="tbtn" data-old aria-pressed="${P.old}">Old names</button>
+    <span class="pager"><button type="button" class="tbtn" data-pg="-1" aria-label="Previous page">‹</button><span class="pgl">1 / 1</span><button type="button" class="tbtn" data-pg="1" aria-label="Next page">›</button></span>
+    ${lib ? `<button type="button" class="tbtn hintb" data-hint aria-pressed="false">Where to look</button>` : ""}
+    <button type="button" class="tbtn" data-mark aria-pressed="false">Show markings</button>
+  </div>
+  <div class="cvwrap"><canvas role="img" aria-label="${esc(mode !== "learn" ? "EEG for this case" : sp.title + ". " + sp.look)}"></canvas></div>
+  ${lib ? `<div class="where" aria-live="polite" hidden></div>` : ""}
+  <figcaption${mode !== "learn" ? " hidden" : ""}>
+    <p><b>Look for:</b> ${esc(sp.look)}</p>
+    <p><b>${lib ? "Teaching point" : "Why it matters"}:</b> ${esc(sp.why)}</p>
+    ${sp.tip ? `<p class="tip">Try this: ${esc(sp.tip)}</p>` : ""}
+  </figcaption>
+</figure>`;
+}
+function mountFigs(root) {
+  $$(".eegfig", root).forEach(f => {
+    const id = f.dataset.spec, sp = SIM.SPECS[id], mode = f.dataset.mode, key = f.closest("[data-case]")?.dataset.case;
+    const done = mode === "case" ? !!(P.cs[key] && P.cs[key].done) : mode === "lib" ? !!(P.lib[key] && P.lib[key].done) : true;
+    const st = {id, m: sp.montage, sens: sp.sens, page: 0, ann: mode === "lib" && done, locked: !done, w: 0};
+    figs.set(f, st);
+    $("select", f).value = String(st.sens);
+    if (st.locked) { const b = $("[data-mark]", f); b.disabled = true; b.textContent = mode === "lib" ? "Labels after you answer" : "Markings after you answer"; }
+    draw(f);
+    ro.observe($(".cvwrap", f));
+  });
+}
+function draw(f) {
+  const st = figs.get(f); if (!st || !f.isConnected) return;
+  const cv = $("canvas", f), w = cv.clientWidth || $(".cvwrap", f).clientWidth;
+  const pages = SIM.pageCount(st.id, w);
+  if (st.page >= pages) st.page = pages - 1;
+  SIM.draw(cv, st.id, {montage: st.m, sens: st.sens, page: st.page, ann: st.ann, old: P.old});
+  st.w = w;
+  $$("[data-m]", f).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.m === st.m)));
+  $("[data-old]", f).setAttribute("aria-pressed", String(P.old));
+  const pg = $(".pager", f); pg.hidden = pages < 2;
+  $(".pgl", pg).textContent = `${st.page + 1} / ${pages}`;
+  $('[data-pg="-1"]', pg).disabled = st.page === 0; $('[data-pg="1"]', pg).disabled = st.page >= pages - 1;
+  const mk = $("[data-mark]", f); if (!st.locked) { mk.disabled = false; mk.setAttribute("aria-pressed", String(st.ann === true)); mk.textContent = st.ann === true ? "Hide markings" : "Show markings"; }
+  const hb = $("[data-hint]", f); if (hb) hb.setAttribute("aria-pressed", String(st.ann === "hint"));
+  const wh = $(".where", f); if (wh) { wh.hidden = st.ann !== "hint"; if (!wh.hidden) wh.innerHTML = whereHTML(st.id, pages > 1); }
+}
+function elText(el) {
+  const e = el.filter(x => x !== "EKG"), ekg = el.includes("EKG") ? "EKG channel" : "";
+  if (!e.length) return ekg;
+  const same = list => e.length === list.length && e.every(x => list.includes(x));
+  const t = e.length >= 16 ? "all channels" : same(SIM.LEFT_HEMI) ? "left hemisphere" : same(SIM.RIGHT_HEMI) ? "right hemisphere" : e.map(x => SIM.nameOf(x, P.old)).join(", ");
+  return ekg ? t + ", " + ekg : t;
+}
+function whereHTML(id, paged) {
+  const sp = SIM.SPECS[id], f = x => String(+x.toFixed(1));
+  return `<div class="lab">Where to look</div><ul>${sp.hint.map(h => `<li><b>${esc(h.label)}</b> · ${esc(elText(h.el))} · ${f(h.t0)}–${f(h.t1)} s</li>`).join("")}</ul>
+  <p>Gold boxes mark the channels and seconds; the answer stays hidden.${paged ? " Use the page arrows for later seconds." : ""}</p>`;
+}
+const ro = new ResizeObserver(entries => entries.forEach(e => {
+  const f = e.target.closest(".eegfig"), st = figs.get(f);
+  if (st && Math.abs((e.contentRect.width || 0) - st.w) > 1) requestAnimationFrame(() => draw(f));
+}));
+const redrawAll = () => figs.forEach((_, f) => { if (f.isConnected) draw(f); else figs.delete(f); });
+new MutationObserver(redrawAll).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]});
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawAll); } catch (e) {}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+
+/* ---------- electrode map and frequency bands ---------- */
+const REG = {Fp:"frontopolar", F:"frontal", C:"central", T:"temporal", P:"parietal", O:"occipital", A:"ear"};
+const NOTE = {Fp1:"Picks up every blink and vertical eye movement.", Fp2:"Picks up every blink and vertical eye movement.",
+  F7:"Inferior frontal and anterior temporal: lateral eye movements, and the best standard electrode for anterior (mesial) temporal discharges.", F8:"Inferior frontal and anterior temporal: lateral eye movements, and the best standard electrode for anterior (mesial) temporal discharges.",
+  T7:"Mid-temporal (old name T3): wicket spikes, RMTD and temporal discharges.", T8:"Mid-temporal (old name T4): wicket spikes, RMTD and temporal discharges.",
+  P7:"Posterior temporal (old name T5).", P8:"Posterior temporal (old name T6).",
+  C3:"Over the hand area of the motor strip: mu rhythm, spindles.", C4:"Over the hand area of the motor strip: mu rhythm, spindles.",
+  Cz:"The vertex: vertex waves, K-complexes, spindles.", Fz:"Midline frontal: frontal midline theta, K-complexes.", Pz:"Midline parietal.",
+  O1:"Posterior dominant rhythm, POSTS and lambda waves.", O2:"Posterior dominant rhythm, POSTS and lambda waves.",
+  F3:"Dorsolateral frontal.", F4:"Dorsolateral frontal.", P3:"Parietal.", P4:"Parietal.",
+  A1:"Ear reference. Sits next to the temporal lobe, so it picks up temporal activity.", A2:"Ear reference. Sits next to the temporal lobe, so it picks up temporal activity."};
+const CHAIN_COL = ["var(--accent)", "var(--ok)", "var(--gold)", "var(--ok)", "var(--accent)"];
+let hm = {el: "T7", m: "bipolar"};
+function elInfo(e) {
+  const letters = e.match(/^[A-Za-z]+?(?=[0-9z])/)?.[0] || e[0], num = e.slice(letters.length);
+  const side = num === "z" ? "midline" : (+num % 2 ? "left" : "right");
+  const old = SIM.OLD[e] ? ` (old name ${SIM.OLD[e]})` : "";
+  return `<div class="lab">Electrode</div><h4>${esc(e)}${esc(old)}</h4><p>${esc(cap(REG[letters[0] === "F" && letters[1] === "p" ? "Fp" : letters[0]] || ""))}, ${side}.</p><p>${esc(NOTE[e] || "")}</p>`;
+}
+function headSVG() {
+  const P2 = ([x, y]) => [x, -y];
+  const m = SIM.MONTAGES[hm.m];
+  const chains = hm.m === "bipolar" || hm.m === "transverse" ? m.groups.map((g, gi) => {
+    const pts = []; g.forEach(([a, b], k) => { if (!k) pts.push(P2(SIM.E[a])); pts.push(P2(SIM.E[b])); });
+    return `<polyline class="hm-chain" points="${pts.map(p => p.join(",")).join(" ")}" stroke="${CHAIN_COL[gi % 5]}"/>`;
+  }).join("") : "";
+  const els = Object.keys(SIM.E).map(e => { const [x, y] = P2(SIM.E[e]); return `<g class="hm-el${e === hm.el ? " on" : ""}" data-el="${e}" tabindex="0" role="button" aria-label="${e}"><circle cx="${x}" cy="${y}" r="0.115"/><text x="${x}" y="${y}">${esc(SIM.nameOf(e, P.old))}</text></g>`; }).join("");
+  return `<svg viewBox="-1.42 -1.38 2.84 2.7" role="img" aria-label="The 10–20 electrodes seen from above, nose at the top">
+  <path class="hm-head" d="M-0.12,-1.08 L0,-1.25 L0.12,-1.08"/><ellipse class="hm-head" cx="-1.13" cy="0.12" rx="0.08" ry="0.2"/><ellipse class="hm-head" cx="1.13" cy="0.12" rx="0.08" ry="0.2"/>
+  <circle class="hm-head" cx="0" cy="0" r="1.1"/>${chains}${els}
+  <text x="-1.38" y="1.28" style="font-family:var(--f-label);font-size:.09px;fill:var(--muted)">LEFT</text><text x="1.38" y="1.28" text-anchor="end" style="font-family:var(--f-label);font-size:.09px;fill:var(--muted)">RIGHT</text></svg>`;
+}
+function headHTML() {
+  return `<div class="panel headmap" id="headmap"><div id="hmsvg">${headSVG()}</div><div>
+  <div class="seg" role="group" aria-label="Chains drawn">${[["bipolar","Double banana"],["transverse","Transverse"],["none","No chains"]].map(([k, t]) => `<button type="button" data-hm="${k}" aria-pressed="${hm.m === k}">${t}</button>`).join("")}</div>
+  <div class="hminfo" id="hminfo">${elInfo(hm.el)}</div>
+  <p class="locked">Tap any electrode. Odd numbers left, even right, z midline. Each coloured line is one chain of the montage, front to back (or left to right).</p></div></div>`;
+}
+function refreshHead() { const s = $("#hmsvg"); if (s) s.innerHTML = headSVG(); const i = $("#hminfo"); if (i) i.innerHTML = elInfo(hm.el); $$("[data-hm]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.hm === hm.m))); }
+function bandsHTML() {
+  const B = [["Delta","2 Hz",2,18],["Theta","6 Hz",6,15],["Alpha","10 Hz",10,13],["Beta","20 Hz",20,7]];
+  const W = 640, x0 = 110, w = W - x0 - 10, rowH = 46;
+  const rows = B.map(([n, f, hz, a], k) => {
+    const y = 22 + k * rowH + rowH / 2; let d = "";
+    for (let i = 0; i <= 600; i++) { const t = i / 300, x = x0 + t / 2 * w, yy = y - a * Math.sin(2 * Math.PI * hz * t); d += (i ? "L" : "M") + x.toFixed(1) + "," + yy.toFixed(1); }
+    return `<text class="bt" x="8" y="${y - 3}">${n}</text><text x="8" y="${y + 13}">${f}</text><path class="w" d="${d}"/>`;
+  }).join("");
+  const grid = [0, 1, 2].map(s => `<line x1="${x0 + s / 2 * w}" x2="${x0 + s / 2 * w}" y1="14" y2="${22 + 4 * rowH}"/><text x="${x0 + s / 2 * w}" y="${36 + 4 * rowH}" text-anchor="middle">${s} s</text>`).join("");
+  return `<div class="panel bands"><svg viewBox="0 0 ${W} ${44 + 4 * rowH}" role="img" aria-label="Two seconds of delta, theta, alpha and beta">${grid}${rows}</svg></div>`;
+}
+
+/* ---------- blocks ---------- */
+function tbl(t) { return `<div class="tblw"><table><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${t.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`; }
+function block(b) {
+  if (b.h) return `<h3>${b.h}</h3>`;
+  if (b.p) return `<p>${b.p}</p>`;
+  if (b.ul) return `<ul>${b.ul.map(x => `<li>${x}</li>`).join("")}</ul>`;
+  if (b.ol) return `<ol>${b.ol.map(x => `<li>${x}</li>`).join("")}</ol>`;
+  if (b.tbl) return tbl(b.tbl);
+  if (b.fig) return figHTML(b.fig);
+  if (b.pearl) return `<div class="call pearl"><b class="cl">Pearl</b>${b.pearl}</div>`;
+  if (b.trap) return `<div class="call trap"><b class="cl">Trap</b>${b.trap}</div>`;
+  if (b.key) return `<div class="call key"><b class="cl">Key point</b>${b.key}</div>`;
+  if (b.head) return headHTML();
+  if (b.bands) return bandsHTML();
+  return "";
+}
+
+/* ---------- quizzes (levels) and case questions ---------- */
+const answers = {}; // key → array of chosen original indexes (this visit)
+function qHTML(key, qs, title, intro) {
+  const a = answers[key] || (answers[key] = qs.map(() => null));
+  return `<section class="quiz" data-quiz="${key}"><h3>${title}</h3>${intro ? `<p class="qintro">${intro}</p>` : ""}
+  <ol class="qs">${qs.map((q, i) => {
+    const ch = a[i];
+    return `<li class="q" data-q="${i}"><p class="qt">${esc(q.q)}</p><div class="opts">${order(q).map(o => {
+      const cls = ch === null ? "" : o === 0 ? " right" : o === ch ? " wrong" : "";
+      return `<button type="button" class="opt${cls}" data-o="${o}"${ch === null ? "" : " disabled"}>${esc(q.o[o])}</button>`; }).join("")}</div>
+      <p class="qwhy"${ch === null ? " hidden" : ""}>${esc(q.why)}</p></li>`; }).join("")}</ol>
+  <div class="qres" aria-live="polite">${resultHTML(key)}</div></section>`;
+}
+function qsFor(key) { return LBY[key] ? LBY[key].quiz : CBY[key] ? CBY[key].qs : LIB[key].qs; }
+function resultHTML(key) {
+  const a = answers[key], qs = qsFor(key); if (!a || a.some(x => x === null)) return "";
+  const right = a.filter(x => x === 0).length, score = right / qs.length;
+  if (LIB[key]) {
+    const c = LIB[key], next = LIBC[c.n], all = right === qs.length, ts = tierStats(c.t);
+    return `<div class="banner ${all ? "pass" : "fail"}"><span><b>${all ? "Aced" : `${right} of ${qs.length}`}</b> · Tier ${c.t}: ${ts.aced} of ${ts.n} aced${ts.cleared ? " · tier cleared" : ` · ${Math.ceil(PASS * ts.n)} clears it`}</span>
+      <span>${all ? "" : `<button type="button" class="tbtn" data-retry="${key}">Try again</button> `}${next ? `<a class="tbtn primary" href="#lc-${next.id}">Case ${next.n} →</a>` : `<a class="tbtn primary" href="#lib">All 100 cases</a>`}</span></div>`;
+  }
+  if (CBY[key]) {
+    const c = CBY[key], next = CASES[c.n + 1];
+    return `<div class="banner ${right === qs.length ? "pass" : "fail"}"><span><b>${right === qs.length ? "Aced" : `${right} of ${qs.length}`}</b> ${right === qs.length ? "" : "· try again to ace it"}</span>
+      <span>${right === qs.length ? "" : `<button type="button" class="tbtn" data-retry="${key}">Try again</button> `}${next ? `<a class="tbtn primary" href="#case-${next.id}">Next case →</a>` : `<a class="tbtn primary" href="#cases">All cases</a>`}</span></div>`;
+  }
+  const l = LBY[key], next = LEVELS[l.n + 1], pass = score >= PASS;
+  return `<div class="banner ${pass ? "pass" : "fail"}"><span><b>${pass ? "Level cleared" : "Not yet"}</b> · ${right} of ${qs.length} (${Math.round(score * 100)}%)${pass ? ` · rank: ${esc(rank().name)}` : ` · ${Math.ceil(PASS * qs.length)} needed`}</span>
+    <span><button type="button" class="tbtn" data-retry="${key}">Retry</button>${pass && next ? ` <a class="tbtn primary" href="#${next.cases ? "cases" : next.id}">${next.cases ? "Hero trials" : "Level " + next.n} →</a>` : ""}</span></div>`;
+}
+function answer(btn) {
+  const sec = btn.closest("[data-quiz]"), key = sec.dataset.quiz, li = btn.closest(".q"), i = +li.dataset.q, o = +btn.dataset.o;
+  const a = answers[key]; if (!a || a[i] !== null) return;
+  a[i] = o;
+  $$(".opt", li).forEach(b => { b.disabled = true; const v = +b.dataset.o; if (v === 0) b.classList.add("right"); else if (v === o) b.classList.add("wrong"); });
+  $(".qwhy", li).hidden = false;
+  if (a.every(x => x !== null)) {
+    const right = a.filter(x => x === 0).length;
+    if (LBY[key]) { P.lv[key] = Math.max(P.lv[key] || 0, right / a.length); }
+    else if (LIB[key]) { const c = P.lib[key] || {}; c.done = true; c.ace = c.ace || right === a.length; P.lib[key] = c; unlockCase(key); }
+    else { const c = P.cs[key] || {}; c.done = true; c.ace = c.ace || right === a.length; P.cs[key] = c; unlockCase(key); }
+    save(); refreshRail();
+  }
+  $(".qres", sec).innerHTML = resultHTML(key);
+}
+function unlockCase(key) {
+  const host = $(`[data-case="${key}"]`); if (!host) return;
+  const f = $(".eegfig", host), st = figs.get(f);
+  if (st) { st.locked = false; if (LIB[key]) st.ann = true; $("figcaption", f).hidden = false; draw(f); }
+  const t = $(".teach", host); if (t) t.hidden = false;
+}
+
+/* ---------- views ---------- */
+function renderPath() {
+  const r = rank(), lc = levelsCleared(), ca = casesAced(), nx = nextLevel();
+  const pct = Math.round((lc + Math.min(ca, HERO_CASES) / HERO_CASES) / 11 * 100);
+  $("#vPath").innerHTML = `
+  <div class="panel hero">
+    <div><div class="lab">Your rank</div><div class="rname">${esc(r.name)}</div><p class="rline">${esc(r.line)}</p></div>
+    <div><div class="lab">Progress</div><div class="xpbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
+      <p class="xpstat">${lc} of 10 levels cleared · ${ca} of ${CASES.length} cases aced (${HERO_CASES} for the Hero rank)</p>
+      <a class="tbtn primary" href="#${nx.cases ? "cases" : nx.id}">${nx.cases ? "Continue: Hero trials" : `${cleared(nx.id) ? "Review" : "Continue"}: Level ${nx.n} · ${esc(nx.title)}`} →</a></div>
+  </div>
+  <ol class="ladder">${LEVELS.map(l => {
+    const done = l.cases ? heroDone() : cleared(l.id), isNext = l === nx && !done;
+    const chip = l.cases ? `<span class="chip ${done ? "gold" : "go"}">${ca} of ${HERO_CASES} aced</span>` : done ? `<span class="chip ok">Cleared · ${Math.round(P.lv[l.id] * 100)}%</span>` : P.lv[l.id] !== undefined ? `<span class="chip">Best ${Math.round(P.lv[l.id] * 100)}%</span>` : `<span class="chip">${l.mins} min</span>`;
+    return `<li class="node${done ? " done" : ""}${isNext ? " next" : ""}${l.cases ? " hero-node" : ""}"><span class="num">${done ? "✓" : l.n}</span>
+      <a class="card" href="#${l.cases ? "cases" : l.id}"><div class="nt">Level ${l.n} · ${esc(l.title)}</div><div class="ns">${esc(l.sub)}</div></a>${chip}</li>`; }).join("")}</ol>
+  <section class="panel libpanel"><div class="lab">Case library</div><h3 class="h3s">100 pathologic EEG cases · 5 tiers</h3>
+    <p>Spot it, localize it, name it, seizure or not, then hero. Gold “Where to look” boxes help when you're stuck; blue labels explain after you answer.</p>
+    <div class="tchips">${LIBT.map(x => { const s = tierStats(x.n); return `<a class="chip ${s.cleared ? "ok" : s.done ? "gold" : "go"}" href="#lib-${x.n}">Tier ${x.n} · ${esc(x.name)} · ${s.aced}/${s.n}</a>`; }).join("")}</div>
+    <a class="tbtn primary" href="#lib">Open the 100 cases →</a></section>
+  <section class="plan"><h3 class="h3s">How to study EEG: zero to hero</h3>
+    ${tbl({head:["When","Levels","How"], rows:D.PLAN.map(p => [esc(p.when), esc(p.what), esc(p.how)])})}
+    <div class="call key"><b class="cl">Daily habit, 15 minutes</b>One tracing from the levels: spot the finding before showing the markings, switch montages until the localization makes sense, then answer three quiz questions or one case.</div>
+  </section>
+  <p class="reset">Progress is saved on this device only. <button type="button" class="tbtn" data-reset>Reset progress</button></p>`;
+}
+function railHTML(cur) {
+  return LEVELS.map(l => { const done = l.cases ? heroDone() : cleared(l.id);
+    return `<a href="#${l.cases ? "cases" : l.id}" class="${done ? "done" : ""}" aria-current="${l.id === cur}"><span class="rn">${done ? "✓" : l.n}</span><span class="rt">${esc(l.title)}</span></a>`; }).join("");
+}
+function refreshRail() { const r = $("#rail"); if (r && !$("[data-view=learn]").hidden) r.innerHTML = railHTML(P.last); }
+function renderLevel(id) {
+  const l = LBY[id]; P.last = id; save();
+  $("#tabLearn").setAttribute("href", "#" + id);
+  $("#rail").innerHTML = railHTML(id);
+  const nFig = l.blocks.filter(b => b.fig).length, prev = LEVELS[l.n - 1], next = LEVELS[l.n + 1];
+  $("#lesson").innerHTML = `
+  <div class="lhead"><div class="kick">Level ${l.n} of 10</div><h2>${esc(l.title)}</h2><p class="lsub">${esc(l.sub)}</p>
+    <p class="lmeta">About ${l.mins} minutes · ${nFig} tracing${nFig === 1 ? "" : "s"} · ${l.quiz.length} questions · ${cleared(id) ? `cleared (best ${Math.round(P.lv[id] * 100)}%)` : "80% clears it"}</p></div>
+  <div class="panel goals"><div class="lab">By the end you can</div><ul>${l.goals.map(g => `<li>${esc(g)}</li>`).join("")}</ul></div>
+  ${l.blocks.map(block).join("")}
+  ${qHTML(id, l.quiz, "Level-up check", `Answer all ${l.quiz.length}; ${Math.ceil(PASS * l.quiz.length)} right clears Level ${l.n}.`)}
+  <nav class="lnav">${prev ? `<a class="tbtn" href="#${prev.id}">← Level ${prev.n} · ${esc(prev.title)}</a>` : `<a class="tbtn" href="#path">← Path</a>`}${next ? `<a class="tbtn" href="#${next.cases ? "cases" : next.id}">${next.cases ? "Hero trials" : `Level ${next.n} · ${esc(next.title)}`} →</a>` : ""}</nav>`;
+  mountFigs($("#lesson"));
+}
+function renderCases() {
+  const ca = casesAced();
+  $("#vCases").innerHTML = `<div class="vhead"><h2>Hero trials</h2><p>Adult cases. Read the unmarked EEG with the 7-step routine, answer two questions, then the markings and teaching points open. Ace ${HERO_CASES} of ${CASES.length} (both answers right) to clear Level 10. Aced so far: ${ca}. Want more? <a href="#lib">Try the 100-case library →</a></p></div>
+  <div class="cgrid">${CASES.map(c => { const s = P.cs[c.id];
+    return `<a class="ccard" href="#case-${c.id}"><span class="chip ${s && s.ace ? "ok" : s ? "gold" : ""}">${s && s.ace ? "Aced ✓" : s ? "Answered" : `Case ${c.n + 1}`}</span><span class="ct">${esc(c.title)}</span><span class="cs">${esc(c.stem)}</span></a>`; }).join("")}</div>`;
+}
+function renderCase(id) {
+  const c = CBY[id], s = P.cs[id], prev = CASES[c.n - 1], next = CASES[c.n + 1];
+  $("#vCases").innerHTML = `<div data-case="${id}">
+  <div class="casehead"><a class="tbtn" href="#cases">← All cases</a><span class="chip ${s && s.ace ? "ok" : ""}">Case ${c.n + 1} of ${CASES.length}${s && s.ace ? " · aced" : ""}</span></div>
+  <div class="vhead" style="margin-top:14px"><h2>${esc(c.title)}</h2></div>
+  <div class="panel stem">${esc(c.stem)}</div>
+  ${figHTML(c.spec, "case")}
+  ${qHTML(id, c.qs, "Your call", "")}
+  <div class="panel teach"${s && s.done ? "" : " hidden"}><div class="lab">Teaching points</div><ul>${c.teach.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>
+  <nav class="lnav">${prev ? `<a class="tbtn" href="#case-${prev.id}">← ${esc(prev.title)}</a>` : "<span></span>"}${next ? `<a class="tbtn" href="#case-${next.id}">${esc(next.title)} →</a>` : ""}</nav></div>`;
+  mountFigs($("#vCases"));
+}
+function renderLib(tier) {
+  const total = LIBC.filter(c => P.lib[c.id] && P.lib[c.id].ace).length, cur = tier ? "lib-" + tier : "lib";
+  const show = tier ? LIBT.filter(x => x.n === tier) : LIBT;
+  $("#vLib").innerHTML = `<div class="vhead"><h2>100 cases</h2><p>Pathologic EEGs in five tiers, adults first. Read each tracing cold; if you're stuck, tap <b>Where to look</b> for gold boxes on the channels and seconds that matter (no answer given). Answer both questions to see the blue labels and the teaching point. Ace ${Math.ceil(PASS * 20)} of 20 to clear a tier. Aced so far: ${total} of ${LIBC.length}.</p></div>
+  <nav class="tierbar" aria-label="Tiers">${[["lib", "All tiers"]].concat(LIBT.map(x => ["lib-" + x.n, `Tier ${x.n} · ${x.name}`])).map(([h, l]) => `<a class="tbtn" href="#${h}"${h === cur ? ' aria-current="page"' : ""}>${esc(l)}</a>`).join("")}</nav>
+  <div class="tiers">${show.map(x => { const s = tierStats(x.n); return `<section class="tier">
+    <div class="tierhead"><h3>Tier ${x.n} · ${esc(x.name)}</h3><span class="chip ${s.cleared ? "ok" : s.done ? "gold" : ""}">${s.cleared ? "Cleared · " : ""}${s.aced} of ${s.n} aced</span><p>${esc(x.sub)}</p></div>
+    <div class="tmeter" role="progressbar" aria-label="Tier ${x.n} aced" aria-valuemin="0" aria-valuemax="${s.n}" aria-valuenow="${s.aced}"><i style="width:${s.aced / s.n * 100}%"></i></div>
+    <p class="tiertip"><b>How to read this tier:</b> ${esc(x.tip)}</p>
+    <div class="lgrid">${LIBC.filter(c => c.t === x.n).map(c => { const r = P.lib[c.id];
+      return `<a class="lcard${r && r.ace ? " ace" : ""}" href="#lc-${c.id}"><span class="ln"><span>Case ${c.n}</span><span>${r && r.ace ? "Aced ✓" : r ? "Answered" : ""}</span></span><span class="lt">${esc(c.title)}</span></a>`; }).join("")}</div></section>`; }).join("")}</div>`;
+}
+function renderLibCase(id) {
+  const c = LIB[id], s = P.lib[id], prev = LIBC[c.n - 2], next = LIBC[c.n], T = LIBT[c.t - 1];
+  $("#vLib").innerHTML = `<div data-case="${id}">
+  <div class="casehead"><a class="tbtn" href="#lib-${c.t}">← Tier ${c.t} · ${esc(T.name)}</a><span class="chip ${s && s.ace ? "ok" : ""}">Case ${c.n} of ${LIBC.length}${s && s.ace ? " · aced" : ""}</span></div>
+  <div class="vhead" style="margin-top:14px"><div class="lab">Tier ${c.t} · ${esc(T.name)}</div><h2>${esc(c.title)}</h2></div>
+  <div class="panel stem">${esc(c.stem)}</div>
+  ${figHTML(c.spec, "lib")}
+  ${qHTML(id, c.qs, "Your call", "")}
+  <nav class="lnav">${prev ? `<a class="tbtn" href="#lc-${prev.id}">← Case ${prev.n}</a>` : "<span></span>"}${next ? `<a class="tbtn" href="#lc-${next.id}">Case ${next.n} →</a>` : ""}</nav></div>`;
+  mountFigs($("#vLib"));
+}
+function renderCheat() {
+  $("#vCheat").innerHTML = `<div class="vhead"><h2>Cheat sheet</h2><p>The numbers, rules and report structure from all ten levels on one page.</p></div>
+  <div class="cheat">${D.CHEAT.map(s => `<section class="panel"><h3>${esc(s.h)}</h3>${s.tbl ? tbl(s.tbl) : ""}${s.ul ? `<ul>${s.ul.map(x => `<li>${x}</li>`).join("")}</ul>` : ""}${s.ol ? `<ol>${s.ol.map(x => `<li>${x}</li>`).join("")}</ol>` : ""}</section>`).join("")}</div>`;
+}
+
+/* ---------- clicks ---------- */
+let resetArm = 0;
+document.addEventListener("click", e => {
+  const t = e.target;
+  const f = t.closest(".eegfig"), st = f && figs.get(f);
+  if (st) {
+    const m = t.closest("[data-m]"); if (m) { st.m = m.dataset.m; draw(f); return; }
+    const pg = t.closest("[data-pg]"); if (pg) { st.page = Math.max(0, st.page + +pg.dataset.pg); draw(f); return; }
+    if (t.closest("[data-mark]") && !st.locked) { st.ann = st.ann === true ? false : true; draw(f); return; }
+    if (t.closest("[data-hint]")) { st.ann = st.ann === "hint" ? false : "hint"; draw(f); return; }
+  }
+  if (t.closest("[data-old]")) { P.old = !P.old; save(); redrawAll(); refreshHead(); return; }
+  const opt = t.closest(".opt"); if (opt && !opt.disabled) { answer(opt); return; }
+  const rt = t.closest("[data-retry]");
+  if (rt) { const key = rt.dataset.retry; answers[key] = null; const sec = rt.closest("[data-quiz]"); const qs = qsFor(key);
+    const tmp = document.createElement("div"); tmp.innerHTML = qHTML(key, qs, $("h3", sec).textContent, $(".qintro", sec)?.textContent || ""); sec.replaceWith(tmp.firstElementChild); return; }
+  const hmb = t.closest("[data-hm]"); if (hmb) { hm.m = hmb.dataset.hm; refreshHead(); return; }
+  const el = t.closest("[data-el]"); if (el) { hm.el = el.dataset.el; refreshHead(); return; }
+  const rs = t.closest("[data-reset]");
+  if (rs) {
+    if (Date.now() - resetArm < 4000) { P = {lv:{}, cs:{}, lib:{}, last:"L0", old:P.old}; save(); Object.keys(answers).forEach(k => delete answers[k]); renderPath(); return; }
+    resetArm = Date.now(); rs.textContent = "Tap again to erase all progress"; setTimeout(() => { if (rs.isConnected) rs.textContent = "Reset progress"; }, 4000); return;
+  }
+});
+document.addEventListener("change", e => {
+  const s = e.target.closest("[data-sens]"); if (!s) return;
+  const f = s.closest(".eegfig"), st = figs.get(f); if (st) { st.sens = +s.value; draw(f); }
+});
+document.addEventListener("keydown", e => {
+  const el = e.target.closest && e.target.closest("[data-el]");
+  if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); hm.el = el.dataset.el; refreshHead(); const n = $(`[data-el="${hm.el}"]`); if (n) n.focus(); }
+});
+
+/* ---------- routing ---------- */
+const EMBED = document.documentElement.classList.contains("embed");
+let first = true;
+function setHash(h) { if (EMBED) { history.replaceState(null, "", "#" + h); route(); } else location.hash = h; }
+document.addEventListener("click", e => {
+  if (!EMBED) return;
+  const a = e.target.closest('a[href^="#"]'); if (!a) return;
+  e.preventDefault(); setHash(a.getAttribute("href").slice(1));
+});
+function showTab(tab) {
+  $$(".view").forEach(v => { v.hidden = v.dataset.view !== tab; });
+  $$("nav.tabs a").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+}
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  figs.forEach((_, f) => { if (!f.isConnected) figs.delete(f); });
+  if (LBY[h] && !LBY[h].cases) { showTab("learn"); renderLevel(h); }
+  else if (h === "cases" || h === "L10") { showTab("cases"); renderCases(); }
+  else if (h.startsWith("case-") && CBY[h.slice(5)]) { showTab("cases"); renderCase(h.slice(5)); }
+  else if (h === "lib" || /^lib-[1-5]$/.test(h)) { showTab("lib"); renderLib(h === "lib" ? 0 : +h.slice(4)); }
+  else if (h.startsWith("lc-") && LIB[h.slice(3)]) { showTab("lib"); renderLibCase(h.slice(3)); }
+  else if (h === "cheat") { showTab("cheat"); renderCheat(); }
+  else { showTab("path"); renderPath(); }
+  $("#tabLearn").setAttribute("href", "#" + (P.last || "L0"));
+  if (!first) { try { $("header.top").scrollIntoView({block: "start"}); } catch (e) {} }
+  first = false;
+}
+addEventListener("hashchange", route);
+route();
+})();
+</script>
+</body>
+</html>

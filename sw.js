@@ -2,7 +2,7 @@
    Strategy: always try the network first (so you get updates right away),
    and fall back to the saved copy when offline or the network is too slow.
    When adding files in a later phase, add them to SHELL and bump CACHE_VERSION. */
-const CACHE_VERSION = 'v0.11.31';
+const CACHE_VERSION = 'v0.11.34';
 const CACHE = `life-dashboard-${CACHE_VERSION}`;
 const NETWORK_TIMEOUT_MS = 3500;
 
@@ -133,6 +133,10 @@ const SHELL = [
   'js/modules/clinical/neuro-localizer.html',
   'js/modules/clinical/seizure-semiology.html',
   'js/modules/clinical/seizure-data.js',
+  'js/modules/clinical/eeg-guide.html',
+  'js/modules/clinical/eeg-sim.js',
+  'js/modules/clinical/eeg-data.js',
+  'js/modules/clinical/eeg-library.js',
   'js/modules/clinical/tract-atlas.html',
   'js/modules/clinical/localizer-slices.js',
   'js/modules/clinical/localizer-cerebrum.js',
