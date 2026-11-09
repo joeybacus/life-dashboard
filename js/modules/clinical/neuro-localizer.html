@@ -122,6 +122,9 @@ select.tsel{font-family:var(--f-label);font-size:12.5px;padding:6px 8px;border-r
 #svg.outline .st.hit > *{stroke:#ff4d7d;stroke-width:2.4}
 #svg.outline .tl{fill:#fff;stroke:#000}
 #svg.outline .mid{stroke:#ffd24a}
+/* Outlines off (0.11.36): the plain scan or diagram; hovering or picking a structure in the report still shows it */
+#svg.nolines .st:not(.hov):not(.foc):not(.foc2) > *{stroke:none!important}
+#svg.nolines .o-line,#svg.nolines .mid{display:none}
 .mripanel{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:grid;gap:8px;background:var(--panel-2)}
 .mrirow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .mriinfo{font-family:var(--f-label);font-size:12.5px;color:var(--muted)}
@@ -137,6 +140,7 @@ select.tsel{font-family:var(--f-label);font-size:12.5px;padding:6px 8px;border-r
 .stage.erase canvas{cursor:cell}
 .side-l,.side-r{position:absolute;top:8px;font-family:var(--f-label);font-weight:600;font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:1px 9px;pointer-events:none}
 .side-l{left:8px}.side-r{right:8px}
+.lvl{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font-family:var(--f-label);font-weight:600;font-size:12.5px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 12px;pointer-events:none;white-space:nowrap;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px rgba(0,0,0,.35)}
 .tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--panel);font-family:var(--f-label);font-size:12px;padding:3px 8px;border-radius:6px;max-width:260px;transform:translate(-50%,-130%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hint{font-size:13px;color:var(--muted);margin:8px 0 0}
 .o-bg{fill:var(--s-out)}
@@ -274,6 +278,7 @@ body{margin:0}
           <button type="button" class="tbtn" id="clear">Clear</button>
           <select class="tsel" id="preset" aria-label="Example lesions"></select>
           <label class="toggle"><input type="checkbox" id="tLabels" checked> Labels</label>
+          <label class="toggle"><input type="checkbox" id="tLines" checked> Outlines</label>
           <label class="toggle"><input type="checkbox" id="tTerr"> Arteries</label>
           <button type="button" class="tbtn mri-btn" id="mriBtn" aria-expanded="false" aria-controls="mriPanel">Own scan</button>
         </div>
@@ -301,10 +306,10 @@ body{margin:0}
           </div>
         </div>
         <div class="shead"><div><p class="sname" id="sname"></p><p class="sview" id="sview"></p></div><div class="locator" id="locator" hidden></div></div>
-        <div class="stage" id="stage"><canvas id="mri" class="mri" hidden aria-label="MRI scan"></canvas><svg id="svg" aria-hidden="true"></svg><canvas id="cv" aria-label="Drawing surface: paint the lesion here"></canvas><span class="side-l">R</span><span class="side-r">L</span><div class="tip" id="tip" hidden></div></div>
+        <div class="stage" id="stage"><canvas id="mri" class="mri" hidden aria-label="MRI scan"></canvas><svg id="svg" aria-hidden="true"></svg><canvas id="cv" aria-label="Drawing surface: paint the lesion here"></canvas><span class="side-l">R</span><span class="side-r">L</span><div class="tip" id="tip" hidden></div><div class="lvl" id="lvl" hidden aria-live="polite"></div></div>
         <div class="focus" id="focus" hidden aria-live="polite"></div>
         <div class="legend" id="legend" hidden></div>
-        <p class="hint">MRI view shows a real brain (MNI152 template) under the atlas outlines; switch to Drawing for the coloured diagram, or use Own scan for your patient’s images. Hover to name a structure; click a structure name in the report to show it on the image and follow its pathway. Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
+        <p class="hint">MRI view shows a real brain (MNI152 template) under the atlas outlines; switch to Drawing for the coloured diagram, or use Own scan for your patient’s images. Hover to name a structure; click a structure name in the report to show it on the image and follow its pathway. Scroll over the image to move up and down through the levels (or through your own scan’s images). Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
       </div>
       <aside class="panel report" id="report" aria-live="polite"></aside>
     </div>
@@ -596,7 +601,7 @@ function svgFor(B) {
 }
 
 /* ---------- state ---------- */
-const state = {slice:"ax-bg", mode:"draw", brush:14, labels:true, terr:false, tab:"mapper", paraSide:"R", view:"mri"};
+const state = {slice:"ax-bg", mode:"draw", brush:14, labels:true, lines:true, terr:false, tab:"mapper", paraSide:"R", view:"mri"};
 const MRI_IMG = new Set(["ax-vx","ax-cr","ax-bg","ax-ml","cor-a","cor","cor-p","sag","ax-pf","mb-u","mb-l","p-u","p-m","p-l","pmj","m-u","m-m","m-l"]);
 const mriSrc = sl => sl.id === "para" ? `mri/para-${state.paraSide}.jpg` : (MRI_IMG.has(sl.id) ? `mri/${sl.id}.jpg` : "");
 const saved = {}, visited = {}, undo = {};
@@ -1082,6 +1087,8 @@ cv.addEventListener("wheel", e => { if (!alignActive()) return; e.preventDefault
 $("#vMri").onclick = () => { state.view = "mri"; try { localStorage.setItem("loc-view", "mri"); } catch (x) {} renderMRI(); };
 $("#vDraw").onclick = () => { state.view = "draw"; try { localStorage.setItem("loc-view", "draw"); } catch (x) {} renderMRI(); };
 try { if (localStorage.getItem("loc-view") === "draw") state.view = "draw"; } catch (x) {}
+try { if (localStorage.getItem("loc-labels") === "off") state.labels = false; if (localStorage.getItem("loc-lines") === "off") state.lines = false; } catch (x) {}
+$("#tLabels").checked = state.labels; $("#tLines").checked = state.lines; svg.classList.toggle("nolines", !state.lines);
 $("#mriBtn").onclick = () => { const open = $("#mriPanel").hidden; $("#mriPanel").hidden = !open; $("#mriBtn").setAttribute("aria-expanded", String(open)); };
 $("#mriFile").addEventListener("change", e => { loadFiles(e.target.files); e.target.value = ""; });
 $("#mriClear").onclick = clearMRI;
@@ -1118,12 +1125,56 @@ $("#pR").onclick = () => setPara("R"); $("#pL").onclick = () => setPara("L");
 $("#undo").onclick = () => { const u = undo[state.slice]; if (u && u.length) { cx.putImageData(u.pop(), 0, 0); analyze(); } };
 $("#clear").onclick = () => { pushUndo(); cx.clearRect(0, 0, cv.width, cv.height); analyze(); };
 $("#preset").onchange = e => { const i = e.target.value; if (i === "") return; pushUndo(); cx.clearRect(0, 0, cv.width, cv.height); paintShapes(B.sl.presets[+i].sh, B.sl); analyze(); e.target.value = ""; };
-$("#tLabels").onchange = e => { state.labels = e.target.checked; $("#labLayer", svg)?.toggleAttribute("hidden", !state.labels); };
+$("#tLabels").onchange = e => { state.labels = e.target.checked; try { localStorage.setItem("loc-labels", state.labels ? "on" : "off"); } catch (x) {} $("#labLayer", svg)?.toggleAttribute("hidden", !state.labels); };
+$("#tLines").onchange = e => { state.lines = e.target.checked; try { localStorage.setItem("loc-lines", state.lines ? "on" : "off"); } catch (x) {} svg.classList.toggle("nolines", !state.lines); };
 $("#tTerr").onchange = e => { state.terr = e.target.checked; $("#terrLayer", svg)?.toggleAttribute("hidden", !state.terr); renderLegend(); };
 
 const groups = [...new Set(SL.map(s => s.group))];
 $("#slices").innerHTML = groups.map(g => `<h3 class="lab">${g}</h3>` + SL.filter(s => s.group === g).map(s => `<button type="button" class="sl" data-s="${s.id}" aria-current="false">${esc(s.name)}</button>`).join("")).join("");
 $("#slices").addEventListener("click", e => { const b = e.target.closest(".sl"); if (b) go(b.dataset.s); });
+
+/* Scroll through the levels like a scan viewer (0.11.36): the wheel or a two-finger scroll over the image moves to the
+   next level in the same stack (axial brain top to bottom, coronal front to back, sagittal midline to lateral,
+   brainstem down into the cord), or through your own scan's images when a series is loaded. A page scroll that is
+   already moving carries on over the image instead of being caught by it. */
+const STACKS = [
+  ["ax-vx", "ax-cr", "ax-bg", "ax-ml", "ax-pf"],
+  ["cor-a", "cor", "cor-p"],
+  ["sag", "para"],
+  SL.filter(s => s.group === "Brainstem" || s.group === "Spinal cord").map(s => s.id)
+].map(a => a.filter(id => BYS[id])).filter(a => a.length > 1);
+let lvlTimer = 0;
+function flashLevel(text) {
+  const el = $("#lvl"); el.textContent = text; el.hidden = false;
+  clearTimeout(lvlTimer); lvlTimer = setTimeout(() => { el.hidden = true; }, 1400);
+}
+function stepLevel(dir) {
+  if (mri.frames.length > 1) {
+    const p = cur(), n = Math.max(0, Math.min(mri.frames.length - 1, p.idx + dir));
+    if (n !== p.idx) { p.idx = n; renderMRI(); }
+    flashLevel(`Image ${p.idx + 1} / ${mri.frames.length}`);
+    return;
+  }
+  const st = STACKS.find(a => a.includes(state.slice));
+  if (!st) return;
+  const i = st.indexOf(state.slice), j = Math.max(0, Math.min(st.length - 1, i + dir));
+  if (j !== i) go(st[j]);
+  flashLevel(`${BYS[st[j]].name} · ${j + 1} / ${st.length}`);
+}
+let wheelAcc = 0, wheelAt = 0, pageWheelAt = 0;
+addEventListener("wheel", e => { if (!stage.contains(e.target)) pageWheelAt = performance.now(); }, {passive:true});
+stage.addEventListener("wheel", e => {
+  if (e.ctrlKey || alignActive()) return;                      // pinch-zoom, and zooming a scan while aligning it
+  if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;         // sideways swipes stay with the browser
+  const now = performance.now();
+  if (now - pageWheelAt < 350) { pageWheelAt = now; return; } // the page was already scrolling: let it carry on
+  e.preventDefault();
+  if (now - wheelAt < 250) { wheelAcc = 0; return; }           // one step per flick, not a run through every level
+  wheelAcc += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+  if (Math.abs(wheelAcc) < 40) return;
+  const dir = wheelAcc > 0 ? 1 : -1; wheelAcc = 0; wheelAt = now;
+  stepLevel(dir);
+}, {passive:false});
 
 /* ---------- reference views ---------- */
 function renderTracts() {

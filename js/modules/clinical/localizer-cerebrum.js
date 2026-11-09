@@ -256,7 +256,9 @@ S.push({
     {id:"cbh", n:"Cerebellar hemisphere (posterior lobe: Crus I and II, lobules VI–VIII)", a:"CbH", k:"ctx", sh:["p","M300.0,-23.9 L-153.2,-23.9 L-153.2,644.0 L300.0,644.0 Z"], clip:"out", fn:"Limb coordination; cognition (Crus I/II)", d:[D.ataxI,["{I} intention tremor and dysdiadochokinesia","ipsi"],["Dysarthria","bi"],["Executive and visuospatial problems (cerebellar cognitive affective syndrome)","bi"]]},
     {id:"floc", n:"Flocculus and paraflocculus", a:"Floc", k:"ctx", sh:["e",176.0,224.2,16.7,11.9], fn:"Gaze holding, pursuit, VOR suppression", d:[["Downbeat and gaze-evoked nystagmus, broken pursuit","bi"],["Imbalance","ipsi"]]},
     {id:"mcp", n:"Middle cerebellar peduncle", a:"MCP", k:"tract", sh:["p","M228.4,138.3 L209.4,157.4 L176.0,214.7 L152.1,252.8 L171.2,271.9 L204.6,243.3 L238.0,205.1 Z"], fn:"Pontocerebellar input", d:[D.ataxI]},
-    {id:"vroot", n:"Trigeminal nerve root (cerebellopontine angle)", a:"V", k:"tract", sh:["p","M218.9,124.0 L171.2,100.2 L166.4,114.5 L214.1,143.1 Z"], fn:"Facial sensation and chewing", d:[["{I} facial numbness and weak chewing","ipsi"]]},
+    /* The V root also fills the cistern strip beside the basis pontis (0.11.36): cbh and the SCA territory are
+       half-plane catch-alls, so anything left uncovered there was read as cerebellar hemisphere. */
+    {id:"vroot", n:"Trigeminal nerve root (cerebellopontine angle)", a:"V", k:"tract", sh:["p","M214.1,143.1 L166.4,114.5 L171.2,100.2 L200.0,40.0 L271.4,40.0 L271.4,71.6 L238.0,81.1 L218.9,105.0 L214.1,138.3 Z"], fn:"Facial sensation and chewing", d:[["{I} facial numbness and weak chewing","ipsi"]]},
     {id:"dent", n:"Dentate nucleus", a:"Dent", k:"nuc", sh:["p","M252.3,281.5 L233.2,271.9 L214.1,276.7 L199.8,291.0 L204.6,310.1 L223.7,319.6 L242.8,314.9 L252.3,300.6 Z"], fn:"Cerebellar output to the opposite thalamus and red nucleus", d:[["{I} intention tremor, dysmetria","ipsi"]]},
     {id:"intp", n:"Interposed nuclei (emboliform and globose)", a:"Int", k:"nuc", sh:["e",259.4,281.5,8.6,8.6], fn:"Output to red nucleus", d:[D.ataxI]},
     {id:"fast", n:"Fastigial nucleus", a:"Fast", k:"nuc", sh:["e",283.3,264.8,7.2,7.2], fn:"Vestibular and saccade control", d:[["Truncal ataxia, saccadic overshoot","bi"]]},
@@ -271,7 +273,7 @@ S.push({
     {id:"sca", n:"Superior cerebellar artery (lateral branch): superolateral hemisphere, dentate nucleus, superior peduncle", f:"SCA", sh:["p","M300.0,-23.9 L-153.2,-23.9 L-153.2,644.0 L300.0,644.0 Z"], clip:"out"},
     {id:"aica", n:"AICA: middle cerebellar peduncle, flocculus, anterior inferior hemisphere, trigeminal root zone", f:"AICA", sh:["p","M228.4,128.8 L195.0,157.4 L128.3,214.7 L85.3,286.2 L156.9,319.6 L204.6,252.8 L238.0,195.6 Z"], clip:"out"},
     {id:"pica", n:"PICA (medial branch): inferior vermis, nodulus, medial posterior hemisphere", f:"PICA", sh:["p","M300.0,257.6 L261.8,262.4 L228.4,333.9 L214.1,429.4 L252.3,500.9 L300.0,500.9 Z"], clip:"out"},
-    {id:"bcirc", n:"Short and long circumferential branches of the basilar artery: lateral pons", f:"BA", sh:["p","M257.1,71.6 L218.9,100.2 L209.4,147.9 L223.7,171.7 L242.8,171.7 L233.2,128.8 L261.8,81.1 Z"], clip:"out"},
+    {id:"bcirc", n:"Short and long circumferential branches of the basilar artery: lateral pons", f:"BA", sh:["p","M257.1,71.6 L240.0,40.0 L200.0,40.0 L209.4,147.9 L223.7,171.7 L242.8,171.7 L233.2,128.8 L261.8,81.1 Z"], clip:"out"},
     {id:"bpara", n:"Paramedian (pontine perforating) branches of the basilar artery", f:"BA", sh:["p","M300.0,71.6 L261.8,71.6 L252.3,138.3 L257.1,195.6 L300.0,195.6 Z"]}
   ],
   syn:[
