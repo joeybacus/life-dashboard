@@ -39,7 +39,7 @@ let listId = null;       // the list on screen
 let refreshTimer = null;
 let renderQueued = false;
 const expanded = new Set(); // "id|C" opened with Show more
-let editsDay = 0;            // Show edits: 0 off, 1 today, 2 yesterday, 3 two days ago
+const editsDays = new Set(); // Show edits: any of 1 today, 2 yesterday, 3 two days ago (none = off)
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const current = () => wardList(listId);
@@ -331,54 +331,73 @@ function arrangeBar(v) {
   </div>`;
 }
 
-/* ---------- Show edits: today, yesterday or 2 days ago, in red ---------- */
+/* ---------- Show edits: today in red, yesterday in yellow, 2 days ago in green ---------- */
 
 const EDIT_DAYS = ['Off', 'Today', 'Yesterday', '2 days ago'];
+const EDIT_COLOURS = ['', 'red', 'yellow', 'green'];
+const dayWord = (day) => EDIT_DAYS[day].toLowerCase();
 
-/** The Manila date Show edits is on, or null when it's off. */
-function editsDate() {
-  if (!editsDay) return null;
-  let date = manilaDateKey();
-  for (let i = 1; i < editsDay; i++) date = previousDateKey(date);
-  return date;
+/** The days Show edits is on, newest first: [{ day, date }] (empty when it's off). */
+function editsOn() {
+  const today = manilaDateKey();
+  const dates = [null, today, previousDateKey(today), previousDateKey(previousDateKey(today))];
+  return [1, 2, 3].filter((day) => editsDays.has(day)).map((day) => ({ day, date: dates[day] }));
 }
 
-/** What you changed in this patient's column on the day Show edits is on: { before, after },
-    null (noted before 0.8.0.10, without the text) or undefined (not edited that day). */
-const editOn = (p, col) => {
-  const date = editsDate();
-  return date ? p.edited?.[col]?.[date] : undefined;
+/** The days you changed this patient's column on, of the ones Show edits is on, newest first:
+    [{ day, edit }]. edit is { before, after }, or null (noted before 0.8.0.10, without the text). */
+const editsIn = (p, col) => editsOn()
+  .filter(({ date }) => p.edited?.[col]?.[date] !== undefined)
+  .map(({ day, date }) => ({ day, edit: p.edited[col][date] }));
+
+/** A whole box in the newest day's colour (locations, tick boxes): its words don't say what changed. */
+const editedClass = (p, col) => {
+  const [newest] = editsIn(p, col);
+  return newest ? ` is-edited edit-${newest.day}` : '';
 };
-const editedOn = (p, col) => editOn(p, col) !== undefined;
-/** Red for a whole box (locations, tick boxes): its words don't say what changed. */
-const editedClass = (p, col) => (editedOn(p, col) ? ' is-edited' : '');
-const editedNote = (p, col) => (editedOn(p, col) ? html`<span class="sr-only"> (edited ${EDIT_DAYS[editsDay].toLowerCase()})</span>` : '');
+const editedNote = (p, col) => {
+  const days = editsIn(p, col).map(({ day }) => dayWord(day));
+  return days.length ? html`<span class="sr-only"> (edited ${days.join(' and ')})</span>` : '';
+};
 
-/** The characters of a cell's text you wrote on the Show edits day (1 each), or null for none. */
-function redChars(p, col) {
-  const edit = editOn(p, col);
-  if (edit === undefined) return null;
+/** For each character of a cell's text, the Show edits day you wrote it on (1 today, 2 yesterday,
+    3 two days ago, 0 not edited), or null when you didn't edit it on any day that's on. Words you
+    changed on two days take the newer day's colour. */
+function editDayChars(p, col) {
+  const edits = editsIn(p, col);
+  if (!edits.length) return null;
   const text = String(p.cells[col] ?? '');
-  return (edit && editedChars(edit.before, edit.after, text)) || new Uint8Array(text.length).fill(1);
+  const out = new Uint8Array(text.length);
+  for (const { day, edit } of edits.reverse()) { // oldest first, so newer days colour over them
+    const chars = edit && editedChars(edit.before, edit.after, text);
+    if (chars) chars.forEach((on, k) => { if (on) out[k] = day; });
+    else out.fill(day);
+  }
+  return out;
 }
 
-/** "Text removed" under a box whose edit that day only took words out. */
+/** "Text removed" under a box, in that day's colour, for each day whose edit only took words out. */
 function removedNote(p, col) {
-  const red = editedOn(p, col) ? redChars(p, col) : null;
-  return red && !red.includes(1) ? html`<p class="pt__removed">${icon('edit')}Text removed ${EDIT_DAYS[editsDay].toLowerCase()}</p>` : '';
+  return editsIn(p, col)
+    .filter(({ edit }) => edit && editedChars(edit.before, edit.after, edit.after)?.includes(1) === false)
+    .map(({ day }) => html`<p class="pt__removed edit-${day}">${icon('edit')}Text removed ${dayWord(day)}</p>`);
 }
 
 function editsBar(v) {
-  const date = editsDate();
-  const count = date ? v.patients.reduce((n, p) => n + v.columns.filter((c) => p.edited?.[c.col]?.[date] !== undefined).length, 0) : 0;
-  const opt = (i) => html`<label class="segmented__opt"><input type="radio" name="ward-edits" value="${i}" data-focus="edits-${i}"${raw(editsDay === i ? ' checked' : '')}><span>${EDIT_DAYS[i]}</span></label>`;
+  const on = editsOn();
+  const opt = (i) => html`<label class="segmented__opt"><input type="checkbox" name="ward-edits" value="${i}" data-focus="edits-${i}"${raw((i ? editsDays.has(i) : !editsDays.size) ? ' checked' : '')}>
+    <span>${i ? html`<i class="ward-edits-by__swatch edit-${i}" aria-hidden="true"></i>` : ''}${EDIT_DAYS[i]}${i ? html`<i class="sr-only"> (${EDIT_COLOURS[i]})</i>` : ''}</span></label>`;
+  const line = ({ day, date }) => {
+    const count = v.patients.reduce((n, p) => n + v.columns.filter((c) => p.edited?.[c.col]?.[date] !== undefined).length, 0);
+    return html`<span class="ward-edits-by__item"><i class="ward-edits-by__swatch edit-${day}" aria-hidden="true"></i>${EDIT_DAYS[day]}: ${count
+      ? `${plural(count, 'box', 'boxes')} in ${EDIT_COLOURS[day]}` : 'no edits on this device'}</span>`;
+  };
   return html`<div class="ward-arrange-by ward-edits-by">
     <span class="ward-arrange-by__label" id="ward-edits-label">Show edits</span>
-    <div class="segmented" role="radiogroup" aria-labelledby="ward-edits-label">${[0, 1, 2, 3].map(opt)}</div>
+    <div class="segmented" role="group" aria-labelledby="ward-edits-label">${[0, 1, 2, 3].map(opt)}</div>
   </div>
-  ${date ? html`<p class="ward-edits-by__note" aria-live="polite">${count
-    ? html`<span class="ward-edits-by__swatch" aria-hidden="true"></span>What you changed ${EDIT_DAYS[editsDay].toLowerCase()} is in red (${plural(count, 'box', 'boxes')}).`
-    : `You didn’t edit anything ${EDIT_DAYS[editsDay].toLowerCase()} on this device.`}</p>` : ''}`;
+  ${on.length ? html`<p class="ward-edits-by__note" aria-live="polite">${on.map(line)}${on.length > 1
+    ? html`<span class="ward-edits-by__hint">Words changed on two days show the newer colour.</span>` : ''}</p>` : ''}`;
 }
 
 /** The table's column widths (iPad landscape and Mac), for the columns shown. */
@@ -505,21 +524,22 @@ function badges(p, v, { detail = false } = {}) {
 }
 
 /** A cell's text, with the parts that are bold or red in the logsheet in bold, and what you
-    changed on the Show edits day in red. */
+    changed on the Show edits days in that day's colour. */
 function cellText(p, col) {
   const text = String(p.cells[col] ?? '');
   const marks = p.marks?.[col];
-  const red = redChars(p, col);
-  if (!red) return marks ? marks.map(([t, on]) => (on ? html`<strong class="pt__mark">${t}</strong>` : t)) : text;
+  const days = editDayChars(p, col);
+  if (!days) return marks ? marks.map(([t, on]) => (on ? html`<strong class="pt__mark">${t}</strong>` : t)) : text;
   const bold = new Uint8Array(text.length);
   let at = 0;
   (marks ?? []).forEach(([t, on]) => { if (on) bold.fill(1, at, at + t.length); at += t.length; });
   const out = [];
   for (let i = 0; i < text.length;) {
     let j = i + 1;
-    while (j < text.length && bold[j] === bold[i] && red[j] === red[i]) j++;
+    while (j < text.length && bold[j] === bold[i] && days[j] === days[i]) j++;
     const t = text.slice(i, j);
-    out.push(bold[i] ? html`<strong class="pt__mark${red[i] ? ' pt__edit' : ''}">${t}</strong>` : red[i] ? html`<span class="pt__edit">${t}</span>` : t);
+    const edit = days[i] ? ` pt__edit edit-${days[i]}` : '';
+    out.push(bold[i] ? html`<strong class="pt__mark${edit}">${t}</strong>` : edit ? html`<span class="${edit.trim()}">${t}</span>` : t);
     i = j;
   }
   return out;
@@ -1463,9 +1483,14 @@ async function arrangeBy(value) {
 document.addEventListener('change', (event) => {
   if (showing === 'list' && event.target.name === 'ward-arrange' && view?.contains(event.target)) arrangeBy(event.target.value);
   if (showing === 'list' && event.target.name === 'ward-edits' && view?.contains(event.target)) {
-    editsDay = Number(event.target.value) || 0;
+    // Off clears the days; each day turns on and off by itself
+    const day = Number(event.target.value) || 0;
+    if (!day) editsDays.clear();
+    else if (event.target.checked) editsDays.add(day);
+    else editsDays.delete(day);
     render();
-    announce(editsDay ? `Showing what you edited ${EDIT_DAYS[editsDay].toLowerCase()} in red.` : 'Edits not shown.');
+    const on = editsOn().map(({ day: d }) => `${dayWord(d)} in ${EDIT_COLOURS[d]}`);
+    announce(on.length ? `Showing what you edited ${on.join(', ')}.` : 'Edits not shown.');
   }
 });
 registerAction('ward:open', (el) => openPatient(el.dataset.id));

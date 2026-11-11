@@ -1134,18 +1134,34 @@ button.wbadge { cursor: pointer; }
 .units-page .sub-head__bar { flex-wrap: wrap; row-gap: 8px; }
 .units-page .sub-head__actions { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 
-/* Show edits: the boxes you edited on the chosen day, in red */
+/* Show edits: what you edited today in red, yesterday in yellow, 2 days ago in green (any or all at once) */
+:root { --edit-today: var(--danger-ink); --edit-yesterday: #ffd23f; --edit-older: #4ade80; }
+[data-theme="light"] { --edit-yesterday: #9a6700; --edit-older: #15803d; }
+.edit-1 { --edit-ink: var(--edit-today); }
+.edit-2 { --edit-ink: var(--edit-yesterday); }
+.edit-3 { --edit-ink: var(--edit-older); }
 .ward-edits-by { margin-top: 8px; }
-.ward-edits-by .segmented__opt span { padding-inline: 4px; }
-.ward-edits-by__note { display: flex; align-items: center; gap: 8px; margin: 8px 4px 0; font-size: var(--fs-sm); color: var(--text-2); }
-.ward-edits-by__swatch { flex: none; width: .7rem; height: .7rem; border-radius: 50%; background: var(--danger-ink); }
-.pt__edit, .pt__mark.pt__edit, .pt__field.is-edited .pt__text { color: var(--danger-ink); }
-.pt__removed { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: var(--fs-xs, .8rem); font-weight: 600; color: var(--danger-ink); }
+.ward-edits-by .segmented { max-width: 26rem; }
+.ward-edits-by .segmented__opt { flex: 1 1 auto; } /* each button as wide as its words, so all four fit on a phone */
+.ward-edits-by .segmented__opt span { gap: 5px; padding-inline: 6px; }
+.ward-edits-by .segmented__opt > span { white-space: nowrap; }
+.ward-edits-by .segmented__opt .ward-edits-by__swatch { opacity: .45; transition: opacity var(--t) var(--ease); }
+.ward-edits-by .segmented__opt input:checked + span .ward-edits-by__swatch { opacity: 1; }
+.ward-edits-by__note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 8px 4px 0; font-size: var(--fs-sm); color: var(--text-2); }
+.ward-edits-by__item { display: inline-flex; align-items: center; gap: 8px; }
+.ward-edits-by__hint { flex-basis: 100%; color: var(--text-3); }
+.ward-edits-by__swatch { flex: none; display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; background: var(--edit-ink, var(--edit-today)); }
+.pt__edit, .pt__mark.pt__edit, .pt__field.is-edited .pt__text { color: var(--edit-ink, var(--edit-today)); }
+.pt__removed { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: var(--fs-xs, .8rem); font-weight: 600; color: var(--edit-ink, var(--edit-today)); }
 .pt__removed .icon { width: .85rem; height: .85rem; }
-.pt__field--check.is-edited .pt__box { box-shadow: 0 0 0 2px var(--danger-ink); }
+.pt__field--check.is-edited .pt__box { box-shadow: 0 0 0 2px var(--edit-ink, var(--edit-today)); }
 @media (max-width: 400px) {
   .ward-edits-by { flex-wrap: wrap; }
   .ward-edits-by .segmented { flex-basis: 100%; max-width: none; }
+  .ward-edits-by .segmented__opt span { padding-inline: 3px; }
+}
+@media (max-width: 350px) {
+  .ward-edits-by .segmented__opt > span { white-space: normal; line-height: 1.15; }
 }
 
 /* ---- Reports: the daily summary and one patient's referral (report-page.js) ---- */
