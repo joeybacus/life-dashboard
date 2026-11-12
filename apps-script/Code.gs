@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 20;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder)
+const SCRIPT_VERSION = 21;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder) · 21: the Neuro Pad (your Neurology images with categories and tags: Neuro Pad and Neuro Pad labels tabs; the images in a Google Drive folder)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -45,6 +45,8 @@ const STORES = {
   units: 'NCCU-ACSU',      // a box per NCCU/ACSU bed: the patient's name and your duty to-dos (and your subcategories)
   guidelines: 'Guidelines', // your saved guidelines: title, topic, link, notes; their PDFs are files in the "Life Dashboard Guidelines" Drive folder
   cases: 'Cases',           // your teaching cases (no patient names): title, date, diagnosis, tags, the case, what you learned
+  padLabels: 'Neuro Pad labels', // the Neuro Pad's categories and tags: name and colour
+  padImages: 'Neuro Pad',        // the Neuro Pad's images: title, category, tags, note; the images are files in the "Life Dashboard Neuro Pad" Drive folder
 };
 
 // Tabs this script fills in itself. The app reads them but never sends them.
@@ -55,7 +57,7 @@ const SCRIPT_STORES = {
 // Saved in this order, so names used by later tabs (categories, task titles) are up to date
 const SAVE_ORDER = ['profile', 'settings', 'taskCategories', 'tasks', 'subtasks', 'habits', 'habitLogs', 'focusSessions',
   'workouts', 'exercises', 'templates', 'bodyMeasurements', 'progressPhotos', 'wardLists', 'referrals', 'units',
-  'guidelines', 'cases'];
+  'guidelines', 'cases', 'padLabels', 'padImages'];
 
 // Fixed columns on every data tab. "json" holds the complete item; the
 // columns after it are a readable copy for you and are ignored by the app.
@@ -191,6 +193,15 @@ function doPost(e) {
     }
   }
 
+  // Neuro Pad images go to and from Google Drive (sync script 21), like progress photos: no lock
+  if (PAD_ACTIONS[req.action]) {
+    try {
+      return json_(PAD_ACTIONS[req.action](props, req));
+    } catch (err) {
+      return json_({ ok: false, version: SCRIPT_VERSION, error: padError_(err), message: String((err && err.message) || err) });
+    }
+  }
+
   // Progress photos go to and from Google Drive (no lock: a big photo shouldn't hold up sync)
   if (PHOTO_ACTIONS[req.action]) {
     try {
@@ -313,6 +324,11 @@ function push_(ss, props, req) {
   // A guideline deleted, brought back, or given a new PDF (or none): only its current PDF stays out of the Drive trash
   (byStore.guidelines || []).forEach(function (record) {
     if (results['guidelines:' + record.id] === 'applied') guideTidyFiles_(props, record);
+  });
+
+  // A Neuro Pad image deleted (or brought back with Undo): its Drive files follow it to the trash (and back)
+  (byStore.padImages || []).forEach(function (record) {
+    if (results['padImages:' + record.id] === 'applied') padTrashFiles_(props, record);
   });
 
   // Versions a device replaced when it first joined sync
@@ -564,6 +580,109 @@ function guideTidyFiles_(props, record) {
   } catch (err) {
     Logger.log('Couldn’t update a guideline’s PDF in Drive: ' + ((err && err.message) || err));
   }
+}
+
+/* ---------- Neuro Pad images (version 21) ----------
+ * Each image is a row in the Neuro Pad tab (synced like the rest); its
+ * categories and tags are rows in the Neuro Pad labels tab. The image itself is
+ * up to two files in the "Life Dashboard Neuro Pad" folder of your Google Drive:
+ * the full original, and a copy of about 1 MB that your other devices download.
+ *   padUpload   { id, kind: 'original' | 'copy', mime, data (base64), name }
+ *               → { fileId, url }. Sending the same file again returns the one already there.
+ *   padDownload { fileId } → { mime, data } — only files in that folder.
+ * Deleting an image in the app moves its files to the Drive trash (recoverable for
+ * 30 days); Undo takes them out again. Nothing here ever deletes a file for good.
+ */
+const PAD_FOLDER = 'Life Dashboard Neuro Pad';
+const PAD_KINDS = { original: true, copy: true };
+const PAD_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif', 'image/gif': 'gif' };
+const PAD_MAX_CHARS = 40 * 1024 * 1024; // base64 characters in one upload (about 30 MB of image)
+
+const PAD_ACTIONS = {
+  padUpload: padUpload_,
+  padDownload: padDownload_,
+};
+
+/** The Neuro Pad folder (made the first time it's needed; made again if it was deleted). */
+function padFolder_(props) {
+  const id = props.getProperty('PAD_FOLDER');
+  if (id) {
+    try {
+      const folder = DriveApp.getFolderById(id);
+      if (!folder.isTrashed()) return folder;
+    } catch (err) {
+      // deleted for good, or no longer ours: make a new one
+    }
+  }
+  const folder = DriveApp.createFolder(PAD_FOLDER);
+  props.setProperty('PAD_FOLDER', folder.getId());
+  return folder;
+}
+
+function padUpload_(props, req) {
+  const id = String(req.id || '');
+  const kind = String(req.kind || '');
+  const mime = String(req.mime || 'image/jpeg').toLowerCase();
+  const data = typeof req.data === 'string' ? req.data : '';
+  if (!/^[\w-]{1,80}$/.test(id) || !PAD_KINDS[kind] || !PAD_TYPES[mime] || !data) return { ok: false, version: SCRIPT_VERSION, error: 'pad-bad-request' };
+  if (data.length > PAD_MAX_CHARS) return { ok: false, version: SCRIPT_VERSION, error: 'pad-too-large' };
+  const folder = padFolder_(props);
+  const name = id + '-' + kind + '.' + PAD_TYPES[mime];
+  const same = folder.getFilesByName(name);
+  while (same.hasNext()) {
+    const file = same.next();
+    if (!file.isTrashed()) return { ok: true, version: SCRIPT_VERSION, fileId: file.getId(), url: file.getUrl(), existed: true };
+  }
+  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, name));
+  const title = req.name ? String(req.name).slice(0, 200) : '';
+  file.setDescription('Life Dashboard Neuro Pad image (' + kind + ')' + (title ? ' · ' + title : ''));
+  return { ok: true, version: SCRIPT_VERSION, fileId: file.getId(), url: file.getUrl() };
+}
+
+function padDownload_(props, req) {
+  const file = padFile_(props, req.fileId);
+  if (!file) return { ok: false, version: SCRIPT_VERSION, error: 'pad-not-found' };
+  if (file.isTrashed()) return { ok: false, version: SCRIPT_VERSION, error: 'pad-trashed' };
+  const blob = file.getBlob();
+  return { ok: true, version: SCRIPT_VERSION, mime: blob.getContentType() || 'image/jpeg', data: Utilities.base64Encode(blob.getBytes()) };
+}
+
+/** A file in the Neuro Pad folder, or null (the app can't reach any other file in your Drive). */
+function padFile_(props, fileId) {
+  const id = String(fileId || '');
+  if (!/^[\w-]{10,100}$/.test(id)) return null;
+  const folderId = props.getProperty('PAD_FOLDER');
+  if (!folderId) return null;
+  let file;
+  try {
+    file = DriveApp.getFileById(id);
+  } catch (err) {
+    return null;
+  }
+  const parents = file.getParents();
+  while (parents.hasNext()) if (parents.next().getId() === folderId) return file;
+  return null;
+}
+
+/** Move an image's files to the Drive trash when it's deleted, and back when it isn't. */
+function padTrashFiles_(props, record) {
+  [record.originalFileId, record.copyFileId].forEach(function (fileId) {
+    if (!fileId) return;
+    try {
+      const file = padFile_(props, fileId);
+      const trash = Boolean(record.deletedAt);
+      if (file && file.isTrashed() !== trash) file.setTrashed(trash);
+    } catch (err) {
+      Logger.log('Couldn’t update a Neuro Pad image in Drive: ' + ((err && err.message) || err));
+    }
+  });
+}
+
+function padError_(err) {
+  const message = String((err && err.message) || err);
+  if (/permission|authori[sz]/i.test(message)) return 'pad-needs-permission';
+  if (/storage|quota|limit/i.test(message)) return 'pad-drive-full';
+  return 'server';
 }
 
 function guideError_(err) {
@@ -1776,6 +1895,23 @@ const LAYOUTS = {
     Updated: function (c) { return shownTime_(c.updatedAt); },
     Deleted: function (c) { return shownTime_(c.deletedAt); },
   },
+  padLabels: {
+    Kind: function (l) { return l.kind === 'tag' ? 'Tag' : 'Category'; },
+    Name: function (l) { return l.name || ''; },
+    Colour: function (l) { return l.color || ''; },
+    Updated: function (l) { return shownTime_(l.updatedAt); },
+    Deleted: function (l) { return shownTime_(l.deletedAt); },
+  },
+  padImages: {
+    Title: function (p) { return p.title || ''; },
+    Category: function (p, ctx) { return ctx.name('padLabels', p.categoryId); },
+    Tags: function (p, ctx) { return list_(p.tagIds).map(function (id) { return ctx.name('padLabels', id); }).filter(function (n) { return n; }).join(', '); },
+    Note: function (p) { return p.note || ''; },
+    'Image in Drive': function (p) { const id = p.originalFileId || p.copyFileId; return id ? 'https://drive.google.com/file/d/' + id + '/view' : ''; },
+    Added: function (p) { return shownTime_(p.takenAt || p.createdAt); },
+    Updated: function (p) { return shownTime_(p.updatedAt); },
+    Deleted: function (p) { return shownTime_(p.deletedAt); },
+  },
   calendarLinks: {
     Task: function (l, ctx) {
       return l.item === 'subtask' ? ctx.name('subtasks', l.id) + ' (subtask of ' + ctx.name('tasks', l.taskId) + ')' : ctx.name('tasks', l.id);
@@ -1799,6 +1935,7 @@ const DEPENDENTS = {
   tasks: [['subtasks', 'taskId'], ['focusSessions', 'taskId'], ['calendarLinks', 'id'], ['calendarLinks', 'taskId']],
   subtasks: [['calendarLinks', 'id']],
   habits: [['habitLogs', 'habitId']],
+  padLabels: [['padImages', 'categoryId'], ['padImages', 'tagIds']],
 };
 
 /** Names of categories, tasks and habits, for the readable columns of other tabs. */
@@ -1910,7 +2047,8 @@ function refreshDependents_(ss, renamed, ctx) {
         if (prepared.changed[i]) return;
         let item;
         try { item = JSON.parse(row[COL.json]); } catch (err) { return; }
-        if (!item || !renamed[store][item[dep[1]]]) return;
+        const ref = item && item[dep[1]];
+        if (!item || !(Array.isArray(ref) ? ref.some(function (id) { return renamed[store][id]; }) : renamed[store][ref])) return;
         prepared.rows[i] = relayoutRow_(row, dep[0], prepared.header, ctx);
         prepared.changed[i] = true;
       });

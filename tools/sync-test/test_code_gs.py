@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 20
+SCRIPT_VERSION = 21
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -1341,7 +1341,63 @@ check('v20: other devices get guidelines and cases', any(c['store'] == 'cases' a
 st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
 check('v20: without Drive permission the app is told so', gu(id='gl-3', key='k', data='QQ==').get('error') == 'guide-needs-permission')
 st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
-check('v20: the script says it\'s version 20', gas('post', {**base, 'action': 'ping'}).get('version') == 20)
+
+print('\nNeuro Pad (version 21)')
+pu = lambda **f: gas('post', {**base, 'action': 'padUpload', **f})
+res = pu(id='pad-1', kind='copy', mime='image/jpeg', name='Left MCA infarct', data='Q09QWQ==')
+drive = gas('dump')['drive']
+pfolder = next((fid for fid, f in drive['folders'].items() if f['name'] == 'Life Dashboard Neuro Pad'), None)
+check('v21: an image is uploaded to a "Life Dashboard Neuro Pad" folder in Drive', res.get('ok') and pfolder and drive['files'][res['fileId']]['parents'] == [pfolder], res)
+pcopy = res['fileId']
+check('v21: …named after the image and its kind, with its title in the description',
+      drive['files'][pcopy]['name'] == 'pad-1-copy.jpg' and 'Left MCA infarct' in drive['files'][pcopy]['description'], drive['files'][pcopy])
+check('v21: sending the same file again returns the one already there', pu(id='pad-1', kind='copy', mime='image/jpeg', data='Q09QWQ==').get('fileId') == pcopy)
+porig = pu(id='pad-1', kind='original', mime='image/png', data='T1JJRw==')['fileId']
+check('v21: the full original keeps its type', gas('dump')['drive']['files'][porig]['name'] == 'pad-1-original.png')
+res = gas('post', {**base, 'action': 'padDownload', 'fileId': pcopy})
+check('v21: another device downloads the copy', res.get('ok') and res.get('data') == 'Q09QWQ==' and res.get('mime') == 'image/jpeg', res)
+check('v21: files outside the Neuro Pad folder can\'t be downloaded (not photos, not guidelines)',
+      gas('post', {**base, 'action': 'padDownload', 'fileId': orig}).get('error') == 'pad-not-found'
+      and gas('post', {**base, 'action': 'padDownload', 'fileId': pdf1}).get('error') == 'pad-not-found')
+check('v21: bad requests are refused', pu(id='../x', kind='copy', mime='image/jpeg', data='QQ==').get('error') == 'pad-bad-request'
+      and pu(id='pad-2', kind='thumb', mime='image/jpeg', data='QQ==').get('error') == 'pad-bad-request'
+      and pu(id='pad-2', kind='copy', mime='application/pdf', data='QQ==').get('error') == 'pad-bad-request')
+check('v21: an image that\'s too large is refused', pu(id='pad-2', kind='original', mime='image/jpeg', data='A' * (40 * 1024 * 1024 + 4)).get('error') == 'pad-too-large')
+cat = rec('lab-cat', '2026-11-13T01:00:00.000Z', kind='category', name='MRI', color='blue')
+tg1 = rec('lab-t1', '2026-11-13T01:00:00.000Z', kind='tag', name='stroke', color='red')
+tg2 = rec('lab-t2', '2026-11-13T01:00:00.000Z', kind='tag', name='high-yield', color='gold')
+img = rec('pad-1', '2026-11-13T01:00:00.000Z', title='Left MCA infarct', note='DWI bright, ADC dark', categoryId='lab-cat', tagIds=['lab-t1', 'lab-t2'],
+          takenAt='2026-11-13T01:00:00.000Z', copyFileId=pcopy, originalFileId=porig)
+res = push([('padImages', img), ('padLabels', cat), ('padLabels', tg1), ('padLabels', tg2)])
+st = gas('dump')
+row = readable(st, 'Neuro Pad', 'pad-1')
+check('v21: images and labels sync in their own tabs, with names (labels saved first)',
+      all(res.get('results', {}).get(k) == 'applied' for k in ['padImages:pad-1', 'padLabels:lab-cat', 'padLabels:lab-t1'])
+      and row.get('Category') == 'MRI' and row.get('Tags') == 'stroke, high-yield' and row.get('Note') == 'DWI bright, ADC dark' and porig in row.get('Image in Drive', ''), row)
+check('v21: the labels tab says which is a category and which a tag', readable(st, 'Neuro Pad labels', 'lab-cat').get('Kind') == 'Category'
+      and readable(st, 'Neuro Pad labels', 'lab-t1').get('Kind') == 'Tag' and readable(st, 'Neuro Pad labels', 'lab-t2').get('Colour') == 'gold')
+push([('padLabels', {**tg1, 'name': 'ischaemic stroke', 'updatedAt': '2026-11-13T02:00:00.000Z'})])
+row = readable(gas('dump'), 'Neuro Pad', 'pad-1')
+check('v21: renaming a tag updates the images that have it', row.get('Tags') == 'ischaemic stroke, high-yield', row)
+push([('padLabels', {**cat, 'name': 'MRI brain', 'updatedAt': '2026-11-13T02:00:00.000Z'})])
+row = readable(gas('dump'), 'Neuro Pad', 'pad-1')
+check('v21: …and renaming a category too', row.get('Category') == 'MRI brain', row)
+other = pu(id='pad-10', kind='copy', mime='image/jpeg', data='T1RIRVI=')['fileId']
+push([('padImages', {**img, 'deletedAt': '2026-11-13T03:00:00.000Z', 'updatedAt': '2026-11-13T03:00:00.000Z'})])
+files = gas('dump')['drive']['files']
+check('v21: deleting an image trashes both its files (not gone for good), and nothing else', files[pcopy]['trashed'] and files[porig]['trashed'] and not files[other]['trashed'], (files[pcopy], files[other]))
+check('v21: …and a trashed image isn\'t downloaded', gas('post', {**base, 'action': 'padDownload', 'fileId': pcopy}).get('error') == 'pad-trashed')
+push([('padImages', {**img, 'updatedAt': '2026-11-13T04:00:00.000Z'})])
+files = gas('dump')['drive']['files']
+check('v21: Undo brings them back out of the trash', not files[pcopy]['trashed'] and not files[porig]['trashed'])
+res = push([('padImages', {**img, 'deletedAt': '2026-11-13T00:30:00.000Z', 'updatedAt': '2026-11-13T00:30:00.000Z'})])
+check('v21: an older version from another device changes nothing in Drive', res.get('results', {}).get('padImages:pad-1') == 'stale' and not gas('dump')['drive']['files'][pcopy]['trashed'], res)
+pulled = gas('post', {**base, 'action': 'pull', 'sinceSeq': 0}).get('changes', [])
+check('v21: other devices get images and labels', any(c['store'] == 'padImages' and c['record']['id'] == 'pad-1' for c in pulled) and any(c['store'] == 'padLabels' for c in pulled))
+st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
+check('v21: without Drive permission the app is told so', pu(id='pad-3', kind='copy', mime='image/jpeg', data='QQ==').get('error') == 'pad-needs-permission')
+st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
+check('v21: the script says it\'s version 21', gas('post', {**base, 'action': 'ping'}).get('version') == 21)
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')
