@@ -776,15 +776,19 @@ function locationOrder(v) {
   });
 }
 
-/** On the list's page: one box per patient by location — tap one to open that patient. */
+/** On the list's page: one box per patient by location, their surname above it — tap either to open that patient. */
 function patientPicker(v) {
   const order = locationOrder(v);
   const box = (x, i) => {
     const done = x.p.rounded && !v.hidden.rounded;
     const tip = `${x.p.name || x.p.hn} · ${x.where}${done ? ' · rounded' : ''}`;
-    return html`<button type="button" class="ptn__box${done ? ' is-done' : ''}${x.p.location ? '' : ' is-none'}" data-action="ward:open" data-id="${x.p.id}" data-focus="pick-${x.p.id}" aria-label="${i + 1} of ${order.length}: ${tip}" title="${tip}">
-      ${x.tag ? html`<span class="ptn__tag">${x.tag}</span>` : ''}<span class="ptn__bed">${x.label}</span>
-    </button>`;
+    const surname = (x.p.name || x.p.hn || '').split(',')[0].trim() || '—';
+    return html`<div class="ward-pick__cell">
+      <span class="ward-pick__name" data-action="ward:open" data-id="${x.p.id}" aria-hidden="true" title="${x.p.name || x.p.hn}">${surname}</span>
+      <button type="button" class="ptn__box${done ? ' is-done' : ''}${x.p.location ? '' : ' is-none'}" data-action="ward:open" data-id="${x.p.id}" data-focus="pick-${x.p.id}" aria-label="${i + 1} of ${order.length}: ${tip}" title="${tip}">
+        ${x.tag ? html`<span class="ptn__tag">${x.tag}</span>` : ''}<span class="ptn__bed">${x.p.location ? x.label : 'No bed'}</span>
+      </button>
+    </div>`;
   };
   return html`<nav class="ptn ward-pick" aria-label="Open a patient">
     <div class="ptn__bar">
