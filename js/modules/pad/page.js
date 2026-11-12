@@ -82,7 +82,7 @@ function waitText(img) {
   return 'Downloading…';
 }
 
-const frame = (img, kind = 'thumb', extra = '') => html`<span class="ph-frame${extra}"><img data-pad-img="${img.id}" data-kind="${kind}" alt="${img.title || ''}" loading="lazy" decoding="async"><span class="ph-frame__wait">${icon('download')}<span>${waitText(img)}</span></span></span>`;
+const frame = (img, kind = 'thumb', extra = '') => html`<span class="ph-frame${extra}"><img data-pad-img="${img.id}" data-kind="${kind}" alt="${img.title || ''}"${kind === 'copy' && img.width ? raw(` width="${img.width}" height="${img.height}"`) : ''} loading="lazy" decoding="async"><span class="ph-frame__wait">${icon('download')}<span>${waitText(img)}</span></span></span>`;
 
 /* ---------- Status (Google Drive) ---------- */
 

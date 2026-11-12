@@ -66,8 +66,9 @@ Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-   Near the top, a line should now read `const SCRIPT_VERSION = 20;` (v0.11.0 brings version 20: Neurology
-   guidelines and teaching cases on all your devices, and guideline PDFs in your Google Drive).
+   Near the top, a line should now read `const SCRIPT_VERSION = 21;` (v0.11.39 brings version 21: the Neuro Pad's
+   images in your Google Drive and on all your devices; v0.11.0 brought version 20: Neurology guidelines and
+   teaching cases on all your devices, and guideline PDFs in your Google Drive).
 3. **Once, after pasting:** in the toolbar choose **setup** and click **Run** (it keeps your token, so your devices
    stay connected). If Google asks for permission (coming from version 4 or older it will, now including Google
    Calendar): **Review permissions** → your account → **Advanced** → **Go to … (unsafe)** → **Allow**. This also
@@ -325,6 +326,16 @@ workout (the "Workout saved" message and the finished workout's page).
 - **Cases:** your teaching cases — title, date, diagnosis, tags, the case and what you learned — newest first,
   with search and tag filters. **Leave out names, hospital numbers and birthdays**: cases sync to the Cases tab
   of your Google Sheet and go into backup files.
+- **Neuro Pad** (0.11.39): your Neurology images — scans, diagrams, slides, the whiteboard — each in one
+  **category** (like a folder) and with as many **tags** as you like; you make both yourself, with a colour each
+  (**Labels**, or **+ Category / + Tag** right where you need one). Add as many images as you like at once (**Add**,
+  drag them onto the page, or paste with ⌘V), filter by category and tags, search, and **Select** several to change
+  their category or tags or delete them together. One image opens big, with Previous/Next (swipe or ←/→), zoom
+  (pinch, double-tap, ⌘ + scroll), **Full quality**, **Share** and **Save a copy**. Storage: the full original goes
+  to a **Life Dashboard Neuro Pad** folder in your Google Drive, and every device keeps a sharp copy (≤ 2048 px,
+  about 1 MB) so they open offline; the original is fetched from Drive when you ask for full quality. A deleted
+  image goes to the Drive trash (30 days). Images and labels sync through the **Neuro Pad** and **Neuro Pad
+  labels** tabs (sync script 21). Leave out patient names and faces — images go to your Drive and Sheet.
 - **Ocular Motor Atlas** (0.11.10): 45 eye movement, pupil and visual pathway lesions, each with its exact
   location on a schematic section, a live eye simulator (lesion side, voluntary gaze or doll's head, nine
   positions of gaze), visual field charts, nerve pathways, a nystagmus table and a case quiz. It's one
