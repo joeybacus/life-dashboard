@@ -24,6 +24,8 @@ import { initUnits } from './modules/units/store.js';
 import { initGuides } from './modules/clinical/guides.js';
 import { initGuideTransfers } from './modules/clinical/guides-transfer.js';
 import { initCases } from './modules/clinical/cases.js';
+import { initPad } from './modules/pad/model.js';
+import { initPadTransfers } from './modules/pad/transfer.js';
 import { initFocusTimer } from './modules/focus/timer.js';
 import { initFocusBar } from './modules/focus/page.js';
 import { initChimeClock } from './modules/chime/clock.js';
@@ -94,6 +96,7 @@ async function boot() {
   await initUnits(); // NCCU/ACSU: beds and duty to-dos
   await initGuides(); // Neurology → Guidelines (their PDFs move to and from Google Drive by themselves)
   await initCases(); // Neurology → Cases
+  await initPad(); // Neurology → Neuro Pad (its images move to and from Google Drive by themselves)
 
   initActions();
   await initWorkout(); // the workout in progress, rest timer and workout bar
@@ -113,6 +116,7 @@ async function boot() {
   initCalendarLink(); // linked tasks' Google Calendar events follow their changes
   initDriveBackup(); // the day's backup in Google Drive (sync script 18)
   initGuideTransfers(); // guideline PDFs to and from Google Drive (sync script 20)
+  initPadTransfers(); // Neuro Pad images to and from Google Drive (sync script 21)
 
   registerServiceWorker();
   requestPersistentStorage();

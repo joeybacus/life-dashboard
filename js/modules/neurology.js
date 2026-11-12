@@ -13,6 +13,7 @@
      scores, scores/<id>    score calculators (NIHSS, GCS, ICH score…) — see clinical/
      guidelines             your guidelines: links and PDFs, by topic
      cases, cases/<id>      your teaching cases
+     pad, pad/<id>          Neuro Pad: your images, in your own categories and tags (Google Drive + every device)
      eyes                   Ocular Motor Atlas: eye movement, pupil and visual pathway lesions
      cerebellum             Cerebellar Pathways: circuits, lesions, anatomy, bedside exam (no card since 0.11.29;
                             its circuits are a group in the Tract Atlas, the address still works)
@@ -44,6 +45,7 @@ import { allGuides } from './clinical/guides.js';
 import { guidesPage, wireGuides } from './clinical/guides-page.js';
 import { allCases } from './clinical/cases.js';
 import { casesPage, wireCases } from './clinical/cases-page.js';
+import { padPage, padSummary, wirePad } from './pad/page.js';
 import { atlasPage, cerebellumPage, eegPage, localizerPage, seizurePage, tractsPage } from './clinical/atlas-page.js';
 
 const MESSAGE = 'A dedicated neurology learning and residency toolkit will be added in a future update.';
@@ -62,6 +64,7 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 // Clinical tools (0.11.0), each with its own page
 const CLINICAL_TOOLS = [
+  { sub: 'pad', name: 'Neuro Pad', icon: 'image', line: padSummary },
   { sub: 'scores', name: 'Score calculators', icon: 'sliders', line: () => `${CALCULATORS.length} scales · NIHSS, GCS, ICH score, ASPECTS…` },
   { sub: 'guidelines', name: 'Guidelines', icon: 'book', line: () => {
     const all = allGuides();
@@ -297,6 +300,8 @@ const ROUTES = [
   [/^guidelines$/, guidesPage],
   [/^cases$/, casesPage],
   [/^cases\/([\w-]+)$/, casesPage],
+  [/^pad$/, padPage],
+  [/^pad\/([\w-]+)$/, padPage],
   [/^eyes$/, atlasPage],
   [/^cerebellum$/, cerebellumPage],
   [/^localizer$/, localizerPage],
@@ -339,6 +344,7 @@ registerScreen('neurology', {
     wireScores(el);
     wireGuides(el);
     wireCases(el);
+    wirePad(el);
   },
   onShow(el, sub) {
     visible = true;
@@ -360,3 +366,4 @@ on('referrals', () => { if (visible && page === HOME) showHome(view); });
 on('units', () => { if (visible && page === HOME) showHome(view); });
 on('guides', () => { if (visible && page === HOME) showHome(view); });
 on('cases', () => { if (visible && page === HOME) showHome(view); });
+on('pad', () => { if (visible && page === HOME) showHome(view); });

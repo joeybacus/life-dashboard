@@ -1,6 +1,6 @@
 /* Search everywhere (0.10.0): one box for tasks and subtasks, workouts,
    exercises, templates, habits, categories, your calendar events, and Neurology
-   guidelines and teaching cases (0.11.0). Opens from
+   guidelines and teaching cases (0.11.0) and Neuro Pad images (0.11.39). Opens from
    the search button on the dashboard, Search on the + button, ⌘K (or Ctrl+K),
    and "/" anywhere except the To Do list (which has its own search).
 
@@ -31,6 +31,7 @@ import { openEventDetails } from './calendar/editor.js';
 import { allGuides } from './clinical/guides.js';
 import { showGuide } from './clinical/guides-page.js';
 import { allCases } from './clinical/cases.js';
+import { allImages, categoryOf, tagsOf } from './pad/model.js';
 
 const PER_GROUP = 6;
 const GROUPS = [
@@ -43,12 +44,13 @@ const GROUPS = [
   { id: 'category', label: 'Categories', icon: 'layers' },
   { id: 'guideline', label: 'Guidelines', icon: 'book' },
   { id: 'case', label: 'Cases', icon: 'clipboard' },
+  { id: 'pad', label: 'Neuro Pad', icon: 'image' },
 ];
 // Words that find a whole kind: "workout", "template", "habit"…
 const KIND_WORDS = {
   task: 'task tasks todo to-do to-dos subtask', workout: 'workout workouts', event: 'event events calendar meeting',
   exercise: 'exercise exercises', template: 'template templates routine', habit: 'habit habits', category: 'category categories',
-  guideline: 'guideline guidelines', case: 'case cases',
+  guideline: 'guideline guidelines', case: 'case cases', pad: 'image images picture pictures neuro pad',
 };
 const fmtDay = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -110,6 +112,12 @@ export async function loadSearchData() {
     items.push({ kind: 'case', id: c.id, title: c.title, date: c.date || null, sub: [c.date ? formatDayYear(c.date) : '', c.diagnosis].filter(Boolean).join(' · ') || 'Case',
       text: [c.title, c.diagnosis, c.tags.join(' '), c.story, c.learning].join(' '), sort: c.date ?? '' });
   }
+  for (const p of allImages()) {
+    const cat = categoryOf(p)?.name ?? '';
+    const tagNames = tagsOf(p).map((t) => t.name);
+    items.push({ kind: 'pad', id: p.id, title: p.title || cat || 'Untitled image', date: null, sub: [cat, tagNames.join(', ')].filter(Boolean).join(' · ') || 'Neuro Pad image',
+      text: [p.title, p.note, cat, tagNames.join(' '), p.fileName].join(' '), sort: p.takenAt ?? '' });
+  }
   return items.map((i) => ({ ...i, hay: foldText(`${i.title} \n ${i.text} \n ${KIND_WORDS[i.kind]}`), fold: foldText(i.title) }));
 }
 
@@ -155,7 +163,7 @@ export function searchAll(items, query) {
 
 function resultsMarkup(results, query, showAll) {
   if (!query.trim()) {
-    return html`<p class="srch__hint">${icon('search')}<span>Tasks, workouts, exercises, templates, habits, categories, your calendar, guidelines and cases. Try “bench press”, “MBA” or “Sep 10 workout”.</span></p>`;
+    return html`<p class="srch__hint">${icon('search')}<span>Tasks, workouts, exercises, templates, habits, categories, your calendar, guidelines, cases and Neuro Pad images. Try “bench press”, “MBA” or “Sep 10 workout”.</span></p>`;
   }
   if (!results.length) return html`<p class="srch__hint">${icon('info')}<span>Nothing matches “${query.trim()}”. Patient lists aren’t searched here — use the Neurology tab.</span></p>`;
   return results.map(({ group, items, total }) => html`<section class="srch__group" aria-label="${group.label}">
@@ -177,6 +185,7 @@ async function openResult(kind, id, { subtask = false, items = [] } = {}) {
   if (kind === 'category') return openPage('todo', 'categories');
   if (kind === 'guideline') { showGuide(id); return openPage('neurology', 'guidelines'); }
   if (kind === 'case') return openPage('neurology', `cases/${id}`);
+  if (kind === 'pad') return openPage('neurology', `pad/${id}`);
   if (kind === 'event') return openEventDetails(items.find((i) => i.kind === 'event' && i.id === id)?.event);
   return null;
 }
