@@ -502,7 +502,8 @@ button.wbadge { cursor: pointer; }
 .ward-pick .ptn__bar { min-height: 24px; padding-inline: 2px; }
 .ward-pick__title { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
 .ward-pick__title .icon { width: .95rem; height: .95rem; }
-/* Each patient's surname sits above their bed box (two lines at most); boxes line up along the bottom */
+/* Each patient's surname sits above their bed box (two lines at most); boxes line up along the bottom.
+   Used on the list's page and in the strip on each patient's page. */
 .ward-pick__cell { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; }
 .ward-pick__cell > .ptn__box { width: 100%; }
 .ward-pick__name {
@@ -520,9 +521,11 @@ button.wbadge { cursor: pointer; }
   color: var(--text);
   cursor: pointer;
 }
+/* The patient you're on: their name in the accent colour, like their lit box */
+.ward-pick__name.is-here { color: var(--accent); font-weight: 700; cursor: default; }
 @media (hover: hover) {
   .ward-pick__cell:hover .ward-pick__name { color: var(--accent); }
-  .ward-pick__cell:hover .ptn__box { background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); color: var(--text); }
+  .ward-pick__cell:hover .ptn__box:not(.is-here) { background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); color: var(--text); }
 }
 
 /* My notes: the same notepad on the list and on every patient's page (notes.js) */

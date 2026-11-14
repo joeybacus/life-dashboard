@@ -799,7 +799,7 @@ function patientPicker(v) {
   </nav>`;
 }
 
-/** Previous / next, then a row of boxes, one per patient by location; this patient's box is lit. */
+/** Previous / next, then a row of boxes, one per patient by location, their surname above it; this patient's box is lit. */
 function patientNav(p, v) {
   const order = locationOrder(v);
   const at = order.findIndex((x) => x.p.id === p.id);
@@ -815,9 +815,13 @@ function patientNav(p, v) {
     const here = i === at;
     const cls = `ptn__box${here ? ' is-here' : ''}${x.p.rounded && !v.hidden.rounded ? ' is-done' : ''}${x.p.location ? '' : ' is-none'}`;
     const tip = `${who(x)} · ${x.where}${x.p.rounded && !v.hidden.rounded ? ' · rounded' : ''}`;
-    return html`<button type="button" class="${cls}"${here ? raw(' aria-current="true"') : ''} data-dact="go" data-id="${x.p.id}" data-focus="n-box-${x.p.id}" aria-label="${i + 1} of ${order.length}: ${tip}" title="${tip}">
-      ${x.tag ? html`<span class="ptn__tag">${x.tag}</span>` : ''}<span class="ptn__bed">${x.label}</span>
-    </button>`;
+    const surname = (x.p.name || x.p.hn || '').split(',')[0].trim() || '—';
+    return html`<div class="ward-pick__cell">
+      <span class="ward-pick__name${here ? ' is-here' : ''}" data-dact="go" data-id="${x.p.id}" aria-hidden="true" title="${who(x)}">${surname}</span>
+      <button type="button" class="${cls}"${here ? raw(' aria-current="true"') : ''} data-dact="go" data-id="${x.p.id}" data-focus="n-box-${x.p.id}" aria-label="${i + 1} of ${order.length}: ${tip}" title="${tip}">
+        ${x.tag ? html`<span class="ptn__tag">${x.tag}</span>` : ''}<span class="ptn__bed">${x.p.location ? x.label : 'No bed'}</span>
+      </button>
+    </div>`;
   };
   return html`<nav class="ptn" aria-label="Patients by location">
     <div class="ptn__bar">
