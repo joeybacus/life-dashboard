@@ -67,7 +67,7 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    Neurology guidelines and teaching cases (the Guidelines and Cases tabs, and guideline PDFs in a Google Drive folder:
    guideUpload, guideDownload); 21 keeps the Neuro Pad (the Neuro Pad and Neuro Pad labels tabs, and its images in a
    Google Drive folder: padUpload, padDownload). */
-export const LATEST_SCRIPT_VERSION = 21;
+export const LATEST_SCRIPT_VERSION = 22;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8, focusSessions: 5, habits: 5, habitLogs: 5, progressPhotos: 13, units: 15, guidelines: 20, cases: 20, padImages: 21, padLabels: 21 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 /* A device that synced with an older app skipped the kinds of data that app

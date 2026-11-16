@@ -24,7 +24,7 @@ import { SyncError, callSyncScript, syncScriptVersion, syncSnapshot } from '../.
 import {
   DEFAULT_LIST_ID, DEFAULT_LIST_NAME, FIXED_HEADINGS, LOAD_PROBLEMS, MAX_TEXT, cleanLocation, cleanName, cleanText, defaultColumns,
   fromSheetTime, hnKey, manilaDateKey, msUntilManilaMidnight, parseSheetLink, previousDateKey, priorityOf,
-  CENSUS_SCRIPT_VERSION, CHECK_SCRIPT_VERSION, LAYOUT_SCRIPT_VERSION, isDefaultLayout, layoutOf, locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
+  CENSUS_SCRIPT_VERSION, CHECK_SCRIPT_VERSION, LAYOUT_SCRIPT_VERSION, NAME_SCRIPT_VERSION, cleanPatientName, isDefaultLayout, layoutOf, locationsOf, scriptForColumn, sheetTimeDay, sortPatients, toSheetTime,
 } from './model.js';
 import * as store from './store.js';
 
@@ -294,6 +294,7 @@ class WardList {
     const locationCol = columns.find((c) => c.location && c.readable)?.col ?? null;
     const rows = this.cache?.rows ?? [];
     const hxCols = this.historyCols();
+    const nameCol = this.layout().name;
     const counts = new Map();
     rows.forEach((r) => { if (r.key) counts.set(r.key, (counts.get(r.key) ?? 0) + 1); });
 
@@ -316,6 +317,7 @@ class WardList {
         return [part, { col, text: item ? item.set[col] : r.cells?.[col] ?? '', item }];
       }));
       const roundsItem = r.key ? this.queue.get(queueKey(this.id, r.key, 'rounds')) ?? null : null;
+      const nameItem = r.key && nameCol ? this.queue.get(queueKey(this.id, r.key, nameCol)) ?? null : null; // a new name waiting to be saved
       const entry = r.key ? part.patients[r.key] : null;
       const rounded = Boolean(entry?.rounded);
       const opened = !rounded && r.key ? timing?.starts?.[r.key] ?? null : null;
@@ -326,7 +328,8 @@ class WardList {
         id: r.key || `row-${r.row}`,
         key: r.key,
         row: r.row,
-        name: r.name,
+        name: nameItem ? nameItem.set[nameCol] : r.name, // your new name until the logsheet has it
+        nameItem,
         hn: r.hn,
         cells,     // column letter → text (your unsaved edit if there is one)
         items,     // column letter → change waiting to be saved, or null
@@ -472,7 +475,7 @@ class WardList {
     }
     const waiting = this.outgoing();
     const checks = this.checkCols();
-    const held = waiting.filter((i) => i.kind !== 'rounds' && version < (checks.includes(i.kind) ? CHECK_SCRIPT_VERSION : scriptForColumn(i.kind, layout)));
+    const held = waiting.filter((i) => i.kind !== 'rounds' && version < (i.kind === layout.name ? NAME_SCRIPT_VERSION : checks.includes(i.kind) ? CHECK_SCRIPT_VERSION : scriptForColumn(i.kind, layout)));
     for (const item of held) {
       if (item.problem === 'needs-update') continue;
       Object.assign(item, { state: 'blocked', problem: 'needs-update' });
@@ -694,11 +697,12 @@ class WardList {
   async queueChange(r, kind, set, label = '') {
     const key = queueKey(this.id, r.key, kind);
     const existing = this.queue.get(key);
+    const was = kind === this.layout().name ? r.name ?? '' : r.cells?.[kind] ?? ''; // the name isn't one of the list's columns
     const expect = existing?.expect ?? (kind === 'rounds'
       ? { E: Boolean(r.rounded), F: r.start ?? '', G: r.end ?? '' }
-      : { [kind]: r.cells?.[kind] ?? '' });
+      : { [kind]: was });
     // What the app showed before this change (for Show edits)
-    if (kind !== 'rounds') await this.noteEdit(r.key, kind, existing ? existing.set[kind] : r.cells?.[kind] ?? '', set[kind]);
+    if (kind !== 'rounds') await this.noteEdit(r.key, kind, existing ? existing.set[kind] : was, set[kind]);
     if (Object.keys(set).every((c) => sameCell(c, expect[c], set[c]))) {
       // Back to what the logsheet already has: nothing to save
       if (existing) await this.removeItem(key);
@@ -902,6 +906,20 @@ class WardList {
     if (!r) throw new WardError('not-found', { message: 'This patient is no longer in the logsheet.' });
     const label = this.def.columns.find((c) => c.col === col)?.label ?? `column ${col}`;
     await this.queueChange(r, col, { [col]: cleanText(text).slice(0, MAX_TEXT) }, label);
+    publish(this.id);
+    await this.flush();
+    const item = this.queue.get(queueKey(this.id, key, col));
+    return { saved: !item, state: item?.state ?? 'saved', problem: item?.problem ?? null };
+  }
+
+  /** Change a patient's name (in the list's name column). They stay the same patient: the app knows them by hospital number. */
+  async saveName(key, text) {
+    const r = this.rowByKey(key);
+    if (!r) throw new WardError('not-found', { message: 'This patient is no longer in the logsheet.' });
+    const col = this.layout().name;
+    const name = cleanPatientName(text);
+    if (!col || !name) throw new WardError('invalid', { message: 'A patient needs a name.' });
+    await this.queueChange(r, col, { [col]: name }, 'Name');
     publish(this.id);
     await this.flush();
     const item = this.queue.get(queueKey(this.id, key, col));

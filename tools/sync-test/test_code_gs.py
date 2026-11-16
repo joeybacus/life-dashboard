@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 21
+SCRIPT_VERSION = 22
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -394,16 +394,28 @@ res = ksync(writes=[{'id': 'h2', 'hn': '7001', 'text': True, 'expect': {'H': 'Is
 check('an added column is protected from overwriting too', res['results']['h2']['status'] == 'conflict' and res['results']['h2']['current'] == {'H': 'Changed by a co-resident'}, res['results'])
 res = ksync(writes=[
     {'id': 'h3', 'hn': '7004', 'text': True, 'expect': {'H': 'X'}, 'set': {'H': 'typed'}},
-    {'id': 'h4', 'hn': '7001', 'text': True, 'expect': {}, 'set': {'A': 'x'}},
+    {'id': 'h4', 'hn': '7001', 'text': True, 'expect': {}, 'set': {'B': 'x'}},
     {'id': 'h5', 'hn': '7001', 'text': True, 'expect': {}, 'set': {'E': 'x'}},
     {'id': 'h6', 'hn': '7001', 'text': True, 'expect': {'Z': ''}, 'set': {'Z': 'beyond the sheet'}},
     {'id': 'h7', 'hn': '7002', 'text': True, 'expect': {'C': '', 'D': 'P2 recs N'}, 'set': {'C': 'labs N'}},
 ])
 st = {k: v['status'] for k, v in res['results'].items()}
 check('a formula in an added column is never overwritten', st['h3'] == 'formula' and log_rows(COLS)[5][7]['__f'].startswith('=UPPER'), st)
-check('text writes never touch A, B or our rounds columns', st['h4'] == st['h5'] == 'invalid' and cell(log_rows(COLS), 2, 1) == 'Patient M', st)
+check('text writes never touch the hospital number (B) or our rounds columns', st['h4'] == st['h5'] == 'invalid' and cell(log_rows(COLS), 2, 2) == '7001', st)
 check('a column beyond the sheet is refused', st['h6'] == 'invalid', st)
 check('C can be written as a text column too', st['h7'] == 'ok' and cell(log_rows(COLS), 3, 3) == 'labs N', st)
+# Version 22: a patient's name can be changed (the hospital number never)
+res = ksync(writes=[
+    {'id': 'n1', 'hn': '7002', 'text': True, 'expect': {}, 'set': {'A': '  Patient   N\nrenamed  '}},
+    {'id': 'n2', 'hn': '7001', 'text': True, 'expect': {}, 'set': {'A': '   '}},
+    {'id': 'n3', 'hn': '7001', 'text': True, 'expect': {}, 'set': {'A': 'x' * 201}},
+])
+st = {k: v['status'] for k, v in res['results'].items()}
+check('v22: a patient\'s name is saved as one line', st['n1'] == 'ok' and cell(log_rows(COLS), 3, 1) == 'Patient N renamed' and cell(log_rows(COLS), 3, 2) == '7002', (st, log_rows(COLS)[2][:2]))
+check('v22: the answer has the new name, same number', ('Patient N renamed', '7002') in [(r['name'], r['hn']) for r in res['rows']], [(r['name'], r['hn']) for r in res['rows']])
+check('v22: an empty or too-long name is refused', st['n2'] == st['n3'] == 'invalid' and cell(log_rows(COLS), 2, 1) == 'Patient M', st)
+res = ksync(writes=[{'id': 'n4', 'hn': '7002', 'text': True, 'expect': {}, 'set': {'A': 'Patient N'}}])
+check('v22: renamed back', res['results']['n4']['status'] == 'ok' and cell(log_rows(COLS), 3, 1) == 'Patient N', res['results'])
 res = gas('post', {**tw, 'action': 'wardSync', 'cols': ['C', 'D', 'E', 'G'], 'writes': [{'id': 'e1', 'hn': '2001', 'text': True, 'expect': {'E': 'keep this'}, 'set': {'E': 'edited plan'}}]})
 check('E–G used for something else can be shown and edited', res['rows'][0]['cells'] == {'C': '', 'D': 'recs still save', 'E': 'edited plan', 'G': ''} and res['results']['e1']['status'] == 'ok' and log_rows(TAKEN)[1][4] == 'edited plan', res)
 
@@ -513,6 +525,11 @@ bad = [{'name': 'B', 'hn': 'B'}, {'name': 'B', 'hn': 'C', 'rounds': 'C'}, {'name
 check('v8: a layout that doesn\'t make sense is refused', all(gas('post', {**lw, 'layout': b, 'action': 'wardSync'}).get('error') == 'ward-bad-layout' for b in bad))
 res = gas('post', {**ward, 'action': 'wardSync'})
 check('v8: without a layout, A and B are the name and number as before', ('Patient A', '1001') in [(r['name'], r['hn']) for r in res['rows']], res['rows'])
+res = gas('post', {**lw, 'action': 'wardSync', 'cols': ['D', 'E'], 'writes': [
+    {'id': 'y6', 'hn': '8101', 'text': True, 'expect': {}, 'set': {'B': 'Patient Y1 renamed'}},
+]})
+lr = log_rows(LAY)
+check('v22 + v8: the name is written to the chosen name column, A untouched', res['results']['y6']['status'] == 'ok' and lr[2][1] == 'Patient Y1 renamed' and lr[2][2] == '8101' and lr[2][0] is True, (res['results'], lr[2]))
 
 res = gas('post', {**base, 'action': 'push', 'deviceId': 'Mac-aaaa', 'sinceSeq': 0, 'records': [
     {'store': 'referrals', 'record': rec('r1', '2026-10-05T09:00:00.000Z', name='Referral Z', hn='9901', location='ER', next='2026-10-06', notes='Seen for stroke',
@@ -1397,7 +1414,7 @@ check('v21: other devices get images and labels', any(c['store'] == 'padImages' 
 st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
 check('v21: without Drive permission the app is told so', pu(id='pad-3', kind='copy', mime='image/jpeg', data='QQ==').get('error') == 'pad-needs-permission')
 st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
-check('v21: the script says it\'s version 21', gas('post', {**base, 'action': 'ping'}).get('version') == 21)
+check('the script says it\'s version 22', gas('post', {**base, 'action': 'ping'}).get('version') == 22)
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')

@@ -17,7 +17,7 @@ import { openPage, replacePage } from '../../core/router.js';
 import { LATEST_SCRIPT_VERSION, syncScriptVersion, syncSnapshot } from '../../services/sync.js';
 import { checkLogsheet, updateList, wardList } from './engine.js';
 import {
-  FIXED_HEADINGS, LOAD_PROBLEMS, MAX_LOCATION, MAX_TEXT, PRIORITY_LEVELS, WRITE_PROBLEMS, cleanLocation, formatSpan, fromSheetTime,
+  FIXED_HEADINGS, LOAD_PROBLEMS, MAX_LOCATION, MAX_PATIENT_NAME, MAX_TEXT, PRIORITY_LEVELS, WRITE_PROBLEMS, cleanLocation, cleanPatientName, formatSpan, fromSheetTime,
   editedChars, locationKey, manilaDateKey, previousDateKey, roundsCols, sortPatients, wardDayLong, wardStamp, wardTime,
 } from './model.js';
 import { openColumns, renameColumn, setupLocation } from './columns.js';
@@ -848,8 +848,12 @@ function detailBody(p, v, { editing = false } = {}) {
   const top = zone(0);
   return html`<header class="ptb__bar">
       <div class="ptb__who">
-        <h2 class="ptb__name" id="ptb-title">${p.name}</h2>
+        <div class="ptb__name-row">
+          <h2 class="ptb__name" id="ptb-title">${p.name}</h2>
+          ${p.tickable && !editing ? html`<button type="button" class="btn btn--sm btn--ghost ptb__rename" data-dact="rename" data-focus="b-rename" aria-label="Edit name">${icon('edit')}Edit</button>` : ''}
+        </div>
         <p class="ptd__meta">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet</p>
+        ${changeNote(p.nameItem)}
         ${p.location ? html`<p class="ptb__loc">${icon('pin')}<span class="sr-only">Location: </span><span>${p.location}</span></p>` : ''}
         ${badges(p, v, { detail: true })}
       </div>
@@ -1014,6 +1018,8 @@ async function openPatient(openId) {
           await tick(now, true);
         } else if (act === 'untick') {
           await untick(now);
+        } else if (act === 'rename') {
+          await editName(now);
         } else if (act === 'edit') {
           if (button.dataset.col === current()?.view().locationCol) await editLocation(now, button.dataset.col);
           else await editText(now, button.dataset.col);
@@ -1124,6 +1130,74 @@ async function saveCell(list, p, col, text) {
     });
   } else if (outcome.state === 'blocked') toast(`Not saved: ${WRITE_PROBLEMS[outcome.problem] ?? WRITE_PROBLEMS.invalid}.`, { icon: 'info', duration: 7000 });
   else toast('Saved on this device. It goes to the logsheet as soon as Google can be reached.', { icon: 'cloud', duration: 6000 });
+}
+
+/** Change a patient's name: one line, saved to the list's name column. */
+async function editName(p) {
+  const list = current();
+  if (!list) return;
+  const col = list.view().layout.name;
+  const before = p.name ?? '';
+  const result = await openDialog({
+    variant: 'sheet',
+    className: 'ward-edit ward-loc accent-neuro',
+    dismissible: false,
+    title: 'Edit name',
+    body: html`<form class="form" data-edit novalidate>
+      ${p.hn ? html`<p class="dlg__msg">${hnLabel(list.view())} ${p.hn}</p>` : ''}
+      <label class="field"><span class="field__label">Name</span>
+        <input class="input" name="text" maxlength="${MAX_PATIENT_NAME}" value="${before}" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done">
+      </label>
+      <p class="field__error" data-error role="alert" hidden>Write a name — a patient can’t be left without one.</p>
+      <p class="ward-edit__hint">Saved to column ${col} of the logsheet. They stay the same patient — the app knows them by their hospital number, so their notes and history stay with them.</p>
+      <div class="form__actions">
+        <button type="button" class="btn btn--ghost" data-cancel>Cancel</button>
+        <button type="submit" class="btn btn--primary">Save</button>
+      </div>
+    </form>`,
+    onOpen(dlg, close) {
+      const form = dlg.querySelector('[data-edit]');
+      const text = form.elements.text;
+      const error = form.querySelector('[data-error]');
+      // Focus only with a mouse and keyboard, after the sheet has slid in (on iPhone it shifts the sheet)
+      if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        setTimeout(() => {
+          text.focus({ preventScroll: true });
+          text.setSelectionRange(text.value.length, text.value.length);
+        }, 320);
+      }
+      text.addEventListener('input', () => { error.hidden = true; });
+      form.querySelector('[data-cancel]').addEventListener('click', async () => {
+        if (text.value !== before && !(await confirmDialog({ title: 'Discard your change?', message: `The name stays “${before}”.`, confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return;
+        close(null);
+      });
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const name = cleanPatientName(text.value);
+        if (!name) {
+          error.hidden = false;
+          text.focus();
+          return;
+        }
+        close({ text: name });
+      });
+    },
+  });
+  if (!result || typeof result !== 'object' || result.text === cleanPatientName(before)) return;
+  let outcome;
+  try {
+    outcome = await list.saveName(p.key, result.text);
+  } catch (err) {
+    toast(err.message, { icon: 'info', duration: 6000 });
+    return;
+  }
+  if (outcome.saved) toast('Name saved to the logsheet.', { icon: 'check' });
+  else if (outcome.problem === 'needs-update') {
+    toast('Name saved on this device. Update the sync script to save it to the logsheet.', {
+      icon: 'sparkles', duration: 8000, action: { label: 'Show me how', onClick: () => runAction('sync:update') },
+    });
+  } else if (outcome.state === 'blocked') toast(`Name not saved: ${WRITE_PROBLEMS[outcome.problem] ?? WRITE_PROBLEMS.invalid}.`, { icon: 'info', duration: 7000 });
+  else toast('Name saved on this device. It goes to the logsheet as soon as Google can be reached.', { icon: 'cloud', duration: 6000 });
 }
 
 /** Edit where a patient is: one line, with the locations already in use to pick from. */

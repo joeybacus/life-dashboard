@@ -246,6 +246,12 @@ export function sortPatients(patients) {
    marked location. The list can be arranged by it: one group per location,
    A to Z ("Bed 2" before "Bed 10"), patients without one last. */
 
+export const MAX_PATIENT_NAME = 200; // characters in a patient's name (as written in the logsheet)
+export const NAME_SCRIPT_VERSION = 22; // changing a patient's name in the logsheet needs sync script 22
+
+/** A patient's name as the app saves it: one line, without extra spaces. */
+export const cleanPatientName = (text) => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_PATIENT_NAME);
+
 export const MAX_LOCATION = 60; // characters in a location
 
 /** A location as shown and saved: its first line, single spaces. */

@@ -66,7 +66,8 @@ Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-   Near the top, a line should now read `const SCRIPT_VERSION = 21;` (v0.11.39 brings version 21: the Neuro Pad's
+   Near the top, a line should now read `const SCRIPT_VERSION = 22;` (v0.11.41 brings version 22: changing a
+   patient's name from their page; v0.11.39 brought version 21: the Neuro Pad's
    images in your Google Drive and on all your devices; v0.11.0 brought version 20: Neurology guidelines and
    teaching cases on all your devices, and guideline PDFs in your Google Drive).
 3. **Once, after pasting:** in the toolbar choose **setup** and click **Run** (it keeps your token, so your devices
@@ -517,8 +518,10 @@ of its tabs) shown as a rounds list.
   rounds history per list (⋯ → Rounds history): dates, times and hospital numbers.
 - **Saved to the logsheet:** ticks go to columns **E–G** (Rounded, Rounds Start, Rounds End — the headings
   are added only if E1:G1 are empty; if they hold anything else the app stops and asks). Every column the list
-  shows can be edited in a patient's sheet (**Edit**) and goes back to its own column. Names and hospital
-  numbers (A, B) are never changed, and rows are never added or deleted. Before each write the app finds the
+  shows can be edited in a patient's sheet (**Edit**) and goes back to its own column. The name can be changed
+  too (**Edit** beside it at the top of their page, 0.11.41, script version 22) — one line, never empty; it's
+  written to the name column and they stay the same patient, since the app knows them by hospital number.
+  Hospital numbers are never changed, and rows are never added or deleted. Before each write the app finds the
   patient's row again by hospital number and checks the cell hasn't changed; if someone else changed it, you
   see both versions and choose. Changes that can't be saved yet stay on the device, marked **Not synced**, and
   are retried automatically.

@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 21;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder) · 21: the Neuro Pad (your Neurology images with categories and tags: Neuro Pad and Neuro Pad labels tabs; the images in a Google Drive folder)
+const SCRIPT_VERSION = 22;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder) · 21: the Neuro Pad (your Neurology images with categories and tags: Neuro Pad and Neuro Pad labels tabs; the images in a Google Drive folder) · 22: changing a patient's name from the app (the list's name column; never the hospital number)
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -1018,6 +1018,7 @@ const WARD_MAX_ROWS = 2000;
 const WARD_MAX_COLS = 52;      // columns A to AZ
 const WARD_NEW_COL_MIN = 8;    // columns added from the app start at H, after the rounds columns E–G
 const WARD_MAX_TEXT = 20000;   // characters in one cell the app edits
+const WARD_MAX_NAME = 200;     // characters in a patient's name the app writes (22)
 const WARD_MAX_WRITES = 100;   // per request
 const WARD_DEFAULT_LAYOUT = { name: 1, hn: 2, rounds: 5 };
 
@@ -1666,13 +1667,20 @@ function wardCells_(cells, forWriting, headers, L) {
   return ok ? out : null;
 }
 
-/** Check the cells of a text write (one of the list's columns): see wardTextCols_. */
+/** Check the cells of a text write (one of the list's columns): see wardTextCols_. Also a patient's new name (22). */
 function wardTextCells_(cells, headers, L) {
   if (!cells || typeof cells !== 'object' || Array.isArray(cells)) return null;
   const out = {};
   const ok = Object.keys(cells).every(function (c) {
     const v = cells[c];
     if (typeof v !== 'string' || v.length > WARD_MAX_TEXT) return false;
+    if (L && L.name && wardColIndex_(c) === L.name) {
+      // The name: one line, never empty (a row without a name isn't a patient). The hospital number is never written.
+      const name = v.replace(/\s+/g, ' ').trim();
+      if (!name || name.length > WARD_MAX_NAME) return false;
+      out[c] = name;
+      return true;
+    }
     if (wardTextCols_([c], headers, L).length !== 1) return false;
     out[c] = wardText_(v);
     return true;
