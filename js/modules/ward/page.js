@@ -29,6 +29,7 @@ import { keepNotes, mountNotes, notesSlot } from './notes.js';
 import { historyClosed, historySlot, keepHistory, mountHistory } from './history.js';
 import { openReferral, openReport, openReportSetup } from './report-page.js';
 import { ctClosed, ctSlot, keepCt, mountCt } from '../ct/viewer.js';
+import { cxrClosed, cxrSlot, keepCxr, mountCxr } from '../cxr/viewer.js';
 
 const AUTO_REFRESH_MS = 3 * 60 * 1000;
 const FRESH_MS = 15_000; // opening the screen again within this doesn't reload
@@ -880,6 +881,7 @@ function detailBody(p, v, { editing = false } = {}) {
       </div>
       ${historySlot()}
       ${p.hn ? ctSlot() : ''}
+      ${p.hn ? cxrSlot() : ''}
       <button type="button" class="btn btn--block ptb__close" data-dialog-value="close">Close</button>
     </div>`;
 }
@@ -921,11 +923,13 @@ async function openPatient(openId) {
     keepNotes(body);
     keepHistory(body);
     keepCt(body);
+    keepCxr(body);
     const shown = v.patients.find((x) => x.id === id) ?? null;
     setHTML(body, detailBody(shown, v, { editing }));
     mountNotes(body, listId);
     mountHistory(body, shown, v);
     mountCt(body, { hn: shown?.hn });
+    mountCxr(body, { hn: shown?.hn });
     body.querySelectorAll('[data-freeze]').forEach((el) => { el.scrollTop = frozenAt.get(el.dataset.freeze) ?? 0; });
     watchBar();
     if (focused) {
@@ -990,6 +994,7 @@ async function openPatient(openId) {
       mountNotes(dlg.querySelector('.dlg__body'), listId);
       mountHistory(dlg.querySelector('.dlg__body'), p, list.view());
       mountCt(dlg.querySelector('.dlg__body'), { hn: p.hn });
+      mountCxr(dlg.querySelector('.dlg__body'), { hn: p.hn });
       watchBar();
       dlg.addEventListener('click', async (event) => {
         const tool = event.target.closest('[data-bact]');
@@ -1038,6 +1043,7 @@ async function openPatient(openId) {
   barWatch?.disconnect();
   historyClosed();
   ctClosed();
+  cxrClosed();
   document.removeEventListener('keydown', onKey);
   const last = findPatient(id);
   if (last?.tickable) await current()?.notePatientClosed(last.key); // closing their page pauses their timer
