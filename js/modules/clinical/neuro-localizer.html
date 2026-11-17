@@ -209,6 +209,20 @@ select.tsel{font-family:var(--f-label);font-size:12.5px;padding:6px 8px;border-r
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .note{font-size:13.5px;padding:10px 12px;border-radius:8px;background:var(--accent-weak);margin:0}
 .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-family:var(--f-label);font-size:12px;color:var(--muted);margin-top:8px}
+/* pathways affected (0.11.45): each tract the lesion touches, its role here, the side of its signs and its whole course */
+.paths{display:grid;gap:8px}
+.pw{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:9px 12px;background:var(--panel);min-width:0}
+.pwh{display:flex;flex-wrap:wrap;gap:3px 10px;align-items:baseline;justify-content:space-between}
+.pwn{font-weight:600;font-size:14.5px}
+.pwr{font-family:var(--f-label);font-size:11.5px;font-weight:600;letter-spacing:.03em;color:var(--accent);background:var(--accent-weak);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.pws{font-size:13px;margin-top:3px}
+.pw .course{font-size:12.5px;margin-top:6px}
+.pw .course span{padding:1px 6px}
+.pwx{font-size:12.5px;color:var(--muted);margin-top:5px}
+.pwx .sref{font-size:12.5px}
+.course .br{flex-basis:100%;height:2px}
+.course .cw{font-style:normal;display:inline-flex;align-items:center;gap:2px;max-width:100%;min-width:0}
+.course .cw span{min-width:0}
 
 /* reference */
 .search{margin-bottom:12px}
@@ -309,7 +323,7 @@ body{margin:0}
         <div class="stage" id="stage"><canvas id="mri" class="mri" hidden aria-label="MRI scan"></canvas><svg id="svg" aria-hidden="true"></svg><canvas id="cv" aria-label="Drawing surface: paint the lesion here"></canvas><span class="side-l">R</span><span class="side-r">L</span><div class="tip" id="tip" hidden></div><div class="lvl" id="lvl" hidden aria-live="polite"></div></div>
         <div class="focus" id="focus" hidden aria-live="polite"></div>
         <div class="legend" id="legend" hidden></div>
-        <p class="hint">MRI view shows a real brain (MNI152 template) under the atlas outlines; switch to Drawing for the coloured diagram, or use Own scan for your patient’s images. Hover to name a structure; click a structure name in the report to show it on the image and follow its pathway. Scroll over the image to move up and down through the levels (or through your own scan’s images). Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
+        <p class="hint">MRI view shows a real brain (MNI152 template) under the atlas outlines; switch to Drawing for the coloured diagram, or use Own scan for your patient’s images. Hover to name a structure; click a structure or pathway name in the report to show it on the image and follow the pathway. Scroll over the image to move up and down through the levels (or through your own scan’s images). Paint with a finger, pen or mouse; anything on the patient’s right is on the left of the image. Schematic anatomy: use it to reason, not to read scans.</p>
       </div>
       <aside class="panel report" id="report" aria-live="polite"></aside>
     </div>
@@ -361,6 +375,7 @@ body{margin:0}
 <script src="localizer-bswarp.js"></script>
 <script src="localizer-spine.js"></script>
 <script src="localizer-ref.js"></script>
+<script src="localizer-paths.js"></script>
 <script>
 (() => {
 "use strict";
@@ -770,8 +785,10 @@ function evalSyndromes(sl, hits) {
 /* ---------- focus: click a structure in the report to see it on the image ----------
    The picked structure is filled on the slice and everything else dims. Structures of the same pathway on this slice
    are shown dashed, a card gives its function, deficits and the whole course of the pathway, and chips jump to the
-   other slices where the same pathway can be seen. */
-const FAM = [
+   other slices where the same pathway can be seen.
+   Which pathway a structure belongs to (and its role there) comes from localizer-paths.js; the old name patterns
+   below are only a fallback for a structure that file does not list. */
+const FAM_OLD = [
   ["Corticospinal (pyramidal) tract", /corticospinal|pyramid|posterior limb|corona radiata: motor|centrum semiovale: corticospinal|cerebral peduncle|crus cerebri|middle three-fifths|corona radiata and centrum/i],
   ["Corticobulbar tract", /corticobulbar|capsule, genu|corona radiata: motor/i],
   ["Dorsal column–medial lemniscus", /medial lemniscus|gracil|cuneat|dorsal column|internal arcuate|sensory radiation|posterolateral|posterior limb of internal capsule, posterior/i],
@@ -798,8 +815,56 @@ const FAM = [
   ["Vestibulospinal tracts", /vestibul/i],
   ["Rubrospinal tract", /rubrospinal|red nucleus/i],
   ["Tectospinal tract", /tectospinal|superior collicul|tectum/i]
-].map(([name, re]) => ({name, re, ref:(REF.tracts || []).find(r => r[0] === name)}));
-const famsOf = n => FAM.filter(f => f.re.test(n));
+];
+const FAM = (REF.tracts || []).map(r => ({name:r[0], ref:r}));
+const FAMBY = Object.fromEntries(FAM.map(f => [f.name, f]));
+const PATHS = window.LOC_PATHS || [], PCACHE = new Map();
+/* [{fam, role, side}] for a structure name: role o/r/p/x/e/n (starts, relays, runs through, crosses, ends, enters);
+   side I/C/B = signs on the lesion's side, the opposite side, both sides ("" = no simple side) */
+function pathsOf(n) {
+  if (PCACHE.has(n)) return PCACHE.get(n);
+  const lo = n.toLowerCase();
+  const rule = PATHS.find(([m]) => typeof m === "string" ? m === lo : m.test(n));
+  const out = rule ? rule[1].map(([name, role, side, step]) => ({fam:FAMBY[name], role, side, step})).filter(p => p.fam)
+    : FAM_OLD.filter(([, re]) => re.test(n)).map(([name]) => ({fam:FAMBY[name], role:"p", side:"", step:""})).filter(p => p.fam);
+  PCACHE.set(n, out);
+  return out;
+}
+const famsOf = n => pathsOf(n).map(p => p.fam);
+const inFams = (n, fams) => pathsOf(n).some(p => fams.includes(p.fam));
+const ROLE = {o:"starts here", r:"relays here", p:"runs through here", x:"crosses the midline here", e:"ends here", n:"enters here"};
+/* The whole route of a pathway as chips (origin → steps → where it ends), with the step at this structure marked:
+   the step named in localizer-paths.js when there is one ("-" = none), else a guess from the name and the level */
+function courseChips(fam, sname, slname, role, step) {
+  const r = fam.ref;
+  // a route written as two sentences ("Touch: … → VPM. Pain and temperature: …") is two branches, one per line
+  const branches = r[3].split(/\.\s+(?=[A-Z])/).map(b => b.split(/\s*→\s*/));
+  const steps = branches.flat(), brk = new Set();
+  branches.reduce((n, b) => { if (n) brk.add(n); return n + b.length; }, 0);
+  const short = t => (t || "").split(";")[0].replace(/\s*\([^)]*\)/g, "").trim();
+  const norm = t => t.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  const same = (a, b) => { a = norm(a); b = norm(b); return !!a && !!b && (a.includes(b) || b.includes(a)); };
+  // origin and end chips are left out when the route already starts or ends with the same place
+  const o = short(r[2]), e = short(r[5]);
+  const hasO = !!o && !same(o, steps[0]), hasE = !!e && !same(e, steps[steps.length - 1]);
+  const chips = [...(hasO ? [o] : []), ...steps, ...(hasE ? [e] : [])];
+  const first = hasO ? 1 : 0, last = first + steps.length - 1;
+  let best = -1;
+  const named = step && step !== "-" ? chips.findIndex(c => norm(c).includes(norm(step))) : -1;
+  if (step === "-") best = -1;
+  else if (named >= 0) best = named;
+  else if (role === "o" && o) best = 0;
+  else if (role === "e" && e) best = chips.length - 1;
+  else if (steps.length === 1) best = first;
+  else {
+    const tokens = (sname || "").toLowerCase().replace(/[(),:;]/g, " ").split(/\s+/).filter(w => w.length >= 5 && !/^(fibers|tract|tracts|nucleus|nuclei|fasciculus|anterior|posterior|lateral|medial|superior|inferior|primary)$/.test(w));
+    const lv = (slname || "").toLowerCase(), hint = /pons|pontine/.test(lv) ? ["pont", "pons", "brainstem"] : /midbrain/.test(lv) ? ["peduncle", "midbrain", "crus", "tegment", "collicul", "brainstem"] : /medulla/.test(lv) ? ["medull", "pyramid", "olive", "decussation", "nucleus gracilis", "brainstem"] : /cord|conus/.test(lv) ? ["spinal", "cord", "horn", "lateral corticospinal", "fasciculi"] : /vertex|corona|centrum/.test(lv) ? ["corona", "centrum", "white matter"] : /capsule|basal ganglia|thalamus|caudate/.test(lv) ? ["capsule", "thalam"] : [];
+    let bs = 0;
+    for (let k = first; k <= last; k++) { const t0 = chips[k].toLowerCase(); const sc = tokens.filter(t => t0.includes(t)).length + 2 * hint.filter(t => t0.includes(t)).length + (role === "x" && /cross|decussat/.test(t0) ? 2 : 0); if (sc > bs) { bs = sc; best = k; } }
+  }
+  // each arrow travels with the step after it, so a long step never leaves a lone arrow at the end of a line
+  return `<div class="course">${chips.map((c, k) => { const s = `<span${k === best ? ' class="here"' : ""}>${esc(c)}</span>`; return k === 0 ? s : brk.has(k - first) ? '<b class="br"></b>' + s : `<em class="cw"><i>→</i>${s}</em>`; }).join("")}</div>`;
+}
 const sref = (id, side, n) => `<button type="button" class="sref" data-sid="${esc(id)}" data-side="${side}" aria-pressed="${!!(state.focus && state.focus.ids.includes(id) && state.focus.side === side)}" title="Show on the image">${esc(n)}</button>`;
 const sideWord = s => s === "R" ? "right" : s === "L" ? "left" : "";
 function sameSide(o, side) { return o.side === "M" || side === "M" || o.side === side; }
@@ -809,13 +874,12 @@ function applyFocus() {
   $$(".tl.focl", svg).forEach(t => t.classList.remove("focl"));
   const f = state.focus, card = $("#focus");
   svg.classList.toggle("focusing", !!f);
-  $$("#report .sref").forEach(b => b.setAttribute("aria-pressed", String(!!(f && f.ids.includes(b.dataset.sid) && f.side === b.dataset.side))));
+  $$("#report .sref").forEach(b => b.setAttribute("aria-pressed", String(!!(f && f.ids.includes(b.dataset.sid) && f.side === b.dataset.side && (!b.dataset.fam || f.title === b.dataset.fam)))));
   if (!f) { card.hidden = true; card.innerHTML = ""; return; }
   const sl = B.sl, prim = [], sec = [];
-  const famRe = f.fams.length ? new RegExp(f.fams.map(x => x.re.source).join("|"), "i") : null;
   B.inst.forEach((o, i) => {
     if (f.ids.includes(o.s.id) && sameSide(o, f.side)) prim.push(i);
-    else if (famRe && famRe.test(o.s.n) && sameSide(o, f.side) && o.s.k !== "csf") sec.push(i);
+    else if (f.fams.length && inFams(o.s.n, f.fams) && sameSide(o, f.side) && o.s.k !== "csf") sec.push(i);
   });
   prim.forEach(i => { svg.querySelector(`.st[data-i="${i}"]`)?.classList.add("foc"); svg.querySelector(`.tl[data-l="${i}"]`)?.classList.add("focl"); });
   sec.forEach(i => { svg.querySelector(`.st[data-i="${i}"]`)?.classList.add("foc2"); svg.querySelector(`.tl[data-l="${i}"]`)?.classList.add("focl"); });
@@ -825,20 +889,17 @@ function applyFocus() {
   const others = f.ids.length > 1 ? f.ids.slice(1).map(id => sl.structs.find(x => x.id === id)).filter(Boolean) : [];
   const secNames = [...new Set(sec.map(i => B.inst[i].s.n))];
   // the whole pathway, with the step that matches this structure marked
-  const tokens = (s0 ? s0.n : "").toLowerCase().replace(/[(),:;]/g, " ").split(/\s+/).filter(w => w.length >= 5 && !/^(fibers|tract|tracts|nucleus|nuclei|fasciculus|anterior|posterior|lateral|medial|superior|inferior|primary)$/.test(w));
   const courseOf = fam => {
-    const steps = fam.ref[3].split(/\s*→\s*/); let best = -1, bs = 0;
-    const lv = sl.name.toLowerCase(), hint = /pons|pontine/.test(lv) ? ["pont", "pons"] : /midbrain/.test(lv) ? ["peduncle", "midbrain", "crus", "tegment", "collicul"] : /medulla/.test(lv) ? ["medull", "pyramid", "olive", "decussation", "nucleus gracilis"] : /cord|conus/.test(lv) ? ["spinal", "cord", "horn", "lateral corticospinal", "fasciculi"] : /vertex|corona|centrum/.test(lv) ? ["corona", "centrum", "white matter"] : /capsule|basal ganglia|thalamus|caudate/.test(lv) ? ["capsule", "thalam"] : [];
-    steps.forEach((st, k) => { const t0 = st.toLowerCase(); const sc = tokens.filter(t => t0.includes(t)).length + 2 * hint.filter(t => t0.includes(t)).length; if (sc > bs) { bs = sc; best = k; } });
-    return `<div><div class="flab">Pathway: ${esc(fam.name)}</div><div class="course">${fam.ref[2] ? `<span>${esc(fam.ref[2].split(/[;(]/)[0].trim())}</span><i>→</i>` : ""}${steps.map((st, k) => `<span${k === best ? ' class="here"' : ""}>${esc(st)}</span>`).join("<i>→</i>")}</div>${fam.ref[4] ? `<p style="font-size:13px;color:var(--muted);margin-top:4px">Crossing: ${esc(fam.ref[4])}</p>` : ""}</div>`;
+    const p = s0 ? pathsOf(s0.n).find(x => x.fam === fam) : null;
+    return `<div><div class="flab">Pathway: ${esc(fam.name)}${p && ROLE[p.role] ? " · " + esc(ROLE[p.role]) : ""}</div>${courseChips(fam, s0 ? s0.n : "", sl.name, p ? p.role : "", p ? p.step : "")}${fam.ref[4] ? `<p style="font-size:13px;color:var(--muted);margin-top:4px">Crossing: ${esc(fam.ref[4])}</p>` : ""}</div>`;
   };
   const courses = f.fams.filter(x => x.ref).slice(0, 2).map(courseOf).join("");
   // other slices where the same pathway (or the same structure) appears
   const also = [];
   SL.forEach(t => {
     if (t.id === sl.id) return;
-    const m = t.structs.filter(x => x.k !== "csf" && (famRe ? famRe.test(x.n) : (s0 && x.n === s0.n)));
-    const main = f.fams.length ? m.filter(x => f.fams[0].re.test(x.n)) : m;
+    const m = t.structs.filter(x => x.k !== "csf" && (f.fams.length ? inFams(x.n, f.fams) : (s0 && x.n === s0.n)));
+    const main = f.fams.length ? m.filter(x => inFams(x.n, [f.fams[0]])) : m;
     const use = main.length ? main : m;
     if (m.length) also.push({id:t.id, name:t.name, ids:use.map(x => x.id), ab:[...new Set(use.map(x => x.a))].slice(0, 3).join(", ")});
   });
@@ -850,15 +911,17 @@ function applyFocus() {
     ${also.length ? `<div><div class="flab">Follow it on other slices</div><div class="also">${also.map(a => `<button type="button" data-go="${a.id}" data-ids="${esc(a.ids.join(","))}" title="${esc(a.name)}"><b>${esc(a.name.replace(/^[^·]*·\s*/, ""))}</b> · ${esc(a.ab)}</button>`).join("")}</div></div>` : ""}`;
   card.hidden = false;
 }
-function setFocus(id, side) {
+function setFocus(id, side, famName) {
   const sl = B.sl, s0 = sl.structs.find(x => x.id === id); if (!s0) return;
-  if (state.focus && state.focus.ids[0] === id && state.focus.side === side) { state.focus = null; applyFocus(); return; }   // second click turns it off
-  state.focus = {ids:[id], side, fams:famsOf(s0.n)};
+  const fam = famName ? FAMBY[famName] : null;
+  // second click turns it off (a pathway name toggles only its own pathway)
+  if (state.focus && state.focus.ids[0] === id && state.focus.side === side && (state.focus.title || "") === (fam ? fam.name : "")) { state.focus = null; applyFocus(); return; }
+  state.focus = fam ? {ids:[id], side, fams:[fam], title:fam.name} : {ids:[id], side, fams:famsOf(s0.n)};
   applyFocus();
   const r = stage.getBoundingClientRect();
   if (r.bottom < 60 || r.top > innerHeight - 120) stage.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"center"});
 }
-$("#report").addEventListener("click", e => { const b = e.target.closest(".sref"); if (b) setFocus(b.dataset.sid, b.dataset.side); });
+$("#report").addEventListener("click", e => { const b = e.target.closest(".sref"); if (b) setFocus(b.dataset.sid, b.dataset.side, b.dataset.fam); });
 $("#report").addEventListener("mouseover", e => { const b = e.target.closest(".sref"); if (!b) return; const i = B.inst.findIndex(o => o.s.id === b.dataset.sid && o.side === b.dataset.side); if (i >= 0) setHover(i); });
 $("#report").addEventListener("mouseout", e => { if (e.target.closest(".sref")) setHover(-1); });
 $("#focus").addEventListener("click", e => {
@@ -898,6 +961,31 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
     });
   });
   const csfOnly = hits.length && !real.length;
+  // pathways: every tract the lesion touches, what it does at this spot and on which side its signs appear
+  const pmap = new Map();
+  real.forEach(h => pathsOf(h.o.s.n).forEach(p => {
+    let e = pmap.get(p.fam.name);
+    if (!e) pmap.set(p.fam.name, e = {fam:p.fam, n:0, pct:0, body:new Set(), codes:new Set(), via:[]});
+    e.n += h.n; e.pct = Math.max(e.pct, h.pct);
+    const ls = sl.para && h.o.side === "M" ? state.paraSide : h.o.side;
+    if (p.side === "B") e.body.add("B");
+    else if ((p.side === "I" || p.side === "C") && ls !== "M") { e.body.add(p.side === "I" ? ls : (ls === "R" ? "L" : "R")); e.codes.add(p.side); }
+    if (!e.via.some(v => v.id === h.o.s.id && v.side === h.o.side)) e.via.push({id:h.o.s.id, side:h.o.side, n:h.o.s.n, role:p.role, step:p.step, hn:h.n});
+  }));
+  // most completely hit first, so a small tract that is fully cut outranks a big region that is only grazed
+  const pws = [...pmap.values()].sort((a, b) => b.pct - a.pct || b.n - a.n);
+  const pwSide = e => {
+    if (e.body.has("B") || (e.body.has("R") && e.body.has("L"))) return "Signs can be on both sides";
+    const s = [...e.body][0]; if (!s) return "";
+    return `Signs on the patient’s ${sideWord(s)} side` + (e.codes.size === 1 ? (e.codes.has("I") ? " (same side as the lesion)" : " (opposite side to the lesion)") : "");
+  };
+  const pwCard = e => {
+    const v0 = e.via.slice().sort((a, b) => b.hn - a.hn)[0];
+    const roles = [...new Set(e.via.map(v => ROLE[v.role]).filter(Boolean))].join(" · ");
+    const pressed = !!(state.focus && state.focus.title === e.fam.name && state.focus.ids.includes(v0.id) && state.focus.side === v0.side);
+    const st = pwSide(e);
+    return `<div class="pw"><div class="pwh"><button type="button" class="sref pwn" data-sid="${esc(v0.id)}" data-side="${v0.side}" data-fam="${esc(e.fam.name)}" aria-pressed="${pressed}" title="Trace this pathway on the image">${esc(e.fam.name)}</button>${roles ? `<span class="pwr">${esc(roles)}</span>` : ""}</div>${st ? `<div class="pws">${esc(st)}</div>` : ""}${courseChips(e.fam, v0.n, sl.name, v0.role, v0.step)}<div class="pwx">${e.fam.ref[4] ? `Crosses: ${esc(e.fam.ref[4])} · ` : ""}Here: ${e.via.map(v => sref(v.id, v.side, v.n)).join(" · ")}</div></div>`;
+  };
   // territories
   const tlist = [...terN.entries()].map(([i, n]) => ({o:B.ter[i], n, pct:Math.round(100 * n / total)})).filter(t => t.pct >= 3).sort((a, b) => b.n - a.n);
   const wsShare = tlist.filter(t => t.o.t.f === "WS").reduce((a, t) => a + t.pct, 0);
@@ -908,9 +996,10 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
   if (bothParamedian) notes += `<p class="note">Paramedian territory on both sides of the brainstem: consider basilar artery occlusion. Urgent vascular imaging.</p>`;
   if (tlist.length > 1 && tlist[0].pct < 60 && wsShare < 30) notes += `<p class="note">The lesion spans several territories. A single branch rarely does this; consider a larger parent vessel (${esc(FAMNAME[tlist[0].o.t.f] || "")} stem), embolism, or a non-vascular cause.</p>`;
   rep.innerHTML = `
-    <div class="rhead"><span class="chip">${esc(sideTxt)}</span><span class="chip n">${real.length} structure${real.length === 1 ? "" : "s"}</span>${syn.length ? `<span class="chip n">${syn.length} syndrome match${syn.length === 1 ? "" : "es"}</span>` : ""}</div>
+    <div class="rhead"><span class="chip">${esc(sideTxt)}</span><span class="chip n">${real.length} structure${real.length === 1 ? "" : "s"}</span>${pws.length ? `<span class="chip n">${pws.length} pathway${pws.length === 1 ? "" : "s"}</span>` : ""}${syn.length ? `<span class="chip n">${syn.length} syndrome match${syn.length === 1 ? "" : "es"}</span>` : ""}</div>
     ${syn.length ? `<div><div class="lab">Syndrome</div><div class="syns" style="margin-top:6px">${syn.map(x => `<div class="syn"><h4>${esc(x.sy.n)}<small>${x.side === "B" ? "both sides" : x.side === "M" ? "" : (x.side === "R" ? "right-sided lesion" : "left-sided lesion")}</small></h4><p>${esc(x.sy.t)}</p></div>`).join("")}</div></div>` : ""}
     <div><div class="lab">Expected deficits</div>${csfOnly ? `<p class="empty" style="margin-top:6px">Only CSF spaces are marked: no deficit by itself. Watch for hydrocephalus.</p>` : `<ul class="defs" style="margin-top:6px">${[...seen.entries()].map(([l, src]) => `<li>${esc(l)}<span class="src">${src.map(a => sref(a.id, a.side, a.n)).join(" · ")}</span></li>`).join("") || "<li>No specific deficit listed for these structures.</li>"}</ul>`}</div>
+    ${pws.length ? `<div><div class="lab">Pathways affected</div><div class="paths" style="margin-top:8px">${pws.map(pwCard).join("")}</div><p class="empty" style="font-size:12.5px;margin-top:6px">The highlighted step is where this lesion sits on the pathway. Click a pathway name to trace it on the image and follow it to other slices.</p></div>` : ""}
     <div><div class="lab">Structures involved</div><div class="bars" style="margin-top:8px">${real.slice(0, 18).map(h => `<div class="bar"><span class="bt">${sref(h.o.s.id, h.o.side, h.o.s.n)}${h.o.side === "M" ? "" : ` <span style="color:var(--muted)">· ${h.o.side === "R" ? "right" : "left"}</span>`}</span><span class="bp">${h.pct}%</span><span class="bb"><i style="width:${h.pct}%;background:var(--lesion)"></i></span></div>`).join("")}</div>${real.length > 18 ? `<p class="empty" style="font-size:13px;margin-top:6px">and ${real.length - 18} more</p>` : ""}<p class="empty" style="font-size:12.5px;margin-top:6px">Percent of each structure covered by the lesion.</p></div>
     <div><div class="lab">Arterial territory</div><div class="bars" style="margin-top:8px">${tlist.map(t => `<div class="bar"><span class="bt"><i class="sw" style="background:var(--f${t.o.t.f})"></i>${esc(sideOf(t) + t.o.t.n)}</span><span class="bp">${t.pct}%</span><span class="bb"><i style="width:${t.pct}%;background:var(--f${t.o.t.f})"></i></span></div>`).join("") || `<p class="empty">No territory mapped here.</p>`}</div><p class="empty" style="font-size:12.5px;margin-top:6px">Share of the lesion inside each territory. Territories vary between people.</p></div>
     ${sl.note ? `<p class="note">${esc(sl.note)}</p>` : ""}${notes}`;
