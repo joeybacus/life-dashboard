@@ -384,18 +384,21 @@ function removedNote(p, col) {
     .map(({ day }) => html`<p class="pt__removed edit-${day}">${icon('edit')}Text removed ${dayWord(day)}</p>`);
 }
 
-function editsBar(v) {
+/** The Show edits bar: on the list page (counts every patient's boxes), or on one patient's page
+    (patient given: counts only theirs). Both pages share the same choice. */
+function editsBar(v, patient = null) {
   const on = editsOn();
+  const labelId = patient ? 'ptb-edits-label' : 'ward-edits-label';
   const opt = (i) => html`<label class="segmented__opt"><input type="checkbox" name="ward-edits" value="${i}" data-focus="edits-${i}"${raw((i ? editsDays.has(i) : !editsDays.size) ? ' checked' : '')}>
     <span>${i ? html`<i class="ward-edits-by__swatch edit-${i}" aria-hidden="true"></i>` : ''}${EDIT_DAYS[i]}${i ? html`<i class="sr-only"> (${EDIT_COLOURS[i]})</i>` : ''}</span></label>`;
   const line = ({ day, date }) => {
-    const count = v.patients.reduce((n, p) => n + v.columns.filter((c) => p.edited?.[c.col]?.[date] !== undefined).length, 0);
+    const count = (patient ? [patient] : v.patients).reduce((n, p) => n + v.columns.filter((c) => p.edited?.[c.col]?.[date] !== undefined).length, 0);
     return html`<span class="ward-edits-by__item"><i class="ward-edits-by__swatch edit-${day}" aria-hidden="true"></i>${EDIT_DAYS[day]}: ${count
-      ? `${plural(count, 'box', 'boxes')} in ${EDIT_COLOURS[day]}` : 'no edits on this device'}</span>`;
+      ? `${plural(count, 'box', 'boxes')} in ${EDIT_COLOURS[day]}` : patient ? 'no edits to this patient on this device' : 'no edits on this device'}</span>`;
   };
   return html`<div class="ward-arrange-by ward-edits-by">
-    <span class="ward-arrange-by__label" id="ward-edits-label">Show edits</span>
-    <div class="segmented" role="group" aria-labelledby="ward-edits-label">${[0, 1, 2, 3].map(opt)}</div>
+    <span class="ward-arrange-by__label" id="${labelId}">Show edits</span>
+    <div class="segmented" role="group" aria-labelledby="${labelId}">${[0, 1, 2, 3].map(opt)}</div>
   </div>
   ${on.length ? html`<p class="ward-edits-by__note" aria-live="polite">${on.map(line)}${on.length > 1
     ? html`<span class="ward-edits-by__hint">Words changed on two days show the newer colour.</span>` : ''}</p>` : ''}`;
@@ -867,6 +870,7 @@ function detailBody(p, v, { editing = false } = {}) {
     <div class="ptb__main">
       ${v.hidden.rounded ? '' : roundsBox(p, v)}
       ${patientNav(p, v)}
+      <div class="ptb__edits">${editsBar(v, p)}</div>
       ${notesSlot('patient')}
       ${editing ? boardSetup(v, board, byCol) : ''}
       <div class="ptb ptb--c${board.cols} ptb--w${board.wide}${editing ? ' is-editing' : ''}">
@@ -996,6 +1000,12 @@ async function openPatient(openId) {
       mountCt(dlg.querySelector('.dlg__body'), { hn: p.hn });
       mountCxr(dlg.querySelector('.dlg__body'), { hn: p.hn });
       watchBar();
+      // Show edits on the patient page (the same choice as the list page's bar)
+      dlg.addEventListener('change', (event) => {
+        if (event.target.name !== 'ward-edits') return;
+        toggleEditsDay(event.target);
+        redraw();
+      });
       dlg.addEventListener('click', async (event) => {
         const tool = event.target.closest('[data-bact]');
         if (tool) {
@@ -1568,18 +1578,20 @@ async function arrangeBy(value) {
   await updateList(list.id, (def) => { def.arrange = value === 'location' ? 'location' : undefined; });
   announce(value === 'location' ? 'Arranged by location.' : 'Arranged by priority.');
 }
+/** A Show edits button was pressed (list page or patient page): Off clears the days; each day
+    turns on and off by itself. The list page redraws too, so both pages keep the same choice. */
+function toggleEditsDay(input) {
+  const day = Number(input.value) || 0;
+  if (!day) editsDays.clear();
+  else if (input.checked) editsDays.add(day);
+  else editsDays.delete(day);
+  render();
+  const on = editsOn().map(({ day: d }) => `${dayWord(d)} in ${EDIT_COLOURS[d]}`);
+  announce(on.length ? `Showing what you edited ${on.join(', ')}.` : 'Edits not shown.');
+}
 document.addEventListener('change', (event) => {
   if (showing === 'list' && event.target.name === 'ward-arrange' && view?.contains(event.target)) arrangeBy(event.target.value);
-  if (showing === 'list' && event.target.name === 'ward-edits' && view?.contains(event.target)) {
-    // Off clears the days; each day turns on and off by itself
-    const day = Number(event.target.value) || 0;
-    if (!day) editsDays.clear();
-    else if (event.target.checked) editsDays.add(day);
-    else editsDays.delete(day);
-    render();
-    const on = editsOn().map(({ day: d }) => `${dayWord(d)} in ${EDIT_COLOURS[d]}`);
-    announce(on.length ? `Showing what you edited ${on.join(', ')}.` : 'Edits not shown.');
-  }
+  if (showing === 'list' && event.target.name === 'ward-edits' && view?.contains(event.target)) toggleEditsDay(event.target);
 });
 registerAction('ward:open', (el) => openPatient(el.dataset.id));
 registerAction('ward:tick', (el) => {

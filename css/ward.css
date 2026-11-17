@@ -1185,6 +1185,8 @@ button.wbadge { cursor: pointer; }
 .pt__removed { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: var(--fs-xs, .8rem); font-weight: 600; color: var(--edit-ink, var(--edit-today)); }
 .pt__removed .icon { width: .85rem; height: .85rem; }
 .pt__field--check.is-edited .pt__box { box-shadow: 0 0 0 2px var(--edit-ink, var(--edit-today)); }
+/* The same bar on a patient's page, under the bed boxes (0.11.43); spacing comes from .ptb__main's gap */
+.ptb__edits .ward-arrange-by { margin: 0 4px; }
 @media (max-width: 400px) {
   .ward-edits-by { flex-wrap: wrap; }
   .ward-edits-by .segmented { flex-basis: 100%; max-width: none; }
