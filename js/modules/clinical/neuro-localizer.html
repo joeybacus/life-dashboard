@@ -223,6 +223,14 @@ select.tsel{font-family:var(--f-label);font-size:12.5px;padding:6px 8px;border-r
 .course .br{flex-basis:100%;height:2px}
 .course .cw{font-style:normal;display:inline-flex;align-items:center;gap:2px;max-width:100%;min-width:0}
 .course .cw span{min-width:0}
+/* route steps (0.11.46): a step drawn on some slice is a button that shows it on the image */
+.course .cstep{all:unset;cursor:pointer;display:inline-flex;min-width:0;max-width:100%;border-radius:6px}
+.course .cstep:hover span,.course .cstep:focus-visible span{border-color:var(--focus);color:var(--focus-ink)}
+.course .cstep:hover span.here,.course .cstep:focus-visible span.here{color:#00243a;box-shadow:0 0 0 2px var(--focus)}
+.course .cstep:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.course span.nolink{border-style:dashed;color:var(--muted)}
+.course span.nolink.here{color:#00243a}
+.focus .fnote{font-size:13px;color:var(--focus-ink);border-left:2px solid var(--focus);padding-left:8px}
 
 /* reference */
 .search{margin-bottom:12px}
@@ -833,37 +841,125 @@ function pathsOf(n) {
 const famsOf = n => pathsOf(n).map(p => p.fam);
 const inFams = (n, fams) => pathsOf(n).some(p => fams.includes(p.fam));
 const ROLE = {o:"starts here", r:"relays here", p:"runs through here", x:"crosses the midline here", e:"ends here", n:"enters here"};
-/* The whole route of a pathway as chips (origin → steps → where it ends), with the step at this structure marked:
-   the step named in localizer-paths.js when there is one ("-" = none), else a guess from the name and the level */
-function courseChips(fam, sname, slname, role, step) {
+const normT = t => t.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+/* A pathway's route as chips: origin → steps → where it ends. A route written as two sentences
+   ("Touch: … → VPM. Pain and temperature: …") is two branches, shown one per line. */
+const RCACHE = new Map();
+function routeOf(fam) {
+  if (RCACHE.has(fam.name)) return RCACHE.get(fam.name);
   const r = fam.ref;
-  // a route written as two sentences ("Touch: … → VPM. Pain and temperature: …") is two branches, one per line
   const branches = r[3].split(/\.\s+(?=[A-Z])/).map(b => b.split(/\s*→\s*/));
-  const steps = branches.flat(), brk = new Set();
-  branches.reduce((n, b) => { if (n) brk.add(n); return n + b.length; }, 0);
+  const steps = branches.flat();
   const short = t => (t || "").split(";")[0].replace(/\s*\([^)]*\)/g, "").trim();
-  const norm = t => t.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
-  const same = (a, b) => { a = norm(a); b = norm(b); return !!a && !!b && (a.includes(b) || b.includes(a)); };
+  const same = (a, b) => { a = normT(a); b = normT(b); return !!a && !!b && (a.includes(b) || b.includes(a)); };
   // origin and end chips are left out when the route already starts or ends with the same place
   const o = short(r[2]), e = short(r[5]);
   const hasO = !!o && !same(o, steps[0]), hasE = !!e && !same(e, steps[steps.length - 1]);
   const chips = [...(hasO ? [o] : []), ...steps, ...(hasE ? [e] : [])];
   const first = hasO ? 1 : 0, last = first + steps.length - 1;
+  const branchOf = chips.map(() => -1), brk = new Set();   // branch of each chip (-1 = origin or end, shared)
+  let k = first;
+  branches.forEach((b, bi) => { if (bi) brk.add(k); b.forEach(() => { branchOf[k++] = bi; }); });
+  const R = {chips, first, last, nSteps:steps.length, hasO, hasE, branchOf, brk};
+  RCACHE.set(fam.name, R);
+  return R;
+}
+/* Which chip of the route a structure sits at: the step named in localizer-paths.js when there is one
+   ("-" = none), else a guess from the structure's name and the level of the slice. -1 = not on the drawn route. */
+function stepAt(fam, sname, slname, role, step) {
+  const {chips, first, last, nSteps, hasO, hasE} = routeOf(fam);
   let best = -1;
-  const named = step && step !== "-" ? chips.findIndex(c => norm(c).includes(norm(step))) : -1;
+  const named = step && step !== "-" ? chips.findIndex(c => normT(c).includes(normT(step))) : -1;
   if (step === "-") best = -1;
   else if (named >= 0) best = named;
-  else if (role === "o" && o) best = 0;
-  else if (role === "e" && e) best = chips.length - 1;
-  else if (steps.length === 1) best = first;
+  else if (role === "o" && fam.ref[2]) best = 0;
+  else if (role === "e" && fam.ref[5]) best = chips.length - 1;
+  else if (nSteps === 1) best = first;
   else {
     const tokens = (sname || "").toLowerCase().replace(/[(),:;]/g, " ").split(/\s+/).filter(w => w.length >= 5 && !/^(fibers|tract|tracts|nucleus|nuclei|fasciculus|anterior|posterior|lateral|medial|superior|inferior|primary)$/.test(w));
     const lv = (slname || "").toLowerCase(), hint = /pons|pontine/.test(lv) ? ["pont", "pons", "brainstem"] : /midbrain/.test(lv) ? ["peduncle", "midbrain", "crus", "tegment", "collicul", "brainstem"] : /medulla/.test(lv) ? ["medull", "pyramid", "olive", "decussation", "nucleus gracilis", "brainstem"] : /cord|conus/.test(lv) ? ["spinal", "cord", "horn", "lateral corticospinal", "fasciculi"] : /vertex|corona|centrum/.test(lv) ? ["corona", "centrum", "white matter"] : /capsule|basal ganglia|thalamus|caudate/.test(lv) ? ["capsule", "thalam"] : [];
     let bs = 0;
     for (let k = first; k <= last; k++) { const t0 = chips[k].toLowerCase(); const sc = tokens.filter(t => t0.includes(t)).length + 2 * hint.filter(t => t0.includes(t)).length + (role === "x" && /cross|decussat/.test(t0) ? 2 : 0); if (sc > bs) { bs = sc; best = k; } }
   }
+  return best;
+}
+/* Every structure, on every slice, that sits at each step of a pathway: chip index → [{sl, x}] */
+const SCACHE = new Map();
+function stepIndex(fam) {
+  if (SCACHE.has(fam.name)) return SCACHE.get(fam.name);
+  const m = new Map();
+  SL.forEach(t => t.structs.forEach(x => {
+    if (x.k === "csf") return;
+    pathsOf(x.n).forEach(p => {
+      if (p.fam !== fam) return;
+      const k = stepAt(fam, x.n, t.name, p.role, p.step);
+      if (k < 0) return;
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push({sl:t, x});
+    });
+  }));
+  SCACHE.set(fam.name, m);
+  return m;
+}
+/* The slice that shows a step best: the structure most specifically named after the step wins (a structure that
+   carries fewer pathways is more specific); the slice already open wins a tie. */
+function stepTarget(fam, k) {
+  const c = stepIndex(fam).get(k); if (!c) return null;
+  const chip = normT(routeOf(fam).chips[k]), words = chip.split(" ").filter(w => w.length >= 4);
+  const bySl = new Map();
+  c.forEach(({sl, x}) => { if (!bySl.has(sl.id)) bySl.set(sl.id, {sl, xs:[]}); bySl.get(sl.id).xs.push(x); });
+  let best = null, bs = -Infinity;
+  bySl.forEach(g => {
+    const fit = Math.max(...g.xs.map(x => { const n = normT(x.n); return (n.includes(chip) ? 10 : 0) + words.filter(w => n.includes(w)).length - pathsOf(x.n).length; }));
+    const sc = fit + (B && g.sl.id === B.sl.id ? 1.5 : 0) - (g.sl.para ? 0.5 : 0);
+    if (sc > bs) { bs = sc; best = g; }
+  });
+  return best && {sl:best.sl, ids:[...new Set(best.xs.map(x => x.id))]};
+}
+/* How many times the pathway crosses the midline between two of its steps (same branch only) */
+function crossingsBetween(fam, a, b) {
+  const R = routeOf(fam);
+  if (a < 0 || b < 0 || a === b) return 0;
+  const ba = R.branchOf[a], bb = R.branchOf[b];
+  if (ba >= 0 && bb >= 0 && ba !== bb) return 0;
+  const br = ba >= 0 ? ba : bb >= 0 ? bb : 0;
+  let n = 0;
+  for (let k = Math.min(a, b) + 1; k < Math.max(a, b); k++) if ((R.branchOf[k] === br || R.branchOf[k] < 0) && /\bcross|decussat/i.test(R.chips[k])) n++;
+  return n;
+}
+/* The route as chips with this structure's step marked. A step drawn on some slice is a button: it shows that step
+   on the image (on the other side when the pathway crosses in between); dashed steps are not drawn anywhere. */
+function courseChips(fam, sname, slname, role, step, side) {
+  const R = routeOf(fam), best = stepAt(fam, sname, slname, role, step);
+  const idx = stepIndex(fam);
   // each arrow travels with the step after it, so a long step never leaves a lone arrow at the end of a line
-  return `<div class="course">${chips.map((c, k) => { const s = `<span${k === best ? ' class="here"' : ""}>${esc(c)}</span>`; return k === 0 ? s : brk.has(k - first) ? '<b class="br"></b>' + s : `<em class="cw"><i>→</i>${s}</em>`; }).join("")}</div>`;
+  return `<div class="course">${R.chips.map((c, k) => {
+    const cls = [k === best ? "here" : "", idx.has(k) ? "" : "nolink"].filter(Boolean).join(" ");
+    let s = `<span${cls ? ` class="${cls}"` : ""}>${esc(c)}</span>`;
+    if (idx.has(k)) { const t = stepTarget(fam, k); s = `<button type="button" class="cstep" data-fam="${esc(fam.name)}" data-k="${k}" data-here="${best}" data-side="${side || "M"}" title="Show on the image${t ? ": " + esc(t.sl.name) : ""}">${s}</button>`; }
+    return k === 0 ? s : R.brk.has(k) ? '<b class="br"></b>' + s : `<em class="cw"><i>→</i>${s}</em>`;
+  }).join("")}</div>`;
+}
+function revealStage() {
+  const r = stage.getBoundingClientRect();
+  if (r.bottom < 60 || r.top > innerHeight - 120) stage.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"center"});
+}
+/* Click on a step of a route: open the slice that shows it and fill that part of the pathway */
+function stepGo(famName, k, here, side) {
+  const fam = FAMBY[famName], t = fam && stepTarget(fam, k); if (!t) return;
+  const flip = (side === "R" || side === "L") && crossingsBetween(fam, here, k) % 2 === 1;
+  const s2 = flip ? (side === "R" ? "L" : "R") : side;
+  const cross = (fam.ref[4] || "").split(/[;(]/)[0].trim();
+  const note = flip ? `Now on the patient’s ${sideWord(s2)} side: the pathway crosses the midline${cross ? " (" + cross.toLowerCase() + ")" : ""} between the step you came from and this one.` : "";
+  const fo = {ids:t.ids, side:s2, fams:[fam], title:fam.name, note};
+  if (t.sl.para && (s2 === "R" || s2 === "L") && state.paraSide !== s2) {
+    state.paraSide = s2;
+    $("#pR").setAttribute("aria-pressed", String(s2 === "R")); $("#pL").setAttribute("aria-pressed", String(s2 === "L"));
+    if (B && B.sl.id === t.sl.id) { svg.querySelector("#mriImg")?.setAttribute("href", mriSrc(t.sl)); analyze(); }
+  }
+  if (B && B.sl.id === t.sl.id) { state.focus = fo; applyFocus(); }
+  else { state.pendingFocus = fo; go(t.sl.id); }
+  revealStage();
 }
 const sref = (id, side, n) => `<button type="button" class="sref" data-sid="${esc(id)}" data-side="${side}" aria-pressed="${!!(state.focus && state.focus.ids.includes(id) && state.focus.side === side)}" title="Show on the image">${esc(n)}</button>`;
 const sideWord = s => s === "R" ? "right" : s === "L" ? "left" : "";
@@ -891,7 +987,7 @@ function applyFocus() {
   // the whole pathway, with the step that matches this structure marked
   const courseOf = fam => {
     const p = s0 ? pathsOf(s0.n).find(x => x.fam === fam) : null;
-    return `<div><div class="flab">Pathway: ${esc(fam.name)}${p && ROLE[p.role] ? " · " + esc(ROLE[p.role]) : ""}</div>${courseChips(fam, s0 ? s0.n : "", sl.name, p ? p.role : "", p ? p.step : "")}${fam.ref[4] ? `<p style="font-size:13px;color:var(--muted);margin-top:4px">Crossing: ${esc(fam.ref[4])}</p>` : ""}</div>`;
+    return `<div><div class="flab">Pathway: ${esc(fam.name)}${p && ROLE[p.role] ? " · " + esc(ROLE[p.role]) : ""}</div>${courseChips(fam, s0 ? s0.n : "", sl.name, p ? p.role : "", p ? p.step : "", eff)}${fam.ref[4] ? `<p style="font-size:13px;color:var(--muted);margin-top:4px">Crossing: ${esc(fam.ref[4])}</p>` : ""}</div>`;
   };
   const courses = f.fams.filter(x => x.ref).slice(0, 2).map(courseOf).join("");
   // other slices where the same pathway (or the same structure) appears
@@ -904,6 +1000,7 @@ function applyFocus() {
     if (m.length) also.push({id:t.id, name:t.name, ids:use.map(x => x.id), ab:[...new Set(use.map(x => x.a))].slice(0, 3).join(", ")});
   });
   card.innerHTML = `<div class="fh"><h4>${esc(f.title || (s0 ? s0.n : ""))}<small>${eff !== "M" ? `Patient’s ${sideWord(eff)} side · ` : ""}${esc(sl.name)}${f.title ? " · shown: " + esc([s0, ...others].map(x => x.a).join(", ")) : ""}</small></h4><button type="button" class="x" data-act="close">Close</button></div>
+    ${f.note ? `<p class="fnote">${esc(f.note)}</p>` : ""}
     ${f.title && s0 ? `<p><b>${esc(s0.n)}</b>${s0.fn ? ": " + esc(s0.fn) : ""}</p>` : s0 && s0.fn ? `<p>${esc(s0.fn)}</p>` : ""}
     ${defs.length ? `<div><div class="flab">If damaged</div><ul>${defs.map(d => `<li>${esc(d)}</li>`).join("")}</ul></div>` : ""}
     ${secNames.length ? `<p style="font-size:13px;color:var(--muted)">Dashed on the image: the same pathway elsewhere on this slice (${esc(secNames.join("; "))}).</p>` : ""}
@@ -918,14 +1015,15 @@ function setFocus(id, side, famName) {
   if (state.focus && state.focus.ids[0] === id && state.focus.side === side && (state.focus.title || "") === (fam ? fam.name : "")) { state.focus = null; applyFocus(); return; }
   state.focus = fam ? {ids:[id], side, fams:[fam], title:fam.name} : {ids:[id], side, fams:famsOf(s0.n)};
   applyFocus();
-  const r = stage.getBoundingClientRect();
-  if (r.bottom < 60 || r.top > innerHeight - 120) stage.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"center"});
+  revealStage();
 }
-$("#report").addEventListener("click", e => { const b = e.target.closest(".sref"); if (b) setFocus(b.dataset.sid, b.dataset.side, b.dataset.fam); });
+const stepClick = e => { const c = e.target.closest(".cstep"); if (!c) return false; stepGo(c.dataset.fam, +c.dataset.k, +c.dataset.here, c.dataset.side); return true; };
+$("#report").addEventListener("click", e => { if (stepClick(e)) return; const b = e.target.closest(".sref"); if (b) setFocus(b.dataset.sid, b.dataset.side, b.dataset.fam); });
 $("#report").addEventListener("mouseover", e => { const b = e.target.closest(".sref"); if (!b) return; const i = B.inst.findIndex(o => o.s.id === b.dataset.sid && o.side === b.dataset.side); if (i >= 0) setHover(i); });
 $("#report").addEventListener("mouseout", e => { if (e.target.closest(".sref")) setHover(-1); });
 $("#focus").addEventListener("click", e => {
   if (e.target.closest('[data-act="close"]')) { state.focus = null; applyFocus(); return; }
+  if (stepClick(e)) return;
   const g = e.target.closest("[data-go]"); if (!g) return;
   const f = state.focus;
   state.pendingFocus = {ids:g.dataset.ids.split(","), side:f ? f.side : "R", fams:f ? f.fams : [], title:f && f.fams[0] ? f.fams[0].name : ""};
@@ -984,7 +1082,7 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
     const roles = [...new Set(e.via.map(v => ROLE[v.role]).filter(Boolean))].join(" · ");
     const pressed = !!(state.focus && state.focus.title === e.fam.name && state.focus.ids.includes(v0.id) && state.focus.side === v0.side);
     const st = pwSide(e);
-    return `<div class="pw"><div class="pwh"><button type="button" class="sref pwn" data-sid="${esc(v0.id)}" data-side="${v0.side}" data-fam="${esc(e.fam.name)}" aria-pressed="${pressed}" title="Trace this pathway on the image">${esc(e.fam.name)}</button>${roles ? `<span class="pwr">${esc(roles)}</span>` : ""}</div>${st ? `<div class="pws">${esc(st)}</div>` : ""}${courseChips(e.fam, v0.n, sl.name, v0.role, v0.step)}<div class="pwx">${e.fam.ref[4] ? `Crosses: ${esc(e.fam.ref[4])} · ` : ""}Here: ${e.via.map(v => sref(v.id, v.side, v.n)).join(" · ")}</div></div>`;
+    return `<div class="pw"><div class="pwh"><button type="button" class="sref pwn" data-sid="${esc(v0.id)}" data-side="${v0.side}" data-fam="${esc(e.fam.name)}" aria-pressed="${pressed}" title="Trace this pathway on the image">${esc(e.fam.name)}</button>${roles ? `<span class="pwr">${esc(roles)}</span>` : ""}</div>${st ? `<div class="pws">${esc(st)}</div>` : ""}${courseChips(e.fam, v0.n, sl.name, v0.role, v0.step, sl.para && v0.side === "M" ? state.paraSide : v0.side)}<div class="pwx">${e.fam.ref[4] ? `Crosses: ${esc(e.fam.ref[4])} · ` : ""}Here: ${e.via.map(v => sref(v.id, v.side, v.n)).join(" · ")}</div></div>`;
   };
   // territories
   const tlist = [...terN.entries()].map(([i, n]) => ({o:B.ter[i], n, pct:Math.round(100 * n / total)})).filter(t => t.pct >= 3).sort((a, b) => b.n - a.n);
@@ -999,7 +1097,7 @@ function renderReport({sl, total, onR, onL, outside, hits, terN}) {
     <div class="rhead"><span class="chip">${esc(sideTxt)}</span><span class="chip n">${real.length} structure${real.length === 1 ? "" : "s"}</span>${pws.length ? `<span class="chip n">${pws.length} pathway${pws.length === 1 ? "" : "s"}</span>` : ""}${syn.length ? `<span class="chip n">${syn.length} syndrome match${syn.length === 1 ? "" : "es"}</span>` : ""}</div>
     ${syn.length ? `<div><div class="lab">Syndrome</div><div class="syns" style="margin-top:6px">${syn.map(x => `<div class="syn"><h4>${esc(x.sy.n)}<small>${x.side === "B" ? "both sides" : x.side === "M" ? "" : (x.side === "R" ? "right-sided lesion" : "left-sided lesion")}</small></h4><p>${esc(x.sy.t)}</p></div>`).join("")}</div></div>` : ""}
     <div><div class="lab">Expected deficits</div>${csfOnly ? `<p class="empty" style="margin-top:6px">Only CSF spaces are marked: no deficit by itself. Watch for hydrocephalus.</p>` : `<ul class="defs" style="margin-top:6px">${[...seen.entries()].map(([l, src]) => `<li>${esc(l)}<span class="src">${src.map(a => sref(a.id, a.side, a.n)).join(" · ")}</span></li>`).join("") || "<li>No specific deficit listed for these structures.</li>"}</ul>`}</div>
-    ${pws.length ? `<div><div class="lab">Pathways affected</div><div class="paths" style="margin-top:8px">${pws.map(pwCard).join("")}</div><p class="empty" style="font-size:12.5px;margin-top:6px">The highlighted step is where this lesion sits on the pathway. Click a pathway name to trace it on the image and follow it to other slices.</p></div>` : ""}
+    ${pws.length ? `<div><div class="lab">Pathways affected</div><div class="paths" style="margin-top:8px">${pws.map(pwCard).join("")}</div><p class="empty" style="font-size:12.5px;margin-top:6px">The highlighted step is where this lesion sits on the pathway. Click any step to see that part of the pathway on the image, on the side it runs on (dashed steps are not drawn on any slice). Click a pathway name to trace it from here.</p></div>` : ""}
     <div><div class="lab">Structures involved</div><div class="bars" style="margin-top:8px">${real.slice(0, 18).map(h => `<div class="bar"><span class="bt">${sref(h.o.s.id, h.o.side, h.o.s.n)}${h.o.side === "M" ? "" : ` <span style="color:var(--muted)">· ${h.o.side === "R" ? "right" : "left"}</span>`}</span><span class="bp">${h.pct}%</span><span class="bb"><i style="width:${h.pct}%;background:var(--lesion)"></i></span></div>`).join("")}</div>${real.length > 18 ? `<p class="empty" style="font-size:13px;margin-top:6px">and ${real.length - 18} more</p>` : ""}<p class="empty" style="font-size:12.5px;margin-top:6px">Percent of each structure covered by the lesion.</p></div>
     <div><div class="lab">Arterial territory</div><div class="bars" style="margin-top:8px">${tlist.map(t => `<div class="bar"><span class="bt"><i class="sw" style="background:var(--f${t.o.t.f})"></i>${esc(sideOf(t) + t.o.t.n)}</span><span class="bp">${t.pct}%</span><span class="bb"><i style="width:${t.pct}%;background:var(--f${t.o.t.f})"></i></span></div>`).join("") || `<p class="empty">No territory mapped here.</p>`}</div><p class="empty" style="font-size:12.5px;margin-top:6px">Share of the lesion inside each territory. Territories vary between people.</p></div>
     ${sl.note ? `<p class="note">${esc(sl.note)}</p>` : ""}${notes}`;
