@@ -850,18 +850,24 @@ function detailBody(p, v, { editing = false } = {}) {
     return shown.map((t, i) => boardTile(p, v, byCol.get(t.col), t, { z, i, count: shown.length }, board, editing));
   };
   const top = zone(0);
+  const loading = v.phase === 'loading';
   return html`<header class="ptb__bar">
       <div class="ptb__who">
         <div class="ptb__name-row">
           <h2 class="ptb__name" id="ptb-title">${p.name}</h2>
           ${p.tickable && !editing ? html`<button type="button" class="btn btn--sm btn--ghost ptb__rename" data-dact="rename" data-focus="b-rename" aria-label="Edit name">${icon('edit')}Edit</button>` : ''}
         </div>
-        <p class="ptd__meta">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet</p>
+        <p class="ptd__meta">${p.hn ? html`<span class="pt__label">${hnLabel(v)}</span> ${p.hn}` : 'No hospital number'} · row ${p.row} of the logsheet${
+          loading ? ' · updating…' : v.cache ? ` · updated ${wardStamp(v.cache.fetchedAt)}` : ''}</p>
+        ${v.error && !loading ? html`<p class="note ward-note--warn">${icon('info')}<span>Couldn’t refresh — ${
+          v.error.message || LOAD_PROBLEMS[v.error.code] || 'try again in a moment.'}</span></p>` : ''}
         ${changeNote(p.nameItem)}
         ${p.location ? html`<p class="ptb__loc">${icon('pin')}<span class="sr-only">Location: </span><span>${p.location}</span></p>` : ''}
         ${badges(p, v, { detail: true })}
       </div>
       <div class="ptb__acts">
+        ${editing ? '' : html`<button type="button" class="btn btn--sm ptb__refresh${loading ? ' is-busy' : ''}" data-dact="refresh" data-focus="b-refresh"${
+          raw(loading ? ' aria-disabled="true"' : '')} title="Load the latest from the logsheet">${icon('refresh')}${loading ? 'Updating…' : 'Refresh'}</button>`}
         ${editing ? '' : html`<button type="button" class="btn btn--sm" data-dact="referral" data-focus="b-referral">${icon('share')}Referral</button>`}
         <button type="button" class="btn btn--sm${editing ? ' btn--accent' : ''}" data-dact="customize" data-focus="b-customize" aria-pressed="${editing ? 'true' : 'false'}">${icon(editing ? 'check' : 'sliders')}${editing ? 'Done' : 'Customize'}</button>
         <button type="button" class="btn btn--sm" data-dialog-value="close" autofocus>${icon('x')}Close</button>
@@ -1023,6 +1029,12 @@ async function openPatient(openId) {
         if (!act || !now) return;
         if (act === 'go') {
           await go(button.dataset.id);
+        } else if (act === 'refresh') {
+          // The same as Refresh on the list page; the page redraws when the logsheet answers
+          const list = current();
+          if (!list || list.view().phase === 'loading') return;
+          // A failed refresh shows under the name (it stays until a refresh works)
+          announce(await list.refresh() ? 'Updated from the logsheet.' : 'Couldn’t refresh.');
         } else if (act === 'referral') {
           await openReferral(listId, now.id);
         } else if (act === 'customize') {

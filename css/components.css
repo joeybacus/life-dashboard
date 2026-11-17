@@ -639,6 +639,10 @@ html.has-dialog { overflow: hidden; }
   transition: opacity var(--t) var(--ease), transform var(--t) var(--ease);
 }
 .toast.is-in { opacity: 1; transform: none; }
+/* Inside an open pop-up (ui.js placeToasts): no tab bar or side rail to clear. A full-screen page
+   (a patient's page) has them at the bottom; smaller pop-ups at the top, clear of their buttons. */
+.dlg > #toasts { bottom: calc(env(safe-area-inset-bottom) + 20px); padding-left: 16px; }
+.dlg:not(.dlg--full) > #toasts { top: calc(env(safe-area-inset-top) + 12px); bottom: auto; }
 .toast > .icon { color: var(--brand-ink); }
 .toast__msg { flex: 1; }
 .toast__action { margin: -6px -8px -6px 4px; padding: 8px 10px; border-radius: 10px; color: var(--brand-ink); font-weight: 700; }

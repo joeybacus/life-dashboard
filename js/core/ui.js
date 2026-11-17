@@ -12,10 +12,35 @@ export function announce(message) {
 }
 
 let activeToast = null;
+let toastHost = null;
+let toastHome = null; // a marker where the toasts normally sit, at the end of the page
+
+/**
+ * Toasts go inside the top open pop-up (0.11.44): anything outside a pop-up sits behind
+ * it and can't be tapped, so a message shown on a patient's page was never seen. A pop-up
+ * that's closing doesn't count (its message shows on the page underneath). Back in their
+ * usual place when no pop-up is open. Like the reminder banner (todo/reminders.js).
+ */
+function placeToasts() {
+  if (!toastHost) {
+    toastHost = document.getElementById('toasts');
+    if (!toastHost) return null;
+    toastHome = document.createComment(' toasts ');
+    toastHost.before(toastHome);
+  }
+  const top = [...document.querySelectorAll('dialog[open]:not(.is-closing)')].at(-1);
+  if (top) {
+    if (toastHost.parentElement !== top) top.append(toastHost);
+  } else if (toastHost.previousSibling !== toastHome) {
+    toastHome.after(toastHost);
+  }
+  return toastHost;
+}
+document.addEventListener('ld:dialogs', placeToasts);
 
 /** Small message above the tab bar. Optional action button, e.g. { label: 'Undo', onClick }. */
 export function toast(message, { action, duration, icon: iconName } = {}) {
-  const host = document.getElementById('toasts');
+  const host = placeToasts();
   if (!host) return null;
   activeToast?.dismiss(true);
 
