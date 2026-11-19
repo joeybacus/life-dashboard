@@ -217,25 +217,45 @@ function table(s, tests = s.tests) {
 /** Grid view: a long section split into even pages of rows, swiped sideways like the urinalysis cards. */
 function pagedTable(s) {
   const pages = Math.ceil(s.tests.length / GRID_ROWS);
-  if (pages <= 1) return table(s);
+  if (pages <= 1) return { body: table(s), pager: '' };
   const per = Math.ceil(s.tests.length / pages);
   const chunks = Array.from({ length: pages }, (_, i) => s.tests.slice(i * per, (i + 1) * per));
-  return html`<div class="labt__pages" tabindex="0" role="region" aria-label="${s.title || 'Results'} — ${pages} pages, scroll sideways">
-    ${chunks.map((tests, i) => html`<div class="labt__page">
-      ${table(s, tests)}
-      <button type="button" class="labt__pagepos" data-labpage="${i < pages - 1 ? i + 1 : 0}" aria-label="${i < pages - 1 ? 'Next page' : 'First page'} of ${s.title || 'results'}">${i > 0 ? '‹ ' : ''}${i + 1} of ${pages}${i < pages - 1 ? ' ›' : ''}</button>
-    </div>`)}
-  </div>`;
+  return {
+    // In the card's title bar: dots for the pages, ‹ › to turn them (a mouse can't swipe sideways)
+    pager: html`<span class="labt__pager">
+      <button type="button" class="labt__turn" data-labturn="-1" aria-label="Previous page of ${s.title || 'results'}" disabled>‹</button>
+      <span class="labt__dots" aria-hidden="true">${chunks.map((_, i) => html`<i class="${i === 0 ? 'is-on' : ''}"></i>`)}</span>
+      <button type="button" class="labt__turn" data-labturn="1" aria-label="Next page of ${s.title || 'results'}">›</button>
+    </span>`,
+    body: html`<div class="labt__pages" tabindex="0" role="region" aria-label="${s.title || 'Results'} — ${pages} pages, scroll sideways">
+      ${chunks.map((tests) => html`<div class="labt__page">${table(s, tests)}</div>`)}
+    </div>`,
+  };
 }
 
-// "1 of 2 ›" turns the page (a mouse can't swipe sideways)
+const pageOf = (pages) => Math.round(pages.scrollLeft / Math.max(1, pages.clientWidth));
+
+/** Keep the dots and ‹ › in step with the page showing. */
+function syncPager(pages) {
+  const bar = pages.closest('.labt__sec')?.querySelector('.labt__pager');
+  if (!bar) return;
+  const at = pageOf(pages);
+  const n = pages.children.length;
+  bar.querySelectorAll('.labt__dots i').forEach((d, i) => d.classList.toggle('is-on', i === at));
+  bar.querySelector('[data-labturn="-1"]').disabled = at <= 0;
+  bar.querySelector('[data-labturn="1"]').disabled = at >= n - 1;
+}
+
 document.addEventListener('click', (event) => {
-  const btn = event.target.closest?.('[data-labpage]');
-  const pages = btn?.closest('.labt__pages');
+  const btn = event.target.closest?.('[data-labturn]');
+  const pages = btn?.closest('.labt__sec')?.querySelector('.labt__pages');
   if (!pages) return;
-  const page = pages.children[Number(btn.dataset.labpage)];
-  if (page) pages.scrollTo({ left: page.offsetLeft - pages.firstElementChild.offsetLeft, behavior: 'smooth' });
+  const to = Math.min(pages.children.length - 1, Math.max(0, pageOf(pages) + Number(btn.dataset.labturn)));
+  pages.scrollTo({ left: to * pages.clientWidth, behavior: 'smooth' });
 });
+document.addEventListener('scroll', (event) => {
+  if (event.target.classList?.contains('labt__pages')) syncPager(event.target);
+}, true);
 
 /** The tile's text as tables, one per heading. grid: the headings side by side, long ones in swipeable pages. */
 export function labTables(text, { grid = false } = {}) {
@@ -243,16 +263,27 @@ export function labTables(text, { grid = false } = {}) {
     if (s.cols.some((c) => TREND.test(c.text))) {
       return html`<section class="labt__sec labt__sec--wide">
     ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
-    ${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}
+    <div class="labt__lines">${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}</div>
   </section>`;
     }
     const wu = s.cols.length > 0 && isWriteup(s);
     const cx = !wu && s.cols.length > 0 && isCulture(s);
     // In a culture table or write-up card the lines under a result sit with it; lines before any date stay below.
     const notes = cx || wu ? s.notes.filter((n) => !s.cols.some((c) => c.notes.includes(n))) : s.notes;
-    return html`<section class="labt__sec${wu || cx ? ' labt__sec--wide' : ''}">
+    // A section of names with no results (Imaging: "Cranial (Plain) (CTSCAN) - …") reads better as its lines
+    const bare = !wu && !cx && s.cols.length > 0 && s.cols.every((c) => [...c.values.values()].every((v) => !v));
+    if (grid && bare) {
+      return html`<section class="labt__sec labt__sec--wide">
     ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
-    ${wu ? writeupCards(s) : cx ? cultureTable(s) : s.cols.length && s.tests.length ? (grid ? pagedTable(s) : table(s)) : ''}
+    <div class="labt__lines">${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}</div>
+  </section>`;
+    }
+    const paged = grid && !wu && !cx && s.cols.length && s.tests.length ? pagedTable(s) : null;
+    const head = s.title || paged?.pager
+      ? html`<h4 class="labt__title"><span>${s.title}</span>${paged?.pager ?? ''}</h4>` : '';
+    return html`<section class="labt__sec${wu || cx ? ' labt__sec--wide' : ''}">
+    ${head}
+    ${wu ? writeupCards(s) : cx ? cultureTable(s) : paged ? paged.body : s.cols.length && s.tests.length ? table(s) : ''}
     ${notes.map((n) => html`<p class="labt__note">${n}</p>`)}
   </section>`;
   })}</div>`;
