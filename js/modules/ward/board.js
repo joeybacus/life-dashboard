@@ -11,7 +11,9 @@
    zone 0 = across the top, 1–3 = the columns. size −2…+2 = smaller…larger
    text. flow 2 = the tile's text in two columns (for long labs). table = dated
    lab lines shown as tables (labtable.js, 0.11.1); grid = those tables side by
-   side, long ones in pages you swipe (0.11.49). freeze = the tile and the
+   side, long ones in pages you swipe (0.11.49) — turning it on moves the tile
+   to a full row across the top, under the rounds and bed boxes (0.11.50), and
+   off puts it back in its column (gridFrom). freeze = the tile and the
    ones under it in its column stay on screen while you scroll the other
    columns (0.11.35; on unless you turn it off for a tile called Plan or Plans).
    Columns with no tile yet (new ones) take turns between the columns. */
@@ -46,6 +48,8 @@ export function boardOf(saved, columns) {
         hidden: Boolean(t.hidden),
         table: Boolean(t.table),
         grid: Boolean(t.grid),
+        gridFrom: clampInt(t.gridFrom, 1, cols, 1),
+        gridAt: clampInt(t.gridAt, 0, 99, 0),
         freeze: typeof t.freeze === 'boolean' ? t.freeze : freezesByDefault(c.label),
       }
       : { col: c.col, zone: (fresh++ % cols) + 1, order: 1000 + i, size: 0, flow: 1, hidden: false, table: false, grid: false, freeze: freezesByDefault(c.label) };
@@ -59,7 +63,7 @@ export function boardOf(saved, columns) {
 export function savedBoard(board) {
   const tiles = {};
   board.zones.forEach((zone, z) => zone.forEach((t, order) => {
-    tiles[t.col] = { zone: z, order, size: t.size, flow: t.flow, hidden: t.hidden, ...(t.table ? { table: true } : {}), ...(t.grid ? { grid: true } : {}), freeze: Boolean(t.freeze) };
+    tiles[t.col] = { zone: z, order, size: t.size, flow: t.flow, hidden: t.hidden, ...(t.table ? { table: true } : {}), ...(t.grid ? { grid: true, gridFrom: t.gridFrom ?? 1, gridAt: t.gridAt ?? 0 } : {}), freeze: Boolean(t.freeze) };
   }));
   return { cols: board.cols, wide: board.wide, tiles };
 }
@@ -96,8 +100,22 @@ export function changeTile(board, col, op) {
   else if (op === 'flow') tile.flow = tile.flow === 2 ? 1 : 2;
   else if (op === 'hide') tile.hidden = true;
   else if (op === 'show') tile.hidden = false;
-  else if (op === 'table') tile.table = !tile.table;
-  else if (op === 'grid') tile.grid = !tile.grid;
+  else if (op === 'table' && !(tile.table && tile.grid)) tile.table = !tile.table;
+  else if (op === 'grid' || op === 'table') {
+    // Grid: a full row across the top (first in it); off (or back to Text): back to the column it came from
+    if (op === 'table') tile.table = false;
+    tile.grid = !tile.grid;
+    zone.splice(i, 1);
+    if (tile.grid) {
+      if (z >= 1) { tile.gridFrom = z; tile.gridAt = i; }
+      next.zones[0].unshift(tile);
+    } else if (z === 0) {
+      const back = next.zones[Math.min(next.cols, tile.gridFrom ?? 1)];
+      back.splice(Math.min(back.length, tile.gridAt ?? back.length), 0, tile);
+    } else {
+      zone.splice(i, 0, tile);
+    }
+  }
   else if (op === 'freeze') tile.freeze = !tile.freeze;
   return next;
 }
