@@ -215,7 +215,7 @@ function table(s, tests = s.tests) {
 export function labTables(text, { grid = false } = {}) {
   const sections = labSections(text);
   const looks = new Map(sections.map((s) => [s, look(s, grid)]));
-  // Grid: Renal, Coag and Liver have few rows, so they share one card (0.11.53), where the first of them is
+  // Grid: Renal, Coag, Liver and Cardiac have few rows, so they share one card (0.11.53; Cardiac 0.11.54), where the first of them is
   const combo = grid ? sections.filter((s) => looks.get(s) === 'table' && COMBINE.test(s.title)) : [];
   const together = combo.length > 1 ? new Set(combo) : new Set();
   const out = html`<div class="labt${grid ? ' labt--grid' : ''}">${sections.map((s) => {
@@ -239,7 +239,7 @@ export function labTables(text, { grid = false } = {}) {
 /** Sections in Grid that are given two columns: they gather results from many dates. */
 const WIDE_TITLE = /\babg\b|blood gas|\bother\b|\bcbc\b|blood count|hematology/i;
 /** Sections in Grid that share one card. */
-const COMBINE = /renal|\bcoag|liver|\blft\b|hepatic/i;
+const COMBINE = /renal|\bcoag|liver|\blft\b|hepatic|cardiac/i;
 
 /** How a section is shown: as its lines, a write-up card, a culture table, or a flowsheet table. */
 function look(s, grid) {
