@@ -213,29 +213,61 @@ function table(s, tests = s.tests) {
 
 /** The tile's text as tables, one per heading. grid: the headings side by side as cards, every row shown; more dates scroll sideways. */
 export function labTables(text, { grid = false } = {}) {
-  return html`<div class="labt${grid ? ' labt--grid' : ''}">${labSections(text).map((s) => {
-    if (s.cols.some((c) => TREND.test(c.text))) {
-      return html`<section class="labt__sec labt__sec--wide">
-    ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
-    <div class="labt__lines">${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}</div>
+  const sections = labSections(text);
+  const looks = new Map(sections.map((s) => [s, look(s, grid)]));
+  // Grid: Renal, Coag and Liver have few rows, so they share one card (0.11.53), where the first of them is
+  const combo = grid ? sections.filter((s) => looks.get(s) === 'table' && COMBINE.test(s.title)) : [];
+  const together = combo.length > 1 ? new Set(combo) : new Set();
+  const out = html`<div class="labt${grid ? ' labt--grid' : ''}">${sections.map((s) => {
+    if (together.has(s)) {
+      if (s !== combo[0]) return '';
+      return html`<section class="labt__sec labt__sec--combo">
+    <h4 class="labt__title">${combo.map((c) => c.title).join(' · ')}</h4>
+    ${combo.map((c) => html`<div class="labt__sub">
+      <h5 class="labt__subtitle">${c.title}</h5>
+      ${table(c)}
+      ${c.notes.map((n) => html`<p class="labt__note">${n}</p>`)}
+    </div>`)}
   </section>`;
     }
-    const wu = s.cols.length > 0 && isWriteup(s);
-    const cx = !wu && s.cols.length > 0 && isCulture(s);
-    // In a culture table or write-up card the lines under a result sit with it; lines before any date stay below.
-    const notes = cx || wu ? s.notes.filter((n) => !s.cols.some((c) => c.notes.includes(n))) : s.notes;
-    // A section of names with no results (Imaging: "Cranial (Plain) (CTSCAN) - …") reads better as its lines
-    const bare = !wu && !cx && s.cols.length > 0 && s.cols.every((c) => [...c.values.values()].every((v) => !v));
-    if (grid && bare) {
-      return html`<section class="labt__sec labt__sec--wide">
-    ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
+    return section(s, looks.get(s), grid);
+  })}</div>`;
+  // The box around the grid is what decides how many columns a wide card may take (ward.css container query)
+  return grid ? html`<div class="labt-box">${out}</div>` : out;
+}
+
+/** Sections in Grid that are given two columns: they gather results from many dates. */
+const WIDE_TITLE = /\babg\b|blood gas|\bother\b|\bcbc\b|blood count|hematology/i;
+/** Sections in Grid that share one card. */
+const COMBINE = /renal|\bcoag|liver|\blft\b|hepatic/i;
+
+/** How a section is shown: as its lines, a write-up card, a culture table, or a flowsheet table. */
+function look(s, grid) {
+  if (s.cols.some((c) => TREND.test(c.text))) return 'lines';
+  if (s.cols.length > 0 && isWriteup(s)) return 'writeup';
+  if (s.cols.length > 0 && isCulture(s)) return 'culture';
+  // A section of names with no results (Imaging: "Cranial (Plain) (CTSCAN) - …") reads better as its lines
+  if (grid && s.cols.length > 0 && s.cols.every((c) => [...c.values.values()].every((v) => !v))) return 'lines';
+  return 'table';
+}
+
+function section(s, kind, grid) {
+  const title = s.title ? html`<h4 class="labt__title">${s.title}</h4>` : '';
+  if (kind === 'lines') {
+    return html`<section class="labt__sec labt__sec--wide">
+    ${title}
     <div class="labt__lines">${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}</div>
   </section>`;
-    }
-    return html`<section class="labt__sec${wu || cx ? ' labt__sec--wide' : ''}">
-    ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
+  }
+  const wu = kind === 'writeup';
+  const cx = kind === 'culture';
+  // In a culture table or write-up card the lines under a result sit with it; lines before any date stay below.
+  const notes = cx || wu ? s.notes.filter((n) => !s.cols.some((c) => c.notes.includes(n))) : s.notes;
+  // Grid: urinalysis and cultures get three columns, ABG / CBC / Other two — they gather many dates
+  const size = wu || cx ? (grid ? ' labt__sec--wider' : ' labt__sec--wide') : grid && WIDE_TITLE.test(s.title) ? ' labt__sec--wide' : '';
+  return html`<section class="labt__sec${size}">
+    ${title}
     ${wu ? writeupCards(s) : cx ? cultureTable(s) : s.cols.length && s.tests.length ? table(s) : ''}
     ${notes.map((n) => html`<p class="labt__note">${n}</p>`)}
   </section>`;
-  })}</div>`;
 }

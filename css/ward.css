@@ -657,8 +657,11 @@ button.wbadge { cursor: pointer; }
 /* Opaque (a tint laid over the solid surface), so the sticky row names hide the values scrolling under them */
 .labt--grid { --labt-tint: color-mix(in srgb, var(--surface-2) 40%, transparent); --labt-card: linear-gradient(var(--labt-tint), var(--labt-tint)), var(--surface-solid); }
 .labt--grid .labt__sec { gap: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--labt-card); }
+.labt-box { container-type: inline-size; }
 .labt--grid .labt__sec--wide { grid-column: span 2; }
-@media (max-width: 640px) { .labt--grid .labt__sec--wide { grid-column: auto; } }
+.labt--grid .labt__sec--wider { grid-column: span 3; }
+@container (max-width: 46em) { .labt--grid .labt__sec--wider { grid-column: span 2; } }
+@container (max-width: 30em) { .labt--grid .labt__sec--wide, .labt--grid .labt__sec--wider { grid-column: auto; } }
 .labt--grid .labt__title { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: .74em; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
 .labt--grid .labt__scroll { width: 100%; border: 0; border-radius: 0; }
 .labt--grid .labt__table { width: 100%; font-size: .9em; }
@@ -675,11 +678,16 @@ button.wbadge { cursor: pointer; }
 .labt--grid .labt__v.is-flag strong { color: var(--text); }
 .labt--grid .labt__note { padding: 6px 12px; }
 .labt--grid .labt__cards { gap: 0; }
-.labt--grid .labt__card { padding: 8px 12px 10px; border: 0; border-radius: 0; background: transparent; }
+.labt--grid .labt__card { flex: 1 0 50%; padding: 8px 12px 10px; border: 0; border-radius: 0; background: transparent; }
+.labt--grid .labt__card + .labt__card { border-left: 1px solid var(--border); }
+@container (max-width: 46em) { .labt--grid .labt__card { flex-basis: 100%; } }
 .labt--grid .labt__cardhead { margin: -8px -12px 8px; border-radius: 0; background: transparent; border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent); }
 .labt--grid .labt__table--cx .labt__date { text-align: left; }
 .labt--grid .labt__table--cx { width: 100%; }
 .labt--grid .labt__table--cx td.labt__cx { max-width: none; }
+.labt--grid .labt__table thead .labt__corner { background: var(--labt-card); }
+.labt__sub + .labt__sub { border-top: 1px solid var(--border); }
+.labt__subtitle { margin: 0; padding: 8px 12px 0; font-size: .72em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
 .labt__lines { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; }
 .ptt__view ~ .ptt__view { margin-left: 0; }
 .ptt__view.is-on { color: var(--accent); }
