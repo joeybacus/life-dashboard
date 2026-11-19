@@ -6,11 +6,12 @@
    def.board = {
      cols: 1 | 2 | 3,        // columns on a wide screen (iPhone always stacks them)
      wide: 0 | 1 | 2 | 3,    // the column made wider, 0 for even widths
-     tiles: { <letter>: { zone, order, size, flow, hidden, table, freeze } },
+     tiles: { <letter>: { zone, order, size, flow, hidden, table, grid, freeze } },
    }
    zone 0 = across the top, 1–3 = the columns. size −2…+2 = smaller…larger
    text. flow 2 = the tile's text in two columns (for long labs). table = dated
-   lab lines shown as tables (labtable.js, 0.11.1). freeze = the tile and the
+   lab lines shown as tables (labtable.js, 0.11.1); grid = those tables side by
+   side, long ones in pages you swipe (0.11.49). freeze = the tile and the
    ones under it in its column stay on screen while you scroll the other
    columns (0.11.35; on unless you turn it off for a tile called Plan or Plans).
    Columns with no tile yet (new ones) take turns between the columns. */
@@ -44,9 +45,10 @@ export function boardOf(saved, columns) {
         flow: t.flow === 2 ? 2 : 1,
         hidden: Boolean(t.hidden),
         table: Boolean(t.table),
+        grid: Boolean(t.grid),
         freeze: typeof t.freeze === 'boolean' ? t.freeze : freezesByDefault(c.label),
       }
-      : { col: c.col, zone: (fresh++ % cols) + 1, order: 1000 + i, size: 0, flow: 1, hidden: false, table: false, freeze: freezesByDefault(c.label) };
+      : { col: c.col, zone: (fresh++ % cols) + 1, order: 1000 + i, size: 0, flow: 1, hidden: false, table: false, grid: false, freeze: freezesByDefault(c.label) };
     zones[tile.zone].push(tile);
   });
   zones.forEach((z) => z.sort((a, b) => a.order - b.order));
@@ -57,7 +59,7 @@ export function boardOf(saved, columns) {
 export function savedBoard(board) {
   const tiles = {};
   board.zones.forEach((zone, z) => zone.forEach((t, order) => {
-    tiles[t.col] = { zone: z, order, size: t.size, flow: t.flow, hidden: t.hidden, ...(t.table ? { table: true } : {}), freeze: Boolean(t.freeze) };
+    tiles[t.col] = { zone: z, order, size: t.size, flow: t.flow, hidden: t.hidden, ...(t.table ? { table: true } : {}), ...(t.grid ? { grid: true } : {}), freeze: Boolean(t.freeze) };
   }));
   return { cols: board.cols, wide: board.wide, tiles };
 }
@@ -72,7 +74,7 @@ const find = (board, col) => {
 
 /**
  * One change to the layout, returning the new one (the old one is untouched).
- * op: 'up' | 'down' | 'left' | 'right' | 'top' | 'bigger' | 'smaller' | 'flow' | 'hide' | 'show' | 'table' | 'freeze'
+ * op: 'up' | 'down' | 'left' | 'right' | 'top' | 'bigger' | 'smaller' | 'flow' | 'hide' | 'show' | 'table' | 'grid' | 'freeze'
  */
 export function changeTile(board, col, op) {
   const next = { ...board, zones: board.zones.map((z) => z.map((t) => ({ ...t }))) };
@@ -95,6 +97,7 @@ export function changeTile(board, col, op) {
   else if (op === 'hide') tile.hidden = true;
   else if (op === 'show') tile.hidden = false;
   else if (op === 'table') tile.table = !tile.table;
+  else if (op === 'grid') tile.grid = !tile.grid;
   else if (op === 'freeze') tile.freeze = !tile.freeze;
   return next;
 }

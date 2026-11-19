@@ -194,7 +194,10 @@ function cultureTable(s) {
   </div>`;
 }
 
-function table(s) {
+/** Rows per page in Grid view: a long section (CBC) becomes pages you swipe sideways. */
+const GRID_ROWS = 6;
+
+function table(s, tests = s.tests) {
   return html`<div class="labt__scroll" tabindex="0" role="region" aria-label="${s.title || 'Results'}">
     <table class="labt__table">
       <thead><tr>
@@ -202,7 +205,7 @@ function table(s) {
         ${s.cols.map((c) => html`<th scope="col" class="labt__date" title="${c.date}${c.time ? ` ${c.time}` : ''}">${shortDate(c.date)}${c.time ? html`<small>${c.time}</small>` : ''}</th>`)}
       </tr></thead>
       <tbody>
-        ${s.tests.map((key) => html`<tr>
+        ${tests.map((key) => html`<tr>
           <th scope="row" class="labt__test">${s.keys.get(key)}</th>
           ${s.cols.map((c) => cell(c.values.get(key), c.times?.get(key)))}
         </tr>`)}
@@ -211,11 +214,34 @@ function table(s) {
   </div>`;
 }
 
-/** The tile's text as tables, one per heading. */
-export function labTables(text) {
-  return html`<div class="labt">${labSections(text).map((s) => {
+/** Grid view: a long section split into even pages of rows, swiped sideways like the urinalysis cards. */
+function pagedTable(s) {
+  const pages = Math.ceil(s.tests.length / GRID_ROWS);
+  if (pages <= 1) return table(s);
+  const per = Math.ceil(s.tests.length / pages);
+  const chunks = Array.from({ length: pages }, (_, i) => s.tests.slice(i * per, (i + 1) * per));
+  return html`<div class="labt__pages" tabindex="0" role="region" aria-label="${s.title || 'Results'} — ${pages} pages, scroll sideways">
+    ${chunks.map((tests, i) => html`<div class="labt__page">
+      ${table(s, tests)}
+      <button type="button" class="labt__pagepos" data-labpage="${i < pages - 1 ? i + 1 : 0}" aria-label="${i < pages - 1 ? 'Next page' : 'First page'} of ${s.title || 'results'}">${i > 0 ? '‹ ' : ''}${i + 1} of ${pages}${i < pages - 1 ? ' ›' : ''}</button>
+    </div>`)}
+  </div>`;
+}
+
+// "1 of 2 ›" turns the page (a mouse can't swipe sideways)
+document.addEventListener('click', (event) => {
+  const btn = event.target.closest?.('[data-labpage]');
+  const pages = btn?.closest('.labt__pages');
+  if (!pages) return;
+  const page = pages.children[Number(btn.dataset.labpage)];
+  if (page) pages.scrollTo({ left: page.offsetLeft - pages.firstElementChild.offsetLeft, behavior: 'smooth' });
+});
+
+/** The tile's text as tables, one per heading. grid: the headings side by side, long ones in swipeable pages. */
+export function labTables(text, { grid = false } = {}) {
+  return html`<div class="labt${grid ? ' labt--grid' : ''}">${labSections(text).map((s) => {
     if (s.cols.some((c) => TREND.test(c.text))) {
-      return html`<section class="labt__sec">
+      return html`<section class="labt__sec labt__sec--wide">
     ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
     ${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}
   </section>`;
@@ -224,9 +250,9 @@ export function labTables(text) {
     const cx = !wu && s.cols.length > 0 && isCulture(s);
     // In a culture table or write-up card the lines under a result sit with it; lines before any date stay below.
     const notes = cx || wu ? s.notes.filter((n) => !s.cols.some((c) => c.notes.includes(n))) : s.notes;
-    return html`<section class="labt__sec">
+    return html`<section class="labt__sec${wu || cx ? ' labt__sec--wide' : ''}">
     ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
-    ${wu ? writeupCards(s) : cx ? cultureTable(s) : s.cols.length && s.tests.length ? table(s) : ''}
+    ${wu ? writeupCards(s) : cx ? cultureTable(s) : s.cols.length && s.tests.length ? (grid ? pagedTable(s) : table(s)) : ''}
     ${notes.map((n) => html`<p class="labt__note">${n}</p>`)}
   </section>`;
   })}</div>`;

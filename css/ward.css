@@ -651,6 +651,21 @@ button.wbadge { cursor: pointer; }
 .labt__cardpos { font-size: .82em; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .labt__cardline { margin: 0 0 4px; overflow-wrap: anywhere; }
 .labt__card > :last-child { margin-bottom: 0; }
+
+/* Grid view (0.11.49): the headings side by side so every one fits on a screen; a long one (CBC) is split into pages you swipe. */
+.labt--grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15em), 1fr)); gap: 14px 12px; align-items: start; }
+.labt--grid .labt__sec--wide { grid-column: 1 / -1; }
+.labt--grid .labt__table th, .labt--grid .labt__table td { padding: 4px 8px; }
+.labt--grid .labt__date, .labt--grid .labt__v { min-width: 4.5em; }
+.labt--grid .labt__corner, .labt--grid .labt__test { min-width: 3.5em; }
+.labt__pages { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.labt__pages::-webkit-scrollbar { display: none; }
+.labt__pages:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.labt__page { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; display: flex; flex-direction: column; gap: 4px; }
+.labt__page .labt__scroll { max-width: 100%; }
+.labt__pagepos { align-self: flex-start; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; font: inherit; font-size: .8em; color: var(--text-2); font-variant-numeric: tabular-nums; cursor: pointer; }
+.labt__pagepos:hover { color: var(--text); border-color: var(--accent); }
+.ptt__view.is-on { color: var(--accent); }
 .ptt__text { font-size: calc(var(--fs-base) * var(--ptt-scale)); line-height: 1.55; color: var(--text); }
 @media (min-width: 560px) {
   .ptt__text--flow { column-count: 2; column-gap: 28px; column-rule: 1px solid var(--border); }

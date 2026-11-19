@@ -682,7 +682,7 @@ function tileBody(p, c, t) {
       : ''}<span>${isTicked(p.cells[c.col]) ? `Ticked in column ${c.col} of the logsheet` : `Not ticked in column ${c.col}`}</span></div>`;
   }
   if (p.cells[c.col] && t.table && hasLabTable(p.cells[c.col])) {
-    return html`<div class="ptt__text">${labTables(p.cells[c.col])}${editedNote(p, c.col)}</div>${removedNote(p, c.col)}`;
+    return html`<div class="ptt__text">${labTables(p.cells[c.col], { grid: t.grid })}${editedNote(p, c.col)}</div>${removedNote(p, c.col)}`;
   }
   return p.cells[c.col]
     ? html`<div class="prose ptt__text${t.flow === 2 ? ' ptt__text--flow' : ''}">${cellText(p, c.col)}${editedNote(p, c.col)}</div>${removedNote(p, c.col)}`
@@ -719,6 +719,7 @@ function boardTile(p, v, c, t, at, board, editing) {
     <div class="ptt__head">
       <h3 class="ptd__title" id="ptd-${c.col}">${c.label}</h3>
       ${c.readable && c.type !== 'check' && hasLabTable(p.cells[c.col]) ? html`<button type="button" class="btn btn--sm btn--ghost ptt__view" data-bact="table" data-col="${c.col}" data-focus="b-table-${c.col}" aria-pressed="${t.table ? 'true' : 'false'}" aria-label="${t.table ? 'Show as text' : 'Show as a table'}: ${c.label}">${icon(t.table ? 'note' : 'columns')}${t.table ? 'Text' : 'Table'}</button>` : ''}
+      ${c.readable && c.type !== 'check' && t.table && hasLabTable(p.cells[c.col]) ? html`<button type="button" class="btn btn--sm btn--ghost ptt__view${t.grid ? ' is-on' : ''}" data-bact="grid" data-col="${c.col}" data-focus="b-grid-${c.col}" aria-pressed="${t.grid ? 'true' : 'false'}" aria-label="${t.grid ? 'Show the tables one under another' : 'Show the tables side by side'}: ${c.label}" title="${t.grid ? 'One under another' : 'Side by side, long ones swipe sideways'}">${icon('dashboard')}Grid</button>` : ''}
       ${canEdit ? html`<button type="button" class="btn btn--sm ptt__edit" data-dact="edit" data-col="${c.col}" aria-label="Edit ${c.label}">${icon('edit')}Edit</button>` : ''}
     </div>
     ${tileBody(p, c, t)}
