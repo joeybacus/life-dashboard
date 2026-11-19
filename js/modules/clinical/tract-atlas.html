@@ -310,6 +310,42 @@ footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
 td.y{white-space:nowrap}
 td.grp{font-family:var(--f-label);font-size:12px;color:var(--muted);white-space:nowrap}
 @media (max-width:1100px){ .atlas{grid-template-columns:minmax(0,1fr)} }
+/* imaging look (0.11.47): the drawing panel is always dark like an MRI film; fibers glow */
+.imaging{--panel:#050507;--panel-2:#141418;--fg:#ececf0;--muted:#a3a4ab;--line:#26272d;
+  --tissue:#5c5d63;--gm:#38393e;--nuc:#47484e;--tract:#86878e;--tract-line:#1c1d21;--csf:#08080a;--body:#2e2f34;
+  --p1:#aeabff;--p2:#e7a0ff;--p3:#4fe6da;--p4:#6cc6ff;--p5:#ffae4a;--p6:#a8ec6c;--accent:#aeabff;--accent-weak:#24234a;
+  background:#050507;border-color:#1d1e23;color:var(--fg)}
+.imaging .dia svg{background:#050507}
+.vtog{display:flex;justify-content:flex-end;margin:0 0 6px}
+.pw path.hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:stroke}
+.pw path.glow{fill:none;stroke:var(--c);stroke-width:7;stroke-linecap:round;opacity:.2;pointer-events:none}
+.pw path.glow.soft{stroke-width:11;opacity:.6;filter:url(#atlas-glow)}
+.pw path.fib{fill:none;stroke:var(--c);stroke-width:.75;stroke-linecap:round;opacity:.8;pointer-events:none}
+.pw path.base,.pw[style] path.base{stroke:color-mix(in srgb,var(--c) 45%,#fff);stroke-width:1.5}
+.pw path.base.dsh{stroke:var(--c);stroke-width:1.6}
+.pw path.flow{stroke:#fff;stroke-width:2.6;stroke-dasharray:2 46;opacity:.95;animation:flow 1.5s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-48}}
+.pw.dim path.base{opacity:.18}
+.pw.dim path.fib,.pw.dim path.glow{display:none}
+.sulg{fill:none;stroke:var(--gm);stroke-width:9;stroke-linecap:round}
+.sulk{fill:none;stroke:#0b0b0d;stroke-width:1.6;stroke-linecap:round}
+.mriwm{fill:var(--tissue);stroke:var(--gm);stroke-width:26}
+.sk1{fill:none;stroke:#46474c;stroke-width:66}
+.sk2{fill:none;stroke:#0c0c0e;stroke-width:48}
+.sk3{fill:none;stroke:#2c2d31;stroke-width:38}
+.sk4{fill:none;stroke:#050506;stroke-width:24}
+.grain{pointer-events:none;opacity:.09}
+.mri rect{pointer-events:none}
+.head{fill:#2a2b2f}
+.fat{fill:#6c6d73}
+.globe{fill:#141417;stroke:#56575d;stroke-width:1.5}
+.lens{fill:#8d8e94}
+.bone{fill:#0c0c0e}
+.ccs{fill:#8a8b91}
+.cbs{fill:var(--gm)}
+.arbor{fill:none;stroke:var(--tissue);stroke-width:5;stroke-linecap:round}
+.calc2{fill:none;stroke:#0b0b0d;stroke-width:2}
+.v1s{fill:none;stroke:var(--gm);stroke-width:12;stroke-linecap:round}
 </style>
 <style>
 body{margin:0}
@@ -337,7 +373,7 @@ body{margin:0}
   <section class="view" data-view="atlas">
     <div class="cats" id="cats" role="group" aria-label="Tract groups"></div>
     <div class="atlas">
-      <div class="panel"><div class="dia" id="dia"></div><p class="cap" id="dcap"></p></div>
+      <div class="panel imaging"><div class="vtog" id="vtog" hidden><div class="seg" role="group" aria-label="Drawing view"><span>View</span><button type="button" data-v="top">From above</button><button type="button" data-v="side">Side</button></div></div><div class="dia" id="dia"></div><p class="cap" id="dcap"></p></div>
       <div>
         <div class="pwlist" id="tlist"></div>
         <div class="panel pwdet" id="det"></div>
@@ -588,7 +624,7 @@ const MLAB = [["Corpus callosum", 380, 166, "middle", "sm"], ["Cingulate gyrus",
   ["Brainstem", 470, 470, "start", "sm"], ["Cerebellum", 600, 436, "middle", "sm it"], ["Hippocampus (deep)", 560, 362, "start", "sm it"], ["FRONT", 60, 470, "start", "lvl"], ["Right hemisphere, medial surface", 700, 470, "end", "sm it"]];
 
 const VIEWS = {
-  neuraxis:{w:760, h:1050, A:NA, base:neuraxisBase, lab:NLAB, cap:"Front view of the whole neuraxis, cortex to sacral cord, schematic and not to scale. The patient’s right is on the left (R and L marked). Pathways are traced from the right side of the brain or body."},
+  neuraxis:{w:760, h:1050, A:NA, base:neuraxisBase, lab:NLAB, topFolds:true, cap:"Front view of the whole neuraxis, cortex to sacral cord, schematic and not to scale. The patient’s right is on the left (R and L marked). Pathways are traced from the right side of the brain or body."},
   visual:{w:760, h:710, A:VA, base:visualBase, lab:VLAB, cap:"Viewed from above, front at the top; the patient’s right is on the left. Schematic, not to scale."},
   lateral:{w:760, h:480, A:LA, base:lateralBase, lab:LLAB, cap:"Lateral surface of the left (usually language-dominant) hemisphere, front on the left. Fibers run deep to the cortex; schematic."},
   medial:{w:760, h:480, A:MA, base:medialBase, lab:MLAB, cap:"Medial surface of the right hemisphere, front on the left. Dashed outlines are deep structures projected onto the midline view."},
@@ -851,7 +887,39 @@ Object.assign(NA, {vMot_R:[352,478], xiN_R:[356,702], xiX:[380,690], ambX:[380,5
 mirrorAll(NA, 760);
 // visual view: splenium and the left reading areas
 Object.assign(VA, {splenium:[380,520], vwfa_R:[288,566], angular_R:[262,470]}); mirrorAll(VA, 760);
-VIEWS.visual.base = () => visualBase() + `<path class="cc" d="M342,530 C360,512 400,512 418,530"/>`;
+VIEWS.visual.base = () => visualBase() + `<path class="cc" d="M342,530 C360,512 400,512 418,530"/><path class="calc2" d="M380,112 L380,196"/>`;
+
+/* visual pathway, side (sagittal) view, front on the left (0.11.47). Right and left overlap, so the far (left) side is drawn a little offset. */
+const VS = {
+  pupil_R:[84,352], eyeT_R:[132,340], eyeN_R:[134,360], cili_R:[168,360], on_R:[204,366], onN_R:[206,374],
+  chiasmLat_R:[262,384], chiasm:[272,388], ot_R:[326,364], lgn_R:[392,330],
+  pret_R:[416,310], pc:[424,304], ew_R:[404,326],
+  orUp_R:[456,286], orUp2_R:[544,286], v1Up_R:[614,294],
+  meyer_R:[306,402], meyer2_R:[392,410], meyer3_R:[524,356], v1Lo_R:[614,320],
+  splenium:[478,234], vwfa_L:[522,378], angular_L:[562,208]
+};
+Object.keys(VS).forEach(k => { if (k.endsWith("_R")) { const m = k.slice(0, -2) + "_L"; if (!VS[m]) VS[m] = [VS[k][0] + 9, VS[k][1] + 7]; } });
+function visualSagBase() {
+  return `<path class="head" d="M372,22 C520,18 660,80 712,196 C742,262 738,340 712,404 C694,450 664,488 640,520 L612,620 L330,620 C300,590 250,572 200,566 C150,560 104,556 80,538 C66,526 68,510 72,496 C58,488 54,472 62,462 C52,452 52,440 60,432 C42,424 28,410 30,396 C34,372 50,350 60,324 C66,306 64,292 60,276 C48,220 60,150 114,96 C172,42 270,24 372,22 Z"/>
+<path class="sk1" d="M80,262 C70,160 165,52 330,40 C480,30 628,90 680,196 C708,256 704,330 684,388 C664,446 620,500 560,510"/><path class="sk2" d="M80,262 C70,160 165,52 330,40 C480,30 628,90 680,196 C708,256 704,330 684,388 C664,446 620,500 560,510"/><path class="sk3" d="M80,262 C70,160 165,52 330,40 C480,30 628,90 680,196 C708,256 704,330 684,388 C664,446 620,500 560,510"/><path class="sk4" d="M80,262 C70,160 165,52 330,40 C480,30 628,90 680,196 C708,256 704,330 684,388 C664,446 620,500 560,510"/>
+<path class="bone" d="M150,322 C200,330 240,346 262,396 C268,414 290,420 304,410 C320,430 350,470 372,500 L344,512 C316,470 292,440 262,428 C232,418 200,396 168,372 Z"/>
+<path class="fat" d="M98,316 C140,310 186,330 228,356 C240,364 240,378 228,384 C186,388 140,394 98,390 C80,370 80,334 98,316 Z"/>
+<circle class="globe" cx="112" cy="352" r="30"/><ellipse class="lens" cx="88" cy="352" rx="4" ry="11"/>
+<path class="hemi" d="M88,262 C80,170 170,72 330,58 C470,46 610,100 662,200 C690,254 684,300 664,322 C640,340 600,352 560,360 C520,368 480,386 440,404 C380,424 300,432 236,424 C200,420 180,402 186,380 C192,360 210,350 200,340 C170,330 140,326 118,318 C96,308 90,290 88,262 Z"/>
+<path class="ccs" d="M236,238 C238,196 300,170 380,168 C452,166 504,186 504,224 C504,240 488,244 478,234 C466,212 430,198 380,198 C316,198 270,214 264,240 C260,260 270,274 282,272 C268,280 246,266 236,238 Z"/>
+<path class="csf" d="M274,256 C290,220 340,206 390,206 C440,206 468,220 472,236 C442,228 414,226 390,228 C344,230 306,242 284,266 Z"/>
+<ellipse class="gm2" cx="404" cy="300" rx="44" ry="24"/><ellipse class="gm" cx="306" cy="360" rx="22" ry="14"/>
+<ellipse class="gm" cx="266" cy="410" rx="11" ry="8"/>
+<path class="v1s" d="M562,306 C592,300 632,302 668,300"/><path class="calc2" d="M556,307 C590,301 632,303 670,301"/>
+<path class="cbs" d="M482,412 C500,378 560,368 610,382 C650,394 668,430 654,464 C640,494 592,508 548,500 C506,492 476,462 482,412 Z"/>
+<path class="arbor" d="M492,438 C530,436 560,432 600,420 M560,432 C580,446 610,456 636,454 M548,436 C566,462 590,480 616,486 M540,436 C548,410 570,396 600,394"/>
+<path class="stem" d="M372,326 C360,350 356,372 352,392 C330,414 330,456 350,476 C360,500 366,530 370,560 L372,620 L410,620 L410,560 C412,530 418,500 426,480 C434,450 432,420 432,396 C436,370 440,348 434,330 C418,318 390,318 372,326 Z"/>
+<circle class="csf" cx="422" cy="352" r="3"/>`;
+}
+const VSLAB = [["FRONT", 40, 606, "start", "lvl"], ["Side view, front on the left", 720, 606, "end", "sm it"], ["Frontal lobe", 196, 140, "middle", "lvl"], ["Parietal lobe", 470, 110, "middle", "lvl"], ["Occipital", 640, 236, "middle", "lvl"],
+  ["Temporal lobe", 300, 446, "middle", "sm it"], ["Corpus callosum", 380, 160, "middle", "sm"], ["Thalamus", 404, 276, "middle", "sm"], ["Eye", 112, 300, "middle", "sm"], ["Pituitary", 254, 444, "end", "sm"],
+  ["Calcarine fissure (V1)", 640, 344, "middle", "sm"], ["Cerebellum", 566, 530, "middle", "sm it"], ["Brainstem", 450, 560, "start", "sm it"]];
+VIEWS.visualSag = {w:760, h:620, A:VS, base:visualSagBase, lab:VSLAB, norl:true, cap:"Side view (sagittal), front on the left. Right and left pathways overlap here, so the far (left) side is drawn slightly offset; switch to “From above” to see the crossing at the chiasm. Schematic, not to scale."};
 
 /* ================= More tracts ================= */
 /* ---- cranial nerve nuclei (corticobulbar) ---- */
@@ -1391,8 +1459,113 @@ function viewSVG(viewId, list, active, o = {}) {
   return `<svg viewBox="0 0 ${V.w} ${V.h}" role="img" aria-label="${esc((active ? active.name + ": " : "") + viewId + " view")}"><g class="base-draw">${V.base(active ? active.id : null, !!o.all)}</g>${lab}${draw}${marks}${rl}</svg>`;
 }
 
+/* ================= Imaging look (0.11.47): MRI-style brain + glowing fiber bundles =================
+   Runs on the drawn SVG: folds (sulci) are traced along each hemisphere outline, a skull ring is added
+   for whole-brain views, and every pathway line gets a soft glow and a bundle of thin fibers. */
+const SKULL = new Set(["visual", "lateral", "lateralR", "medial"]);
+const seeded = str => { let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 3432918353); return () => { h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; };
+let GRAIN = null;
+function grainURL() {
+  if (GRAIN !== null) return GRAIN;
+  try {
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const x = c.getContext("2d"), im = x.createImageData(128, 128), R = seeded("grain");
+    for (let i = 0; i < im.data.length; i += 4) { const v = R() * 255 | 0; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+    x.putImageData(im, 0, 0); GRAIN = c.toDataURL();
+  } catch (e) { GRAIN = ""; }
+  return GRAIN;
+}
+function outlinePts(el, step) {
+  const tag = el.tagName.toLowerCase(), P = [];
+  if (tag === "ellipse" || tag === "circle") {
+    const cx = +el.getAttribute("cx"), cy = +el.getAttribute("cy"), rx = +(el.getAttribute("rx") || el.getAttribute("r")), ry = +(el.getAttribute("ry") || el.getAttribute("r"));
+    const n = Math.max(12, Math.round(2 * Math.PI * Math.sqrt((rx * rx + ry * ry) / 2) / step));
+    for (let i = 0; i < n; i++) { const a = 2 * Math.PI * i / n; P.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]); }
+    return P;
+  }
+  const L = el.getTotalLength(), n = Math.max(12, Math.round(L / step));
+  for (let i = 0; i < n; i++) { const p = el.getPointAtLength(L * i / n); P.push([p.x, p.y]); }
+  return P;
+}
+const f1 = v => Math.round(v * 10) / 10;
+const SULCI = new Map();
+function sulci(el, key, topOnly) {
+  const src = el.outerHTML; if (SULCI.has(src)) return SULCI.get(src);
+  const P = outlinePts(el, 3), n = P.length, R = seeded(key + src.length);
+  let A = 0; for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; A += a[0] * b[1] - b[0] * a[1]; }
+  const sg = A > 0 ? 1 : -1, at = i => P[((i % n) + n) % n];
+  const xs = P.map(q => q[0]), ys = P.map(q => q[1]), sc = Math.min(1, Math.max(.4, Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 320));
+  let path = "", i = Math.floor(R() * 6);
+  while (i < n) {
+    const a = at(i - 6), p = at(i), b = at(i + 6);
+    const t1 = [p[0] - a[0], p[1] - a[1]], t2 = [b[0] - p[0], b[1] - p[1]], l1 = Math.hypot(t1[0], t1[1]), l2 = Math.hypot(t2[0], t2[1]);
+    const bend = l1 && l2 ? Math.abs(t1[0] * t2[1] - t1[1] * t2[0]) / (l1 * l2) : 0;
+    if (bend > 0.012 && l1 > 8 && l2 > 8 && !(topOnly && sg * (b[0] - a[0]) / (l1 + l2) < -0.35)) {           // skip straight cut edges (midline, slice planes)
+      const tx = (b[0] - a[0]) / (l1 + l2), ty = (b[1] - a[1]) / (l1 + l2), nx = sg * -ty, ny = sg * tx;
+      const d = (10 + Math.pow(R(), .7) * 38) * sc, w1 = (R() - .5) * 16 * sc, w2 = (R() - .5) * 30 * sc;
+      const s0 = [p[0] - nx * 3, p[1] - ny * 3], m = [p[0] + nx * d * .5 + tx * w1, p[1] + ny * d * .5 + ty * w1], e = [p[0] + nx * d + tx * w2, p[1] + ny * d + ty * w2];
+      path += `M${f1(s0[0])},${f1(s0[1])} Q${f1(m[0])},${f1(m[1])} ${f1(e[0])},${f1(e[1])}`;
+      if (R() < .35) { const side = R() < .5 ? -1 : 1, e2 = [m[0] + nx * d * .4 + tx * side * d * .45, m[1] + ny * d * .4 + ty * side * d * .45]; path += ` M${f1(m[0])},${f1(m[1])} L${f1(e2[0])},${f1(e2[1])}`; }
+    }
+    i += Math.round((6 + R() * 7) * (.6 + .4 * sc));
+  }
+  SULCI.set(src, path); return path;
+}
+const FIB = new Map();
+function strands(el) {
+  const d = el.getAttribute("d"); if (FIB.has(d)) return FIB.get(d);
+  let L = 0; try { L = el.getTotalLength(); } catch (e) {}
+  if (!L) { FIB.set(d, ""); return ""; }
+  const n = Math.max(4, Math.round(L / 3)), P = [];
+  for (let i = 0; i <= n; i++) { const p = el.getPointAtLength(L * i / n); P.push([p.x, p.y]); }
+  const K = L < 40 ? 3 : 6, R = seeded(d.slice(0, 40) + d.length), sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const fanEnd = Math.min(1, 70 / L), fanStart = Math.min(1, 30 / L);
+  let out = "";
+  for (let k = 0; k < K; k++) {
+    const o = (k - (K - 1) / 2) * 1.5, ph = R() * 6.28, fr = .6 + R() * .8, amp = .5 + R() * .7;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, a = P[Math.max(0, i - 1)], b = P[Math.min(n, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], ln = Math.hypot(dx, dy) || 1;
+      const spread = 1 + 2.8 * sm(1 - fanEnd, 1, t) + .8 * sm(fanStart, 0, t);
+      const off = o * spread + Math.sin(t * L / 38 * fr + ph) * amp;
+      out += `${i ? "L" : "M"}${f1(P[i][0] - dy / ln * off)},${f1(P[i][1] + dx / ln * off)}`;
+    }
+  }
+  FIB.set(d, out); return out;
+}
+function imaging(svg, viewId, allMode) {
+  if (!svg) return;
+  const vb = (svg.getAttribute("viewBox") || "0 0 760 660").split(/\s+/).map(Number), W = vb[2], H = vb[3];
+  const g0 = grainURL();
+  svg.insertAdjacentHTML("afterbegin", `<defs><filter id="atlas-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><feGaussianBlur stdDeviation="3.2"/></filter><radialGradient id="atlas-shade" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient>${g0 ? `<pattern id="atlas-grain" width="128" height="128" patternUnits="userSpaceOnUse"><image href="${g0}" width="128" height="128"/></pattern>` : ""}</defs>`);
+  const base = svg.querySelector(".base-draw") || svg;
+  try {
+    base.querySelectorAll(".hemi").forEach((h, k) => {
+      const shape = h.outerHTML.replace(/\sclass="[^"]*"/, ""), cid = `mc${++vuid}`;
+      const wm = h.nextElementSibling && h.nextElementSibling.classList.contains("wm");
+      const s = sulci(h, viewId + k, (VIEWS[viewId] || {}).topFolds), bb = h.getBBox();
+      const shade = `<rect x="${bb.x}" y="${bb.y}" width="${bb.width}" height="${bb.height}" fill="url(#atlas-shade)"/>` + (g0 ? `<rect class="grain" x="${bb.x}" y="${bb.y}" width="${bb.width}" height="${bb.height}" fill="url(#atlas-grain)"/>` : "");
+      (wm ? h.nextElementSibling : h).insertAdjacentHTML("afterend", `<clipPath id="${cid}">${shape}</clipPath><g clip-path="url(#${cid})" class="mri">${wm ? "" : shape.replace(/^<(\w+)/, '<$1 class="mriwm"')}<path class="sulg" d="${s}"/><path class="sulk" d="${s}"/>${shade}</g>`);
+      if (SKULL.has(viewId)) h.insertAdjacentHTML("beforebegin", [1, 2, 3, 4].map(i => shape.replace(/^<(\w+)/, `<$1 class="sk${i}"`)).join(""));
+    });
+  } catch (e) { console.warn("imaging: folds skipped", e); }
+  svg.querySelectorAll(".pw").forEach(g => {
+    if (!g.style.getPropertyValue("--c")) { const m = (g.getAttribute("class") || "").match(/\bp(\d)\b/); if (m) g.style.setProperty("--c", `var(--p${m[1]})`); }
+    const dim = g.classList.contains("dim"), solo = !allMode && !dim;
+    g.querySelectorAll("path.base").forEach(b => {
+      const d = b.getAttribute("d"), dashed = b.classList.contains("dsh") || !!b.closest(".dash");
+      let html = `<path class="hit" d="${d}"/>`;
+      if (!dim) {
+        html += `<path class="glow${solo && !dashed ? " soft" : ""}" d="${d}"/>`;
+        if (!dashed) { try { const f = strands(b); if (f) html += `<path class="fib" d="${f}"/>`; } catch (e) {} }
+      }
+      b.insertAdjacentHTML("beforebegin", html);
+    });
+  });
+}
+
 /* ================= Interface ================= */
-const state = {cat:"motor", id:"cst", all:false, hi:0, tab:"atlas"};
+const state = {cat:"motor", id:"cst", all:false, hi:0, tab:"atlas", side:false};
+try { state.side = localStorage.getItem("tractAtlasSide") === "1"; } catch (e) {}
 const inCat = c => T.filter(t => t.cat === c);
 function renderCats() {
   $("#cats").innerHTML = CATS.map(c => `<button type="button" class="catb" data-c="${c[0]}" aria-pressed="${state.cat === c[0]}">${esc(c[1])}<small>${inCat(c[0]).length}</small></button>`).join("");
@@ -1407,10 +1580,14 @@ function renderList() {
 function renderDia() {
   const t = TBY[state.id], list = inCat(state.cat);
   let svg;
+  const vis = t.view === "visual", vid = vis && state.side ? "visualSag" : t.view;
+  $("#vtog").hidden = !vis;
+  $$("#vtog button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.v === "side") === !!state.side)));
   if (t.view === "cerebellar") svg = diagram({active:state.all ? null : [t.cbId], flow:true});
-  else svg = viewSVG(t.view, list.filter(x => x.view === t.view), state.all ? null : t, {all:state.all, hi:state.hi});
+  else svg = viewSVG(vid, list.filter(x => x.view === t.view), state.all ? null : t, {all:state.all, hi:state.hi});
   $("#dia").innerHTML = svg;
-  $("#dcap").textContent = VIEWS[t.view].cap;
+  imaging($("#dia svg"), vid, state.all);
+  $("#dcap").textContent = VIEWS[vid].cap;
 }
 function renderDet() {
   const t = TBY[state.id], c = CBY[t.cat];
@@ -1432,6 +1609,11 @@ function pick(id) {
 $("#cats").addEventListener("click", e => { const b = e.target.closest(".catb"); if (!b) return; state.cat = b.dataset.c; state.id = inCat(state.cat)[0].id; state.all = false; state.hi = 0; setHash(state.id); });
 $("#tlist").addEventListener("click", e => { const b = e.target.closest(".pwbtn"); if (!b) return; if (b.dataset.t === "__all") pick("__all"); else setHash(b.dataset.t); });
 $("#det").addEventListener("click", e => { const b = e.target.closest(".lnk"); if (b) setHash(b.dataset.t); });
+$("#vtog").addEventListener("click", e => {
+  const b = e.target.closest("button[data-v]"); if (!b) return;
+  state.side = b.dataset.v === "side"; try { localStorage.setItem("tractAtlasSide", state.side ? "1" : "0"); } catch (err) {}
+  renderDia();
+});
 $("#dia").addEventListener("click", e => {
   const g = e.target.closest(".pw"); if (!g) return;
   const id = g.dataset.t || (g.dataset.p && "cb-" + g.dataset.p); if (id && TBY[id]) setHash(id);
