@@ -194,9 +194,6 @@ function cultureTable(s) {
   </div>`;
 }
 
-/** Rows per page in Grid view: a long section (CBC) becomes pages you swipe sideways. */
-const GRID_ROWS = 6;
-
 function table(s, tests = s.tests) {
   return html`<div class="labt__scroll" tabindex="0" role="region" aria-label="${s.title || 'Results'}">
     <table class="labt__table">
@@ -214,50 +211,7 @@ function table(s, tests = s.tests) {
   </div>`;
 }
 
-/** Grid view: a long section split into even pages of rows, swiped sideways like the urinalysis cards. */
-function pagedTable(s) {
-  const pages = Math.ceil(s.tests.length / GRID_ROWS);
-  if (pages <= 1) return { body: table(s), pager: '' };
-  const per = Math.ceil(s.tests.length / pages);
-  const chunks = Array.from({ length: pages }, (_, i) => s.tests.slice(i * per, (i + 1) * per));
-  return {
-    // In the card's title bar: dots for the pages, ‹ › to turn them (a mouse can't swipe sideways)
-    pager: html`<span class="labt__pager">
-      <button type="button" class="labt__turn" data-labturn="-1" aria-label="Previous page of ${s.title || 'results'}" disabled>‹</button>
-      <span class="labt__dots" aria-hidden="true">${chunks.map((_, i) => html`<i class="${i === 0 ? 'is-on' : ''}"></i>`)}</span>
-      <button type="button" class="labt__turn" data-labturn="1" aria-label="Next page of ${s.title || 'results'}">›</button>
-    </span>`,
-    body: html`<div class="labt__pages" tabindex="0" role="region" aria-label="${s.title || 'Results'} — ${pages} pages, scroll sideways">
-      ${chunks.map((tests) => html`<div class="labt__page">${table(s, tests)}</div>`)}
-    </div>`,
-  };
-}
-
-const pageOf = (pages) => Math.round(pages.scrollLeft / Math.max(1, pages.clientWidth));
-
-/** Keep the dots and ‹ › in step with the page showing. */
-function syncPager(pages) {
-  const bar = pages.closest('.labt__sec')?.querySelector('.labt__pager');
-  if (!bar) return;
-  const at = pageOf(pages);
-  const n = pages.children.length;
-  bar.querySelectorAll('.labt__dots i').forEach((d, i) => d.classList.toggle('is-on', i === at));
-  bar.querySelector('[data-labturn="-1"]').disabled = at <= 0;
-  bar.querySelector('[data-labturn="1"]').disabled = at >= n - 1;
-}
-
-document.addEventListener('click', (event) => {
-  const btn = event.target.closest?.('[data-labturn]');
-  const pages = btn?.closest('.labt__sec')?.querySelector('.labt__pages');
-  if (!pages) return;
-  const to = Math.min(pages.children.length - 1, Math.max(0, pageOf(pages) + Number(btn.dataset.labturn)));
-  pages.scrollTo({ left: to * pages.clientWidth, behavior: 'smooth' });
-});
-document.addEventListener('scroll', (event) => {
-  if (event.target.classList?.contains('labt__pages')) syncPager(event.target);
-}, true);
-
-/** The tile's text as tables, one per heading. grid: the headings side by side, long ones in swipeable pages. */
+/** The tile's text as tables, one per heading. grid: the headings side by side as cards, every row shown; more dates scroll sideways. */
 export function labTables(text, { grid = false } = {}) {
   return html`<div class="labt${grid ? ' labt--grid' : ''}">${labSections(text).map((s) => {
     if (s.cols.some((c) => TREND.test(c.text))) {
@@ -278,12 +232,9 @@ export function labTables(text, { grid = false } = {}) {
     <div class="labt__lines">${s.lines.map((l) => html`<p class="labt__line">${l}</p>`)}</div>
   </section>`;
     }
-    const paged = grid && !wu && !cx && s.cols.length && s.tests.length ? pagedTable(s) : null;
-    const head = s.title || paged?.pager
-      ? html`<h4 class="labt__title"><span>${s.title}</span>${paged?.pager ?? ''}</h4>` : '';
     return html`<section class="labt__sec${wu || cx ? ' labt__sec--wide' : ''}">
-    ${head}
-    ${wu ? writeupCards(s) : cx ? cultureTable(s) : paged ? paged.body : s.cols.length && s.tests.length ? table(s) : ''}
+    ${s.title ? html`<h4 class="labt__title">${s.title}</h4>` : ''}
+    ${wu ? writeupCards(s) : cx ? cultureTable(s) : s.cols.length && s.tests.length ? table(s) : ''}
     ${notes.map((n) => html`<p class="labt__note">${n}</p>`)}
   </section>`;
   })}</div>`;
