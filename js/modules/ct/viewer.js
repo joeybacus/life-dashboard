@@ -20,6 +20,11 @@
    plain CT, the contrast CT (of the newest study that has each) and chest
    X-rays (not available yet).
 
+   The wheel (and a finger swipe on iPhone) only scrolls slices once you've
+   clicked / tapped a scan (0.11.48) — until then the page scrolls straight past
+   the viewer. Moving the mouse out of the scans, or tapping anywhere else,
+   hands the wheel back to the page.
+
    For looking at the downloaded scans, not a diagnostic workstation. */
 import { html } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
@@ -69,8 +74,29 @@ const V = {
   playing: null,
   panes: [],
   mode: 'ward',   // 'duty': plain | contrast | CXR in three columns
+  grid: null,     // the panes' grid
+  armed: false,   // clicked into: the wheel / a swipe scrolls slices, not the page
   ...loadPrefs(),
 };
+
+/* ---------- Wheel belongs to the page until you click a scan ---------- */
+
+function arm(on) {
+  V.armed = on;
+  V.grid?.classList.toggle('is-armed', on);
+}
+let hintAt = 0;
+function wheelHint(p) {
+  const now = performance.now();
+  if (now - hintAt < 2500 || !p.hint) return;
+  hintAt = now;
+  p.hint.hidden = false;
+  clearTimeout(p.hintTimer);
+  p.hintTimer = setTimeout(() => { p.hint.hidden = true; }, 1600);
+}
+document.addEventListener('pointerdown', (event) => {
+  if (V.armed && !V.grid?.contains(event.target)) arm(false);
+}, true);
 
 function savePrefs() {
   try {
@@ -294,6 +320,7 @@ function paneHtml(i) {
       <div class="ctv-ov ctv-ov--tl"></div><div class="ctv-ov ctv-ov--tr"></div>
       <div class="ctv-ov ctv-ov--bl"></div><div class="ctv-ov ctv-ov--br"></div>
       <div class="ctv-ov ctv-ov--mid">Scroll down to load</div>
+      <div class="ctv-ov ctv-ov--hint" hidden>Click the scan to scroll its slices</div>
       <div class="ctv-pane__load"></div>
     </div>
     <input type="range" class="ctv-pane__slider" min="0" max="0" value="0" aria-label="Slice in pane ${i + 1}">
@@ -308,8 +335,11 @@ function buildViewer(body) {
     <div class="ctv-soon">${icon('image')}<p>CXR viewer</p><span class="badge">Coming in a future update</span></div>
   </div>`;
   body.innerHTML = String(html`${toolbar()}<div class="ctv__grid ${V.mode === 'duty' ? 'ctv__grid--duty' : `ctv__grid--${V.layout}`}">${[0, 1].map(paneHtml)}${V.mode === 'duty' ? cxr : ''}</div>
-    <p class="ctv__keys faint">Scroll: mouse wheel or drag on a scan, the slider, or ↑ ↓ (PgUp / PgDn = 10, Home / End). Space = play. Click a pane to make it lead.</p>`);
+    <p class="ctv__keys faint">Click a scan, then scroll: mouse wheel or drag on it, the slider, or ↑ ↓ (PgUp / PgDn = 10, Home / End). Space = play. Click a pane to make it lead.</p>`);
   V.built = V.studies;
+  V.grid = body.querySelector('.ctv__grid');
+  arm(false);
+  V.grid.addEventListener('pointerleave', (event) => { if (event.pointerType === 'mouse') arm(false); });
   V.panes = [0, 1].map((i) => makePane(i, body.querySelector(`[data-pane="${i}"]`)));
   showLayout();
   setActive(0);
@@ -332,7 +362,7 @@ function makePane(i, el) {
     alignLater: false, drawn: null, image: null, wheel: 0,
     studySel: q('[data-pick="study"]'), cutSel: q('[data-pick="cut"]'), view: q('.ctv-pane__view'),
     canvas: q('canvas'), tl: q('.ctv-ov--tl'), tr: q('.ctv-ov--tr'), bl: q('.ctv-ov--bl'), br: q('.ctv-ov--br'),
-    mid: q('.ctv-ov--mid'), load: q('.ctv-pane__load'), slider: q('.ctv-pane__slider'),
+    mid: q('.ctv-ov--mid'), hint: q('.ctv-ov--hint'), load: q('.ctv-pane__load'), slider: q('.ctv-pane__slider'),
   };
   p.ctx = p.canvas.getContext('2d');
   el.addEventListener('pointerdown', () => setActive(i), true);
@@ -340,6 +370,7 @@ function makePane(i, el) {
   p.slider.addEventListener('input', () => setIndex(p, Number(p.slider.value), true));
   p.view.addEventListener('wheel', (event) => {
     if (!p.series) return;
+    if (!V.armed) { wheelHint(p); return; } // the page keeps scrolling
     event.preventDefault();
     p.wheel += event.deltaMode === 1 ? event.deltaY * WHEEL_STEP : event.deltaY;
     const steps = Math.trunc(p.wheel / WHEEL_STEP);
@@ -347,10 +378,20 @@ function makePane(i, el) {
   }, { passive: false });
   let dragY = null;
   let dragAcc = 0;
+  let tapY = null;
   p.view.addEventListener('pointerdown', (event) => {
+    // A mouse click arms at once; a finger only on a tap (a swipe was the page scrolling)
+    if (event.pointerType === 'mouse') arm(true);
+    tapY = event.clientY;
+    if (!V.armed) return;
     dragY = event.clientY; dragAcc = 0;
     p.view.setPointerCapture(event.pointerId);
   });
+  p.view.addEventListener('pointerup', (event) => {
+    if (!V.armed && tapY != null && Math.abs(event.clientY - tapY) < 10) arm(true);
+    tapY = null;
+  });
+  p.view.addEventListener('pointercancel', () => { tapY = null; });
   p.view.addEventListener('pointermove', (event) => {
     if (dragY == null || !p.series) return;
     dragAcc += event.clientY - dragY;
