@@ -213,7 +213,7 @@ function table(s, tests = s.tests) {
 
 /** The tile's text as tables, one per heading. grid: the headings side by side as cards, every row shown; more dates scroll sideways. */
 export function labTables(text, { grid = false } = {}) {
-  const sections = labSections(text);
+  const sections = rehome(labSections(text), grid);
   const looks = new Map(sections.map((s) => [s, look(s, grid)]));
   // Grid: small sections share a card (0.11.53): Renal + Coag + Liver, and Lipid + Cardiac (0.11.55), where the first of each is
   const groups = grid ? COMBINE.map((re) => sections.filter((s) => looks.get(s) === 'table' && re.test(s.title))).filter((g) => g.length > 1) : [];
@@ -235,6 +235,60 @@ export function labTables(text, { grid = false } = {}) {
   })}</div>`;
   // The box around the grid is what decides how many columns a wide card may take (ward.css container query)
   return grid ? html`<div class="labt-box">${out}</div>` : out;
+}
+
+/** Tests that always show in a set section, wherever the text lists them (0.11.56): eGFR → Renal.
+    Only the table moves; the text in the logsheet stays as written. */
+const HOMES = [{ test: /^e?gfr$/i, section: /\brenal\b/i }];
+
+/** "2026-11-23" / "11/23/26" / "11/23" → a number to order dates by, or null when it can't tell. */
+function dateKey(date) {
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(date);
+  if (m) return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
+  m = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/.exec(date);
+  if (!m) return null;
+  const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : new Date().getFullYear();
+  return y * 10000 + Number(m[1]) * 100 + Number(m[2]);
+}
+
+/** Moves each HOMES test out of other tables into its section, by date; a column left empty goes. */
+function rehome(sections, grid) {
+  const emptied = new Set();
+  HOMES.forEach((home) => {
+    const target = sections.find((s) => home.section.test(s.title) && look(s, grid) === 'table');
+    if (!target) return;
+    sections.forEach((s) => {
+      if (s === target || look(s, grid) !== 'table') return;
+      s.tests.filter((key) => home.test.test(key)).forEach((key) => {
+        if (!target.keys.has(key)) { target.keys.set(key, s.keys.get(key)); target.tests.push(key); }
+        s.cols.forEach((c) => {
+          if (!c.values.has(key)) return;
+          let col = target.cols.find((t) => t.date === c.date);
+          if (!col) {
+            col = { date: c.date, time: c.time, values: new Map(), times: new Map(), text: '', notes: [] };
+            // Keep the target's order (newest first or oldest first); a date it can't read goes last
+            const k = dateKey(c.date);
+            const keys = target.cols.map((t) => dateKey(t.date));
+            const newestFirst = keys.length > 1 && keys[0] != null && keys.at(-1) != null ? keys[0] >= keys.at(-1) : true;
+            const at = k == null ? -1 : keys.findIndex((t) => t != null && (newestFirst ? t < k : t > k));
+            if (at < 0) target.cols.push(col); else target.cols.splice(at, 0, col);
+          }
+          if (!col.values.get(key)) {
+            col.values.set(key, c.values.get(key));
+            if (c.times?.has(key)) col.times.set(key, c.times.get(key));
+          }
+          c.values.delete(key);
+          c.times?.delete(key);
+        });
+        s.tests = s.tests.filter((t) => t !== key);
+      });
+      const had = s.cols.length;
+      s.cols = s.cols.filter((c) => c.values.size || c.notes.length);
+      if (had && !s.cols.length && !s.notes.length) emptied.add(s);
+    });
+  });
+  // A table that held only moved tests is gone
+  return sections.filter((s) => !emptied.has(s));
 }
 
 /** Sections in Grid that are given two columns: they gather results from many dates. */
