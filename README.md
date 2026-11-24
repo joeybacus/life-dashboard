@@ -66,7 +66,8 @@ Settings → Sync (tap it for these steps):
 
 1. Settings → Sync → **Update the sync script** → **Copy code**.
 2. In your Google Sheet: **Extensions → Apps Script**. Select all the code (⌘A), paste (⌘V), click **Save**.
-   Near the top, a line should now read `const SCRIPT_VERSION = 22;` (v0.11.41 brings version 22: changing a
+   Near the top, a line should now read `const SCRIPT_VERSION = 23;` (v0.11.57 brings version 23: the red
+   **Urgent** flag on a patient's page reads your Hylos sheet; v0.11.41 brought version 22: changing a
    patient's name from their page; v0.11.39 brought version 21: the Neuro Pad's
    images in your Google Drive and on all your devices; v0.11.0 brought version 20: Neurology guidelines and
    teaching cases on all your devices, and guideline PDFs in your Google Drive).
@@ -521,6 +522,12 @@ of its tabs) shown as a rounds list.
   shows can be edited in a patient's sheet (**Edit**) and goes back to its own column. The name can be changed
   too (**Edit** beside it at the top of their page, 0.11.41, script version 22) — one line, never empty; it's
   written to the name column and they stay the same patient, since the app knows them by hospital number.
+- **Hylos (URGENT card, 0.11.57, script version 23):** the red **Urgent** flag beside Show edits on a patient's
+  page reads the **HYLOS** tab of your lab-scraper Google Sheet (read only). Each filled cell there is one
+  patient's card, its first line their name ("🟡 CRUZ, VIRGILIO"). The app shows the card whose surname and first
+  name match this patient (accents, ages like "60/F" and a middle name are ignored; a different first name never
+  matches). The first tap asks for the sheet's link, kept on this device only (**Change link** under the card).
+  The card stays open as you move from patient to patient; **Refresh** reads the Sheet again.
   Hospital numbers are never changed, and rows are never added or deleted. Before each write the app finds the
   patient's row again by hospital number and checks the cell hasn't changed; if someone else changed it, you
   see both versions and choose. Changes that can't be saved yet stay on the device, marked **Not synced**, and

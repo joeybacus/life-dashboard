@@ -122,6 +122,10 @@ MockRange.prototype.getFontColorObjects = function () {
   var self = this;
   return this.__cells(function (v, r, c) { return __mockColor(self.__style(r, c).color || '#000000'); });
 };
+MockRange.prototype.getBackgrounds = function () {
+  var self = this;
+  return this.__cells(function (v, r, c) { return self.__style(r, c).bg || '#ffffff'; });
+};
 MockRange.prototype.getRichTextValues = function () {
   var self = this;
   return this.__cells(function (v, r, c) {

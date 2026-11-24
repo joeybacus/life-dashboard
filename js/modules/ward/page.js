@@ -28,6 +28,7 @@ import { removeList, renameList } from './manage.js';
 import { keepNotes, mountNotes, notesSlot } from './notes.js';
 import { historyClosed, historySlot, keepHistory, mountHistory } from './history.js';
 import { openReferral, openReport, openReportSetup } from './report-page.js';
+import { hylosAction, hylosButton, hylosCard } from './hylos.js';
 import { ctClosed, ctSlot, keepCt, mountCt } from '../ct/viewer.js';
 import { cxrClosed, cxrSlot, keepCxr, mountCxr } from '../cxr/viewer.js';
 
@@ -399,6 +400,7 @@ function editsBar(v, patient = null) {
   return html`<div class="ward-arrange-by ward-edits-by">
     <span class="ward-arrange-by__label" id="${labelId}">Show edits</span>
     <div class="segmented" role="group" aria-labelledby="${labelId}">${[0, 1, 2, 3].map(opt)}</div>
+    ${patient ? hylosButton() : ''}
   </div>
   ${on.length ? html`<p class="ward-edits-by__note" aria-live="polite">${on.map(line)}${on.length > 1
     ? html`<span class="ward-edits-by__hint">Words changed on two days show the newer colour.</span>` : ''}</p>` : ''}`;
@@ -877,7 +879,7 @@ function detailBody(p, v, { editing = false } = {}) {
     <div class="ptb__main">
       ${v.hidden.rounded ? '' : roundsBox(p, v)}
       ${patientNav(p, v)}
-      <div class="ptb__edits">${editsBar(v, p)}</div>
+      <div class="ptb__edits">${editsBar(v, p)}${hylosCard(p)}</div>
       ${notesSlot('patient')}
       ${editing ? boardSetup(v, board, byCol) : ''}
       <div class="ptb ptb--c${board.cols} ptb--w${board.wide}${editing ? ' is-editing' : ''}">
@@ -1048,6 +1050,8 @@ async function openPatient(openId) {
           await untick(now);
         } else if (act === 'rename') {
           await editName(now);
+        } else if (act.startsWith('hylos')) {
+          await hylosAction(act, redraw);
         } else if (act === 'edit') {
           if (button.dataset.col === current()?.view().locationCol) await editLocation(now, button.dataset.col);
           else await editText(now, button.dataset.col);

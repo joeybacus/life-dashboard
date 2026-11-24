@@ -23,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 22;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder) · 21: the Neuro Pad (your Neurology images with categories and tags: Neuro Pad and Neuro Pad labels tabs; the images in a Google Drive folder) · 22: changing a patient's name from the app (the list's name column; never the hospital number)
+const SCRIPT_VERSION = 23;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder) · 21: the Neuro Pad (your Neurology images with categories and tags: Neuro Pad and Neuro Pad labels tabs; the images in a Google Drive folder) · 22: changing a patient's name from the app (the list's name column; never the hospital number) · 23: reads the cards in another Google Sheet's tab (Hylos: urgent labs to do before rounds), read only
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -1049,7 +1049,43 @@ const WARD_ACTIONS = {
   wardCheck: wardCheck_,
   wardSync: wardSync_,
   wardCreateTest: wardCreateTest_,
+  hylosRead: hylosRead_,
 };
+
+const HYLOS_MAX_ROWS = 60;
+const HYLOS_MAX_COLS = 200;
+const HYLOS_MAX_TEXT = 4000;
+
+/**
+ * Hylos: every filled cell of a tab (HYLOS unless another is named) is one
+ * patient's card — its first line the patient's name. Read only: nothing is
+ * written. Each card: { cell, text, bg ("#rrggbb" fill), marks (red or bold parts) }.
+ */
+function hylosRead_(req) {
+  const opened = wardOpen_({ spreadsheetId: req.spreadsheetId, tab: String(req.tab || '').trim() || 'HYLOS' });
+  if (opened.error) return opened;
+  const sheet = opened.sheet;
+  const rows = Math.min(sheet.getLastRow(), HYLOS_MAX_ROWS);
+  const width = Math.min(sheet.getLastColumn(), HYLOS_MAX_COLS);
+  const out = { ok: true, version: SCRIPT_VERSION, title: opened.ss.getName(), tab: sheet.getName(), cards: [] };
+  if (rows < 1 || width < 1) return out;
+  const range = sheet.getRange(1, 1, rows, width);
+  const values = range.getDisplayValues();
+  const styles = wardStyles_(range);
+  let fills = null;
+  try { fills = range.getBackgrounds(); } catch (err) { fills = null; }
+  values.forEach(function (row, i) {
+    row.forEach(function (value, c) {
+      const text = String(value == null ? '' : value).replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+      if (!text.trim()) return;
+      const card = { cell: wardColLetter_(c + 1) + (i + 1), text: text.slice(0, HYLOS_MAX_TEXT), bg: wardHex_(fills && fills[i] ? fills[i][c] : '') };
+      const marks = styles && text.length <= HYLOS_MAX_TEXT ? wardMarks_(styles, i, c, text) : null;
+      if (marks) card.marks = marks;
+      out.cards.push(card);
+    });
+  });
+  return out;
+}
 
 /** Check a logsheet link: can it be opened, does the tab exist, are E1:G1 free? */
 function wardCheck_(req) {

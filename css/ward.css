@@ -1228,6 +1228,24 @@ button.wbadge { cursor: pointer; }
 .pt__field--check.is-edited .pt__box { box-shadow: 0 0 0 2px var(--edit-ink, var(--edit-today)); }
 /* The same bar on a patient's page, under the bed boxes (0.11.43); spacing comes from .ptb__main's gap */
 .ptb__edits .ward-arrange-by { margin: 0 4px; }
+/* Hylos: the red flag beside Show edits, and this patient's URGENT card under it (hylos.js, 0.11.57) */
+.hylos-flag { flex: none; color: var(--danger-ink); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.hylos-flag .icon { color: var(--danger-ink); }
+.hylos-flag.is-on { background: var(--danger); border-color: var(--danger); color: #fff; }
+.hylos-flag.is-on .icon { color: #fff; }
+.hylos { margin: 10px 4px 0; display: flex; flex-direction: column; gap: 8px; }
+.hylos__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.hylos__title { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 700; color: var(--danger-ink); }
+.hylos__title .icon { width: 1rem; height: 1rem; }
+.hylos__when { font-weight: 500; color: var(--text-3); }
+.hylos__acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.hylos__empty { margin: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.hylos__card { --hy: var(--danger); padding: 12px 14px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--hy) 55%, transparent);
+  border-left-width: 5px; background: color-mix(in srgb, var(--hy) 12%, var(--surface, transparent));
+  white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-sm); line-height: 1.5; color: var(--text); }
+.hylos--yellow { --hy: var(--edit-yesterday); }
+.hylos--green { --hy: var(--edit-older); }
+.hylos__mark { font-weight: 750; color: var(--danger-ink); }
 @media (max-width: 400px) {
   .ward-edits-by { flex-wrap: wrap; }
   .ward-edits-by .segmented { flex-basis: 100%; max-width: none; }

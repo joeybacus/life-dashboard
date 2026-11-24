@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CODE = os.path.join(ROOT, 'apps-script', 'Code.gs')
-SCRIPT_VERSION = 22
+SCRIPT_VERSION = 23
 MOCK = os.path.join(HERE, 'gas-mock.js')
 RUNNER = os.path.join(HERE, 'run-gas.js')
 STATE = tempfile.NamedTemporaryFile(suffix='.json', delete=False).name
@@ -1414,7 +1414,25 @@ check('v21: other devices get images and labels', any(c['store'] == 'padImages' 
 st = gas('dump'); st['drive']['noAuth'] = True; save_state(st)
 check('v21: without Drive permission the app is told so', pu(id='pad-3', kind='copy', mime='image/jpeg', data='QQ==').get('error') == 'pad-needs-permission')
 st = gas('dump'); st['drive']['noAuth'] = False; save_state(st)
-check('the script says it\'s version 22', gas('post', {**base, 'action': 'ping'}).get('version') == 22)
+# Version 23: Hylos cards (another Sheet's HYLOS tab, read only)
+HY = '1' + 'H' * 43
+state = gas('dump')
+state['files'][HY] = {'name': 'LAB SCRAPER', 'tz': 'Asia/Manila', 'access': 'view', 'sheets': [
+    {'name': 'Sheet1', 'rows': [['x']], 'maxRows': 10, 'maxCols': 5},
+    {'name': 'HYLOS', 'rows': [['\U0001F7E1 TEST, ALPHA\nURGENT: K3.1 low\nPLAN: recheck', '', '\U0001F534 SAMPLE, BETA\nURGENT: Na156 high  ']],
+     'maxRows': 10, 'maxCols': 5,
+     'styles': {'1,1': {'bg': '#fff2cc', 'runs': [['\U0001F7E1 TEST, ALPHA\n', {'bold': True}], ['URGENT: K3.1 low', {'color': '#cc0000'}], ['\nPLAN: recheck', {}]]},
+                '1,3': {'bg': '#f4cccc'}}}]}
+save_state(state)
+res = gas('post', {**base, 'spreadsheetId': HY, 'action': 'hylosRead'})
+cards = res.get('cards', [])
+check('v23: Hylos reads each filled cell of the HYLOS tab as a card, empty cells skipped', res.get('ok') and [c['cell'] for c in cards] == ['A1', 'C1'] and res.get('tab') == 'HYLOS', res)
+check('v23: a card keeps its fill colour and its red or bold parts', cards and cards[0]['bg'] == '#fff2cc'
+      and cards[0].get('marks') == [['\U0001F7E1 TEST, ALPHA\nURGENT: K3.1 low', 1], ['\nPLAN: recheck', 0]], cards[:1])
+check('v23: trailing space is dropped and a plain card has no marks', len(cards) > 1 and cards[1]['text'].endswith('high') and 'marks' not in cards[1] and cards[1]['bg'] == '#f4cccc', cards[1:])
+check('v23: a view-only sheet is enough, and nothing is written', gas('dump')['files'][HY]['sheets'][1]['rows'][0][1] == '')
+check('v23: a missing tab is reported', gas('post', {**base, 'spreadsheetId': HY, 'action': 'hylosRead', 'tab': 'Nope'}).get('error') == 'ward-no-tab')
+check('the script says it\'s version 23', gas('post', {**base, 'action': 'ping'}).get('version') == 23)
 
 os.unlink(STATE)
 print(f'\n{"All checks passed." if not FAILURES else f"{len(FAILURES)} check(s) failed."}')
