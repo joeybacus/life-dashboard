@@ -1273,7 +1273,7 @@ async function openSyncSetup() {
     title: 'Sync with Google Sheets',
     body: html`
       <p class="setup__lead">Your data will sync to a Google Sheet that only you own. Setting it up takes about 10 minutes, once — it’s easiest on a Mac.</p>
-      <p class="note">${icon('info')}<span>Already set up on another device? Skip to the bottom and paste the same Web app URL.</span></p>
+      <p class="note">${icon('info')}<span>Already set up on another device? Skip to the bottom and paste the same Web app URL and secret token.</span></p>
       <ol class="setup__steps">
         <li><strong>Create a sheet.</strong> At sheets.google.com, create a blank spreadsheet, then choose <strong>Extensions → Apps Script</strong>.</li>
         <li><strong>Paste the sync code.</strong> Delete what’s in the editor, paste this code, then click Save.
@@ -1282,12 +1282,15 @@ async function openSyncSetup() {
             ${codeUrl ? html`<a class="btn btn--sm btn--ghost" href="${codeUrl}" target="_blank" rel="noopener">${icon('external')}View code</a>` : ''}
           </span>
         </li>
-        <li><strong>Run setup.</strong> Choose <code>setup</code> in the toolbar and click <strong>Run</strong>, then allow access.</li>
+        <li><strong>Run setup.</strong> Choose <code>setup</code> in the toolbar and click <strong>Run</strong>, then allow access. Your secret token appears in the sheet’s <strong>Connection</strong> tab.</li>
         <li><strong>Deploy.</strong> Click <strong>Deploy → New deployment</strong>, pick <strong>Web app</strong>, set “Execute as” to <strong>Me</strong> and “Who has access” to <strong>Anyone</strong>, then copy the Web app URL.</li>
       </ol>
       <form class="setup__form" data-connect novalidate>
         <label class="field"><span class="field__label">Web app URL</span>
           <input class="input" name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" required>
+        </label>
+        <label class="field"><span class="field__label">Secret token</span>
+          <input class="input" name="token" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required>
         </label>
         <p class="form-error" data-error role="alert" hidden></p>
         <div class="setup__actions">
@@ -1308,7 +1311,7 @@ async function openSyncSetup() {
         submit.disabled = true;
         submit.textContent = 'Connecting…';
         try {
-          const ok = await connectSync({ url: form.url.value });
+          const ok = await connectSync({ url: form.url.value, token: form.token.value });
           accessSyncChanged(); // a voucher code linked to a Sheet is checked again
           close('connected');
           toast(ok ? 'Connected. Your data is syncing with your Google Sheet.' : `Connected, but the first sync didn’t finish: ${syncSnapshot().error?.message ?? 'it will try again.'}`, { icon: 'cloud', duration: 6000 });
@@ -1368,7 +1371,7 @@ async function openScriptUpdate() {
         <li><strong>Publish it.</strong> Click <strong>Deploy → Manage deployments</strong>, then the pencil (<strong>Edit</strong>). Under Version choose <strong>New version</strong>, then click <strong>Deploy</strong>.</li>
         <li><strong>Check.</strong> Come back here and tap <strong>Check now</strong>.</li>
       </ol>
-      <p class="note">${icon('info')}<span>Your Web app URL stays the same, so there’s nothing to change on your other devices. Don’t create a “New deployment” — that would give you a new URL.</span></p>
+      <p class="note">${icon('info')}<span>Your Web app URL and secret token stay the same, so there’s nothing to change on your other devices. Don’t create a “New deployment” — that would give you a new URL.</span></p>
       <div class="setup__actions">
         <button type="button" class="btn btn--ghost" data-dialog-value="close">Later</button>
         <button type="button" class="btn btn--primary" data-check>Check now</button>

@@ -7,11 +7,12 @@
  * One-time setup (the app walks you through it: Settings → Sync):
  *   1. Paste this whole file into Extensions → Apps Script, then save.
  *   2. Choose "setup" in the toolbar and click Run (allow access when asked).
+ *      Your secret token appears in the "Connection" tab.
  *   3. Deploy → New deployment → Web app. Execute as: Me. Who has access: Anyone.
- *   4. In the app, paste the Web app URL.
+ *   4. In the app, paste the Web app URL and the secret token.
  *
- * There is no secret token (removed in version 24, at your request): the Web
- * app URL alone gives access to your data, so keep it private. After changing this code, publish it with
+ * Keep the Web app URL and the token private: together they give access to
+ * your data. After changing this code, publish it with
  * Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy.
  * (The Web app URL stays the same, so nothing changes in the app.)
  *
@@ -22,7 +23,7 @@
  */
 
 const PROTOCOL = 1;        // how the app and this script talk (changes rarely)
-const SCRIPT_VERSION = 24;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder) · 21: the Neuro Pad (your Neurology images with categories and tags: Neuro Pad and Neuro Pad labels tabs; the images in a Google Drive folder) · 22: changing a patient's name from the app (the list's name column; never the hospital number) · 23: reads the cards in another Google Sheet's tab (Hylos: urgent labs to do before rounds), read only · 24: no secret token — the Web app URL alone connects
+const SCRIPT_VERSION = 23;  // 2: Exercises and Workout templates tabs · 3: Ward Patients · 4: edit lab results · 5: to-do tabs and the Google Calendar link · 6: subtasks with their own time, in the Subtasks tab and in Google Calendar · 7: several patient lists (Ward lists tab), your own logsheet columns, and moving rows · 8: Referrals tab, and names, hospital numbers and rounds in the logsheet columns you choose · 9: a referral census (no rounds columns, dates in the columns you choose) · 10: dropdown columns (the app writes their own values; a value they refuse fails only that change) · 11: tick-box columns (read and written as real checkboxes) · 12: weights from Apple Health, sent by an Apple Shortcut (healthWeight); several logsheet changes are written together with one recalculation (no more timeouts on a big census) · 13: progress photos (Progress photos tab; the photos themselves in a Google Drive folder) · 14: bold or red text in a patient list's columns, so the app shows it in bold · 15: NCCU/ACSU beds and duty to-dos (NCCU-ACSU tab) · 16: reads your Google Calendar events for the app's Calendar page (calendarEvents) · 17: adds, changes and deletes events from the app (calendarEventSave, calendarEventDelete); a linked to-do's event moved or renamed in Google Calendar changes the to-do; Apple Calendar public links (read only) · 18: backups in your Google Drive (a Life Dashboard Backups folder, the last 30 kept) · 19: steps, sleep, resting heart rate, active energy and body fat from Apple Health, sent by an Apple Shortcut (healthDaily) · 20: Neurology guidelines and teaching cases (Guidelines and Cases tabs; guideline PDFs in a Google Drive folder) · 21: the Neuro Pad (your Neurology images with categories and tags: Neuro Pad and Neuro Pad labels tabs; the images in a Google Drive folder) · 22: changing a patient's name from the app (the list's name column; never the hospital number) · 23: reads the cards in another Google Sheet's tab (Hylos: urgent labs to do before rounds), read only
 
 // App data → tab name. Please don't rename or delete these tabs.
 const STORES = {
@@ -77,13 +78,17 @@ const TEXT_LIMIT = 200;   // readable columns are shortened to this length
 
 function setup() {
   const props = PropertiesService.getScriptProperties();
-  props.deleteProperty('TOKEN'); // no secret token since version 24
+  let token = props.getProperty('TOKEN');
+  if (!token) {
+    token = makeToken_();
+    props.setProperty('TOKEN', token);
+  }
   if (!props.getProperty('SEQ')) props.setProperty('SEQ', '0');
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   Object.keys(STORES).concat(Object.keys(SCRIPT_STORES)).forEach(function (store) { storeSheet_(ss, store); });
   conflictsSheet_(ss);
-  connectionSheet_(ss);
+  connectionSheet_(ss, token);
   relayoutAll_(ss); // tabs made by older versions get this version's readable columns
 
   const blank = ss.getSheetByName('Sheet1');
@@ -103,7 +108,23 @@ function setup() {
     Logger.log('Couldn’t start the 30-minute Google Calendar check: ' + ((err && err.message) || err));
   }
 
-  Logger.log('Life Dashboard sync is set up. Now Deploy → New deployment → Web app, and paste its URL in the app.');
+  Logger.log('Life Dashboard sync is set up. Your secret token is: ' + token);
+  return token;
+}
+
+/** Adds a "Life Dashboard" menu to the spreadsheet. */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Life Dashboard')
+    .addItem('Show secret token', 'showToken')
+    .addToUi();
+}
+
+function showToken() {
+  const token = PropertiesService.getScriptProperties().getProperty('TOKEN');
+  SpreadsheetApp.getUi().alert(token
+    ? 'Secret token: ' + token
+    : 'Not set up yet. Open Extensions → Apps Script, choose "setup" and click Run.');
 }
 
 /* ---------- Web app ---------- */
@@ -122,6 +143,9 @@ function doPost(e) {
   }
 
   const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('TOKEN');
+  if (!token) return json_({ ok: false, error: 'not-set-up' });
+  if (!sameToken_(req.token, token)) return json_({ ok: false, error: 'bad-token' });
   if (req.protocol !== PROTOCOL) return json_({ ok: false, error: 'protocol', protocol: PROTOCOL });
 
   // Ward Patients works on your logsheet, not this spreadsheet (it locks only while writing)
@@ -771,8 +795,8 @@ function driveBackupGet_(props, req) {
 
 /* ---------- Apple Health weight (version 12) ----------
  * An Apple Shortcut on the iPhone reads the latest weight in Apple Health and
- * sends it here (the same Web app URL as the app):
- *   { protocol: 1, action: 'healthWeight', value: '78.4', unit: 'kg', date: '2026-10-07T07:10:00+08:00' }
+ * sends it here (the same Web app URL and secret token as the app):
+ *   { token, protocol: 1, action: 'healthWeight', value: '78.4', unit: 'kg', date: '2026-10-07T07:10:00+08:00' }
  * or several at once: weights: [{ value, unit, date }, …] (at most 50).
  * value may use a comma ("78,4"); unit 'lb' / 'lbs' / 'pound' is converted to kg;
  * a missing or unreadable date means now. Each weigh-in becomes a Body
@@ -825,7 +849,7 @@ function healthWeight_(ss, props, req) {
 
 /* ---------- More from Apple Health (version 19) ----------
  * The Shortcut can also send a day's numbers (all optional):
- *   { protocol: 1, action: 'healthDaily', date: '2026-10-19',
+ *   { token, protocol: 1, action: 'healthDaily', date: '2026-10-19',
  *     steps: '8231', sleep: '7.2' (hours; "7:12", "7h 12m" and minutes work too),
  *     restingHeartRate: '58', activeEnergy: '512' (kcal; "2140 kJ" is changed),
  *     bodyFat: '18.5' (%, or 0.185) }
@@ -3636,7 +3660,7 @@ function appendConflicts_(ss, rows) {
   sheet.getRange(start, 1, values.length, width).setNumberFormat('@').setValues(values);
 }
 
-function connectionSheet_(ss) {
+function connectionSheet_(ss, token) {
   let sheet = ss.getSheetByName(CONNECTION_TAB);
   if (!sheet) sheet = ss.insertSheet(CONNECTION_TAB, 0);
   ensureSize_(sheet, 8, 2);
@@ -3644,10 +3668,10 @@ function connectionSheet_(ss) {
   sheet.getRange(1, 1, 8, 2).setNumberFormat('@').setValues([
     ['Life Dashboard — sync connection', ''],
     ['', ''],
-    ['Secret token', '(none — removed in script version 24; the Web app URL alone connects)'],
+    ['Secret token', token],
     ['Web app URL', savedUrl.indexOf('https://') === 0 ? savedUrl : '(paste it here after Deploy → New deployment, for safekeeping)'],
     ['', ''],
-    ['Keep the Web app URL private.', 'Anyone with it can read and change your Life Dashboard data.'],
+    ['Keep these private.', 'Together they give access to your Life Dashboard data.'],
     ['Please don’t rename or delete the other tabs.', 'The app stores your data in them.'],
     ['Conflicts tab', 'If one item is changed on two devices, the newest change is kept and the other is saved there.'],
   ]);
@@ -3682,6 +3706,31 @@ function canonicalJson_(record) {
   delete copy.updatedAt;
   delete copy.createdAt;
   return JSON.stringify(copy);
+}
+
+function makeToken_() {
+  const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // no 0/O or 1/I to avoid mix-ups
+  let hex = '';
+  while (hex.length < 32) {
+    const uuid = Utilities.getUuid().replace(/-/g, '');
+    hex += uuid.slice(0, 12) + uuid.slice(13, 16) + uuid.slice(17); // skip the fixed UUID digits
+  }
+  let token = '';
+  for (let i = 0; i < 16; i++) token += alphabet.charAt(parseInt(hex.substr(i * 2, 2), 16) % 32);
+  return token.match(/.{4}/g).join('-');
+}
+
+function normalizeToken_(value) {
+  return String(value || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+}
+
+function sameToken_(given, expected) {
+  const a = normalizeToken_(given);
+  const b = normalizeToken_(expected);
+  if (!a || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 function currentSeq_(props) {

@@ -34,11 +34,12 @@ const MESSAGES = {
   timeout: 'Google took too long to answer. It will try again shortly.',
   busy: 'Your Google Sheet was busy. It will try again shortly.',
   'bad-response': 'That link didn’t answer like the Life Dashboard sync script. Check the Web app URL and that “Who has access” is set to Anyone. Just updated the script? In Apps Script choose setup, click Run and allow access.',
-  'bad-token': 'Your sync script still asks for the old secret token. Update it to version 24 (Settings → Sync → Update the sync script) — the new version needs only the Web app URL.',
+  'bad-token': 'The secret token doesn’t match. Copy it again from the Connection tab of your Google Sheet.',
   'not-set-up': 'The sync script isn’t set up yet. In Apps Script, choose “setup” and click Run once.',
   protocol: 'The sync script needs updating: paste the latest code into Apps Script and deploy a new version.',
   'bad-url': 'That doesn’t look like a Web app URL. It should start with https://script.google.com/ and end with /exec.',
   'dev-url': 'That’s the test link (it ends with /dev). Use the Web app URL from Deploy → New deployment, which ends with /exec.',
+  'no-token': 'Enter the secret token from the Connection tab of your Google Sheet.',
   'not-connected': 'Set up Google Sheets sync first (Settings → Sync).',
   server: 'Your Google Sheet reported a problem. It will try again shortly.',
 };
@@ -66,7 +67,7 @@ const RETRYABLE = new Set(['network', 'timeout', 'busy', 'server', 'bad-response
    Neurology guidelines and teaching cases (the Guidelines and Cases tabs, and guideline PDFs in a Google Drive folder:
    guideUpload, guideDownload); 21 keeps the Neuro Pad (the Neuro Pad and Neuro Pad labels tabs, and its images in a
    Google Drive folder: padUpload, padDownload). */
-export const LATEST_SCRIPT_VERSION = 24;
+export const LATEST_SCRIPT_VERSION = 23;
 const STORE_SCRIPT_VERSION = { exercises: 2, templates: 2, tasks: 5, subtasks: 5, wardLists: 7, referrals: 8, focusSessions: 5, habits: 5, habitLogs: 5, progressPhotos: 13, units: 15, guidelines: 20, cases: 20, padImages: 21, padLabels: 21 };
 const scriptVersion = (config = sync.config) => config?.scriptVersion ?? 1;
 /* A device that synced with an older app skipped the kinds of data that app
@@ -535,7 +536,8 @@ export async function initSync() {
 /** Check the connection, save it, then do the first sync. Throws SyncError if the details are wrong. */
 export async function connectSync({ url, token }) {
   const cleanUrl = checkUrl(url);
-  const cleanToken = normalizeToken(token); // only for scripts older than version 24; usually empty
+  const cleanToken = normalizeToken(token);
+  if (cleanToken.replace(/-/g, '').length < 12) throw new SyncError('no-token');
   const config = {
     url: cleanUrl,
     token: cleanToken,

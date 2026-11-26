@@ -264,8 +264,9 @@ async function shortcutSheet() {
       <p class="muted">Set this up once on your iPhone, in the <strong>Shortcuts</strong> app. Then your latest Apple Health weight is sent to your Google Sheet every morning, and appears here marked “From Apple Health”.</p>
       <div class="hl-copy">
         <button type="button" class="btn btn--sm" data-copy="url">${icon('clipboard')}Copy Web app URL</button>
+        <button type="button" class="btn btn--sm" data-copy="token">${icon('clipboard')}Copy secret token</button>
       </div>
-      <p class="hl-copy__note muted" data-copied aria-live="polite">Keep the URL private — anyone with it can write to your sheet.</p>
+      <p class="hl-copy__note muted" data-copied aria-live="polite">Keep the token private — anyone with it and the URL can write to your sheet.</p>
       <h3>1 · Your weight: make the Shortcut</h3>
       <ol>
         <li>Open <strong>Shortcuts</strong> → tap <strong>+</strong>. Name it “Send weight to Life Dashboard”.</li>
@@ -273,6 +274,7 @@ async function shortcutSheet() {
         <li>Add <strong>Get Contents of URL</strong>. Tap <em>URL</em> and paste the Web app URL (Copy Web app URL above).</li>
         <li>Tap the arrow (›) on that action: <em>Method</em> <strong>POST</strong>, <em>Request Body</em> <strong>JSON</strong>. Add these fields with <strong>Add new field</strong>:
           <ul class="hl-fields">
+            ${field('token', 'Text', 'paste the secret token')}
             ${field('protocol', 'Number', '1')}
             ${field('action', 'Text', 'healthWeight')}
             ${field('value', 'Text', html`tap the box, choose <strong>Health Samples</strong> above the keyboard, tap it again → <strong>Value</strong>`)}
@@ -298,6 +300,7 @@ async function shortcutSheet() {
         <li><strong>Resting heart rate</strong> and <strong>body fat:</strong> <strong>Find Health Samples</strong> of that type, <em>Latest First</em>, <em>Limit</em> <strong>1</strong>.</li>
         <li>Add <strong>Get Contents of URL</strong> with the same URL, <em>Method</em> <strong>POST</strong>, <em>Request Body</em> <strong>JSON</strong>, and these fields:
           <ul class="hl-fields">
+            ${field('token', 'Text', 'paste the secret token')}
             ${field('protocol', 'Number', '1')}
             ${field('action', 'Text', 'healthDaily')}
             ${field('steps', 'Text', html`the Steps <strong>Statistics</strong> result`)}
@@ -321,13 +324,13 @@ async function shortcutSheet() {
       dlg.addEventListener('click', async (event) => {
         const b = event.target.closest('[data-copy]');
         if (!b) return;
-        const text = d.url;
+        const text = b.dataset.copy === 'url' ? d.url : d.token;
         const note = dlg.querySelector('[data-copied]');
         try {
           await navigator.clipboard.writeText(text);
-          note.textContent = 'Web app URL copied — paste it into the URL box.';
+          note.textContent = b.dataset.copy === 'url' ? 'Web app URL copied — paste it into the URL box.' : 'Secret token copied — paste it as the token field. Keep it private.';
         } catch {
-          note.textContent = `Couldn’t copy. The URL is: ${text}`;
+          note.textContent = `Couldn’t copy. ${b.dataset.copy === 'url' ? `The URL is: ${text}` : 'Copy the token from Settings → Sync, or the Connection tab of your Google Sheet.'}`;
         }
       });
     },
