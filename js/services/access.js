@@ -200,7 +200,7 @@ export function voucherMessage(result) {
     case 'stopped': return 'This code no longer works. Ask the person you got it from.';
     case 'in-use': return 'This code is already used on another device. Ask the person you got it from to move it to this one.';
     case 'other-sheet': return 'This code belongs to a different Google Sheet than the one this app syncs to. Ask the person you got it from.';
-    case 'needs-sheet': return 'This code needs this device connected to your Google Sheet. Enter your sync details below — the same Web app URL and secret token as on your other device (also in your Sheet’s Connection tab).';
+    case 'needs-sheet': return 'This code needs this device connected to your Google Sheet. Enter your sync details below — the same Web app URL as on your other device.';
     default: return 'That code isn’t right. Check it and try again.';
   }
 }
@@ -220,10 +220,9 @@ export function lockDevice() {
 /** The lock screen's "connect your Google Sheet" part: resolves with the Sheet ID, after checking the details. */
 async function connectSheetOnLock(form) {
   const url = form.elements.url.value;
-  const token = form.elements.token.value;
-  const data = await pingScript({ url, token }); // throws a SyncError with a friendly message
+  const data = await pingScript({ url, token: '' }); // throws a SyncError with a friendly message
   if (!data.sheetId) throw new Error('Your sync script needs updating first: in your Google Sheet, paste the newest code and deploy a new version.');
-  writeLocal(PENDING_SYNC_KEY, { url, token });
+  writeLocal(PENDING_SYNC_KEY, { url, token: '' });
   return data.sheetId;
 }
 
@@ -247,8 +246,6 @@ function showLock(result = null, code = '') {
       <div class="lock__sheet" hidden>
         <label class="field"><span class="field__label">Web app URL</span>
           <input class="input" name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"></label>
-        <label class="field"><span class="field__label">Secret token</span>
-          <input class="input" name="token" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX"></label>
       </div>
       <p class="lock__msg" role="alert"></p>
       <button type="submit" class="btn btn--primary btn--block">Unlock</button>`;
