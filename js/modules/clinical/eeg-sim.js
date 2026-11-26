@@ -28,20 +28,20 @@ const refChains = ref => [
   [["F4",ref[1]],["C4",ref[1]],["P4",ref[1]]],
   [["Fp2",ref[1]],["F8",ref[1]],["T8",ref[1]],["P8",ref[1]],["O2",ref[1]]]];
 const MONTAGES = {
-  bipolar: {name:"Double banana", long:"Longitudinal bipolar (double banana): left temporal, left parasagittal, midline, right parasagittal, right temporal", groups:[
+  bipolar: {name:"Double banana", gl:["Left temporal","Left parasagittal","Midline","Right parasagittal","Right temporal"], long:"Longitudinal bipolar (double banana): left temporal, left parasagittal, midline, right parasagittal, right temporal", groups:[
     [["Fp1","F7"],["F7","T7"],["T7","P7"],["P7","O1"]],
     [["Fp1","F3"],["F3","C3"],["C3","P3"],["P3","O1"]],
     [["Fz","Cz"],["Cz","Pz"]],
     [["Fp2","F4"],["F4","C4"],["C4","P4"],["P4","O2"]],
     [["Fp2","F8"],["F8","T8"],["T8","P8"],["P8","O2"]]]},
-  transverse: {name:"Transverse", long:"Transverse bipolar: chains run from the left ear to the right ear, front to back", groups:[
+  transverse: {name:"Transverse", gl:["Front pole","Frontal row","Central row, ear to ear","Parietal row","Occipital"], long:"Transverse bipolar: chains run from the left ear to the right ear, front to back", groups:[
     [["Fp1","Fp2"]],
     [["F7","F3"],["F3","Fz"],["Fz","F4"],["F4","F8"]],
     [["A1","T7"],["T7","C3"],["C3","Cz"],["Cz","C4"],["C4","T8"],["T8","A2"]],
     [["P7","P3"],["P3","Pz"],["Pz","P4"],["P4","P8"]],
     [["O1","O2"]]]},
-  ear: {name:"Ear reference", long:"Referential: left electrodes to A1, right to A2, midline to both ears", groups:refChains(["A1","A2","Ears"])},
-  avg: {name:"Average", long:"Average reference: each electrode minus the mean of all 19 scalp electrodes", groups:refChains(["Avg","Avg","Avg"])}
+  ear: {name:"Ear reference", gl:["Left temporal, each vs A1","Left parasagittal, each vs A1","Midline, each vs both ears","Right parasagittal, each vs A2","Right temporal, each vs A2"], long:"Referential: left electrodes to A1, right to A2, midline to both ears", groups:refChains(["A1","A2","Ears"])},
+  avg: {name:"Average", gl:["Left temporal, each vs average","Left parasagittal","Midline","Right parasagittal","Right temporal"], long:"Average reference: each electrode minus the mean of all 19 scalp electrodes", groups:refChains(["Avg","Avg","Avg"])}
 };
 
 function mulberry32(a) {
@@ -489,14 +489,19 @@ S("drugbeta", {title:"Excess beta (benzodiazepine)", seed:33,
 
 S("ats", {title:"Left anterior temporal sharp waves", seed:34,
   events:[[0.1,"Awake, eyes closed"]],
-  ann:[1.7, 5.0, 7.8].map(t => ({t0:t - 0.15, t1:t + 0.45, el:["F7","T7"], label:"Sharp wave: phase reversal at F7"})),
-  look:"Sharp waves that stand out from the background, each with an after-going slow wave. In the double banana the left temporal chain phase-reverses at F7, with the pens pointing at each other (negative). F3 and T7 share the field, less strongly.",
-  why:"Interictal epileptiform discharges from the left anterior temporal region. Temporal lobe epilepsy, most often mesial, is the commonest focal epilepsy in adults. Discharges show an area that can generate seizures; they are not seizures themselves.",
-  tip:"Try Ear reference: A1 picks up the discharge too, so the left channels shrink. Average reference shows F7 tallest.",
+  ann:[{t0:1.55, t1:2.2, ch:[["Fp1","F7"]], mont:["bipolar"], after:true, label:"← Fp1–F7 goes DOWN ↓"},
+    {t0:1.55, t1:2.2, ch:[["F7","T7"]], mont:["bipolar"], after:true, label:"← F7–T7 goes UP ↑: they point at F7"},
+    ...[4.85, 7.65].map((t, k) => ({t0:t, t1:t + 0.65, ch:[["Fp1","F7"],["F7","T7"]], mont:["bipolar"], after:true, label:k ? "← Again" : "← Same again: points at F7"})),
+    ...[1.55, 4.85, 7.65].map((t, k) => ({t0:t, t1:t + 0.65, el:["F7"], mont:["transverse"], after:true, label:k ? "← Again" : "← Biggest at F7, the start of its row"})),
+    ...[1.55, 4.85, 7.65].map((t, k) => ({t0:t, t1:t + 0.65, el:["F7"], mont:["ear"], after:true, label:k ? "← Again" : "← Tallest line: F7–A1"})),
+    ...[1.55, 4.85, 7.65].map((t, k) => ({t0:t, t1:t + 0.65, el:["F7"], mont:["avg"], after:true, label:k ? "← Again" : "← Tallest line: F7"}))],
+  look:"Three sharp waves, at about 1.7, 5 and 7.8 seconds, stand out from the background, each followed by a slower wave. Look at the top chain (left temporal): at each one, Fp1–F7 swings down and F7–T7 swings up at the same moment. Those two lines share F7 and point at it, so the sharp wave is biggest at F7. Nearby lines (F3, T7) show it too, only smaller.",
+  why:"These are interictal discharges: brief bursts from an irritable patch of brain, recorded between seizures. Here the patch is at the front of the left temporal lobe. Temporal lobe epilepsy is the commonest focal epilepsy in adults. A discharge is not a seizure; it shows where seizures could start.",
+  tip:"Switch montages and follow the labels. In Transverse, F7 is the first electrode of its row, so there is no reversal, just the biggest line. In Ear reference and Average, the tallest line is the one with F7.",
   gen(g) {
     g.background(); g.alpha({amp:38});
     const x = g.z(); [1.7, 5.0, 7.8].forEach((t, k) => g.sharp(x, t, [120, 108, 126][k]));
-    g.put([-0.95, 0.38], 0.33, x); g.put([-0.95, 0.38], 0.33, g.band(1, 3, 7));
+    g.put([-0.88, 0.45], 0.3, x); g.put([-0.88, 0.45], 0.3, g.band(1, 3, 7));
   }});
 
 S("tirda", {title:"Temporal intermittent rhythmic delta (TIRDA)", seed:35,
@@ -699,6 +704,61 @@ S("eci", {title:"Electrocerebral inactivity", seed:48, sens:2,
     g.heart({rate:104, k:0.6});
   }});
 
+/* ---------- display lab scenes (Level 0: Reading the display) ---------- */
+S("labsens", {title:"Sensitivity: a low-voltage record with a big burst", seed:61,
+  events:[[0.1,"Awake, eyes closed"],[5,"Generalized burst"]],
+  ann:[{t0:0.2,t1:4.8,el:POST,label:"Low-voltage background (under 20 µV)"},{t0:4.9,t1:7.4,el:SCALP,label:"High-voltage spike-and-wave"}],
+  look:"A low-voltage background (everything under about 20 µV) and, from 5 seconds, a burst of generalized spike-and-wave over 200 µV.",
+  why:"No single sensitivity suits both: the background needs a lower number (bigger traces), the burst a higher one.",
+  gen(g) {
+    g.background({amp:0.45}); g.alpha({amp:13});
+    const x = g.z(); let t = 5.05; while (t < 7.4) { g.spike(x, t, 190, {wave:0, pos:0.3}); g.g1(x, t + 0.15, 0.06, -260); g.g1(x, t + 0.27, 0.05, 140); t += 1 / 3.2; }
+    g.put([-0.35, 0.42], 0.5, x); g.put([0.35, 0.42], 0.5, x);
+  }});
+S("labtime", {title:"Timebase: periodic discharges and a spike", dur:20, seed:62, sens:10,
+  events:[[0.1,"Drowsy, right hemisphere stroke"]],
+  ann:[{t0:0.2,t1:19.8,el:["F8","T8","P8","F4","C4","P4"],label:"Right LPDs: same gap every time"},{t0:2.0,t1:2.45,el:["F7","T7"],label:"Left temporal spike: measure its width"}],
+  look:"Right-sided sharp discharges at a steady interval of about 1.3 seconds for the whole record, and a single left temporal spike at about 2 seconds.",
+  why:"Compressing time shows that the discharges are periodic; stretching it lets you measure the spike (under 70 ms).",
+  gen(g) {
+    g.background({theta:3.6, delta:4}); g.alpha({f:8.5, amp:20, right:0.5});
+    const x = g.z(); for (let t = 0.6; t < 19.9; t += 1.32 + 0.04 * (g.rnd() - 0.5)) g.sharp(x, t, 120, {wave:0.35}); g.put([0.74, 0.12], 0.4, x);
+    const sp = g.z(); g.spike(sp, 2.12, 125); g.put([-0.95, 0.3], 0.32, sp);
+  }});
+S("lablff", {title:"Low-frequency filter: sweat sway and real delta", seed:63,
+  events:[[0.1,"Awake, hot room, sweating"]],
+  ann:[{t0:0.2,t1:9.8,el:["Fp1","F7","T7","F3"],label:"Slow sweat sway (under 0.5 Hz)"},{t0:0.2,t1:9.8,el:["F8","T8","P8"],label:"Real 1–2 Hz delta, right temporal"}],
+  look:"A slow, rolling sway in the left frontal-temporal channels (sweat), and irregular 1–2 Hz delta over the right temporal region (a real finding).",
+  why:"Raising the low filter removes the sway, but too high a setting also removes the real delta.",
+  gen(g) {
+    g.background(); g.alpha({amp:32, right:0.6});
+    g.put([-0.8, 0.5], 0.42, g.rhythm(0.24, 120, {jitter:0.05}));
+    g.put([0.98, 0.15], 0.34, g.band(0.8, 2.2, 30)); g.put([0.75, -0.3], 0.34, g.band(0.8, 2.5, 16));
+  }});
+S("labhff", {title:"High-frequency filter: muscle and a real spike", seed:64,
+  events:[[0.1,"Awake, clenching the jaw on and off"],[1.5,"Clench"],[4.6,"Relax"],[7,"Clench"],[9.3,"Relax"]],
+  ann:[{t0:1.5,t1:4.6,el:["F7","T7","P7"],label:"Muscle"},{t0:5.6,t1:6.15,el:["F7","T7"],label:"Real spike"},{t0:7,t1:9.3,el:["F7","T7","P7"],label:"Muscle"}],
+  look:"Very fast muscle activity in the left temporal channels while the jaw is clenched, and one real spike at about 6 seconds between the bursts.",
+  why:"A low high-frequency filter turns muscle into rhythmic sharp waves that look like beta or spikes, and blunts the real spike.",
+  gen(g) {
+    g.background(); g.alpha({amp:34});
+    const env = g.sumWin([[1.5, 4.6], [7, 9.3]], 0.1);
+    g.muscle([-1, 0.25], 0.4, env, 26);
+    // real muscle also has energy at 13–30 Hz: that is what a low high-frequency filter leaves behind as fake beta
+    ["F7", "T7", "P7"].forEach((e, k) => g.putEl(e, g.mul(g.band(13, 30, [16, 20, 12][k]), env)));
+    const sp = g.z(); g.spike(sp, 5.75, 115); g.put([-0.98, 0.25], 0.3, sp);
+  }});
+S("labnotch", {title:"Notch: mains hum at two electrodes", seed:65,
+  events:[[0.1,"Awake, eyes closed; ICU bed plugged in"]],
+  ann:[{t0:0.2,t1:9.8,el:["T8","O2"],label:"60 Hz hum: poor contact at T8 and O2"}],
+  look:"A thick, even fuzz in every channel that contains T8 or O2, and nowhere else.",
+  why:"Mains hum at single electrodes means poor contact. The notch removes the hum but not the problem.",
+  gen(g) {
+    g.background(); g.alpha({amp:36});
+    const hum = g.rhythm(60, 26, {jitter:0}); g.putEl("T8", hum); g.putEl("O2", hum, 0.8);
+    SCALP.forEach(e => g.putEl(e, hum, 0.06));
+  }});
+
 /* ---------- records and channels ---------- */
 const cache = {}, chanCache = {};
 function record(id) {
@@ -725,15 +785,43 @@ function channels(id, mkey) {
   return (chanCache[key] = out);
 }
 
+/* Display filters, as an EEG machine applies them while you read: low-frequency (high-pass, 1st order), high-frequency
+   (low-pass, 2nd order) and notch. Causal, so they distort shape the way real filters do. Only used when asked for. */
+function hp1(x, fc) { const a = Math.exp(-2 * Math.PI * fc / FS), y = new Float32Array(x.length); let yp = 0, xp = x[0]; for (let i = 0; i < x.length; i++) { yp = a * (yp + x[i] - xp); xp = x[i]; y[i] = yp; } return y; }
+function biquad(x0, type, f0, Q) {
+  // run in over a copy of the first second first, so the filter has settled by time zero (no start-up wobble);
+  // one second is a whole number of 50 and 60 Hz cycles, so mains hum continues smoothly across the join
+  const pad = Math.min(FS, x0.length), x = new Float32Array(x0.length + pad);
+  x.set(x0.subarray(0, pad), 0); x.set(x0, pad);
+  const w = 2 * Math.PI * f0 / FS, cs = Math.cos(w), al = Math.sin(w) / (2 * Q);
+  let b0, b1, b2; const a0 = 1 + al, a1 = -2 * cs, a2 = 1 - al;
+  if (type === "lp") { b0 = (1 - cs) / 2; b1 = 1 - cs; b2 = b0; } else { b0 = 1; b1 = -2 * cs; b2 = 1; }
+  const y = new Float32Array(x.length); let x1 = x[0], x2 = x[0], y1 = type === "lp" ? x[0] : 0, y2 = y1;
+  for (let i = 0; i < x.length; i++) { const v = (b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; }
+  return y.subarray(pad);
+}
+const filtCache = {};
+function filtered(id, mkey, lff, hff, notch) {
+  const key = [id, mkey, lff, hff, notch].join("|"); if (filtCache[key]) return filtCache[key];
+  return (filtCache[key] = channels(id, mkey).map(c => {
+    let x = c.x;
+    if (lff > 0.31) x = hp1(x, lff);
+    if (hff && hff < 95) x = biquad(x, "lp", hff, Math.SQRT1_2);
+    if (notch) x = biquad(x, "notch", notch, 25);
+    return Object.assign({}, c, {x});
+  }));
+}
+
 /* ---------- drawing ---------- */
 const FONT = '"IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif';
 const pageLen = w => (w >= 600 ? 10 : 5);
-const pageCount = (id, w) => Math.ceil(SPECS[id].dur / pageLen(w) - 1e-9);
+const pageCount = (id, w, pl) => Math.ceil(SPECS[id].dur / (pl || pageLen(w)) - 1e-9);
 function nameOf(e, old) { return old && OLD[e] ? OLD[e] : e; }
 
 /** Draw one page of a pattern on a canvas. o: {montage, sens, page, ann, old}. */
 function draw(cv, id, o) {
-  const rec = record(id), sp = rec.spec, chans = channels(id, o.montage);
+  const filt = o.lff !== undefined || o.hff !== undefined || o.notch;
+  const rec = record(id), sp = rec.spec, chans = filt ? filtered(id, o.montage, o.lff || 0, o.hff || 0, o.notch || 0) : channels(id, o.montage);
   const W = Math.max(280, Math.round(cv.clientWidth || cv.parentNode.clientWidth || 600));
   const st = getComputedStyle(cv), col = (k, d) => (st.getPropertyValue(k) || "").trim() || d;
   const C = {ink:col("--trace", "#1d2233"), grid:col("--line", "#d5d8e3"), muted:col("--muted", "#5a5f75"), focus:col("--focus", "#1fb2ff"), focusInk:col("--focus-ink", "#0a6fa8"), ekg:col("--ekg", "#b0365a"), panel:col("--panel", "#fff"), gold:col("--gold", "#e0a526")};
@@ -745,7 +833,7 @@ function draw(cv, id, o) {
   const dpr = Math.min(3, window.devicePixelRatio || 1);
   cv.style.height = H + "px"; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-  const PL = pageLen(W), p0 = (o.page || 0) * PL, p1 = Math.min(sp.dur, p0 + PL), TW = W - LW - PR;
+  const PL = o.pl || pageLen(W), p0 = (o.page || 0) * PL, p1 = Math.min(sp.dur, p0 + PL), TW = W - LW - PR;
   const X = t => LW + (t - p0) / PL * TW;
   // one-second grid
   ctx.lineWidth = 1;
@@ -772,17 +860,18 @@ function draw(cv, id, o) {
   const hint = o.ann === "hint", marks = hint ? sp.hint : o.ann ? sp.ann : null;
   const mc = hint ? C.gold : C.focus;
   if (marks) {
-    const involves = (r, el) => el.includes(r.c.a) || el.includes(r.c.b);
+    const involves = (r, a) => a.ch ? a.ch.some(([x, y]) => r.c.a === x && r.c.b === y) : (a.el.includes(r.c.a) || a.el.includes(r.c.b));
     marks.forEach(a => {
+      if (a.mont && !a.mont.includes(o.montage)) return;
       const t0 = Math.max(a.t0, p0), t1 = Math.min(a.t1, p1); if (t1 <= t0) return;
       const spans = []; let cur = null;
-      rows.forEach((r, k) => { if (involves(r, a.el)) { if (cur && cur.k1 === k - 1 && rows[k - 1].c.group === r.c.group) cur.k1 = k; else spans.push(cur = {k0:k, k1:k}); } });
+      rows.forEach((r, k) => { if (involves(r, a)) { if (cur && cur.k1 === k - 1 && rows[k - 1].c.group === r.c.group) cur.k1 = k; else spans.push(cur = {k0:k, k1:k}); } });
       const boxes = spans.map(s => [rows[s.k0].y - CH / 2, rows[s.k1].y + CH / 2]);
-      if (a.el.includes("EKG")) boxes.push([ekgY - CH / 2, ekgY + CH / 2]);
+      if (a.el && a.el.includes("EKG")) boxes.push([ekgY - CH / 2, ekgY + CH / 2]);
       if (!boxes.length) return;
       const x0 = X(t0), x1 = X(t1);
       boxes.forEach(([ya, yb]) => { ctx.fillStyle = mc; ctx.globalAlpha = hint ? 0.1 : 0.13; ctx.fillRect(x0, ya, x1 - x0, yb - ya); ctx.globalAlpha = 0.9; ctx.strokeStyle = mc; ctx.lineWidth = 1.2; if (hint) ctx.setLineDash([5, 3]); ctx.strokeRect(x0 + 0.5, ya + 0.5, x1 - x0 - 1, yb - ya - 1); ctx.setLineDash([]); ctx.globalAlpha = 1; });
-      if (a.label) labels.push([a.label, x0, boxes[0][0] + 2]);
+      if (a.label) labels.push([a.label, a.after ? x1 + 3 : x0, boxes[0][0] + 2]);
     });
   }
   // traces (negative up)
@@ -813,10 +902,35 @@ function draw(cv, id, o) {
   ctx.textBaseline = "alphabetic"; ctx.fillStyle = C.muted; ctx.textAlign = "center";
   const bar = o.sens <= 3 ? 10 : o.sens <= 7 ? 50 : o.sens <= 15 ? 100 : 200, bh = bar * gain;
   const bx = W - PR - 4, by = H - 6, scaleLeft = bx - 6 - ctx.measureText(`${bar} µV · 1 s`).width - 16;
-  for (let s = Math.ceil(p0); s <= p1 + 1e-9; s++) if (s > p0 + 0.01 && s < p1 - 0.01 && X(s) + 18 < scaleLeft) ctx.fillText(`${s} s`, X(s), H - 8);
+  const every = TW / PL >= 34 ? 1 : TW / PL >= 16 ? 2 : 5;
+  for (let s = Math.ceil(p0); s <= p1 + 1e-9; s++) if (s % every === 0 && s > p0 + 0.01 && s < p1 - 0.01 && X(s) + 18 < scaleLeft) ctx.fillText(`${s} s`, X(s), H - 8);
   ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(bx, by - bh); ctx.lineTo(bx, by); ctx.lineTo(bx - TW / PL, by); ctx.stroke();
   ctx.textAlign = "right"; ctx.fillStyle = C.muted; ctx.fillText(`${bar} µV · 1 s`, bx - 6, by - 4);
-  ctx.textAlign = "left"; ctx.fillText(`${o.sens} µV/mm`, 4, H - 8);
+  ctx.textAlign = "left"; ctx.fillText(`${o.sens} µV/mm` + (filt ? ` · ${o.lff > 0.31 ? o.lff : 0.3}–${o.hff && o.hff < 95 ? o.hff + " Hz" : "off"}${o.notch ? " · notch" : ""}` : ""), 4, H - 8);
+  if (o.guide) {
+    const badge = (n, x, y) => { ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(x, y, 8, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = C.panel; ctx.font = `700 11px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(n), x, y + 0.5); };
+    const gl = (MONTAGES[o.montage] || MONTAGES.bipolar).gl || [];
+    ctx.font = `600 10px ${FONT}`; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+    let firstPillEnd = LW + 40;
+    const groups = []; rows.forEach(r => { const g = groups[r.c.group] || (groups[r.c.group] = {a: r.y, b: r.y}); g.b = r.y; });
+    groups.forEach((g, gi) => {
+      if (!g) return;
+      ctx.strokeStyle = C.gold; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(LW - 2, g.a - CH / 2 + 3); ctx.lineTo(LW - 2, g.b + CH / 2 - 3); ctx.stroke();
+      const name = gl[gi]; if (!name) return;
+      const tw = ctx.measureText(name).width + 10, py = g.a - CH / 2 + 1;
+      ctx.globalAlpha = 0.92; ctx.fillStyle = C.panel; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(LW + 4, py, tw, 13, 6); else ctx.rect(LW + 4, py, tw, 13); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = C.gold; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = C.gold; ctx.fillText(name, LW + 9, py + 7);
+      if (gi === 0) firstPillEnd = LW + 4 + tw;
+    });
+    badge(1, 9, rows[0].y);
+    badge(2, firstPillEnd + 12, rows[0].y - CH / 2 + 7);
+    badge(3, X(Math.floor(p0) + 1) + 18, H - 12);
+    badge(4, bx - TW / PL - 12, by - 6);
+    badge(5, 9, ekgY);
+    if (sp.events.length) badge(6, LW - 12, 8);
+    ctx.font = `500 11px ${FONT}`; badge(7, 4 + ctx.measureText(`${o.sens} µV/mm` + (filt ? " · 0.3–70 Hz" : "")).width + 12, H - 12);
+  }
   return {pages: Math.ceil(sp.dur / PL - 1e-9), page: o.page || 0, pageLen: PL};
 }
 

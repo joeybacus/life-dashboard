@@ -450,6 +450,46 @@ workout (the "Workout saved" message and the finished workout's page).
   Path tab. Tracings come from adjustable pattern families (site, side, rate, shape, plus features, evolution) in
   `eeg-library.js`, which also holds the cases. Marking labels now step down instead of overlapping.
 
+- **EEG pattern guide on the electrode map** (0.11.58, Level 0): pattern names in the electrode notes (wicket spikes,
+  RMTD, temporal discharges, mu, spindles, posterior dominant rhythm, POSTS, lambda waves, vertex waves, K-complexes,
+  blinks, lateral eye movements) are now underlined buttons, and a "Show a pattern" chip row lists all 12. Choosing one
+  fills its maximum electrodes and rings its field on the head in a colour by kind (green normal, gold benign variant,
+  red abnormal, purple artifact), shows a card (where, when, looks like, polarity, how to tell it apart, link to its
+  level) and draws the tracing below with markings already on. Tapping an electrode or "Back to electrodes" returns.
+  Data is the `PAT` table in `eeg-guide.html`. Level 0 also gains a **Named waves** section under Frequency bands:
+  14 small drawings grouped as rhythms (PDR, mu, spindles, RMTD, wicket spikes), normal transients (vertex waves,
+  K-complexes, POSTS, lambda), abnormal shapes (spike, sharp wave, spike-and-wave) and eye artifacts (blink, lateral
+  eye movement), each with its frequency or duration, place and state; tapping one opens it on the head map and its
+  tracing (`WAVES` in `eeg-guide.html`). Two new Level 0 quiz questions (mu, lambda).
+  **Reading the display** is now a beginner explorer: a summary table (standard, range you'll use, why it matters)
+  and five tabs (sensitivity, time per page, low-frequency filter, high-frequency filter, notch), each explaining what
+  the setting is, why it matters, what you see and what to watch for when you turn it up or down, why you would change
+  it and how far is safe (`DISPLAY` in `eeg-data.js`). Each tab loads its own demo tracing (`labsens`, `labtime`,
+  `lablff`, `labhff`, `labnotch` in `eeg-sim.js`) with live controls for sensitivity, seconds per page (5/10/20),
+  low filter (0.3–5 Hz), high filter (15 Hz–off), notch and a Standard settings reset; the setting being taught is
+  ringed in gold. The simulator applies display filters like an EEG machine (1st-order low filter, 2nd-order high
+  filter, 60 Hz notch) only when asked. **The polarity rule** gains an interactive picture: one channel with two
+  voltage sliders (input 1 − input 2, which way the pen goes) and a five-electrode chain (Fp1–F7–T7–P7–O1) where you
+  move a negative or positive discharge and watch phase reversal, the flat channel and the end-of-chain rule. Three
+  more Level 0 quiz questions (sensitivity, low filter, polarity arithmetic).
+  Level 1 opens with **What a montage is** in plain words: a bipolar-versus-referential table (what each line
+  compares, a stair/floor analogy, where the maximum is, best for, watch out for) and a **montage explorer**
+  (`{montage:true}`, `MINFO` in `eeg-guide.html`): Double banana, Transverse, Ear reference or Average draws how that
+  montage is wired on the head (chains, lines to each ear, or lines to an average box), explains it, and switches the
+  left temporal spike tracing below to the same montage with markings on, describing what that spike does there.
+  The tracing's own montage buttons keep the explorer in step.
+  **Phase reversal** is rewritten step by step: each electrode is used twice in a chain, a worked example (spike at
+  F7: Fp1–F7 = (−19) − (−100) = +81 µV, pen down; F7–T7 = −81 µV, pen up), toward = negative and away = positive,
+  the hands-on chain from Level 0 (`{chain:true}`, `polChainHTML`), and four plain steps for finding it on a real page.
+  Tables with three or fewer columns now wrap to fit phone screens instead of scrolling sideways.
+  Every tracing now has a **How to read this** button: numbered gold badges on the page (channel name, chains with
+  gold brackets and name tags, 1-second time lines, scale bar, EKG, technologist's notes, settings) and a numbered
+  plain-language legend under it (`guide` option in `SIM.draw`; group names in `MONTAGES[...].gl`). The left anterior
+  temporal spike (`ats`) is now centred on F7 so the double banana shows one clean pair (Fp1–F7 +95 µV down, F7–T7
+  −76 µV up), with line-by-line labels placed just after each spike and montage-specific labels in the other
+  montages (marks accept `ch` exact channel pairs, `mont` montage filters and `after` label placement). Its Look for /
+  Why it matters / Try this text is rewritten in plain words.
+
 Guidelines and cases sync through the **Guidelines** and **Cases** tabs (sync script version 20), are in
 backups, and show up in search everywhere.
 

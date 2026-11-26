@@ -30,7 +30,7 @@ const L = [];
 
 /* ================= Level 0 ================= */
 L.push({id:"L0", title:"Orientation", sub:"What the EEG records and how the page is laid out", mins:20,
-goals:["Say what makes the scalp EEG and what it cannot see","Name the 10–20 electrodes and their side","Know the four frequency bands","Read sensitivity, timebase and filters off the screen","Use the polarity rule: negative is up"],
+goals:["Say what makes the scalp EEG and what it cannot see","Name the 10–20 electrodes and their side","Know the four frequency bands","Recognize the named waves (PDR, mu, spindles, vertex waves, POSTS, lambda) by shape, place and state","Read sensitivity, timebase and filters off the screen","Use the polarity rule: negative is up"],
 blocks:[
  {h:"What the EEG records"},
  {p:"The scalp EEG is the summed <b>postsynaptic</b> potentials (excitatory and inhibitory) of cortical pyramidal neurons lined up side by side, not their action potentials. A discharge usually needs more than about 10 cm² of cortex firing together (often 10–20 cm²) to reach the scalp. Small or deep sources (mesial temporal, orbitofrontal, interhemispheric, insular) can fire without a trace on the scalp."},
@@ -45,11 +45,24 @@ blocks:[
  {bands:true},
  {tbl:{head:["Band","Range","Where you meet it"], rows:[["Delta","under 4 Hz","Deep sleep. Awake: abnormal (focal = structural; generalized = encephalopathy)"],["Theta","4 to under 8 Hz","Drowsiness; a little is normal in young adults; excess when alert = slowing"],["Alpha","8–13 Hz","Posterior dominant rhythm (eyes closed); mu rhythm (central)"],["Beta","over 13 Hz","Frontocentral; more with benzodiazepines and barbiturates"],["Gamma","over 30 Hz","On the scalp, mostly muscle artifact"]]}},
  {p:"Count frequency by counting waves between two 1-second grid lines, or time one wave: 100 ms = 10 Hz, 250 ms = 4 Hz, 500 ms = 2 Hz."},
+ {h:"Named waves: shape, place and state"},
+ {p:"Frequency bands only say how fast. Most patterns you will name have their own <b>shape</b>, live in a particular <b>place</b> on the head and appear in a particular <b>state</b> (awake, drowsy, asleep). Mu and the posterior dominant rhythm are both alpha-band, but one is arch-shaped over C3/C4 and blocks with hand movement, the other is smooth over O1/O2 and blocks with eye opening. Lambda waves and POSTS have the same positive triangle shape at O1/O2; lambda comes while awake and scanning, POSTS in sleep. In the drawings, up means surface-negative. <b>Tap any wave</b> to light it up on the head map above and see it on a full tracing."},
+ {waves:true},
  {h:"Reading the display"},
- {tbl:{head:["Setting","Usual","What it does"], rows:[["Sensitivity","7 µV/mm","A lower number makes traces bigger. Electrocerebral inactivity recordings use 2 µV/mm."],["Timebase","30 mm/s, 10-second page","Compress it (15 mm/s, 20-second page) for slow and periodic patterns; stretch it for spikes."],["Low-frequency filter (high-pass)","1 Hz (0.5 Hz)","A higher setting removes sweat and drift but can hide real delta."],["High-frequency filter (low-pass)","70 Hz","A lower setting (15–35 Hz) blunts muscle but can turn it into fake beta or spikes."],["Notch","60 Hz (50 Hz in some countries)","Removes mains hum."]]}},
+ {p:"Five settings change how the same brain activity <b>looks</b> on the screen. None of them changes the patient. Beginners get fooled when a setting has been changed and they don't notice, so check them first on every page: they are printed at the bottom left of each tracing."},
+ {tbl:{head:["Setting","Standard","Range you'll use","Why it matters"], rows:[
+  ["Sensitivity","7 µV/mm","5–10 routinely; 2 for brain-death studies; up to 20–30 for very high voltage","Sets how <b>tall</b> waves look. Every amplitude call (low voltage, suppression, asymmetry) depends on it."],
+  ["Time per page (timebase)","10 s per page (30 mm/s)","5–20 s; 30–60 s when scanning long ICU records","Sets how <b>fast</b> waves look. Always count against the 1-second grid lines."],
+  ["Low-frequency filter (high-pass)","1 Hz (0.5 Hz also fine)","0.5–1 Hz; briefly up to about 1.6–2 Hz for sweat","Removes slow drift, but also <b>shrinks real delta</b>."],
+  ["High-frequency filter (low-pass)","70 Hz","35–70 Hz; 15 Hz only for a quick peek","Removes fast muscle, but also <b>blunts spikes</b> and fast activity."],
+  ["Notch","Off (on only if needed)","On or off, set to your mains frequency (60 Hz or 50 Hz)","Removes mains hum, but <b>hides a bad electrode</b>."]]}},
+ {p:"Pick a setting below to see what happens when you turn it up or down, why you would, and how far is safe. Then try it on the tracing."},
+ {display:true},
  {trap:"Filters change shape. A 15 Hz high-frequency filter can turn muscle into sharp, spike-like waves. Read with standard settings first, then change one thing at a time."},
  {h:"The polarity rule: learn it today"},
  {p:"Every channel shows <b>input 1 minus input 2</b>, and by convention a negative difference goes <b>up</b>. So a channel deflects up when input 1 is more negative than input 2, or when input 2 is more positive than input 1. That one sentence explains phase reversals, eye artifacts and lambda waves."},
+ {p:"Still abstract? Play with it below: first one channel, then a chain of channels."},
+ {polarity:true},
  {key:"Most cortical discharges (spikes, sharp waves) are surface-negative. Eye artifacts and a few normal transients (POSTS, lambda) are positive."}
 ],
 quiz:[
@@ -57,7 +70,12 @@ quiz:[
  {q:"Which of these contributes least to the scalp EEG?", o:["Axonal action potentials","Excitatory postsynaptic potentials of pyramidal cells","Inhibitory postsynaptic potentials of pyramidal cells","Synchronized dendritic currents in parallel neurons"], why:"Action potentials are too brief and not summed in parallel; the EEG is mainly synchronized postsynaptic (dendritic) currents of pyramidal cells."},
  {q:"A channel deflects upward. What does that mean?", o:["Input 1 is negative relative to input 2","Input 1 is positive relative to input 2","Both inputs are negative","It is artifact"], why:"By convention, negative is up: input 1 minus input 2 is negative."},
  {q:"Each wave in a run lasts about 200 ms. Which band is it?", o:["Theta (5 Hz)","Delta","Alpha","Beta"], why:"1 second ÷ 0.2 seconds = 5 Hz, which is theta (4 to under 8 Hz)."},
+ {q:"A record looks almost flat at 20 µV/mm. Before calling it suppressed you should:", o:["Lower the number (7, then 3 µV/mm) and look again","Raise it to 30 µV/mm","Turn on the notch filter","Raise the low-frequency filter"], why:"A high sensitivity number makes everything small. Read amplitude from the scale bar at a normal setting before calling anything low voltage or suppressed."},
+ {q:"You raise the low-frequency filter to 5 Hz to remove sweat sway. What could you miss?", o:["Real delta slowing","Spikes","Muscle artifact","Alpha"], why:"A low-frequency (high-pass) filter removes everything slower than its setting, including real 1–3 Hz delta. Keep it at 0.5–1 Hz when judging slowing."},
+ {q:"In a bipolar channel F7–T7, F7 is −40 µV and T7 is −10 µV. Which way does the pen go?", o:["Up: −40 minus −10 is −30, and negative is up","Down: both are negative","Flat: both are negative","Down: T7 is smaller"], why:"The channel shows input 1 minus input 2: (−40) − (−10) = −30 µV. Negative goes up."},
  {q:"You lower the high-frequency filter to 15 Hz to clean up a noisy temporal channel. The main risk?", o:["Muscle artifact starts to look like sharp waves or spikes","Real spikes become bigger","Delta disappears","The montage changes"], why:"Low-pass filtering smooths fast muscle bursts into rounded, sharp-looking waves that can be mistaken for discharges."},
+ {q:"Arch-shaped 9–10 Hz waves at C3 and C4 disappear when the patient clenches the opposite fist, but not when the eyes open. They are:", o:["Mu rhythm","Posterior dominant rhythm","Wicket spikes","Sleep spindles"], why:"Mu is a central (sensorimotor) alpha-band rhythm that blocks with movement; the PDR is occipital and blocks with eye opening."},
+ {q:"Positive triangular waves at O1 and O2 appear while an awake patient reads. They are:", o:["Lambda waves","POSTS","Occipital spikes","Eye blinks"], why:"Lambda waves follow eye movements during visual scanning. POSTS look the same but come in sleep; spikes are negative."},
  {q:"Roughly how much cortex must discharge together for a spike to reach the scalp?", o:["About 10 cm² or more","About 1 mm²","About 1 cm²","A whole lobe"], why:"In simultaneous scalp and intracranial recordings (Tao et al., 2005), about 90% of spikes with a source over 10 cm² reached the scalp, but only about 10% of smaller ones did."}
 ]});
 
@@ -65,12 +83,28 @@ quiz:[
 L.push({id:"L1", title:"Montages and localization", sub:"Bipolar, referential, phase reversal and the field", mins:25,
 goals:["Explain bipolar and referential montages","Localize a discharge by phase reversal","Recognize end-of-chain maxima","Spot a contaminated reference","Use the field to tell brain from artifact"],
 blocks:[
- {h:"Two ways to wire a channel"},
- {ul:["<b>Bipolar</b>: neighbouring electrodes in chains, front to back (longitudinal, the 'double banana') or left to right (transverse). Good at sharp local gradients; poor at showing true amplitude, and it can cancel a broad field.","<b>Referential</b>: every electrode against one reference (ear, Cz, the average of all). Shows true shape and amplitude, provided the reference is quiet."]},
- {h:"Phase reversal (bipolar)"},
- {p:"In a chain, the electrode at the peak appears twice: as input 2 in the channel before it and input 1 in the channel after. Those two channels move in opposite directions: a <b>phase reversal</b>. Pens pointing <b>toward</b> each other means the peak is negative (most discharges); <b>away</b> from each other means positive."},
- {fig:"ats"},
- {ol:["Find the two channels that move in opposite directions at the same moment.","The electrode they share is the maximum.","Confirm in the other chains (parasagittal, transverse) and in a referential montage.","Check the field: neighbours should take part, less strongly."]},
+ {h:"What a montage is"},
+ {p:"Every line on the screen is a <b>channel</b>, and a channel always compares two electrodes (input 1 minus input 2, from Level 0). A <b>montage</b> is just the list of which pairs are compared. The brain activity doesn't change; only the comparison does, so the same spike can look quite different in two montages. There are two families:"},
+ {tbl:{head:["","Bipolar: neighbour vs neighbour","Referential: everyone vs one fixed point"], rows:[
+  ["<b>Each line compares</b>","Two electrodes next to each other in a chain (Fp1–F7, then F7–T7, then T7–P7…)","One electrode with the same reference for everyone: an ear, Cz, or the average of all electrodes"],
+  ["<b>Think of it as</b>","Comparing each stair with the next one: you see exactly where the floor steps up, not how high the floor is","Measuring everyone's height from the floor: you see true sizes, as long as the floor is flat"],
+  ["<b>The maximum is</b>","Where two neighbouring lines swing in opposite directions (phase reversal)","Simply the tallest line"],
+  ["<b>Best for</b>","Small, local waves such as spikes; most first reads start here","True size and shape, broad or generalized waves, and peaks at the ends of chains"],
+  ["<b>Watch out for</b>","A wave equally big at two neighbours cancels out, so broad waves look small; no reversal at the end of a chain","A reference that picks up the wave too: the ear sits next to the temporal lobe, and the average is pulled by any big discharge"]]}},
+ {p:"Pick a montage below. The head shows how it is wired, and the tracing underneath shows the <b>same left temporal spike</b> in that montage, with markings on."},
+ {montage:true},
+ {pearl:"Read every record in at least one bipolar and one referential montage. A real finding stays in the same place whichever way you look; an artifact or a contaminated reference doesn't."},
+ {h:"Phase reversal: how a bipolar chain points to the spot"},
+ {p:"In a bipolar chain every electrode is used <b>twice</b>. F7, for example, is the <b>second</b> electrode of the line above it (Fp1–F7) and the <b>first</b> electrode of the line below it (F7–T7). That is the whole trick."},
+ {p:"Put a negative spike right under F7. It is strongest at F7 (−100 µV) and weaker at its neighbours Fp1 and T7 (about −19 µV). Work out each line with the Level 0 rule, <b>first minus second</b>, and remember that negative goes up:"},
+ {tbl:{head:["Line","First minus second","Pen"], rows:[["Fp1–F7","(−19) − (−100) = +81 µV","<b>Down ↓</b>"],["F7–T7","(−100) − (−19) = −81 µV","<b>Up ↑</b>"]]}},
+ {p:"So the two lines that share F7 jump in <b>opposite directions at the same moment</b>: the top one down, the bottom one up. Their pens point <b>at each other</b>, toward F7. That mirror-image jump is called a <b>phase reversal</b>, and the electrode the two lines share is where the spike is biggest."},
+ {key:"Pens pointing <b>toward</b> each other: the shared electrode is <b>negative</b> (almost all spikes and sharp waves). Pens pointing <b>away</b> from each other: it is <b>positive</b> (blinks, POSTS, lambda waves)."},
+ {p:"Try it: move the spike along the chain and watch which two lines point at it."},
+ {chain:true},
+ {h:"Finding it on a real page"},
+ {ol:["Look for two neighbouring lines in the same chain that jump in opposite directions at the same moment.","Read their names: the electrode that appears in both (F7 in Fp1–F7 and F7–T7) is where the wave is biggest.","Check the other chains and a referential montage: the same electrode should stand out there too.","Check the field: the neighbouring electrodes should show the wave too, only smaller. One electrode alone is usually an artifact."]},
+ {p:"Now try it on the real spike in the explorer above: choose <b>Double banana</b>, look at the left temporal chain, and find the electrode the pens point at."},
  {h:"End of chain"},
  {p:"If the maximum is at the first or last electrode of a chain (Fp1/Fp2 or O1/O2) there is nothing beyond it to reverse against: you just see the biggest deflection in the end channel. Look again in a transverse or referential montage."},
  {h:"Referential montages: no reference is truly silent"},
@@ -490,5 +524,49 @@ const CHEAT = [
   "<b>Clinical correlation</b>: what it means for this patient, in plain words. Example: 'Left anterior temporal sharp waves indicate a potentially epileptogenic area in the left temporal region, in keeping with the history of focal seizures.' Avoid 'rule out epilepsy' and 'no evidence of epilepsy': the EEG can do neither."]}
 ];
 
-window.EEGDATA = {RANKS, PLAN, LEVELS: L, CASES: C, CHEAT};
+/* ================= Reading the display: one entry per setting (Level 0 explorer) ================= */
+const DISPLAY = [
+ {k:"sens", name:"Sensitivity", unit:"µV/mm", std:"7 µV/mm", scene:"labsens",
+  what:"How many microvolts move the trace 1 mm. It is like the zoom on a camera, but only up and down: <b>a lower number makes the waves taller</b>, a higher number makes them shorter. The scale bar at the bottom right always shows the true size.",
+  matters:"Amplitude words depend on it: low voltage (under 20 µV), suppression (under 10 µV), N3 delta (over 75 µV), and side-to-side asymmetry. Judge amplitude from the scale bar, never from how tall a wave looks after someone changed the setting.",
+  lower:{label:"Lower number (3–5 µV/mm): taller traces", see:"Small activity becomes readable: a low-voltage background, small spikes, fast activity, a suppressed ICU record.", risk:"Big waves run into the channels above and below, artifacts look dramatic, and a normal record can look 'high voltage'."},
+  higher:{label:"Higher number (10–30 µV/mm): shorter traces", see:"Very big waves fit in their own channel: seizures, spike-and-wave, N3 sleep, bursts in burst suppression.", risk:"Small activity disappears; a normal record can look suppressed, and low-voltage spikes or fast activity are missed."},
+  when:"Change it when the background is too small to see its shape, or when waves overlap their neighbours. Aim for the background to fill about one channel's height.",
+  limits:"Routine reading 5–10 µV/mm. Down to 2 µV/mm for a brain-death (electrocerebral inactivity) study. Up to 20–30 µV/mm for very high-voltage activity. Go back to 7 afterwards.",
+  tryit:"Start at 7: the background is faint and the burst at 5 s spills over. Try 3: the background is readable but the burst crashes into its neighbours. Try 20: the burst fits but the background almost vanishes."},
+ {k:"time", name:"Time per page", unit:"seconds", std:"10 s per page (30 mm/s)", scene:"labtime",
+  what:"How many seconds fit on one screen (on paper, the speed: 30 mm/s gives about 10 seconds per page). <b>More seconds per page squeezes the waves together</b>; fewer seconds stretches them out.",
+  matters:"Frequency and duration are judged against time. The same 2 Hz wave looks slower when stretched and faster when squeezed, so always count waves between the 1-second grid lines instead of judging by eye.",
+  lower:{label:"Fewer seconds (5 s per page, like 60 mm/s): stretched", see:"Shape and timing details: whether a transient is a spike (under 70 ms) or a sharp wave (70–200 ms), and which channel peaks first.", risk:"You lose context: evolution, periodicity and rare events off the page are easy to miss."},
+  higher:{label:"More seconds (20–60 s per page, like 15 mm/s or less): squeezed", see:"The big picture: whether discharges come at a steady interval (periodic), how a seizure evolves, how much of the record is suppressed.", risk:"Slow waves look sharper and can be mistaken for sharp waves; spikes and fast activity are hard to judge."},
+  when:"Squeeze it to look for periodic patterns, evolution or burst-suppression ratio; stretch it to measure a spike or see which channel leads.",
+  limits:"Routine 10 s per page; 5–20 s while reading; 30–60 s when scanning long ICU recordings (often with a trend display). Go back to 10 s afterwards.",
+  tryit:"At 10 s the right-sided discharges look regular. Switch to 20 s: the steady gap stands out, so they are periodic. Switch to 5 s and look at the left temporal spike at about 2 s: measure its width against the grid."},
+ {k:"lff", name:"Low-frequency filter", unit:"Hz", std:"1 Hz (0.5 Hz also fine)", scene:"lablff",
+  what:"Also called the high-pass filter. It <b>removes activity slower than its setting</b>. At the setting itself a wave is cut to about 70% of its height, and slower waves are cut more. Some machines show it as a time constant: 0.3 s is about 0.5 Hz, 0.16 s about 1 Hz.",
+  matters:"It decides how much slow activity you can see: sweat and breathing drift on one side, real delta slowing on the other.",
+  lower:{label:"Lower setting (0.1–0.5 Hz): more slow activity kept", see:"Very slow waves: slow eye movements, slow shifts at a seizure onset, the full size of delta.", risk:"The baseline wanders more with sweat, breathing and movement."},
+  higher:{label:"Higher setting (1.6–5 Hz): slow activity removed", see:"A calmer baseline: sweat sway and breathing drift fade.", risk:"Real delta shrinks or vanishes and slow waves can look sharper, so focal slowing, the slow wave after a spike and triphasic waves can be missed. Never report 'no slowing' with a high setting."},
+  when:"Raise it briefly when sweat or breathing sway hides the record. Fix the cause first: cool the room, dry the skin, re-apply the electrodes.",
+  limits:"Routine 0.5–1 Hz (the ACNS standard is no higher than 1 Hz). Briefly up to about 1.6–2 Hz for sweat. Brain-death studies: no higher than 1 Hz.",
+  tryit:"At 1 Hz the sweat sway on the left is smaller. Try 0.3 Hz: the sway swamps the left frontal-temporal channels. Try 5 Hz: the sway is gone, but so is most of the real right temporal delta."},
+ {k:"hff", name:"High-frequency filter", unit:"Hz", std:"70 Hz", scene:"labhff",
+  what:"Also called the low-pass filter. It <b>removes activity faster than its setting</b>, smoothing the trace.",
+  matters:"It decides how much fast activity you see: muscle on one side, real spikes, beta and the low-voltage fast activity of seizure onsets on the other.",
+  lower:{label:"Lower setting (35 Hz, 15 Hz): smoother", see:"Muscle shrinks, so you can peek at the background underneath.", risk:"Muscle turns into rhythmic sharp waves that look like beta or spikes; real spikes lose height and sharpness and can be missed or look like sharp waves; fast activity at a seizure onset fades."},
+  higher:{label:"Higher setting or off (100 Hz and above): rougher", see:"Everything fast, including very high frequencies used in research.", risk:"More muscle and electrical noise; not needed for routine reading."},
+  when:"Lower it briefly when muscle hides the background. First ask the patient to relax the jaw or open the mouth slightly.",
+  limits:"Routine 70 Hz (ACNS: not lower than 70 Hz). Briefly 35 Hz. 15 Hz only for a quick look, never to decide whether something is a spike. Brain-death studies: not lower than 30 Hz.",
+  tryit:"At 70 Hz the muscle is fast fuzz and the spike at 6 s is sharp. Try 15 Hz: the muscle becomes rhythmic, spiky-looking waves, and the real spike gets smaller and blunter."},
+ {k:"notch", name:"Notch filter", unit:"", std:"Off; on only when needed", scene:"labnotch",
+  what:"Removes one narrow frequency: the mains electricity hum (60 Hz in the Americas, the Philippines and parts of Asia; 50 Hz in Europe and much of Asia, Africa and Australia). It is either on or off.",
+  matters:"Mains hum in one or two electrodes is a warning that those electrodes have poor contact (high impedance) or that a device nearby is leaking noise.",
+  lower:{label:"Off (standard)", see:"Hum where it exists, which tells you which electrode to fix.", risk:"A noisy room can make channels unreadable until the electrodes are fixed."},
+  higher:{label:"On", see:"A clean trace even near noisy ICU equipment.", risk:"It hides the warning: a bad electrode stays bad and can still make its own artifacts."},
+  when:"Turn it on only after checking and fixing the electrodes, for example in an ICU full of equipment.",
+  limits:"Just on or off, and it must match your country's mains frequency.",
+  tryit:"With the notch off, every channel that uses T8 or O2 is thick with hum. Turn it on: the hum disappears, but those two electrodes still need re-gelling."}
+];
+
+window.EEGDATA = {RANKS, PLAN, LEVELS: L, CASES: C, CHEAT, DISPLAY};
 })();

@@ -77,6 +77,7 @@ main.wrap{padding-block:20px 56px}
 .seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel)}
 .tblw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0 16px}
 table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+table.fit{min-width:0}
 th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
 th{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
 tr:last-child td{border-bottom:0}
@@ -151,6 +152,8 @@ td:first-child{font-weight:600}
 .pager button{width:30px;height:30px;padding:0;justify-content:center;font-size:15px}
 .cvwrap{background:var(--paper);border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .cvwrap canvas{display:block;width:100%}
+.fguide{margin:10px 2px 0;padding:10px 14px 10px 34px;border-radius:10px;background:var(--gold-weak);border:1px solid var(--gold);font-size:14px;display:grid;gap:5px}
+.fguide li::marker{color:var(--gold);font-weight:700}
 .eegfig figcaption{margin:10px 2px 0;font-size:14.5px;display:grid;gap:6px}
 .eegfig figcaption p{margin:0}
 .eegfig figcaption .tip{color:var(--muted);font-size:13.5px}
@@ -167,6 +170,23 @@ td:first-child{font-weight:600}
 .hm-el:focus-visible circle{stroke:var(--focus);stroke-width:.03}
 .hm-chain{fill:none;stroke-width:.03;stroke-linecap:round;opacity:.55}
 .hminfo{font-size:14.5px}
+.chip.bad{background:var(--lesion-weak);color:var(--lesion)}
+.plink{border:0;background:none;padding:0;font:inherit;color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;cursor:pointer}
+.plink:hover{text-decoration-thickness:2px}
+.pchips{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 2px}
+.pchips .lab{width:100%;margin-bottom:2px}
+.pchip{font-family:var(--f-label);font-weight:600;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.pchip:hover{border-color:var(--fg)}
+.pchip[aria-pressed="true"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.hm-el.pri circle{fill:var(--pc);stroke:var(--pc)}
+.hm-el.pri text{fill:var(--panel)}
+.hm-el.sec circle{stroke:var(--pc);stroke-width:.032}
+.hm-glow{pointer-events:none}
+.pcard h4{margin:6px 0 6px}
+.pfacts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 12px;margin:8px 0 10px;font-size:14px}
+.pfacts dt{color:var(--muted);font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;padding-top:2px}
+.pfacts dd{margin:0}
+.pnav{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .hminfo h4{margin:6px 0 4px;font-family:var(--f-display);font-weight:500;font-size:22px}
 .bands svg{width:100%;height:auto;display:block}
 .bands{padding:12px 14px;margin:14px 0}
@@ -174,6 +194,68 @@ td:first-child{font-weight:600}
 .bands .bt{fill:var(--fg);font-weight:600}
 .bands path.w{fill:none;stroke:var(--trace);stroke-width:1.4}
 .bands line{stroke:var(--line)}
+.waves{display:grid;gap:18px;margin:12px 0 18px}
+.dlab{padding:14px 16px;margin:14px 0 0}
+.mexp{padding:14px 16px;margin:14px 0 0}
+.mgrid{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:18px;align-items:start;margin-top:12px}
+.mgrid svg{width:100%;height:auto;display:block}
+.mgrid .hm-el circle{cursor:default}
+.mw{fill:none;stroke-width:.03;stroke-linecap:round;opacity:.8}
+.mw.thin{stroke-width:.016;opacity:.5}
+.mref{fill:var(--gold-weak);stroke:var(--gold);stroke-width:.015}
+.mref-t{font-family:var(--f-label);font-weight:700;font-size:.08px;fill:var(--gold);text-anchor:middle;dominant-baseline:central}
+.mspk-t{font-family:var(--f-label);font-weight:700;font-size:.085px;fill:var(--lesion);text-anchor:middle}
+.mname{margin:4px 0 6px;font-family:var(--f-display);font-weight:500;font-size:22px}
+.dtabs{margin-bottom:10px}
+.dlab h4{font-family:var(--f-display);font-weight:500;font-size:23px;margin:6px 0 2px}
+.dstd{margin:0 0 8px;color:var(--muted)}
+.dq{margin:10px 0}
+.dq p{margin:3px 0 0}
+.dcols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.dcol{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel-2)}
+.dcol .dh{font-weight:700;margin-bottom:4px}
+.dcol p{margin:5px 0 0;font-size:14px}
+.fbar .hot{outline:2px solid var(--gold);outline-offset:3px;border-radius:8px}
+.polab{padding:14px 16px;margin:14px 0}
+.pintro{margin:4px 0 10px;color:var(--muted);font-size:14px}
+.pins{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+.pin{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;font-family:var(--f-label);font-weight:600;font-size:13px}
+.pin input{width:100%;accent-color:var(--accent)}
+.pin output{font-variant-numeric:tabular-nums;min-width:62px;text-align:right}
+.pctl{display:grid;gap:10px;margin-bottom:4px}
+.pctl .seg{justify-self:start}
+.ppre{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.peq{font-size:15px;margin:6px 0}
+.peq b{font-variant-numeric:tabular-nums}
+.psvg{width:100%;max-width:470px;height:auto;display:block;margin:6px 0}
+.psvg line{stroke:var(--line);stroke-width:1}
+.psvg .w{fill:none;stroke:var(--trace);stroke-width:2;stroke-linejoin:round}
+.psvg .w.up{stroke:var(--accent)}
+.psvg .w.down{stroke:var(--gold)}
+.psvg .pl,.psvg .pv{font-family:var(--f-label);font-size:12px;fill:var(--muted)}
+.psvg .pv{font-size:11px;text-anchor:middle}
+.psvg .pn{font-family:var(--f-label);font-weight:700;font-size:12px;fill:var(--fg);text-anchor:middle}
+.psvg .pn.on{fill:var(--panel)}
+.psvg .pe{stroke:var(--muted);stroke-width:1}
+.psvg .par{font-size:18px;font-weight:700;fill:var(--muted)}
+.psvg .par.up{fill:var(--accent)}
+.psvg .par.down{fill:var(--gold)}
+.psay{margin:6px 0 0;font-size:15px}
+.psay.up{color:var(--accent);font-weight:600}
+.psay.down{color:var(--gold);font-weight:600}
+.wgroup h4{font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
+.wcard{display:flex;flex-direction:column;gap:3px;text-align:left;padding:10px 12px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;cursor:pointer}
+.wcard:hover{border-color:var(--accent)}
+.wcard:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wcard .wn{display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:600;font-size:15px;line-height:1.2}
+.wcard .wn .chip{font-size:11px;padding:2px 8px}
+.wcard svg{width:100%;height:auto;display:block;margin:4px 0 2px}
+.wcard svg .w{fill:none;stroke:var(--trace);stroke-width:1.5;stroke-linejoin:round}
+.wcard svg line{stroke:var(--line);stroke-width:1}
+.wcard svg text{font-family:var(--f-label);font-size:10px;fill:var(--muted)}
+.wcard .wf{font-size:13px}
+.wcard .ws{font-size:12.5px;color:var(--muted)}
 
 /* quiz */
 .quiz{margin-top:32px;padding:16px 18px;border:1px solid var(--accent);border-radius:12px;background:var(--panel)}
@@ -247,6 +329,8 @@ footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
 .tchips a.chip{text-decoration:none}
 .libpanel .h3s{margin:4px 0 0}
 @media (max-width:900px){
+  .mgrid{grid-template-columns:minmax(0,1fr)}
+  .mgrid svg{max-width:300px;margin:0 auto}
   .learn{grid-template-columns:minmax(0,1fr)}
   .rail{position:static;flex-direction:row;flex-wrap:wrap;gap:6px}
   .rail a{border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 4px;font-size:13px}
@@ -257,6 +341,7 @@ footer.wrap{padding-block:0 40px;color:var(--muted);font-size:13px}
   .headmap svg{max-width:320px;margin:0 auto}
 }
 @media (max-width:560px){
+  .dcols,.pins{grid-template-columns:minmax(0,1fr)}
   .node{grid-template-columns:40px minmax(0,1fr)}
   .node .num{width:40px;height:40px;font-size:15px}
   .ladder::before{left:19px}
@@ -347,23 +432,39 @@ function order(q) {
 const figs = new Map();
 const SENS = [2, 3, 5, 7, 10, 15, 20, 30];
 const SHORT = {bipolar:"Banana", transverse:"Transv.", ear:"Ear", avg:"Avg"};
-const HEAD = {learn:["", "Spot it first, then show the markings"], case:["The EEG", "Read it before you answer"], lib:["The EEG", "Read it cold. Stuck? Tap Where to look"]};
-function figHTML(id, mode = "learn") {
+const HEAD = {learn:["", "Spot it first, then show the markings"], case:["The EEG", "Read it before you answer"], lib:["The EEG", "Read it cold. Stuck? Tap Where to look"], lab:["", "Change one setting at a time"]};
+const STD = {sens:7, pl:10, lff:1, hff:70, notch:0};
+function figHTML(id, mode = "learn", hot = "") {
   const sp = SIM.SPECS[id]; if (!sp) return "";
-  const lib = mode === "lib";
+  const lib = mode === "lib", lab = mode === "lab", hc = k => hot === k ? ' class="hot"' : "";
   return `<figure class="panel eegfig" data-spec="${id}" data-mode="${mode}">
   <div class="fhead"><h4>${HEAD[mode][0] || esc(sp.title)}</h4><span class="hint">${HEAD[mode][1]}</span></div>
   <div class="fbar">
     <div class="seg" role="group" aria-label="Montage">${Object.entries(SIM.MONTAGES).map(([k, m]) => `<button type="button" data-m="${k}" title="${esc(m.long)}"><span class="lg">${esc(m.name)}</span><span class="sh">${esc(SHORT[k])}</span></button>`).join("")}</div>
-    <label>Sensitivity <select data-sens aria-label="Sensitivity in microvolts per millimetre">${SENS.map(s => `<option value="${s}">${s} µV/mm</option>`).join("")}</select></label>
+    <label${hc("sens")}>Sensitivity <select data-sens aria-label="Sensitivity in microvolts per millimetre">${SENS.map(s => `<option value="${s}">${s} µV/mm</option>`).join("")}</select></label>
+    ${lab ? `<label${hc("time")}>Time <select data-pl aria-label="Seconds per page">${[5, 10, 20].map(v => `<option value="${v}">${v} s per page</option>`).join("")}</select></label>
+    <label${hc("lff")}>Low filter <select data-lff aria-label="Low-frequency filter">${[0.3, 0.5, 1, 1.6, 5].map(v => `<option value="${v}">${v} Hz</option>`).join("")}</select></label>
+    <label${hc("hff")}>High filter <select data-hff aria-label="High-frequency filter">${[15, 35, 70, 0].map(v => `<option value="${v}">${v ? v + " Hz" : "Off"}</option>`).join("")}</select></label>
+    <span${hc("notch")}><button type="button" class="tbtn" data-notch aria-pressed="false">Notch 60 Hz</button></span>
+    <button type="button" class="tbtn" data-std>Standard settings</button>` : ""}
     <button type="button" class="tbtn" data-old aria-pressed="${P.old}">Old names</button>
+    <button type="button" class="tbtn" data-guide aria-pressed="false">How to read this</button>
     <span class="pager"><button type="button" class="tbtn" data-pg="-1" aria-label="Previous page">‹</button><span class="pgl">1 / 1</span><button type="button" class="tbtn" data-pg="1" aria-label="Next page">›</button></span>
     ${lib ? `<button type="button" class="tbtn hintb" data-hint aria-pressed="false">Where to look</button>` : ""}
     <button type="button" class="tbtn" data-mark aria-pressed="false">Show markings</button>
   </div>
   <div class="cvwrap"><canvas role="img" aria-label="${esc(mode !== "learn" ? "EEG for this case" : sp.title + ". " + sp.look)}"></canvas></div>
+  <ol class="fguide" hidden>
+    <li><b>Channel name.</b> Each line compares two electrodes: <i>first minus second</i> (Fp1–F7 is Fp1 minus F7). If the result is negative the line goes <b>up</b>; positive goes <b>down</b>.</li>
+    <li><b>Chains.</b> The lines come in groups (gold brackets). Each group is one chain of electrodes; its name is on the gold tag. In the double banana: left temporal, left parasagittal, midline, right parasagittal, right temporal, top to bottom.</li>
+    <li><b>Time.</b> Runs left to right. The thin vertical lines are exactly 1 second apart: count waves between two of them to get their frequency.</li>
+    <li><b>Scale bar.</b> Shows how tall 50 µV (or 100 µV) and how long 1 second are on this page. Judge size from it, not from how big a wave looks.</li>
+    <li><b>EKG.</b> The heart, recorded at the same time. Anything that lines up with every heartbeat is heart artifact, not brain.</li>
+    <li><b>Notes.</b> What the technologist saw the patient doing at that moment (eyes closed, drowsy, a jerk).</li>
+    <li><b>Settings.</b> The sensitivity (and filters, if changed) for this page. Check them before judging size or shape.</li>
+  </ol>
   ${lib ? `<div class="where" aria-live="polite" hidden></div>` : ""}
-  <figcaption${mode !== "learn" ? " hidden" : ""}>
+  <figcaption${mode !== "learn" && !lab ? " hidden" : ""}>
     <p><b>Look for:</b> ${esc(sp.look)}</p>
     <p><b>${lib ? "Teaching point" : "Why it matters"}:</b> ${esc(sp.why)}</p>
     ${sp.tip ? `<p class="tip">Try this: ${esc(sp.tip)}</p>` : ""}
@@ -375,8 +476,8 @@ function mountFigs(root) {
     const id = f.dataset.spec, sp = SIM.SPECS[id], mode = f.dataset.mode, key = f.closest("[data-case]")?.dataset.case;
     const done = mode === "case" ? !!(P.cs[key] && P.cs[key].done) : mode === "lib" ? !!(P.lib[key] && P.lib[key].done) : true;
     const st = {id, m: sp.montage, sens: sp.sens, page: 0, ann: mode === "lib" && done, locked: !done, w: 0};
+    if (mode === "lab") Object.assign(st, STD, {lab: true});
     figs.set(f, st);
-    $("select", f).value = String(st.sens);
     if (st.locked) { const b = $("[data-mark]", f); b.disabled = true; b.textContent = mode === "lib" ? "Labels after you answer" : "Markings after you answer"; }
     draw(f);
     ro.observe($(".cvwrap", f));
@@ -385,12 +486,15 @@ function mountFigs(root) {
 function draw(f) {
   const st = figs.get(f); if (!st || !f.isConnected) return;
   const cv = $("canvas", f), w = cv.clientWidth || $(".cvwrap", f).clientWidth;
-  const pages = SIM.pageCount(st.id, w);
+  const pages = SIM.pageCount(st.id, w, st.pl);
   if (st.page >= pages) st.page = pages - 1;
-  SIM.draw(cv, st.id, {montage: st.m, sens: st.sens, page: st.page, ann: st.ann, old: P.old});
+  SIM.draw(cv, st.id, Object.assign({montage: st.m, sens: st.sens, page: st.page, ann: st.ann, old: P.old, guide: !!st.guide}, st.lab ? {pl: st.pl, lff: st.lff, hff: st.hff, notch: st.notch} : {}));
+  $("[data-sens]", f).value = String(st.sens);
+  if (st.lab) { $("[data-pl]", f).value = String(st.pl); $("[data-lff]", f).value = String(st.lff); $("[data-hff]", f).value = String(st.hff); $("[data-notch]", f).setAttribute("aria-pressed", String(!!st.notch)); }
   st.w = w;
   $$("[data-m]", f).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.m === st.m)));
   $("[data-old]", f).setAttribute("aria-pressed", String(P.old));
+  $("[data-guide]", f).setAttribute("aria-pressed", String(!!st.guide)); $(".fguide", f).hidden = !st.guide;
   const pg = $(".pager", f); pg.hidden = pages < 2;
   $(".pgl", pg).textContent = `${st.page + 1} / ${pages}`;
   $('[data-pg="-1"]', pg).disabled = st.page === 0; $('[data-pg="1"]', pg).disabled = st.page >= pages - 1;
@@ -421,22 +525,62 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll)
 
 /* ---------- electrode map and frequency bands ---------- */
 const REG = {Fp:"frontopolar", F:"frontal", C:"central", T:"temporal", P:"parietal", O:"occipital", A:"ear"};
-const NOTE = {Fp1:"Picks up every blink and vertical eye movement.", Fp2:"Picks up every blink and vertical eye movement.",
-  F7:"Inferior frontal and anterior temporal: lateral eye movements, and the best standard electrode for anterior (mesial) temporal discharges.", F8:"Inferior frontal and anterior temporal: lateral eye movements, and the best standard electrode for anterior (mesial) temporal discharges.",
-  T7:"Mid-temporal (old name T3): wicket spikes, RMTD and temporal discharges.", T8:"Mid-temporal (old name T4): wicket spikes, RMTD and temporal discharges.",
-  P7:"Posterior temporal (old name T5).", P8:"Posterior temporal (old name T6).",
-  C3:"Over the hand area of the motor strip: mu rhythm, spindles.", C4:"Over the hand area of the motor strip: mu rhythm, spindles.",
-  Cz:"The vertex: vertex waves, K-complexes, spindles.", Fz:"Midline frontal: frontal midline theta, K-complexes.", Pz:"Midline parietal.",
-  O1:"Posterior dominant rhythm, POSTS and lambda waves.", O2:"Posterior dominant rhythm, POSTS and lambda waves.",
+/* [[pattern|words]] in a note becomes a button that opens that pattern in the guide below */
+const NOTE = {Fp1:"Picks up every [[blink|blink]] and vertical eye movement.", Fp2:"Picks up every [[blink|blink]] and vertical eye movement.",
+  F7:"Inferior frontal and anterior temporal: [[lateral|lateral eye movements]], and the best standard electrode for anterior (mesial) [[ats|temporal discharges]].", F8:"Inferior frontal and anterior temporal: [[lateral|lateral eye movements]], and the best standard electrode for anterior (mesial) [[ats|temporal discharges]].",
+  T7:"Mid-temporal (old name T3): [[wicket|wicket spikes]], [[rmtd|RMTD]] and [[ats|temporal discharges]].", T8:"Mid-temporal (old name T4): [[wicket|wicket spikes]], [[rmtd|RMTD]] and [[ats|temporal discharges]].",
+  P7:"Posterior temporal (old name T5): [[wicket|wicket spikes]] and [[rmtd|RMTD]] can spread here.", P8:"Posterior temporal (old name T6): [[wicket|wicket spikes]] and [[rmtd|RMTD]] can spread here.",
+  C3:"Over the hand area of the motor strip: [[mu|mu rhythm]], [[spindles|spindles]].", C4:"Over the hand area of the motor strip: [[mu|mu rhythm]], [[spindles|spindles]].",
+  Cz:"The vertex: [[vertex|vertex waves]], [[kcomplex|K-complexes]], [[spindles|spindles]].", Fz:"Midline frontal: frontal midline theta, [[kcomplex|K-complexes]].", Pz:"Midline parietal: [[spindles|spindles]] and [[vertex|vertex waves]] spread here.",
+  O1:"[[pdr|Posterior dominant rhythm]], [[posts|POSTS]] and [[lambda|lambda waves]].", O2:"[[pdr|Posterior dominant rhythm]], [[posts|POSTS]] and [[lambda|lambda waves]].",
   F3:"Dorsolateral frontal.", F4:"Dorsolateral frontal.", P3:"Parietal.", P4:"Parietal.",
   A1:"Ear reference. Sits next to the temporal lobe, so it picks up temporal activity.", A2:"Ear reference. Sits next to the temporal lobe, so it picks up temporal activity."};
 const CHAIN_COL = ["var(--accent)", "var(--ok)", "var(--gold)", "var(--ok)", "var(--accent)"];
-let hm = {el: "T7", m: "bipolar"};
+/* Pattern guide: where each pattern lives on the head (pri = maximum, sec = its field), when you meet it, and the tracing.
+   kind: normal | benign (variant) | abnormal | artifact. */
+const PAT = {
+  pdr:{name:"Posterior dominant rhythm", short:"PDR (alpha)", kind:"normal", spec:"pdr", lv:"L2", pri:["O1","O2"], sec:["P3","P4","P7","P8","Pz"],
+    when:"Awake, eyes closed and relaxed", looks:"8.5–11 Hz in adults, waxing and waning, usually 20–60 µV, often a little bigger on the right", polarity:"A rhythm: no single polarity", tell:"Blocks within a second of eye opening and returns on closing. Under 8 Hz in an alert adult is slowing."},
+  mu:{name:"Mu rhythm", short:"Mu", kind:"normal", spec:"mu", lv:"L2", pri:["C3","C4"], sec:["Cz","F3","F4","P3","P4"],
+    when:"Awake, eyes open or closed", looks:"7–11 Hz arch-shaped (comb-like) waves, the sharp side pointing up, one or both sides", polarity:"A rhythm: no single polarity", tell:"Blocks with movement, or the thought of moving, of the opposite hand; eye opening doesn't block it."},
+  spindles:{name:"Sleep spindles", short:"Spindles", kind:"normal", spec:"n2", lv:"L3", pri:["C3","Cz","C4"], sec:["F3","Fz","F4","P3","Pz","P4"],
+    when:"N2 sleep", looks:"Bursts of 11–16 Hz (usually 12–14) lasting 0.5 s or more, waxing then waning", polarity:"A rhythm: no single polarity", tell:"Symmetric and in step on both sides in adults; persistently missing on one side suggests a lesion there."},
+  vertex:{name:"Vertex waves", short:"Vertex waves", kind:"normal", spec:"vertex", lv:"L3", pri:["Cz"], sec:["Fz","Pz","C3","C4"],
+    when:"Drowsiness and light sleep (N1–N2)", looks:"Sharp waves maximal at Cz, symmetric; can look spiky in young adults", polarity:"Surface-negative (points up)", tell:"Same on both sides and centred on Cz. In an awake patient with alpha, a sharp wave at Cz is not a vertex wave."},
+  kcomplex:{name:"K-complexes", short:"K-complexes", kind:"normal", spec:"n2", lv:"L3", pri:["Fz","Cz"], sec:["F3","F4","C3","C4"],
+    when:"N2 sleep (also with arousals)", looks:"A sharp negative wave, then a large slow positive wave, together lasting 0.5 s or more, often followed by a spindle", polarity:"Negative then positive", tell:"Frontocentral and symmetric; they can be set off by a noise."},
+  posts:{name:"POSTS (positive occipital sharp transients of sleep)", short:"POSTS", kind:"normal", spec:"vertex", lv:"L3", pri:["O1","O2"], sec:["P3","P4","P7","P8"],
+    when:"Light sleep (N1–N2), also N3", looks:"Triangular sharp waves at O1 and O2, single or in runs, roughly symmetric", polarity:"Surface-positive (points down in a referential montage)", tell:"The classic 'occipital spikes' overcall: they are positive and only in sleep."},
+  lambda:{name:"Lambda waves", short:"Lambda", kind:"normal", spec:"lambda", lv:"L2", pri:["O1","O2"], sec:["P3","P4","P7","P8"],
+    when:"Awake, eyes open, scanning (reading, a busy picture)", looks:"Triangular sharp waves at O1 and O2 just after each eye movement", polarity:"Surface-positive (points down in a referential montage)", tell:"Gone with the eyes closed or staring at a blank wall: they follow eye movements."},
+  wicket:{name:"Wicket spikes", short:"Wicket spikes", kind:"benign", spec:"wicket", lv:"L5", pri:["T7","T8"], sec:["F7","F8","P7","P8"],
+    when:"Drowsiness, adults over 30", looks:"6–11 Hz arch-shaped waves, single or in trains, mid-temporal, on either side or both", polarity:"Surface-negative peaks (point up)", tell:"No after-going slow wave and no disruption of the background; a single wicket has the same shape as the trains."},
+  rmtd:{name:"Rhythmic mid-temporal theta of drowsiness (RMTD)", short:"RMTD", kind:"benign", spec:"rmtd", lv:"L5", pri:["T7","T8"], sec:["F7","F8","P7","P8"],
+    when:"Drowsiness, adolescents and adults", looks:"Runs of 5–7 Hz notched, flat-topped theta, mid-temporal, one or both sides", polarity:"A rhythm: no single polarity", tell:"Same frequency and shape from start to end: it never evolves, unlike a temporal seizure."},
+  ats:{name:"Temporal discharges (spikes and sharp waves)", short:"Temporal discharges", kind:"abnormal", spec:"ats", lv:"L7", pri:["F7","T7"], sec:["Fp1","F3","C3","P7","A1"],
+    when:"Any state, brought out by drowsiness and sleep", looks:"Spikes (20–70 ms) or sharp waves (70–200 ms) that stand out from the background, with an after-going slow wave and a field; phase reversal at F7/F8 or T7/T8. Shown here on the left", polarity:"Surface-negative (pens point toward each other)", tell:"Epileptiform: they point to a temporal area that can start seizures (most often mesial temporal lobe epilepsy)."},
+  gsw:{name:"Generalized spike-and-wave", short:"Spike-and-wave", kind:"abnormal", spec:"gsw3", lv:"L7", pri:["Fz","F3","F4"], sec:["Fp1","Fp2","F7","F8","C3","Cz","C4"],
+    when:"Awake (brought out by hyperventilation) and sleep", looks:"A spike, then a slow wave, repeating: about 3 Hz (2.5–4) in typical absence, 4–6 Hz polyspike-and-wave in JME, under 2.5 Hz in Lennox–Gastaut", polarity:"Surface-negative spike and wave (up)", tell:"On both sides at once, symmetric and frontally maximal; starts and stops abruptly. The spikes separate it from hyperventilation slowing."},
+  blink:{name:"Eye blinks", short:"Blinks", kind:"artifact", spec:"blink", lv:"L4", pri:["Fp1","Fp2"], sec:["F3","Fz","F4","F7","F8"],
+    when:"Awake, eyes open", looks:"Big, smooth, symmetric deflections in the first channel of each frontal chain, 200–400 ms, with almost nothing behind them", polarity:"Positive at Fp1/Fp2 (down in Fp1–F3)", tell:"The eye is a dipole with a positive cornea; in a blink the eyes roll up under Fp1 and Fp2."},
+  lateral:{name:"Lateral eye movements", short:"Eye movements", kind:"artifact", spec:"lateral", lv:"L4", pri:["F7","F8"], sec:["Fp1","Fp2","T7","T8"],
+    when:"Awake", looks:"Opposite phase reversals at F7 and F8 at the same moment", polarity:"Positive on the side the eyes look toward", tell:"F7 and F8 always move in opposite directions together; a real bifrontal discharge doesn't."}
+};
+const KIND = {normal:["Normal","ok","var(--ok)"], benign:["Benign variant","gold","var(--gold)"], abnormal:["Abnormal","bad","var(--lesion)"], artifact:["Artifact","go","var(--accent)"]};
+const noteHTML = t => esc(t).replace(/\[\[(\w+)\|([^\]]+)\]\]/g, (m, k, w) => PAT[k] ? `<button type="button" class="plink" data-pat="${k}">${w}</button>` : w);
+let hm = {el: "T7", m: "bipolar", pat: null}, hmFig = null;
 function elInfo(e) {
   const letters = e.match(/^[A-Za-z]+?(?=[0-9z])/)?.[0] || e[0], num = e.slice(letters.length);
   const side = num === "z" ? "midline" : (+num % 2 ? "left" : "right");
   const old = SIM.OLD[e] ? ` (old name ${SIM.OLD[e]})` : "";
-  return `<div class="lab">Electrode</div><h4>${esc(e)}${esc(old)}</h4><p>${esc(cap(REG[letters[0] === "F" && letters[1] === "p" ? "Fp" : letters[0]] || ""))}, ${side}.</p><p>${esc(NOTE[e] || "")}</p>`;
+  return `<div class="lab">Electrode</div><h4>${esc(e)}${esc(old)}</h4><p>${esc(cap(REG[letters[0] === "F" && letters[1] === "p" ? "Fp" : letters[0]] || ""))}, ${side}.</p><p>${noteHTML(NOTE[e] || "")}</p>`;
+}
+function patInfo(k) {
+  const p = PAT[k], [tag, cls] = KIND[p.kind], lv = LBY[p.lv];
+  return `<div class="pcard"><div class="lab">Pattern</div><h4>${esc(p.name)}</h4><span class="chip ${cls}">${tag}</span>
+  <dl class="pfacts"><dt>Where</dt><dd>${esc(p.pri.map(e => SIM.nameOf(e, P.old)).join(", "))} (filled), spreading to ${esc(p.sec.map(e => SIM.nameOf(e, P.old)).join(", "))} (ringed)</dd>
+  <dt>When</dt><dd>${esc(p.when)}</dd><dt>Looks like</dt><dd>${esc(p.looks)}</dd><dt>Polarity</dt><dd>${esc(p.polarity)}</dd><dt>Tell it apart</dt><dd>${esc(p.tell)}</dd></dl>
+  <div class="pnav"><button type="button" class="tbtn" data-unpat>← Back to electrodes</button>${lv ? `<a class="tbtn" href="#${lv.id}">Level ${lv.n} · ${esc(lv.title)} →</a>` : ""}</div></div>`;
 }
 function headSVG() {
   const P2 = ([x, y]) => [x, -y];
@@ -445,8 +589,12 @@ function headSVG() {
     const pts = []; g.forEach(([a, b], k) => { if (!k) pts.push(P2(SIM.E[a])); pts.push(P2(SIM.E[b])); });
     return `<polyline class="hm-chain" points="${pts.map(p => p.join(",")).join(" ")}" stroke="${CHAIN_COL[gi % 5]}"/>`;
   }).join("") : "";
-  const els = Object.keys(SIM.E).map(e => { const [x, y] = P2(SIM.E[e]); return `<g class="hm-el${e === hm.el ? " on" : ""}" data-el="${e}" tabindex="0" role="button" aria-label="${e}"><circle cx="${x}" cy="${y}" r="0.115"/><text x="${x}" y="${y}">${esc(SIM.nameOf(e, P.old))}</text></g>`; }).join("");
-  return `<svg viewBox="-1.42 -1.38 2.84 2.7" role="img" aria-label="The 10–20 electrodes seen from above, nose at the top">
+  const pt = hm.pat && PAT[hm.pat], col = pt ? KIND[pt.kind][2] : "";
+  const cls = e => pt ? (pt.pri.includes(e) ? " pri" : pt.sec.includes(e) ? " sec" : "") : (e === hm.el ? " on" : "");
+  const glow = pt ? `<defs><radialGradient id="hmglow"><stop offset="0" style="stop-color:${col};stop-opacity:.55"/><stop offset="1" style="stop-color:${col};stop-opacity:0"/></radialGradient><clipPath id="hmclip"><circle cx="0" cy="0" r="1.1"/></clipPath></defs><g clip-path="url(#hmclip)">` +
+    pt.pri.map(e => { const [x, y] = P2(SIM.E[e]); return `<circle class="hm-glow" cx="${x}" cy="${y}" r="0.42" fill="url(#hmglow)"/>`; }).join("") + "</g>" : "";
+  const els = Object.keys(SIM.E).map(e => { const [x, y] = P2(SIM.E[e]); return `<g class="hm-el${cls(e)}" data-el="${e}" tabindex="0" role="button" aria-label="${e}"><circle cx="${x}" cy="${y}" r="0.115"/><text x="${x}" y="${y}">${esc(SIM.nameOf(e, P.old))}</text></g>`; }).join("");
+  return `<svg viewBox="-1.42 -1.38 2.84 2.7" role="img" style="--pc:${col || "var(--accent)"}" aria-label="${pt ? esc(pt.name + ": maximal at " + pt.pri.join(", ")) : "The 10–20 electrodes seen from above, nose at the top"}">${glow}
   <path class="hm-head" d="M-0.12,-1.08 L0,-1.25 L0.12,-1.08"/><ellipse class="hm-head" cx="-1.13" cy="0.12" rx="0.08" ry="0.2"/><ellipse class="hm-head" cx="1.13" cy="0.12" rx="0.08" ry="0.2"/>
   <circle class="hm-head" cx="0" cy="0" r="1.1"/>${chains}${els}
   <text x="-1.38" y="1.28" style="font-family:var(--f-label);font-size:.09px;fill:var(--muted)">LEFT</text><text x="1.38" y="1.28" text-anchor="end" style="font-family:var(--f-label);font-size:.09px;fill:var(--muted)">RIGHT</text></svg>`;
@@ -454,10 +602,202 @@ function headSVG() {
 function headHTML() {
   return `<div class="panel headmap" id="headmap"><div id="hmsvg">${headSVG()}</div><div>
   <div class="seg" role="group" aria-label="Chains drawn">${[["bipolar","Double banana"],["transverse","Transverse"],["none","No chains"]].map(([k, t]) => `<button type="button" data-hm="${k}" aria-pressed="${hm.m === k}">${t}</button>`).join("")}</div>
-  <div class="hminfo" id="hminfo">${elInfo(hm.el)}</div>
-  <p class="locked">Tap any electrode. Odd numbers left, even right, z midline. Each coloured line is one chain of the montage, front to back (or left to right).</p></div></div>`;
+  <div class="hminfo" id="hminfo">${hm.pat ? patInfo(hm.pat) : elInfo(hm.el)}</div>
+  <div class="pchips" role="group" aria-label="Show a pattern"><div class="lab">Show a pattern</div>${Object.entries(PAT).map(([k, p]) => `<button type="button" class="pchip" data-pat="${k}" aria-pressed="${hm.pat === k}">${esc(p.short)}</button>`).join("")}</div>
+  <p class="locked">Tap any electrode, or a pattern (underlined names too) to light up where it lives and see it on a tracing below. Odd numbers left, even right, z midline. Each coloured line is one chain of the montage.</p></div></div>
+  <div id="hmfig"></div>`;
 }
-function refreshHead() { const s = $("#hmsvg"); if (s) s.innerHTML = headSVG(); const i = $("#hminfo"); if (i) i.innerHTML = elInfo(hm.el); $$("[data-hm]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.hm === hm.m))); }
+function refreshHead() {
+  const s = $("#hmsvg"); if (s) s.innerHTML = headSVG();
+  const i = $("#hminfo"); if (i) i.innerHTML = hm.pat ? patInfo(hm.pat) : elInfo(hm.el);
+  $$("[data-hm]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.hm === hm.m)));
+  $$(".pchip").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.pat === hm.pat)));
+  const box = $("#hmfig"); if (!box) return;
+  const spec = hm.pat ? PAT[hm.pat].spec : null;
+  if (spec === hmFig && box.firstElementChild) return;
+  hmFig = spec; box.innerHTML = spec ? figHTML(spec) : "";
+  if (spec) { mountFigs(box); const f = $(".eegfig", box), st = figs.get(f); if (st) { st.ann = true; draw(f); } }
+}
+/* ---------- Reading the display: one card per setting, and a tracing to try it on ---------- */
+let dset = "sens";
+function dcardHTML(d) {
+  return `<h4>${esc(d.name)}</h4><p class="dstd">Standard: <b>${esc(d.std)}</b></p>
+  <div class="dq"><div class="lab">What it is</div><p>${d.what}</p></div>
+  <div class="dq"><div class="lab">Why it matters</div><p>${d.matters}</p></div>
+  <div class="dcols">${[d.lower, d.higher].map(c => `<div class="dcol"><div class="dh">${esc(c.label)}</div><p><b>You see:</b> ${esc(c.see)}</p><p><b>Watch out:</b> ${esc(c.risk)}</p></div>`).join("")}</div>
+  <div class="dq"><div class="lab">Why you would change it</div><p>${esc(d.when)}</p></div>
+  <div class="dq"><div class="lab">How far</div><p>${esc(d.limits)}</p></div>
+  <div class="call key"><b class="cl">Try it on the tracing below</b>${esc(d.tryit)}</div>`;
+}
+function displayHTML() {
+  const d = D.DISPLAY.find(x => x.k === dset) || D.DISPLAY[0];
+  return `<div class="panel dlab" id="dlab"><div class="seg dtabs" role="group" aria-label="Display setting">${D.DISPLAY.map(x => `<button type="button" data-dset="${x.k}" aria-pressed="${x.k === d.k}">${esc(x.name)}</button>`).join("")}</div>
+  <div id="dcard">${dcardHTML(d)}</div></div><div id="dfig">${figHTML(d.scene, "lab", d.k)}</div>`;
+}
+function setDisplay(k) {
+  dset = k; const d = D.DISPLAY.find(x => x.k === k);
+  $$("[data-dset]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.dset === k)));
+  $("#dcard").innerHTML = dcardHTML(d);
+  const box = $("#dfig"); box.innerHTML = figHTML(d.scene, "lab", d.k); mountFigs(box);
+}
+
+/* ---------- Montage explorer (Level 1): how each montage is wired, and the same spike in it ---------- */
+let mont = "bipolar";
+const MINFO = {
+  bipolar:{btn:"Double banana", fam:"Bipolar", name:"Double banana (longitudinal bipolar)",
+    wired:"Neighbours are compared along five chains running front to back: left temporal (Fp1–F7–T7–P7–O1), left parasagittal (Fp1–F3–C3–P3–O1), midline (Fz–Cz–Pz) and the same two on the right. Seen from above, the two side chains on each side look like a pair of bananas.",
+    like:"Comparing each stair with the next one.", good:"Pinpointing small, local waves by their phase reversal. It is the usual first montage.",
+    weak:"Broad waves that are equal at neighbours cancel out; line heights are differences, not true sizes; no reversal at the ends of chains.",
+    spike:"Fp1–F7 goes down and F7–T7 goes up: the pens point at each other at F7, so F7 is the maximum."},
+  transverse:{btn:"Transverse", fam:"Bipolar", name:"Transverse bipolar",
+    wired:"Neighbours are compared in rows across the head, from the left ear to the right: Fp1–Fp2; F7–F3–Fz–F4–F8; A1–T7–C3–Cz–C4–T8–A2; P7–P3–Pz–P4–P8; O1–O2.",
+    like:"The same stairs, walked sideways.", good:"Midline activity (vertex waves, spikes at Cz or Fz), and double-checking a finding from another direction.",
+    weak:"The same as the double banana: differences only, and nothing beyond the ends of each row.",
+    spike:"F7 is the first electrode of the front row, so F7–F3 simply goes up (end of chain). In the middle row, A1–T7 goes down and T7–C3 goes up: they point at T7, which shares the spike."},
+  ear:{btn:"Ear reference", fam:"Referential", name:"Ear reference (A1/A2)",
+    wired:"Each left electrode is compared with the left ear (A1), each right one with the right ear (A2), and the midline electrodes with both ears.",
+    like:"Measuring everyone's height from the floor.", good:"True shape and size: the tallest line is the maximum. Good for broad and generalized waves and for peaks at the ends of chains.",
+    weak:"The ears sit next to the temporal lobes, so temporal waves reach the reference too and shrink or flip. The EKG also shows more.",
+    spike:"F7–A1 goes up the most, so F7 is the maximum. The left ear (A1) catches a little of this spike too, so every left line comes out slightly smaller than it should. When a spike sits right next to the ear, at T7, this gets big enough to flip lines far away: the 'ear-reference trap'."},
+  avg:{btn:"Average", fam:"Referential", name:"Average reference",
+    wired:"Each electrode is compared with the average of all 19 scalp electrodes.",
+    like:"Measuring each person against the class's average height.", good:"Usually a fairly quiet reference for focal waves: the tallest line is the maximum and the field is easy to see.",
+    weak:"A big or widespread wave (generalized discharges, blinks) pulls the average with it, so faraway lines show a small upside-down copy.",
+    spike:"F7 goes up the most, with F3 and T7 smaller beside it. The spike pulls the average slightly negative too, so right-side electrodes such as F8 and T8 show a tiny downward copy."}
+};
+function montSVG(k) {
+  const P2 = ([x, y]) => [x, -y], E = SIM.E;
+  const sh = (a, b) => { const [x1, y1] = P2(E[a]), [x2, y2] = b === "AVG" ? [0, 1.3] : P2(E[b]), dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), r2 = b === "AVG" ? 0.09 : 0.13; return [x1 + dx / L * 0.13, y1 + dy / L * 0.13, x2 - dx / L * r2, y2 - dy / L * r2].map(v => v.toFixed(3)); };
+  const ln = (a, b, col, cls = "mw") => { const [x1, y1, x2, y2] = sh(a, b); return `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}"/>`; };
+  let wires = "";
+  if (k === "bipolar" || k === "transverse") SIM.MONTAGES[k].groups.forEach((g, gi) => g.forEach(([a, b]) => { wires += ln(a, b, CHAIN_COL[gi % 5]); }));
+  else if (k === "ear") SIM.SCALP.forEach(e => { const x = E[e][0]; if (x < -0.05) wires += ln(e, "A1", "var(--accent)"); else if (x > 0.05) wires += ln(e, "A2", "var(--ok)"); else { wires += ln(e, "A1", "var(--gold)", "mw thin"); wires += ln(e, "A2", "var(--gold)", "mw thin"); } });
+  else SIM.SCALP.forEach(e => { wires += ln(e, "AVG", "var(--accent)", "mw thin"); });
+  const refEl = k === "ear" ? ["A1", "A2"] : [];
+  const els = Object.keys(E).map(e => { const [x, y] = P2(E[e]); return `<g class="hm-el${refEl.includes(e) ? " on" : ""}"><circle cx="${x}" cy="${y}" r="0.115"/><text x="${x}" y="${y}">${esc(SIM.nameOf(e, P.old))}</text></g>`; }).join("");
+  const avg = k === "avg" ? `<rect class="mref" x="-0.3" y="1.22" width="0.6" height="0.17" rx="0.08"/><text class="mref-t" x="0" y="1.305">AVERAGE</text>` : "";
+  const [sx, sy] = P2([-0.95, 0.38]);
+  return `<svg viewBox="-1.42 -1.38 2.84 ${k === "avg" ? 2.82 : 2.7}" role="img" aria-label="${esc(MINFO[k].name)}: how the channels are wired">
+  <defs><radialGradient id="mspk"><stop offset="0" style="stop-color:var(--lesion);stop-opacity:.6"/><stop offset="1" style="stop-color:var(--lesion);stop-opacity:0"/></radialGradient></defs>
+  <path class="hm-head" d="M-0.12,-1.08 L0,-1.25 L0.12,-1.08"/><ellipse class="hm-head" cx="-1.13" cy="0.12" rx="0.08" ry="0.2"/><ellipse class="hm-head" cx="1.13" cy="0.12" rx="0.08" ry="0.2"/>
+  <circle class="hm-head" cx="0" cy="0" r="1.1"/><circle cx="${sx}" cy="${sy}" r="0.42" fill="url(#mspk)"/>${wires}${els}${avg}
+  <text x="${sx - 0.02}" y="${sy - 0.3}" class="mspk-t">spike</text></svg>`;
+}
+function montCardHTML(k) {
+  const m = MINFO[k];
+  return `<div class="lab">${esc(m.fam)}</div><h4 class="mname">${esc(m.name)}</h4>
+  <dl class="pfacts"><dt>How it's wired</dt><dd>${esc(m.wired)}</dd><dt>Think of it as</dt><dd>${esc(m.like)}</dd><dt>Good for</dt><dd>${esc(m.good)}</dd><dt>Weak at</dt><dd>${esc(m.weak)}</dd><dt>On this spike</dt><dd>${esc(m.spike)}</dd></dl>`;
+}
+function montageHTML() {
+  return `<div class="panel mexp" id="mexp"><div class="seg" role="group" aria-label="Montage">${Object.keys(MINFO).map(k => `<button type="button" data-mont="${k}" aria-pressed="${k === mont}">${esc(MINFO[k].btn)}</button>`).join("")}</div>
+  <div class="mgrid"><div id="msvg">${montSVG(mont)}</div><div id="mcard">${montCardHTML(mont)}</div></div></div>
+  <div id="mfig">${figHTML("ats")}</div>`;
+}
+function setMont(k, fromFig) {
+  mont = k;
+  $$("[data-mont]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mont === k)));
+  const sv = $("#msvg"); if (sv) sv.innerHTML = montSVG(k);
+  const cd = $("#mcard"); if (cd) cd.innerHTML = montCardHTML(k);
+  if (!fromFig) { const f = $("#mfig .eegfig"), st = f && figs.get(f); if (st) { st.m = k; st.ann = true; draw(f); } }
+}
+
+/* ---------- Polarity: one channel, then a chain ---------- */
+const pol = {a:-40, b:0, s:1, sign:-1};
+const bumpP = t => agW(t, 0.5, 0.022, 0.045) - 0.22 * gsW(t, 0.62, 0.05);
+function chanPath(c, x0, x1, y, half) {
+  let d = ""; for (let i = 0; i <= 200; i++) { const t = i / 200, v = c / 100 * (half - 2) * bumpP(t); d += (i ? "L" : "M") + (x0 + (x1 - x0) * t).toFixed(1) + "," + (y + Math.max(-half, Math.min(half, v))).toFixed(1); }
+  return d;
+}
+const dirWord = c => Math.abs(c) < 4 ? ["flat", "–"] : c < 0 ? ["up", "↑"] : ["down", "↓"];
+const sgn = v => { const r = Math.round(v); return (r > 0 ? "+" : r < 0 ? "−" : "") + Math.abs(r); };
+function polAHTML() {
+  const d = pol.a - pol.b, [w, ar] = dirWord(d);
+  const say = w === "flat" ? "Zero: both inputs are equal, so the channel draws nothing, even though both electrodes 'see' the wave." : w === "up" ? "Negative, so the pen goes UP." : "Positive, so the pen goes DOWN.";
+  return `<div class="peq"><span>Input 1 − Input 2 =</span> <b>(${sgn(pol.a)}) − (${sgn(pol.b)}) = ${sgn(d)} µV</b></div>
+  <svg viewBox="0 0 320 76" class="psvg" role="img" aria-label="Channel F7–T7 drawing a wave that goes ${w}"><line x1="64" x2="300" y1="38" y2="38"/><text x="4" y="42" class="pl">F7–T7</text>
+  <path class="w ${w}" d="${chanPath(d, 64, 300, 38, 34)}"/><text x="306" y="44" class="par ${w}">${ar}</text></svg>
+  <p class="psay ${w}">${say}</p>`;
+}
+const CHAIN = ["Fp1", "F7", "T7", "P7", "O1"];
+function polBHTML() {
+  const V = CHAIN.map((_, i) => pol.sign * 100 * Math.exp(-((i - pol.s) ** 2) / (2 * 0.55 * 0.55)));
+  const C = V.slice(0, -1).map((v, i) => v - V[i + 1]);
+  const x = i => 40 + i * 60, neg = pol.sign < 0, col = neg ? "var(--accent)" : "var(--gold)";
+  const m = V.reduce((best, v, i) => Math.abs(v) > Math.abs(V[best]) ? i : best, 0), top = Math.abs(V[m]);
+  const els = CHAIN.map((e, i) => { const a = Math.abs(V[i]) / 100; return `<circle cx="${x(i)}" cy="30" r="17" style="fill:${col};fill-opacity:${(0.08 + 0.75 * a).toFixed(2)}" class="pe"/><text x="${x(i)}" y="34" class="pn${a > 0.55 ? " on" : ""}">${e}</text><text x="${x(i)}" y="64" class="pv">${sgn(V[i])} µV</text>`; }).join("");
+  const rows = C.map((c, k) => { const y = 104 + k * 46, [w, ar] = dirWord(c * 100 / Math.max(top, 1)); return `<text x="4" y="${y + 4}" class="pl">${CHAIN[k]}–${CHAIN[k + 1]}</text><line x1="72" x2="296" y1="${y}" y2="${y}"/><path class="w ${w}" d="${chanPath(c, 72, 296, y, 20)}"/><text x="306" y="${y + 6}" class="par ${w}">${ar}</text>`; }).join("");
+  let verdict;
+  const between = Math.abs((pol.s % 1) - 0.5) < 0.13;
+  if (between) { const k = Math.floor(pol.s); verdict = `The wave sits halfway between <b>${CHAIN[k]}</b> and <b>${CHAIN[k + 1]}</b>: they are equally ${neg ? "negative" : "positive"}, so the channel ${CHAIN[k]}–${CHAIN[k + 1]} is nearly <b>flat</b>, and the channels on either side point ${neg ? "toward" : "away from"} it. The maximum is between those two electrodes.`; }
+  else if (m === 0 || m === CHAIN.length - 1) verdict = `No phase reversal: the maximum is at <b>${CHAIN[m]}</b>, the ${m ? "last" : "first"} electrode of the chain, so there is no channel beyond it to swing the other way. Look for the biggest deflection, then check a referential montage (end-of-chain rule).`;
+  else verdict = `<b>Phase reversal at ${CHAIN[m]}</b>: ${CHAIN[m - 1]}–${CHAIN[m]} goes ${neg ? "down" : "up"} and ${CHAIN[m]}–${CHAIN[m + 1]} goes ${neg ? "up" : "down"}. The pens point <b>${neg ? "toward" : "away from"}</b> each other, so ${CHAIN[m]} is a <b>${neg ? "negative" : "positive"}</b> maximum.`;
+  return `<svg viewBox="0 0 330 ${104 + 4 * 46 - 18}" class="psvg" role="img" aria-label="A chain of five electrodes and four channels">${els}${rows}</svg><p class="psay">${verdict}</p>`;
+}
+function polarityHTML() {
+  const PA = [["Spike under input 1", -60, 0], ["Spike under input 2", 0, -60], ["Same under both", -40, -40], ["Positive under input 1 (blink)", 60, 0]];
+  return `<div class="panel polab"><div class="lab">1 · One channel</div>
+  <p class="pintro">A channel compares two electrodes. Slide each electrode's voltage (what the brain makes under it at the peak of a wave) and watch which way the pen moves.</p>
+  <div class="pins">${[["a", "Input 1: F7"], ["b", "Input 2: T7"]].map(([k, l]) => `<label class="pin"><span>${l}</span><input type="range" min="-100" max="100" step="5" value="${pol[k]}" data-pin="${k}" aria-label="${l} in microvolts"><output id="pin-${k}">${sgn(pol[k])} µV</output></label>`).join("")}</div>
+  <div class="ppre">${PA.map(([l, a, b]) => `<button type="button" class="pchip" data-pa="${a},${b}">${esc(l)}</button>`).join("")}</div>
+  <div id="pa-out">${polAHTML()}</div></div>
+  ${polChainHTML("2 · ")}`;
+}
+function polChainHTML(num = "") {
+  const PB = [["Spike at F7", 1, -1], ["Spike at T7", 2, -1], ["Between F7 and T7", 1.5, -1], ["Spike at O1 (end of chain)", 4, -1], ["Blink (positive at Fp1)", 0, 1], ["Lambda (positive at O1)", 4, 1]];
+  return `<div class="panel polab"><div class="lab">${num}A chain of channels (the left temporal chain of the double banana)</div>
+  <p class="pintro">Now one discharge spreads over several electrodes, strongest at its centre. Each channel subtracts the next electrode down the chain. Move the discharge and switch its sign.</p>
+  <div class="pctl"><div class="seg" role="group" aria-label="Sign of the discharge"><button type="button" data-psign="-1" aria-pressed="${pol.sign < 0}">Negative (most spikes)</button><button type="button" data-psign="1" aria-pressed="${pol.sign > 0}">Positive (blink, lambda)</button></div>
+  <label class="pin wide"><span>Where is it?</span><input type="range" min="0" max="4" step="0.25" value="${pol.s}" data-psrc aria-label="Position of the discharge along the chain"><output id="psrc">${esc(CHAIN[Math.round(pol.s)])}</output></label></div>
+  <div class="ppre">${PB.map(([l, s, g]) => `<button type="button" class="pchip" data-pb="${s},${g}">${esc(l)}</button>`).join("")}</div>
+  <div id="pb-out">${polBHTML()}</div></div>`;
+}
+function refreshPol() {
+  const a = $("#pa-out"); if (a) a.innerHTML = polAHTML();
+  const b = $("#pb-out"); if (b) b.innerHTML = polBHTML();
+  ["a", "b"].forEach(k => { const i = $(`[data-pin="${k}"]`), o = $("#pin-" + k); if (i) i.value = pol[k]; if (o) o.textContent = sgn(pol[k]) + " µV"; });
+  const sr = $("[data-psrc]"); if (sr) sr.value = pol.s; const so = $("#psrc"); if (so) so.textContent = Math.abs(pol.s % 1 - 0.5) < 0.13 ? `${CHAIN[Math.floor(pol.s)]}–${CHAIN[Math.floor(pol.s) + 1]}` : CHAIN[Math.round(pol.s)];
+  $$("[data-psign]").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.psign === pol.sign)));
+}
+
+/* Named waves: small drawings of each pattern's shape (up = surface-negative), grouped, each opening the head map */
+const gsW = (t, t0, sd) => Math.exp(-0.5 * ((t - t0) / sd) ** 2);
+const agW = (t, t0, sl, sr) => { const d = t - t0; return Math.exp(-0.5 * (d / (d < 0 ? sl : sr)) ** 2); };
+const arcW = p => -(Math.cos(p) + 0.38 * Math.cos(2 * p)) / 1.38;
+const notchW = p => (Math.sin(p) + 0.3 * Math.sin(3 * p) + 0.22 * Math.sin(2 * p)) / 1.25;
+const bgW = t => 1.6 * Math.sin(2 * Math.PI * 5.3 * t + 1) + 1.2 * Math.sin(2 * Math.PI * 8.7 * t + 2) + 0.7 * Math.sin(2 * Math.PI * 17 * t);
+const rampW = (t, a, b, r = 0.12) => Math.max(0, Math.min(1, (t - a) / r, (b - t) / r));
+const TAU = 2 * Math.PI;
+const WAVES = [
+ {g:"Rhythms: named by shape and place", items:[
+  {k:"pdr", T:2, f:t => -15 * Math.sin(TAU * 10 * t) * (0.65 + 0.35 * Math.sin(TAU * 0.8 * t + 1)) + 0.4 * bgW(t), freq:"8.5–11 Hz in adults", where:"O1, O2", when:"Awake, eyes closed"},
+  {k:"mu", T:2, f:t => 14 * arcW(TAU * 10 * t) * (0.75 + 0.25 * Math.sin(TAU * 0.6 * t)) + 0.4 * bgW(t), freq:"7–11 Hz arches, sharp side up", where:"C3, C4", when:"Awake; blocks with hand movement"},
+  {k:"spindles", T:2, f:t => -15 * Math.sin(TAU * 13 * t) * gsW(t, 1, 0.2) + 0.8 * bgW(t), freq:"11–16 Hz bursts, 0.5 s or more", where:"C3, Cz, C4", when:"N2 sleep"},
+  {k:"rmtd", T:2, f:t => -14 * notchW(TAU * 6 * t) * (0.1 + 0.9 * rampW(t, 0.25, 1.8, 0.2)) + 0.5 * bgW(t), freq:"5–7 Hz notched theta, never evolves", where:"T7, T8", when:"Drowsy"},
+  {k:"wicket", T:2, f:t => 14 * arcW(TAU * 9 * t) * gsW(t, 0.7, 0.22) + 14 * arcW(TAU * 9 * (t - 1.55)) * (Math.abs(t - 1.55) < 0.0556 ? 1 : 0) + 0.5 * bgW(t), freq:"6–11 Hz arches, in trains or single", where:"T7, T8", when:"Drowsy, adults over 30"}]},
+ {g:"Single waves (transients) of normal people", items:[
+  {k:"vertex", T:1, f:t => -24 * agW(t, 0.5, 0.016, 0.03) + 3 * gsW(t, 0.44, 0.02) + 7 * gsW(t, 0.6, 0.05) + 0.6 * bgW(t), freq:"A sharp wave at the top of the head", where:"Cz", when:"Drowsy, light sleep"},
+  {k:"kcomplex", T:2, f:t => -19 * agW(t, 0.45, 0.05, 0.07) + 17 * gsW(t, 0.77, 0.13) - 4 * gsW(t, 1.17, 0.15) - 9 * Math.sin(TAU * 13 * t) * gsW(t, 1.5, 0.12) + 0.6 * bgW(t), freq:"0.5 s or more: negative, then big positive", where:"Fz, Cz", when:"N2 sleep"},
+  {k:"posts", T:1, f:t => [0.28, 0.52, 0.78].reduce((v, t0) => v + 14 * agW(t, t0, 0.018, 0.05) - 3 * gsW(t, t0 + 0.11, 0.04), 0) + 0.6 * bgW(t), freq:"Positive triangles, single or in runs", where:"O1, O2", when:"Light sleep"},
+  {k:"lambda", T:1, f:t => 15 * agW(t, 0.42, 0.02, 0.05) - 3 * gsW(t, 0.54, 0.04) + 0.6 * bgW(t), freq:"Positive triangles after each eye movement", where:"O1, O2", when:"Awake, eyes open, scanning"}]},
+ {g:"Abnormal shapes", items:[
+  {k:"ats", name:"Spike", T:1, f:t => -27 * agW(t, 0.4, 0.007, 0.013) + 7 * gsW(t, 0.435, 0.013) - 14 * gsW(t, 0.55, 0.055) + 0.6 * bgW(t), freq:"20 to under 70 ms, then a slow wave", where:"Any region (temporal most often)", when:"Any state, more in sleep"},
+  {k:"ats", name:"Sharp wave", T:1, f:t => -26 * agW(t, 0.4, 0.022, 0.04) + 4 * gsW(t, 0.49, 0.03) - 14 * gsW(t, 0.66, 0.07) + 0.6 * bgW(t), freq:"70–200 ms, then a slow wave", where:"Any region (temporal most often)", when:"Any state, more in sleep"},
+  {k:"gsw", T:1, f:t => [0.1, 0.433, 0.766].reduce((v, t0) => v - 27 * agW(t, t0, 0.006, 0.011) + 7 * gsW(t, t0 + 0.032, 0.012) - 15 * gsW(t, t0 + 0.15, 0.055) + 9 * gsW(t, t0 + 0.27, 0.045), 0), freq:"Spike + slow wave; 3 Hz in typical absence", where:"Both sides, frontal maximum", when:"Awake (hyperventilation), sleep"}]},
+ {g:"Not brain: the eyes", items:[
+  {k:"blink", T:1, f:t => 17 * gsW(t, 0.5, 0.085) + 0.4 * bgW(t), freq:"200–400 ms, positive (down)", where:"Fp1, Fp2", when:"Awake, eyes open"},
+  {k:"lateral", name:"Lateral eye movement", T:2, f:t => 15 * (1 / (1 + Math.exp(-(t - 0.5) / 0.03)) - 1 / (1 + Math.exp(-(t - 1.45) / 0.03))) - 6 * gsW(t, 0.49, 0.006) + 0.4 * bgW(t), freq:"A box-shaped step, opposite at F7 and F8", where:"F7, F8", when:"Awake, looking to the side"}]}
+];
+function waveSVG(w) {
+  const W = 240, H = 66, x0 = 4, x1 = W - 4, mid = 33, N = 480;
+  let d = ""; for (let i = 0; i <= N; i++) { const t = i / N * w.T, x = x0 + (x1 - x0) * i / N, y = Math.max(3, Math.min(H - 14, mid + w.f(t))); d += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); }
+  const sec = (x1 - x0) / w.T, grid = Array.from({length: w.T + 1}, (_, s) => `<line x1="${(x0 + s * sec).toFixed(1)}" x2="${(x0 + s * sec).toFixed(1)}" y1="2" y2="${H - 12}"/>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}<path class="w" d="${d}"/><text x="${x0}" y="${H - 2}">${w.T} s shown · up = negative</text></svg>`;
+}
+function wavesHTML() {
+  return `<div class="waves">${WAVES.map(g => `<section class="wgroup"><h4>${esc(g.g)}</h4><div class="wgrid">${g.items.map(w => {
+    const p = PAT[w.k], [tag, cls] = KIND[p.kind], name = w.name || p.short;
+    return `<button type="button" class="wcard" data-wave="${w.k}" aria-label="${esc(name)}: show it on the head map and a tracing"><span class="wn"><span>${esc(name)}</span><span class="chip ${cls}">${tag}</span></span>${waveSVG(w)}<span class="wf">${esc(w.freq)}</span><span class="ws">${esc(w.where)} · ${esc(w.when)}</span></button>`; }).join("")}</div></section>`).join("")}</div>`;
+}
 function bandsHTML() {
   const B = [["Delta","2 Hz",2,18],["Theta","6 Hz",6,15],["Alpha","10 Hz",10,13],["Beta","20 Hz",20,7]];
   const W = 640, x0 = 110, w = W - x0 - 10, rowH = 46;
@@ -471,7 +811,7 @@ function bandsHTML() {
 }
 
 /* ---------- blocks ---------- */
-function tbl(t) { return `<div class="tblw"><table><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${t.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`; }
+function tbl(t) { return `<div class="tblw"><table${t.head.length <= 3 ? ' class="fit"' : ""}><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${t.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`; }
 function block(b) {
   if (b.h) return `<h3>${b.h}</h3>`;
   if (b.p) return `<p>${b.p}</p>`;
@@ -484,6 +824,11 @@ function block(b) {
   if (b.key) return `<div class="call key"><b class="cl">Key point</b>${b.key}</div>`;
   if (b.head) return headHTML();
   if (b.bands) return bandsHTML();
+  if (b.waves) return wavesHTML();
+  if (b.display) return displayHTML();
+  if (b.polarity) return polarityHTML();
+  if (b.chain) return polChainHTML();
+  if (b.montage) return montageHTML();
   return "";
 }
 
@@ -575,7 +920,7 @@ function renderLevel(id) {
   const l = LBY[id]; P.last = id; save();
   $("#tabLearn").setAttribute("href", "#" + id);
   $("#rail").innerHTML = railHTML(id);
-  const nFig = l.blocks.filter(b => b.fig).length, prev = LEVELS[l.n - 1], next = LEVELS[l.n + 1];
+  const nFig = l.blocks.filter(b => b.fig || b.montage).length, prev = LEVELS[l.n - 1], next = LEVELS[l.n + 1];
   $("#lesson").innerHTML = `
   <div class="lhead"><div class="kick">Level ${l.n} of 10</div><h2>${esc(l.title)}</h2><p class="lsub">${esc(l.sub)}</p>
     <p class="lmeta">About ${l.mins} minutes · ${nFig} tracing${nFig === 1 ? "" : "s"} · ${l.quiz.length} questions · ${cleared(id) ? `cleared (best ${Math.round(P.lv[id] * 100)}%)` : "80% clears it"}</p></div>
@@ -584,6 +929,8 @@ function renderLevel(id) {
   ${qHTML(id, l.quiz, "Level-up check", `Answer all ${l.quiz.length}; ${Math.ceil(PASS * l.quiz.length)} right clears Level ${l.n}.`)}
   <nav class="lnav">${prev ? `<a class="tbtn" href="#${prev.id}">← Level ${prev.n} · ${esc(prev.title)}</a>` : `<a class="tbtn" href="#path">← Path</a>`}${next ? `<a class="tbtn" href="#${next.cases ? "cases" : next.id}">${next.cases ? "Hero trials" : `Level ${next.n} · ${esc(next.title)}`} →</a>` : ""}</nav>`;
   mountFigs($("#lesson"));
+  if ($("#hmfig")) { hmFig = null; refreshHead(); }
+  if ($("#mfig")) setMont(mont);
 }
 function renderCases() {
   const ca = casesAced();
@@ -637,8 +984,9 @@ document.addEventListener("click", e => {
   const t = e.target;
   const f = t.closest(".eegfig"), st = f && figs.get(f);
   if (st) {
-    const m = t.closest("[data-m]"); if (m) { st.m = m.dataset.m; draw(f); return; }
+    const m = t.closest("[data-m]"); if (m) { st.m = m.dataset.m; draw(f); if (f.closest("#mfig")) setMont(st.m, true); return; }
     const pg = t.closest("[data-pg]"); if (pg) { st.page = Math.max(0, st.page + +pg.dataset.pg); draw(f); return; }
+    if (t.closest("[data-guide]")) { st.guide = !st.guide; draw(f); return; }
     if (t.closest("[data-mark]") && !st.locked) { st.ann = st.ann === true ? false : true; draw(f); return; }
     if (t.closest("[data-hint]")) { st.ann = st.ann === "hint" ? false : "hint"; draw(f); return; }
   }
@@ -648,7 +996,17 @@ document.addEventListener("click", e => {
   if (rt) { const key = rt.dataset.retry; answers[key] = null; const sec = rt.closest("[data-quiz]"); const qs = qsFor(key);
     const tmp = document.createElement("div"); tmp.innerHTML = qHTML(key, qs, $("h3", sec).textContent, $(".qintro", sec)?.textContent || ""); sec.replaceWith(tmp.firstElementChild); return; }
   const hmb = t.closest("[data-hm]"); if (hmb) { hm.m = hmb.dataset.hm; refreshHead(); return; }
-  const el = t.closest("[data-el]"); if (el) { hm.el = el.dataset.el; refreshHead(); return; }
+  const pb = t.closest("[data-pat]"); if (pb) { const k = pb.dataset.pat; hm.pat = hm.pat === k && pb.classList.contains("pchip") ? null : k; refreshHead(); if (hm.pat && innerWidth < 900) { const c = $("#hminfo"); if (c) c.scrollIntoView({block:"nearest", behavior:"smooth"}); } return; }
+  if (t.closest("[data-unpat]")) { hm.pat = null; refreshHead(); return; }
+  const ds = t.closest("[data-dset]"); if (ds) { setDisplay(ds.dataset.dset); return; }
+  const mb = t.closest("[data-mont]"); if (mb) { setMont(mb.dataset.mont); return; }
+  if (st && t.closest("[data-notch]")) { st.notch = st.notch ? 0 : 60; draw(f); return; }
+  if (st && t.closest("[data-std]")) { Object.assign(st, STD, {page: 0}); draw(f); return; }
+  const pa = t.closest("[data-pa]"); if (pa) { [pol.a, pol.b] = pa.dataset.pa.split(",").map(Number); refreshPol(); return; }
+  const pbb = t.closest("[data-pb]"); if (pbb) { [pol.s, pol.sign] = pbb.dataset.pb.split(",").map(Number); refreshPol(); return; }
+  const psg = t.closest("[data-psign]"); if (psg) { pol.sign = +psg.dataset.psign; refreshPol(); return; }
+  const wv = t.closest("[data-wave]"); if (wv) { hm.pat = wv.dataset.wave; refreshHead(); const h = $("#headmap"); if (h) h.scrollIntoView({block:"start", behavior:"smooth"}); return; }
+  const el = t.closest("[data-el]"); if (el) { hm.el = el.dataset.el; hm.pat = null; refreshHead(); return; }
   const rs = t.closest("[data-reset]");
   if (rs) {
     if (Date.now() - resetArm < 4000) { P = {lv:{}, cs:{}, lib:{}, last:"L0", old:P.old}; save(); Object.keys(answers).forEach(k => delete answers[k]); renderPath(); return; }
@@ -656,12 +1014,19 @@ document.addEventListener("click", e => {
   }
 });
 document.addEventListener("change", e => {
+  const sel = e.target.closest("[data-pl],[data-lff],[data-hff]");
+  if (sel) { const f = sel.closest(".eegfig"), st = figs.get(f); if (st) { const k = sel.matches("[data-pl]") ? "pl" : sel.matches("[data-lff]") ? "lff" : "hff"; st[k] = +sel.value; if (k === "pl") st.page = 0; draw(f); } return; }
   const s = e.target.closest("[data-sens]"); if (!s) return;
   const f = s.closest(".eegfig"), st = figs.get(f); if (st) { st.sens = +s.value; draw(f); }
 });
+document.addEventListener("input", e => {
+  const i = e.target.closest && e.target.closest("[data-pin],[data-psrc]"); if (!i) return;
+  if (i.matches("[data-pin]")) pol[i.dataset.pin] = +i.value; else pol.s = +i.value;
+  refreshPol();
+});
 document.addEventListener("keydown", e => {
   const el = e.target.closest && e.target.closest("[data-el]");
-  if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); hm.el = el.dataset.el; refreshHead(); const n = $(`[data-el="${hm.el}"]`); if (n) n.focus(); }
+  if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); hm.el = el.dataset.el; hm.pat = null; refreshHead(); const n = $(`[data-el="${hm.el}"]`); if (n) n.focus(); }
 });
 
 /* ---------- routing ---------- */
