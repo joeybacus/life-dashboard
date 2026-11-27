@@ -9,6 +9,7 @@
      referrals              patients referred to your service (with a calendar)
      units                  NCCU/ACSU: a box per bed with your duty to-dos
      duty                   Duty Patients: your patients on duty from a sheet, with labs and CT scans
+     links                  My links: your resume, work experience, PDS… (synced in the settings store)
      study                  Study tracker (temporary): a picture, notes and to-dos
      scores, scores/<id>    score calculators (NIHSS, GCS, ICH score…) — see clinical/
      guidelines             your guidelines: links and PDFs, by topic
@@ -38,6 +39,7 @@ import { referralPatients, referralSummary } from './referrals/patients.js';
 import { handleUnitsClick, unitsPage } from './units/page.js';
 import { unitsSummary } from './units/store.js';
 import { studyPage, wireStudy } from './study/page.js';
+import { linksPage, wireLinks } from './links/page.js';
 import { dutyPage, dutySummary } from './duty/page.js';
 import { CALCULATORS } from './clinical/scores.js';
 import { scoresPage, wireScores } from './clinical/scores-page.js';
@@ -55,6 +57,7 @@ const PLANNED_TOOLS = [
   { name: 'Daily quizzes', icon: 'help' },
   { name: 'Question bank', icon: 'layers' },
   { name: 'Study tracker', icon: 'calendarCheck', sub: 'study' },
+  { name: 'My links', icon: 'briefcase', sub: 'links' },
   { name: 'Flashcards', icon: 'cards' },
   { name: 'Notes', icon: 'note' },
   { name: 'Study analytics', icon: 'chart' },
@@ -295,6 +298,7 @@ const ROUTES = [
   [/^units$/, unitsPage],
   [/^duty$/, dutyPage],
   [/^study$/, studyPage],
+  [/^links$/, linksPage],
   [/^scores$/, scoresPage],
   [/^scores\/([\w-]+)$/, scoresPage],
   [/^guidelines$/, guidesPage],
@@ -341,6 +345,7 @@ registerScreen('neurology', {
     el.addEventListener('click', handleReferralClick);
     el.addEventListener('click', handleUnitsClick);
     wireStudy(el);
+    wireLinks(el);
     wireScores(el);
     wireGuides(el);
     wireCases(el);

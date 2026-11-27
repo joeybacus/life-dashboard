@@ -22,6 +22,7 @@ import { initWard } from './modules/ward/engine.js';
 import { initReferrals } from './modules/referrals/store.js';
 import { initUnits } from './modules/units/store.js';
 import { initGuides } from './modules/clinical/guides.js';
+import { initLinks } from './modules/links/page.js';
 import { initGuideTransfers } from './modules/clinical/guides-transfer.js';
 import { initCases } from './modules/clinical/cases.js';
 import { initPad } from './modules/pad/model.js';
@@ -94,6 +95,7 @@ async function boot() {
   await initWard(); // Ward Patients: this device's logsheet, rounds and unsaved changes
   await initReferrals(); // Referrals: patients referred to your service
   await initUnits(); // NCCU/ACSU: beds and duty to-dos
+  await initLinks(); // Neurology → My links (one record in the settings store, so it syncs with no script update)
   await initGuides(); // Neurology → Guidelines (their PDFs move to and from Google Drive by themselves)
   await initCases(); // Neurology → Cases
   await initPad(); // Neurology → Neuro Pad (its images move to and from Google Drive by themselves)
